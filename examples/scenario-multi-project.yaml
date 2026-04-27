@@ -1,0 +1,103 @@
+# Scenario: Multi-Project Workspace
+#
+# Use case: You're working on multiple related projects:
+# - A frontend React app
+# - A backend API service
+# - A shared library
+#
+# Each project has its own agent and working directory.
+# You can switch between projects without losing context.
+#
+# Workflow:
+# 1. Work on frontend in the "frontend" slot
+# 2. Work on backend in the "backend" slot
+# 3. Work on shared library in the "lib" slot
+# 4. All agents maintain their session state
+
+version: 1
+project: "fullstack-app"
+root: "."
+
+display:
+  mode: "grid"
+  columns: 3
+  dashboard: true
+
+agents:
+  # Claude for frontend work
+  claude:
+    command: "claude"
+    create_mode: "generated_uuid"
+    create_template: "claude --session-id {session_id}"
+    resume_mode: "flag"
+    resume_template: "-r {session_id}"
+    label_template: "{project}/{slot}/{window}"
+
+  # Codex for backend work
+  codex:
+    command: "codex"
+    resume_mode: "flag"
+    resume_template: "resume {session_id}"
+    label_template: "{project}/{slot}/{window}"
+
+  # Gemini for library work
+  gemini:
+    command: "gemini"
+    resume_mode: "flag"
+    resume_template: "--resume {session_id}"
+    label_template: "{project}/{slot}/{window}"
+
+slots:
+  # Frontend project
+  - name: "frontend"
+    backend: "tmux"
+    cwd: "./frontend"
+    env:
+      NODE_ENV: "development"
+    windows:
+      - name: "code"
+        agent: "claude"
+      - name: "server"
+        command: "npm run dev"
+      - name: "test"
+        command: "npm run test:watch"
+
+  # Backend project
+  - name: "backend"
+    backend: "tmux"
+    cwd: "./backend"
+    env:
+      NODE_ENV: "development"
+      PORT: "3001"
+    windows:
+      - name: "code"
+        agent: "codex"
+      - name: "server"
+        command: "npm run dev"
+      - name: "logs"
+        command: "tail -f logs/app.log"
+
+  # Shared library
+  - name: "lib"
+    backend: "tmux"
+    cwd: "./shared-lib"
+    windows:
+      - name: "code"
+        agent: "gemini"
+      - name: "build"
+        command: "npm run build:watch"
+
+# How to use:
+# 1. Make sure you have frontend/, backend/, and shared-lib/ directories
+# 2. cp examples/scenario-multi-project.yaml .cc-branch.yaml
+# 3. cc-branch state bootstrap
+# 4. cc-branch up
+# 5. cc-branch dashboard             # See all projects at once
+# 6. cc-branch attach frontend:code  # Work on frontend
+# 7. cc-branch attach backend:code   # Switch to backend
+# 8. cc-branch attach lib:code       # Work on shared library
+#
+# Tips:
+# - Each project maintains its own agent session
+# - You can restart individual projects: cc-branch restart frontend
+# - Check status: cc-branch status

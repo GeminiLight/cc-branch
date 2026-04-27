@@ -1,0 +1,61 @@
+"""State persistence with atomic writes.
+
+Public API operates on typed :class:`cc_branch.models.WorkspaceState`.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from .models import WorkspaceState
+from .repository import StateRepository
+
+
+def load_state(path: Path) -> WorkspaceState:
+    """Load workspace state from *path*.
+
+    Returns an empty state if the file does not exist.
+    """
+    repo = StateRepository(path)
+    return repo.load()
+
+
+def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> WorkspaceState:
+    """Merge *plan_state_updates* into *state*.
+
+    Existing window metadata is preserved unless overwritten.
+    """
+    from .models import WindowState
+
+    merged = WorkspaceState(version=state.version)
+    for key, entry in state.windows.items():
+        merged.windows[key] = entry
+    for key, update in plan_state_updates.items():
+        existing = merged.windows.get(key)
+        if existing:
+            merged.windows[key] = WindowState(
+                session_id=update.get("session_id", existing.session_id),
+                label=update.get("label", existing.label),
+                agent=update.get("agent", existing.agent),
+                slot=update.get("slot", existing.slot),
+                window=update.get("window", existing.window),
+            )
+        else:
+            merged.windows[key] = WindowState(
+                session_id=update.get("session_id"),
+                label=update.get("label"),
+                agent=update.get("agent"),
+                slot=update.get("slot"),
+                window=update.get("window"),
+            )
+    return merged
+
+
+def save_state(path: Path, state: WorkspaceState) -> None:
+    """Save *state* atomically.
+
+    Uses a temporary file + rename strategy so the on-disk state is
+    never half-written.
+    """
+    repo = StateRepository(path)
+    repo.save(state)

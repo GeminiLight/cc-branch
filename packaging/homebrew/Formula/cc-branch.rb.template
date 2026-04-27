@@ -1,0 +1,53 @@
+class CcBranch < Formula
+  include Language::Python::Virtualenv
+
+  desc "Multi-agent workspace orchestrator for terminal workflows"
+  homepage "https://github.com/GeminiLight/cc-branch"
+  url "https://files.pythonhosted.org/packages/source/c/cc-branch/cc_branch-__VERSION__.tar.gz"
+  sha256 "__CC_BRANCH_SDIST_SHA256__"
+  license "MIT"
+
+  depends_on "python@3.12"
+  depends_on "tmux"
+
+  resource "PyYAML" do
+    url "https://files.pythonhosted.org/packages/source/P/PyYAML/pyyaml-__PYYAML_VERSION__.tar.gz"
+    sha256 "__PYYAML_SHA256__"
+  end
+
+  resource "rich" do
+    url "https://files.pythonhosted.org/packages/source/r/rich/rich-__RICH_VERSION__.tar.gz"
+    sha256 "__RICH_SHA256__"
+  end
+
+  resource "tomli" do
+    url "https://files.pythonhosted.org/packages/source/t/tomli/tomli-__TOMLI_VERSION__.tar.gz"
+    sha256 "__TOMLI_SHA256__"
+  end
+
+  resource "markdown-it-py" do
+    url "https://files.pythonhosted.org/packages/source/m/markdown-it-py/markdown_it_py-__MARKDOWN_IT_PY_VERSION__.tar.gz"
+    sha256 "__MARKDOWN_IT_PY_SHA256__"
+  end
+
+  resource "mdurl" do
+    url "https://files.pythonhosted.org/packages/source/m/mdurl/mdurl-__MDURL_VERSION__.tar.gz"
+    sha256 "__MDURL_SHA256__"
+  end
+
+  resource "Pygments" do
+    url "https://files.pythonhosted.org/packages/source/P/Pygments/pygments-__PYGMENTS_VERSION__.tar.gz"
+    sha256 "__PYGMENTS_SHA256__"
+  end
+
+  def install
+    ENV["CC_BRANCH_SKIP_WEBUI_BUILD"] = "1"
+    virtualenv_install_with_resources
+  end
+
+  test do
+    assert_match "usage:", shell_output("#{bin}/cc-branch --help")
+    assert_match "usage:", shell_output("#{bin}/ccb --help")
+  end
+end
+

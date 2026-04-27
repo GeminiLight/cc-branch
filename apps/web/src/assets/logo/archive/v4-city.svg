@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- City：三个 pane 底部对齐，像城市天际线，左大右小 -->
+  <rect x="10" y="22" width="40" height="72" rx="10" fill="#1c1917"/>
+  <rect x="56" y="38" width="28" height="56" rx="8" fill="#c2410c"/>
+  <rect x="90" y="54" width="22" height="40" rx="6" fill="#292524"/>
+</svg>

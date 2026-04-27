@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="gradB" x1="64" y1="110" x2="64" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4c0f99"/>
+      <stop offset="100%" stop-color="#b347ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景圆 -->
+  <circle cx="64" cy="64" r="56" fill="#f5f0ff"/>
+
+  <!-- 连接线 -->
+  <g stroke="url(#gradB)" stroke-width="6.5" stroke-linecap="round" fill="none">
+    <path d="M64 94 L64 70"/>
+    <path d="M64 70 Q64 70 40 44"/>
+    <path d="M64 70 Q64 70 88 44"/>
+  </g>
+
+  <!-- 节点 -->
+  <circle cx="64" cy="94" r="11" fill="url(#gradB)"/>
+  <circle cx="40" cy="44" r="9" fill="url(#gradB)"/>
+  <circle cx="88" cy="44" r="9" fill="url(#gradB)"/>
+  <circle cx="64" cy="70" r="10" fill="#fff" stroke="url(#gradB)" stroke-width="4.5"/>
+</svg>

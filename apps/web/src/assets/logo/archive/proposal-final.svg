@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!--
+    The Golden Pane
+    一个由黄金比例分割的终端窗格网格。
+    右下角的小方块微微旋转，象征从秩序中浮出的分支。
+  -->
+
+  <!-- 深炭灰背景：像终端窗口，带暖调 -->
+  <rect x="14" y="14" width="92" height="92" rx="18" fill="#1c1917"/>
+
+  <!--
+    分割线：黄金比例
+    总宽 92，左半 = 92/1.618 ≈ 57，右半 = 35
+    右半总高 92，上半 = 92/1.618 ≈ 57，下半 = 35
+  -->
+  <line x1="71" y1="14" x2="71" y2="106" stroke="#fafaf9" stroke-width="5" stroke-linecap="round"/>
+  <line x1="71" y1="71" x2="106" y2="71" stroke="#fafaf9" stroke-width="5" stroke-linecap="round"/>
+
+  <!--
+    右下角方块：赤陶色，旋转 12°
+    不是乖乖贴着边框，而是从网格中微微浮起
+    代表分支、新的窗口、从秩序中诞生的可能性
+  -->
+  <rect x="76" y="76" width="24" height="24" rx="6" fill="#c2410c"
+        transform="rotate(12 88 88)"/>
+</svg>

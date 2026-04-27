@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Twin：两个 pane 并排但高度不同，像并排的浏览器窗口 -->
+  <rect x="10" y="14" width="46" height="92" rx="10" fill="#1c1917"/>
+  <rect x="66" y="38" width="46" height="68" rx="10" fill="#c2410c"/>
+</svg>

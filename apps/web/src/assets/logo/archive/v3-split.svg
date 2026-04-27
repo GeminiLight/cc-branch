@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Split：一个窗口被粗壮的荧光绿竖线分成两半 -->
+  <path d="M10 26 A16 16 0 0 1 26 10 L54 10 L54 110 L26 110 A16 16 0 0 1 10 94 Z" fill="#1a0b2e"/>
+  <path d="M66 10 L94 10 A16 16 0 0 1 110 26 L110 94 A16 16 0 0 1 94 110 L66 110 Z" fill="#0f0518"/>
+  <rect x="54" y="10" width="12" height="100" rx="6" fill="#a3e635"/>
+</svg>
