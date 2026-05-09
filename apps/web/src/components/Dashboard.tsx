@@ -39,6 +39,9 @@ type PendingAction = {
   target?: string;
   label: string;
   danger?: boolean;
+  description?: string;
+  confirmText?: string;
+  stopRemoved?: boolean;
 } | null;
 
 const DEFAULT_OPENER: OpenerInfo = {
@@ -131,6 +134,7 @@ const SlotCard = memo(function SlotCard({
   onCopy,
   busy,
   openerId,
+  tmuxRuntimeUnavailable,
 }: {
   slot: SlotInfo;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
@@ -138,10 +142,12 @@ const SlotCard = memo(function SlotCard({
   onCopy: (value: string, label: string) => void;
   busy: boolean;
   openerId: string;
+  tmuxRuntimeUnavailable: boolean;
 }) {
   const isRunning = slot.status === "running";
   const { t } = useI18n();
   const slotTarget = slot.name;
+  const slotRuntimeUnavailable = slot.runtime === "tmux" && tmuxRuntimeUnavailable;
 
   return (
     <div
@@ -190,9 +196,10 @@ const SlotCard = memo(function SlotCard({
               <button
                 type="button"
                 onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
-                disabled={busy}
+                disabled={busy || slotRuntimeUnavailable}
                 className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
                 aria-label={`${t("openTerminal")} ${slotTarget}`}
+                title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : undefined}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 {t("open")}
@@ -201,20 +208,20 @@ const SlotCard = memo(function SlotCard({
                 <button
                   type="button"
                   onClick={() => onRunAction("restart", slotTarget, openerId)}
-                  disabled={busy}
+                  disabled={busy || slotRuntimeUnavailable}
                   className="icon-touch sm:min-h-9 sm:min-w-9 rounded text-[11px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
                   aria-label={`${t("restart")} ${slotTarget}`}
-                  title={t("restart")}
+                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : t("restart")}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => onConfirmAction("stop", slotTarget, slotTarget)}
-                  disabled={busy}
+                  disabled={busy || slotRuntimeUnavailable}
                   className="icon-touch sm:min-h-9 sm:min-w-9 rounded text-[11px] font-medium danger hover:danger-bg transition-colors flex items-center justify-center disabled:opacity-50"
                   aria-label={`${t("stop")} ${slotTarget}`}
-                  title={t("stop")}
+                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : t("stop")}
                 >
                   <CircleStop className="w-4 h-4" />
                 </button>
@@ -224,9 +231,10 @@ const SlotCard = memo(function SlotCard({
             <button
               type="button"
               onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
-              disabled={busy}
+              disabled={busy || slotRuntimeUnavailable}
               className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
               aria-label={`${t("openTerminal")} ${slotTarget}`}
+              title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : undefined}
             >
               <ExternalLink className="w-3.5 h-3.5" />
               {t("open")}
@@ -295,10 +303,10 @@ const SlotCard = memo(function SlotCard({
               <button
                 type="button"
                 onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
-                disabled={busy}
+                disabled={busy || slotRuntimeUnavailable}
                 className="control-touch min-w-11 sm:min-w-0 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                 aria-label={`${t("openTerminal")} ${windowTarget}`}
-                title={`${t("openTerminal")} ${windowTarget}`}
+                title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${t("openTerminal")} ${windowTarget}`}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t("open")}</span>
@@ -398,8 +406,13 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
     };
   }, []);
 
-  const requestConfirmedAction = useCallback((action: WorkspaceAction, target: string | undefined, label: string) => {
-    setPendingAction({ action, target, label, danger: action === "stop" });
+  const requestConfirmedAction = useCallback((
+    action: WorkspaceAction,
+    target: string | undefined,
+    label: string,
+    options: Pick<NonNullable<PendingAction>, "description" | "confirmText" | "stopRemoved" | "danger"> = {},
+  ) => {
+    setPendingAction({ action, target, label, danger: action === "stop", ...options });
     setModalOpen(true);
   }, []);
 
@@ -408,6 +421,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
     target: string | undefined,
     opener?: string,
     intent?: OpenIntent,
+    stopRemoved?: boolean,
   ) => {
     if (!projectPath) return;
     try {
@@ -417,6 +431,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
         opener,
         intent,
         projectPath,
+        stopRemoved,
       });
       toast.success(result.message);
       setLastActionMessage(result.message);
@@ -429,7 +444,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
 
   const confirmAction = useCallback(async () => {
     if (!pendingAction) return;
-    await runAction(pendingAction.action, pendingAction.target);
+    await runAction(pendingAction.action, pendingAction.target, undefined, undefined, pendingAction.stopRemoved);
     setPendingAction(null);
     setModalOpen(false);
   }, [pendingAction, runAction]);
@@ -536,12 +551,21 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   const stoppedCount = data.slots.filter((s) => s.status === "stopped").length;
   const externalCount = data.slots.filter((s) => s.status === "external").length;
   const hasTmuxSlots = data.slots.some((s) => s.runtime === "tmux");
+  const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
+  const canManageTmuxSlots = hasTmuxSlots && !tmuxRuntimeUnavailable;
   const syncSummary = data.runtime_sync?.summary;
   const changedCount = syncSummary?.changed || 0;
   const missingCount = syncSummary?.missing || 0;
   const untrackedCount = syncSummary?.untracked || 0;
   const extraCount = syncSummary?.extra || 0;
   const syncCount = changedCount + missingCount + untrackedCount;
+  const runtimeSyncNotices = [
+    tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : null,
+    changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
+    missingCount > 0 ? t("runtimeMissingPending", { count: missingCount }) : null,
+    untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
+    extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
+  ].filter((notice): notice is string => Boolean(notice));
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
   const availableOpeners = openers.filter((opener) => opener.available);
@@ -658,7 +682,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
               <button
                 type="button"
                 onClick={() => requestConfirmedAction("sync", undefined, t("runtimeChanges"))}
-                disabled={actionMutation.isPending || !hasTmuxSlots}
+                disabled={actionMutation.isPending || !canManageTmuxSlots}
                 className="control-touch px-4 rounded-md text-[13px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 shadow-sm max-w-full"
                 title={t("syncChangesHint", { count: syncCount })}
                 aria-label={t("syncChanges")}
@@ -670,6 +694,27 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
                 </span>
               </button>
             )}
+            {extraCount > 0 && (
+              <button
+                type="button"
+                onClick={() => requestConfirmedAction("sync", undefined, t("extraWindows"), {
+                  danger: true,
+                  stopRemoved: true,
+                  description: t("stopExtraConfirmDescription", { count: extraCount }),
+                  confirmText: t("stopExtra"),
+                })}
+                disabled={actionMutation.isPending || !canManageTmuxSlots}
+                className="control-touch px-4 rounded-md text-[13px] font-semibold danger hover:danger-bg border border-transparent transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 max-w-full"
+                title={t("stopExtraWindowsHint", { count: extraCount })}
+                aria-label={t("stopExtraWindows")}
+              >
+                <CircleStop className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("stopExtraWindows")}</span>
+                <span className="rounded-md bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-bold">
+                  {extraCount}
+                </span>
+              </button>
+            )}
           </div>
           {/* Secondary actions */}
           <div className="flex flex-wrap items-center gap-2 justify-self-stretch xl:justify-self-end xl:justify-items-end">
@@ -677,9 +722,9 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
               <button
                 type="button"
                 onClick={() => runAction("launch", undefined)}
-                disabled={actionMutation.isPending || !hasTmuxSlots}
+                disabled={actionMutation.isPending || !canManageTmuxSlots}
                 className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                title={hasTmuxSlots ? t("startOnly") : t("tmuxOnlyAction")}
+                title={tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : hasTmuxSlots ? t("startOnly") : t("tmuxOnlyAction")}
                 aria-label={t("startOnly")}
               >
                 <Play className="w-4 h-4" />
@@ -687,9 +732,9 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
               <button
                 type="button"
                 onClick={() => runAction("restart", undefined)}
-                disabled={actionMutation.isPending || !hasTmuxSlots}
+                disabled={actionMutation.isPending || !canManageTmuxSlots}
                 className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                title={hasTmuxSlots ? t("restart") : t("tmuxOnlyAction")}
+                title={tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : hasTmuxSlots ? t("restart") : t("tmuxOnlyAction")}
                 aria-label={t("restart")}
               >
                 <RotateCcw className="w-4 h-4" />
@@ -726,18 +771,14 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
             <p className="text-[11px] font-medium text-secondary">{lastActionMessage}</p>
           </div>
         )}
-        {(changedCount > 0 || missingCount > 0 || untrackedCount > 0 || extraCount > 0) && (
+        {runtimeSyncNotices.length > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-[var(--warning)]/10 bg-[var(--warning-bg)] px-2.5 py-2">
             <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning)] shrink-0 mt-0.5" />
-            <p className="text-[11px] font-medium text-secondary leading-relaxed">
-              {changedCount > 0
-                ? t("runtimeChangedPending", { count: changedCount })
-                : missingCount > 0
-                  ? t("runtimeMissingPending", { count: missingCount })
-                : untrackedCount > 0
-                  ? t("runtimeUntracked", { count: untrackedCount })
-                  : t("runtimeExtraWindows", { count: extraCount })}
-            </p>
+            <ul className="space-y-0.5 text-[11px] font-medium text-secondary leading-relaxed">
+              {runtimeSyncNotices.map((notice) => (
+                <li key={notice}>{notice}</li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
@@ -752,6 +793,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
             onCopy={copyToClipboard}
             busy={actionMutation.isPending}
             openerId={selectedOpener.id}
+            tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
           />
         </div>
       ))}
@@ -763,11 +805,11 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
           setModalOpen(false);
           setPendingAction(null);
         }}
-        title={pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm")}
+        title={pendingAction?.confirmText || (pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm"))}
         description={
-          pendingAction?.action === "sync"
+          pendingAction?.description || (pendingAction?.action === "sync"
             ? t("syncConfirmDescription", { count: syncCount })
-            : t("confirmAction", { action: pendingAction?.action || "", name: pendingAction?.label || "" })
+            : t("confirmAction", { action: pendingAction?.action || "", name: pendingAction?.label || "" }))
         }
         icon={
           pendingAction?.action === "sync" ? (
@@ -776,7 +818,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
             <AlertTriangle className="w-5 h-5 danger" />
           )
         }
-        confirmText={pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm")}
+        confirmText={pendingAction?.confirmText || (pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm"))}
         cancelText={t("cancel")}
         onConfirm={confirmAction}
         variant={pendingAction?.danger ? "danger" : "default"}

@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...config import project_dir_for_config
-from ...runtime.backends import get_backend
 from ..results import ActionResult
+from ..runtime_environment import runtime_availability
 
 
 def read_workspace_config(config_path: Path, state_path: Path) -> ActionResult:
@@ -19,7 +19,7 @@ def read_workspace_config(config_path: Path, state_path: Path) -> ActionResult:
         "path": str(config_path),
         "project_path": str(project_dir),
         "state_path": str(state_path),
-        "runtimes": _runtime_availability(),
+        "runtimes": runtime_availability(),
     }
     if not project_dir.exists():
         return ActionResult(
@@ -52,18 +52,6 @@ def read_workspace_config(config_path: Path, state_path: Path) -> ActionResult:
             **workflows.file_version_payload(config_path, content),
         },
     )
-
-
-def _runtime_availability() -> dict[str, dict[str, object]]:
-    tmux_available = get_backend().available()
-    tmux: dict[str, object] = {"available": tmux_available}
-    if not tmux_available:
-        tmux["reason"] = "tmux was not found on PATH"
-    return {
-        "tmux": tmux,
-        "terminal": {"available": True},
-    }
-
 
 def probe_project(project_dir: Path) -> ActionResult:
     """Return project setup state for a possible cc-branch workspace."""

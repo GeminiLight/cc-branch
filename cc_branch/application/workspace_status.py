@@ -12,6 +12,7 @@ from ..runtime.capabilities import is_external_process_runtime, is_managed_runti
 from ..runtime.sync import build_runtime_sync_report
 from ..state import load_state
 from .results import ActionResult
+from .runtime_environment import runtime_availability
 
 SessionExists = Callable[[str], bool]
 WindowExists = Callable[[str, str], bool]
@@ -117,6 +118,7 @@ def build_workspace_status(
         "status": "ready",
         "project": workspace.project,
         "root": str(workspace.root),
+        "runtimes": runtime_availability(),
         "slots": slots,
     }
     if config_path is not None:

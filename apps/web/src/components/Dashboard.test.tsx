@@ -394,6 +394,70 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('1 running tmux window(s) use an older launch command.')).toBeInTheDocument()
   })
 
+  it('shows every runtime sync notice instead of hiding mixed states', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).runtime_sync = {
+      summary: { current: 0, changed: 1, missing: 2, extra: 3, orphaned: 0, untracked: 4, external: 0 },
+      slots: [],
+      orphaned_state: [],
+      historical_sessions: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('1 running tmux window(s) use an older launch command.')).toBeInTheDocument()
+    expect(screen.getByText('2 configured tmux window(s) are not running.')).toBeInTheDocument()
+    expect(screen.getByText('4 running window(s) were not launched from the current config.')).toBeInTheDocument()
+    expect(screen.getByText('3 extra tmux window(s) are running outside the config.')).toBeInTheDocument()
+  })
+
+  it('can stop extra tmux windows through an explicit destructive sync action', async () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).runtime_sync = {
+      summary: { current: 0, changed: 0, missing: 0, extra: 2, orphaned: 0, untracked: 0, external: 0 },
+      slots: [],
+      orphaned_state: [],
+      historical_sessions: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop extra windows' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop extra' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'sync',
+        target: undefined,
+        projectPath: '/tmp/demo',
+        stopRemoved: true,
+      })
+    })
+  })
+
+  it('warns and disables tmux lifecycle actions when tmux is unavailable locally', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).runtimes = {
+      tmux: { available: false, reason: 'tmux was not found on PATH' },
+      terminal: { available: true },
+    }
+    ;(result.data as Record<string, unknown>).runtime_sync = {
+      summary: { current: 0, changed: 0, missing: 1, extra: 0, orphaned: 0, untracked: 0, external: 0 },
+      slots: [],
+      orphaned_state: [],
+      historical_sessions: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('tmux is not available on this machine. Tmux slots cannot start here.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start / update' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Start in background' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled()
+  })
+
   it('opens a running slot in a terminal', async () => {
     renderDashboard()
 

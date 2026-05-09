@@ -273,6 +273,29 @@ slots:
                 self.assertEqual(data["runtime_sync"]["summary"]["missing"], 2)
                 self.assertEqual(windows[0]["sync_status"], "missing")
                 self.assertTrue(windows[0]["needs_restart"])
+                self.assertTrue(data["runtimes"]["tmux"]["available"])
+                self.assertTrue(data["runtimes"]["terminal"]["available"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_status_reports_unavailable_tmux_runtime(self):
+        """Dashboard clients should know when existing tmux config cannot run locally."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.runtime.backends.TmuxBackend.available", return_value=False),
+                patch("cc_branch.webui.server._slot_exists", return_value=False),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=False),
+                urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response,
+            ):
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertFalse(data["runtimes"]["tmux"]["available"])
+            self.assertEqual(data["runtimes"]["tmux"]["reason"], "tmux was not found on PATH")
+            self.assertTrue(data["runtimes"]["terminal"]["available"])
         finally:
             self._stop_test_server(server)
 

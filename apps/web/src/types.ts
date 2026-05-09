@@ -73,6 +73,7 @@ export interface WorkspaceStatus {
   config_path: string;
   state_path: string;
   slots: SlotInfo[];
+  runtimes?: RuntimeAvailability;
   runtime_sync?: RuntimeSyncReport;
   error?: string;
 }
