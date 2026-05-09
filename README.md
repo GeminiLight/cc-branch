@@ -21,7 +21,7 @@ CC Branch (`cc-branch`, `ccb`) is a local workspace manager for developers who r
 
 ## Install
 
-Requirements: `tmux`, the Agent CLIs used by your config, and Python 3.11+ when installing through PyPI or source. Windows users need WSL, MSYS2, or Cygwin.
+Requirements: Python 3.10+ when installing through PyPI or source, plus the Agent CLIs used by your config. `tmux` is optional and only required for slots that use `runtime: tmux`.
 
 ```bash
 pipx install cc-branch
@@ -34,6 +34,8 @@ git clone https://github.com/GeminiLight/cc-branch.git
 cd cc-branch
 pip install .
 ```
+
+Source installs build the bundled Web UI and therefore need Node.js/npm. For CLI-only development without npm, use `CC_BRANCH_SKIP_WEBUI_BUILD=1 pip install .`; `cc-branch serve` will be unavailable until the Web UI is built. See `docs/install-troubleshooting.md` for common setup failures.
 
 ## Quick Start
 
@@ -50,7 +52,7 @@ If you prefer the terminal flow:
 
 ```bash
 cc-branch init    # create .cc-branch/config.yaml and local state
-cc-branch start   # start the tmux workspace and enter it
+cc-branch start   # start the configured workspace and enter it
 ```
 
 Use `cc-branch open` when you want CC Branch to open the workspace through your configured local app. For example, `cc-branch open --opener warp` or `cc-branch open --opener vscode`.

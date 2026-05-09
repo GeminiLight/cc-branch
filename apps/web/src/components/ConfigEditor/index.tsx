@@ -7,8 +7,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import YAML from "js-yaml";
-import Prism from "prismjs";
-import "prismjs/components/prism-yaml";
 import {
   FileCode2,
   Save,
@@ -17,7 +15,6 @@ import {
   LayoutList,
   Code2,
   AlertTriangle,
-  ChevronDown,
   Info,
 } from "lucide-react";
 import { APIRequestError } from "../../api/client";
@@ -76,7 +73,6 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
     slots: true,
   });
 
-  const codeRef = useRef<HTMLElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yamlValidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,13 +91,6 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
       setServerIssues(null);
     }
   }, [data?.content]);
-
-  // Prism highlight in YAML preview mode
-  useEffect(() => {
-    if (mode === "yaml" && !hasUnsavedChanges && codeRef.current && data?.content) {
-      Prism.highlightElement(codeRef.current);
-    }
-  }, [mode, hasUnsavedChanges, data?.content]);
 
   // Warn before unload
   useEffect(() => {
@@ -346,7 +335,6 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
     );
   }
 
-  const currentYaml = mode === "form" ? serializeConfigForm(formData) : yamlContent;
   const displayedIssues = serverIssues ?? (!hasUnsavedChanges ? data?.issues ?? [] : []);
   const displayedIssueTone = issueTone(displayedIssues);
   const displayedIssueClass =
@@ -520,23 +508,8 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
             onChange={updateSlots}
             expanded={expandedSections.slots}
             onToggle={() => toggleSection("slots")}
+            runtimeAvailability={data?.runtimes}
           />
-
-          {/* YAML preview sidebar (collapsible) */}
-          <details className="group rounded-lg bg-transparent">
-            <summary className="px-4 py-3 flex items-center gap-2 cursor-pointer select-none rounded-lg hover:surface-hover transition-colors">
-              <ChevronDown className="w-3.5 h-3.5 text-tertiary transition-transform group-open:rotate-180" />
-              <Code2 className="w-3.5 h-3.5 text-tertiary" />
-              <span className="text-[12px] font-medium text-secondary">{t("generatedYaml")}</span>
-            </summary>
-            <div className="px-4 pb-4">
-              <pre className="language-yaml !border-0 !m-0 max-h-80 overflow-auto rounded-lg bg-[var(--editor-bg)]">
-                <code ref={codeRef} className="language-yaml">
-                  {currentYaml}
-                </code>
-              </pre>
-            </div>
-          </details>
         </div>
       ) : (
         <div className={`surface-card border border-default rounded-lg overflow-hidden transition-all ${saveFlash ? "save-flash-editor" : ""}`}>

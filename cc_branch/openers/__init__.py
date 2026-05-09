@@ -22,11 +22,11 @@ from .types import (
     TERMINAL_CAPABILITIES,
     WARP_CAPABILITIES,
     OpenCommandSpec,
-    OpenIntent,
-    OpenIntentKind,
     OpenerError,
     OpenerInfo,
     OpenerKind,
+    OpenIntent,
+    OpenIntentKind,
 )
 from .warp import WarpLauncher
 

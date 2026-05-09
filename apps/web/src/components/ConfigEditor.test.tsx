@@ -87,6 +87,14 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByText('Invalid runtime: docker')).toBeInTheDocument()
   })
 
+  it('does not duplicate generated YAML inside form mode', () => {
+    renderConfigEditor()
+
+    expect(screen.getByRole('button', { name: 'Form' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'YAML' })).toBeInTheDocument()
+    expect(screen.queryByText('Generated YAML')).not.toBeInTheDocument()
+  })
+
   it('surfaces config validation issues returned by a failed save', async () => {
     mocks.saveConfig.mockRejectedValue(
       new APIRequestError(400, {
@@ -139,5 +147,26 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByRole('button', { name: 'Move window main up' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Move window main down' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove window main' })).toBeInTheDocument()
+  })
+
+  it('disables tmux as a runtime choice when tmux is unavailable locally', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    const currentData = currentResult.data
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentData,
+        runtimes: {
+          tmux: { available: false, reason: 'tmux was not found on PATH' },
+          terminal: { available: true },
+        },
+      },
+    }
+
+    renderConfigEditor()
+
+    const tmuxOption = screen.getByRole('option', { name: 'Tmux (unavailable)' })
+    expect(tmuxOption).toBeDisabled()
+    expect(screen.getByRole('option', { name: 'Open terminal' })).not.toBeDisabled()
   })
 })

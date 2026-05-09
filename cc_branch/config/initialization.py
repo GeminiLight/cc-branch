@@ -10,8 +10,7 @@ from ..planner import plan_workspace
 from ..runtime.shells import default_shell_command
 from ..state import merge_state, save_state
 from .loading import load_workspace
-from .paths import resolve_config_path
-from .paths import resolve_state_path
+from .paths import resolve_config_path, resolve_state_path
 
 
 def init_workspace(target_dir: Path, force: bool, bootstrap_sessions: bool) -> tuple[Path, Path]:

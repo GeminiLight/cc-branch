@@ -3,6 +3,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from cc_branch.application.diagnostics import get_doctor_payload
 from cc_branch.application.state_store import StateStore
 from cc_branch.application.workspace_actions import (
     execute_workspace_action,
@@ -13,7 +14,6 @@ from cc_branch.application.workspace_actions import (
     sync_workspace,
 )
 from cc_branch.application.workspace_status import build_workspace_status, get_workspace_status
-from cc_branch.application.diagnostics import get_doctor_payload
 from cc_branch.backends import get_backend, set_backend
 from cc_branch.config import load_workspace
 from cc_branch.models import AppliedWindowResult, WindowState, WorkspaceState
@@ -76,6 +76,7 @@ class FakeBackend:
 class RuntimeBoundaryTests(unittest.TestCase):
     def test_cli_module_is_package_facade(self):
         import importlib
+
         import cc_branch.cli as cli
 
         self.assertTrue(hasattr(cli, "__path__"))
@@ -106,6 +107,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_models_module_is_package_facade(self):
         import importlib
+
         import cc_branch.models as models
 
         self.assertTrue(hasattr(models, "__path__"))
@@ -125,6 +127,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_doctor_module_is_package_facade(self):
         import importlib
+
         import cc_branch.doctor as doctor
 
         self.assertTrue(hasattr(doctor, "__path__"))
@@ -142,6 +145,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_planner_module_is_package_facade(self):
         import importlib
+
         import cc_branch.planner as planner
 
         self.assertTrue(hasattr(planner, "__path__"))
@@ -160,6 +164,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_bootstrap_module_is_package_facade(self):
         import importlib
+
         import cc_branch.bootstrap as bootstrap
 
         self.assertTrue(hasattr(bootstrap, "__path__"))
@@ -178,6 +183,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_agent_registry_module_is_package_facade(self):
         import importlib
+
         import cc_branch.agent_registry as agent_registry
 
         self.assertTrue(hasattr(agent_registry, "__path__"))
@@ -196,6 +202,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_adapters_module_is_package_facade(self):
         import importlib
+
         import cc_branch.adapters as adapters
 
         self.assertTrue(hasattr(adapters, "__path__"))
@@ -212,6 +219,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_profiles_module_is_package_facade(self):
         import importlib
+
         import cc_branch.profiles as profiles
 
         self.assertTrue(hasattr(profiles, "__path__"))
@@ -228,6 +236,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_config_module_is_package_facade(self):
         import importlib
+
         import cc_branch.config as config
 
         self.assertTrue(hasattr(config, "__path__"))
@@ -255,6 +264,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_repository_module_is_package_facade(self):
         import importlib
+
         import cc_branch.repository as repository
 
         self.assertTrue(hasattr(repository, "__path__"))
@@ -269,6 +279,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_config_validation_module_is_package_facade(self):
         import importlib
+
         import cc_branch.application.config_validation as config_validation
 
         self.assertTrue(hasattr(config_validation, "__path__"))
@@ -285,6 +296,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_config_workflows_module_is_package_facade(self):
         import importlib
+
         import cc_branch.application.config_workflows as config_workflows
 
         self.assertTrue(hasattr(config_workflows, "__path__"))
@@ -332,6 +344,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_runtime_execution_module_is_package_facade(self):
         import importlib
+
         import cc_branch.runtime.execution as execution
 
         self.assertTrue(hasattr(execution, "__path__"))
@@ -351,6 +364,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_runtime_sync_module_is_package_facade(self):
         import importlib
+
         import cc_branch.runtime.sync as sync
 
         self.assertTrue(hasattr(sync, "__path__"))
@@ -396,6 +410,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_workspace_actions_module_is_package_facade(self):
         import importlib
+
         import cc_branch.application.workspace_actions as workspace_actions
 
         self.assertTrue(hasattr(workspace_actions, "__path__"))
@@ -676,6 +691,7 @@ class ArchitectureRuleTests(unittest.TestCase):
 
     def test_webui_server_module_is_package_facade(self):
         import importlib
+
         import cc_branch.webui.server as server
 
         self.assertTrue(hasattr(server, "__path__"))

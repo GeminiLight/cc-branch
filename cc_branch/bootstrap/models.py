@@ -44,7 +44,7 @@ class EnvironmentReport:
     @property
     def has_blockers(self) -> bool:
         """Check if there are blocking issues."""
-        return not self.tmux_available or not self.has_write_permission
+        return not self.has_write_permission
 
 
 @dataclass(frozen=True)

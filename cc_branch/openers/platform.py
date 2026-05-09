@@ -39,6 +39,23 @@ def _open_uri(uri: str) -> None:
     _popen([executable, uri])
 
 
+def _open_path(path: Path) -> None:
+    resolved = path.expanduser().resolve()
+    if sys.platform == "darwin":
+        executable = shutil.which("open")
+        if not executable:
+            raise OpenerError("Cannot open folder: open is not available")
+        _popen([executable, str(resolved)])
+        return
+    if os.name == "nt":
+        _popen(["explorer", str(resolved)])
+        return
+    executable = shutil.which("xdg-open")
+    if not executable:
+        raise OpenerError("Cannot open folder: xdg-open is not available")
+    _popen([executable, str(resolved)])
+
+
 def _cache_dir() -> Path:
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Caches" / "cc-branch"

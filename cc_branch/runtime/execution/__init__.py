@@ -15,8 +15,14 @@ from ..shells import tmux_attach_shell_command
 from .backend_ops import send_keys, tmux_has_session, tmux_has_window, which
 from .dashboard import (
     dashboard_layout as _dashboard_layout,
+)
+from .dashboard import (
     dashboard_session_name as _dashboard_session_name,
+)
+from .dashboard import (
     kill_dashboard as _kill_dashboard,
+)
+from .dashboard import (
     open_dashboard,
 )
 from .lifecycle import (
@@ -29,13 +35,19 @@ from .lifecycle import (
 from .status import (
     build_status_data,
     format_status,
+)
+from .status import (
     list_window_names as _list_window_names,
 )
 from .targets import get_window as _get_window
 from .targets import resolve_target as _resolve_target
 from .windows import (
     ensure_slot,
+)
+from .windows import (
     ensure_terminal_slot as _ensure_terminal_slot,
+)
+from .windows import (
     ensure_window as _ensure_window,
 )
 

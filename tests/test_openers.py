@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import unittest
 import importlib
+import unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -235,6 +235,22 @@ class OpenerTests(unittest.TestCase):
             )
 
         self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", str(Path("/tmp/demo").resolve())])
+
+    def test_system_file_manager_opens_project_folder(self):
+        """The dedicated directory opener should use the OS file manager, not a shell."""
+        with (
+            patch("cc_branch.openers.registry.sys.platform", "darwin"),
+            patch("cc_branch.openers.registry.shutil.which", return_value="/usr/bin/open"),
+            patch("cc_branch.openers.dispatcher._open_path") as open_path,
+        ):
+            open_with(
+                "system-file-manager",
+                cwd=Path("/tmp/demo"),
+                cli="cc-branch",
+                intent=OpenIntent(kind="project_folder"),
+            )
+
+        self.assertEqual(open_path.call_args.args[0], Path("/tmp/demo").resolve())
 
     def test_editor_opener_rejects_attach_intent(self):
         """Editors must not be treated as attach-capable terminals."""

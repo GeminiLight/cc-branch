@@ -50,6 +50,7 @@ def initialize_workspace_from_environment(
     *,
     profile: str,
     available_agents: list[str],
+    tmux_available: bool,
     bootstrap_sessions: bool,
 ) -> ActionResult:
     """Create workspace files using an already-inspected environment."""
@@ -60,6 +61,7 @@ def initialize_workspace_from_environment(
         profile=profile,
         available_agents=available_agents,
         bootstrap_sessions_requested=bootstrap_sessions,
+        tmux_available=tmux_available,
     )
     return ActionResult(
         ok=True,
@@ -97,11 +99,17 @@ def initialize_workspace(
     import cc_branch.application.config_workflows as workflows
 
     env = workflows.check_environment(project_dir)
+    raw_tmux_available = getattr(env, "tmux_available", True)
+    tmux_available = raw_tmux_available if isinstance(raw_tmux_available, bool) else True
+    init_kwargs = {}
+    if not tmux_available:
+        init_kwargs["tmux_available"] = False
     result = workflows.initialize_workspace_files(
         project_dir,
         profile=profile,
         available_agents=env.available_agents,
         bootstrap_sessions_requested=bootstrap_sessions,
+        **init_kwargs,
     )
     return ActionResult(
         ok=True,

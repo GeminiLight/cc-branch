@@ -86,6 +86,17 @@ export interface ConfigData {
   mtime?: number | null;
   content_hash?: string;
   issues?: ConfigIssue[];
+  runtimes?: RuntimeAvailability;
+}
+
+export interface RuntimeAvailability {
+  tmux?: RuntimeAvailabilityEntry;
+  terminal?: RuntimeAvailabilityEntry;
+}
+
+export interface RuntimeAvailabilityEntry {
+  available: boolean;
+  reason?: string;
 }
 
 export interface ConfigSaveResult {

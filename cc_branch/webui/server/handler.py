@@ -22,7 +22,7 @@ from .auth import (
     request_origin_allowed,
 )
 from .static import canonical_static_path, read_static_bytes, read_static_file
-from .terminal import _cli_command
+from .terminal import _cli_command  # noqa: F401  # public patch point for action tests
 
 _CLIENT_DISCONNECT_ERRORS = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
 

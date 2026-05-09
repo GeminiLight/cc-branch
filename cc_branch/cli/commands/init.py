@@ -97,6 +97,7 @@ def _run_guided_init(cwd: Path, args: argparse.Namespace) -> int:
             cwd,
             profile=args.profile,
             available_agents=env_report.available_agents,
+            tmux_available=env_report.tmux_available,
             bootstrap_sessions=False,
         )
     except ValueError as error:
@@ -119,8 +120,9 @@ def _print_environment_report(env_report) -> None:
     if env_report.tmux_available:
         console.print(f"  [green]✓[/green] tmux: ok ({env_report.tmux_path})")
     else:
-        console.print("  [red]✗[/red] tmux: missing")
-        console.print(f"    [dim]→ {tmux_install_hint()}[/dim]")
+        console.print("  [yellow]⚠[/yellow] tmux runtime: unavailable")
+        console.print("    [dim]→ Starter config will use terminal runtime slots.[/dim]")
+        console.print(f"    [dim]→ Install tmux later to enable reusable tmux workspaces: {tmux_install_hint()}[/dim]")
 
     console.print()
     if env_report.agents:

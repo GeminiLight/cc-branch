@@ -103,6 +103,14 @@ describe('Dashboard actions', () => {
         default: 'auto-terminal',
         openers: [
           {
+            id: 'system-file-manager',
+            label: 'Finder',
+            kind: 'editor',
+            available: true,
+            capabilities: ['open_project'],
+            source: 'builtin',
+          },
+          {
             id: 'auto-terminal',
             label: 'System Terminal',
             kind: 'terminal',
@@ -151,18 +159,16 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('opens the project directory with an available project opener', async () => {
+  it('opens the project directory with the system file manager', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
-    fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open project in VS Code' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open project directory' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: undefined,
-        opener: 'vscode',
+        opener: 'system-file-manager',
         intent: 'project_folder',
         projectPath: '/tmp/demo',
       })
@@ -227,11 +233,19 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('uses the selected opener when opening the project directory', async () => {
+  it('does not let the workspace opener change the project directory opener', async () => {
     mocks.openersResult.current = {
       data: {
         default: 'auto-terminal',
         openers: [
+          {
+            id: 'system-file-manager',
+            label: 'Finder',
+            kind: 'editor',
+            available: true,
+            capabilities: ['open_project'],
+            source: 'builtin',
+          },
           {
             id: 'auto-terminal',
             label: 'System Terminal',
@@ -263,13 +277,13 @@ describe('Dashboard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open project in Warp' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open project directory' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: undefined,
-        opener: 'warp',
+        opener: 'system-file-manager',
         intent: 'project_folder',
         projectPath: '/tmp/demo',
       })

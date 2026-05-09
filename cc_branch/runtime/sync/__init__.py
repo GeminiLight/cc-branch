@@ -5,6 +5,8 @@ from __future__ import annotations
 from ..backends import get_backend
 from .fingerprints import (
     agent_spec_dict as _agent_spec_dict,
+)
+from .fingerprints import (
     desired_fingerprint,
     fingerprint_launch_spec,
     window_launch_spec,

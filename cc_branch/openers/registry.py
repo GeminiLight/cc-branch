@@ -49,7 +49,7 @@ class OpenerRegistry:
         return None
 
     def builtin_infos(self) -> list[OpenerInfo]:
-        openers: list[OpenerInfo] = [_auto_terminal_info()]
+        openers: list[OpenerInfo] = [_system_file_manager_info(), _auto_terminal_info()]
 
         if sys.platform == "darwin":
             openers.extend([
@@ -214,6 +214,38 @@ def _auto_terminal_info() -> OpenerInfo:
         available=reason is None,
         capabilities=TERMINAL_CAPABILITIES,
         reason=reason,
+    )
+
+
+def _system_file_manager_info() -> OpenerInfo:
+    if sys.platform == "darwin":
+        executable = shutil.which("open")
+        return OpenerInfo(
+            id="system-file-manager",
+            label="Finder",
+            kind="editor",
+            available=executable is not None,
+            capabilities=PROJECT_CAPABILITIES,
+            executable=executable,
+            reason=None if executable else "open is not available",
+        )
+    if os.name == "nt":
+        return OpenerInfo(
+            id="system-file-manager",
+            label="File Explorer",
+            kind="editor",
+            available=True,
+            capabilities=PROJECT_CAPABILITIES,
+        )
+    executable = shutil.which("xdg-open")
+    return OpenerInfo(
+        id="system-file-manager",
+        label="File Manager",
+        kind="editor",
+        available=executable is not None,
+        capabilities=PROJECT_CAPABILITIES,
+        executable=executable,
+        reason=None if executable else "xdg-open is not available",
     )
 
 

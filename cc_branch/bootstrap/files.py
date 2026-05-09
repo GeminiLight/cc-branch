@@ -37,9 +37,15 @@ def initialize_workspace_files(
     profile: str,
     available_agents: list[str],
     bootstrap_sessions_requested: bool,
+    tmux_available: bool = True,
 ) -> WorkspaceInitResult:
     """Create config, state, and gitignore entries for a new workspace."""
-    config_content = generate_starter_config(target_dir.name, available_agents, profile)
+    config_content = generate_starter_config(
+        target_dir.name,
+        available_agents,
+        profile,
+        tmux_available=tmux_available,
+    )
     config_path = target_dir / DEFAULT_CONFIG
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(config_content, encoding="utf-8")

@@ -66,6 +66,14 @@ function canOpenWorkspace(opener: OpenerInfo | undefined): boolean {
   );
 }
 
+function canOfferWorkspaceOpen(opener: OpenerInfo | undefined): boolean {
+  return Boolean(
+    opener?.capabilities.includes("dashboard") ||
+    opener?.capabilities.includes("layout") ||
+    opener?.capabilities.includes("workspace_file")
+  );
+}
+
 function workspaceOpenLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
   return t("openWorkspaceIn", { app: opener.label });
 }
@@ -535,11 +543,15 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
   const availableOpeners = openers.filter((opener) => opener.available);
-  const selectedOpener = availableOpeners.find((opener) => opener.id === selectedOpenerId)
-    || availableOpeners.find((opener) => opener.id === defaultOpenerId)
-    || availableOpeners[0]
+  const workspaceOpeners = openers.filter(canOfferWorkspaceOpen);
+  const availableWorkspaceOpeners = workspaceOpeners.filter((opener) => opener.available);
+  const selectedOpener = availableWorkspaceOpeners.find((opener) => opener.id === selectedOpenerId)
+    || availableWorkspaceOpeners.find((opener) => opener.id === defaultOpenerId)
+    || availableWorkspaceOpeners[0]
     || DEFAULT_OPENER;
-  const openerItems = openers.map((opener) => ({
+  const projectDirectoryOpener = availableOpeners.find((opener) => opener.id === "system-file-manager")
+    || selectedOpener;
+  const openerItems = workspaceOpeners.map((opener) => ({
     label: opener.label,
     value: opener.id,
     disabled: !opener.available,
@@ -558,8 +570,8 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   };
 
   const runProjectOpen = () => {
-    if (!openerSupports(selectedOpener, "open_project")) return;
-    runAction("open", undefined, selectedOpener.id, "project_folder");
+    if (!openerSupports(projectDirectoryOpener, "open_project")) return;
+    runAction("open", undefined, projectDirectoryOpener.id, "project_folder");
   };
 
   return (
@@ -595,27 +607,42 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] items-start xl:items-center gap-3">
           {/* Primary actions */}
           <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 min-w-0 max-w-full">
-            <button
-              type="button"
-              onClick={runWorkspaceOpen}
-              disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
-              className="control-touch px-4 rounded-md text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 shadow-sm max-w-full"
-              title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
-              aria-label={workspaceOpenLabel(t, selectedOpener)}
-            >
-              {actionMutation.isPending ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <ExternalLink className="w-4 h-4 shrink-0" />
-              )}
-              <span className="truncate">{workspaceOpenLabel(t, selectedOpener)}</span>
-            </button>
+            <div className="inline-flex max-w-full rounded-md shadow-sm">
+              <button
+                type="button"
+                onClick={runWorkspaceOpen}
+                disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
+                className="control-touch min-w-0 px-4 rounded-l-md rounded-r-none text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50"
+                title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
+                aria-label={workspaceOpenLabel(t, selectedOpener)}
+              >
+                {actionMutation.isPending ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <ExternalLink className="w-4 h-4 shrink-0" />
+                )}
+                <span className="truncate">{t("openWorkspace")}</span>
+              </button>
+              <Dropdown
+                align="left"
+                value={selectedOpener.id}
+                items={openerItems}
+                onChange={setDefaultOpener}
+                ariaLabel={t("selectedTool", { app: selectedOpener.label })}
+                trigger={
+                  <span className="control-touch w-[176px] min-w-0 px-3 rounded-r-md rounded-l-none border-l border-white/20 bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5">
+                    <span className="truncate text-[13px] font-semibold">{selectedOpener.label}</span>
+                    <ChevronDown className="w-3 h-3 shrink-0 opacity-80" />
+                  </span>
+                }
+              />
+            </div>
             <button
               type="button"
               onClick={runProjectOpen}
-              disabled={actionMutation.isPending || !openerSupports(selectedOpener, "open_project")}
-              title={openerSupports(selectedOpener, "open_project") ? t("openProjectIn", { app: selectedOpener.label }) : t("toolCannotOpenProject", { app: selectedOpener.label })}
-              aria-label={openerSupports(selectedOpener, "open_project") ? t("openProjectIn", { app: selectedOpener.label }) : t("openProjectDirectory")}
+              disabled={actionMutation.isPending || !openerSupports(projectDirectoryOpener, "open_project")}
+              title={openerSupports(projectDirectoryOpener, "open_project") ? t("openProjectDirectory") : t("toolCannotOpenProject", { app: projectDirectoryOpener.label })}
+              aria-label={t("openProjectDirectory")}
               className="control-touch px-4 rounded-md text-[13px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-all flex items-center justify-center sm:justify-start gap-2 disabled:opacity-45 disabled:cursor-not-allowed"
             >
               {actionMutation.isPending ? (
@@ -643,7 +670,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
             )}
           </div>
           {/* Secondary actions */}
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] sm:flex sm:flex-wrap items-center gap-2 justify-self-stretch xl:justify-self-end xl:justify-items-end">
+          <div className="flex flex-wrap items-center gap-2 justify-self-stretch xl:justify-self-end xl:justify-items-end">
             <div className="flex items-center gap-1 p-1 rounded-md bg-[var(--bg-card)]/80 shadow-sm">
               <button
                 type="button"
@@ -689,20 +716,6 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
                 <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
               </button>
             </div>
-            <Dropdown
-              align="right"
-              value={selectedOpener.id}
-              items={openerItems}
-              onChange={setDefaultOpener}
-              ariaLabel={t("selectedTool", { app: selectedOpener.label })}
-              trigger={
-                <span className="control-touch px-3.5 rounded-md text-[13px] font-semibold text-secondary hover:text-primary surface-hover transition-colors flex items-center gap-1.5 w-full sm:w-auto sm:max-w-[220px] shadow-sm">
-                  <span className="hidden sm:inline text-tertiary font-medium">{t("tool")}</span>
-                  <span className="truncate">{selectedOpener.label}</span>
-                  <ChevronDown className="w-3 h-3 text-tertiary shrink-0" />
-                </span>
-              }
-            />
           </div>
         </div>
         {lastActionMessage && (
@@ -747,7 +760,11 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
           setPendingAction(null);
         }}
         title={pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm")}
-        description={t("confirmAction", { action: pendingAction?.action || "", name: pendingAction?.label || "" })}
+        description={
+          pendingAction?.action === "sync"
+            ? t("syncConfirmDescription", { count: syncCount })
+            : t("confirmAction", { action: pendingAction?.action || "", name: pendingAction?.label || "" })
+        }
         icon={
           pendingAction?.action === "sync" ? (
             <Wand2 className="w-5 h-5 text-[var(--warning)]" />

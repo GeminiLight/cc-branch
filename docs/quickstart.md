@@ -6,17 +6,17 @@
 
 你需要：
 
-- `tmux`
 - 至少一个你会在配置中用到的命令行工具
-- 只有通过 PyPI 或源码安装时才需要 Python 3.11+
+- 只有通过 PyPI 或源码安装时才需要 Python 3.10+
+- 只有使用 `runtime: tmux` 时才需要 `tmux`
 
-Windows 下请先通过 WSL、MSYS2 或 Cygwin 提供可用的 `tmux`。
+没有 `tmux` 也可以使用 `runtime: terminal`，只是不支持 tmux 的复用、后台生命周期和 dashboard 能力。
 
 如果想先检查环境，可以运行：
 
 ```bash
 python3 --version
-tmux -V
+tmux -V          # 只在你要使用 runtime: tmux 时需要
 codex --version   # 或 claude / gemini / cursor 等
 ```
 
@@ -35,6 +35,8 @@ pipx install cc-branch
 ```
 
 只在虚拟环境里使用 `pip install cc-branch`。
+
+从源码安装会构建 Web UI，需要 Node.js/npm；常见安装失败见 `docs/install-troubleshooting.md`。
 
 验证安装：
 

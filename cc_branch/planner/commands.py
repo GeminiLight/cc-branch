@@ -4,7 +4,15 @@ import shlex
 import uuid
 
 from ..adapters import get_adapter
-from ..models import AgentSpec, SlotConfig, WindowConfig, WindowPlan, WindowState, WorkspaceConfig, WorkspaceState
+from ..models import (
+    AgentSpec,
+    SlotConfig,
+    WindowConfig,
+    WindowPlan,
+    WindowState,
+    WorkspaceConfig,
+    WorkspaceState,
+)
 from ..templates import render_template
 from .naming import session_key
 from .paths import _apply_env, _resolve_window_cwd
@@ -61,12 +69,13 @@ def _build_window_plan(
     agent_name = window.agent
     agent = workspace.get_agent(agent_name)
     session_id = window.session_id or (state_entry.session_id if state_entry else None)
+    has_command_override = bool(window.command)
 
     cwd = _resolve_window_cwd(workspace.root, slot, window)
     label = _build_label(workspace, slot_name, window_name, window, agent, state_entry, session_id)
 
     bootstrapped = False
-    create_mode = _resolve_agent_field(window, agent, "create_mode") or "none"
+    create_mode = "none" if has_command_override else _resolve_agent_field(window, agent, "create_mode") or "none"
     if not session_id and bootstrap_missing and create_mode == "generated_uuid":
         session_id = str(uuid.uuid4())
         bootstrapped = True
@@ -86,7 +95,6 @@ def _build_window_plan(
     launch_command = window.command or ""
     post_launch_commands: list[str] = []
     command_binary = shlex.split(launch_command)[0] if launch_command else ""
-    has_command_override = bool(window.command)
 
     if agent_name and not has_command_override:
         if agent is None:
@@ -105,7 +113,7 @@ def _build_window_plan(
             post_launch_commands.extend(label_cmds)
 
     launch_command = _apply_env(launch_command, env)
-    resume_mode = _resolve_agent_field(window, agent, "resume_mode") or "none"
+    resume_mode = "none" if has_command_override else _resolve_agent_field(window, agent, "resume_mode") or "none"
     agent_declared = not agent_name or agent_name in workspace.agents
 
     return WindowPlan(

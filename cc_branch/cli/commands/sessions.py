@@ -14,7 +14,6 @@ from ..output import output_format, status_color
 
 def run_session(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, state, parser) -> int:
     """Run a session subcommand."""
-    import cc_branch.cli as cli
 
     if args.session_command == "list" or args.session_command is None:
         return _run_session_list(args, workspace, plan, state)

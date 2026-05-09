@@ -21,11 +21,9 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
   const previewLanes = [
     { name: "planner", agent: "codex", tone: "accent" },
     { name: "builder", agent: "codex", tone: "success" },
-    { name: "review", agent: "claude", tone: "warning" },
-    { name: "scratch", agent: "terminal", tone: "neutral" },
+    { name: "tester", agent: "codex", tone: "warning" },
+    { name: "reviewer", agent: "claude", tone: "neutral" },
   ];
-
-  const quickFacts = [t("setupSafeTitle"), t("setupReviewTitle"), t("setupLaunchLaterTitle")];
 
   return (
     <div className="page-shell py-5 sm:py-7">
@@ -60,7 +58,7 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
               </div>
               <div className="rounded-md border border-[var(--success)]/20 bg-[var(--success-bg)] px-3.5 py-3 min-w-[160px]">
                 <p className="text-[10px] font-semibold uppercase text-tertiary">{t("setupNextOutcome")}</p>
-                <p className="mt-1 text-[12px] font-semibold text-primary">.cc-branch/config.yaml</p>
+                <p className="mt-1 text-[12px] font-semibold text-primary">{t("configuration")}</p>
               </div>
             </div>
 
@@ -84,17 +82,6 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
                 {t("refresh")}
               </button>
             </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {quickFacts.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-md border border-default bg-[var(--bg-card)]/62 px-2.5 py-1.5 text-[11px] font-medium text-secondary"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="border-t lg:border-t-0 lg:border-l border-default bg-[var(--bg-card)]/58 px-4 py-5 sm:px-6 sm:py-7">
@@ -103,9 +90,6 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
                 <p className="text-[10px] font-semibold uppercase text-tertiary">{t("onboardingMapEyebrow")}</p>
                 <h2 className="mt-1 text-[16px] font-semibold text-primary">{t("onboardingMapTitle")}</h2>
               </div>
-              <span className="rounded-md border border-default bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-mono text-tertiary">
-                tmux
-              </span>
             </div>
 
             <div className="mt-5 rounded-lg border border-default bg-[var(--editor-bg)] p-3.5 shadow-sm">
@@ -136,7 +120,7 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
                                 ? "bg-[var(--text-muted)]"
                                 : "bg-[var(--accent)]"
                         }`}
-                        style={{ width: lane.name === "scratch" ? "42%" : "74%" }}
+                        style={{ width: lane.name === "reviewer" ? "58%" : "74%" }}
                       />
                     </div>
                     <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[10px] text-secondary">
@@ -147,16 +131,6 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
               </div>
             </div>
 
-            <div className="mt-4 rounded-md border border-default bg-[var(--bg-card)]/72 px-3 py-2.5">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary">
-                <span className="font-semibold text-primary">{t("setupFlowLabel")}</span>
-                <span>{t("setupFlowPick")}</span>
-                <span className="text-tertiary">/</span>
-                <span>{t("setupFlowPreview")}</span>
-                <span className="text-tertiary">/</span>
-                <span>{t("setupFlowCreate")}</span>
-              </div>
-            </div>
           </div>
         </div>
       </section>

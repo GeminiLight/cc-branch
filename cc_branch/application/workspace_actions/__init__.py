@@ -19,8 +19,12 @@ from ...runtime import (
     attach_slot,
     ensure_slot,
     open_dashboard,
-    restart_workspace as _restart_runtime_workspace,
     stop_extra_windows,
+)
+from ...runtime import (
+    restart_workspace as _restart_runtime_workspace,
+)
+from ...runtime import (
     stop_workspace as _stop_runtime_workspace,
 )
 from .command_specs import (

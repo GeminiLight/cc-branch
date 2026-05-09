@@ -56,6 +56,41 @@ class DoctorTests(unittest.TestCase):
 
             self.assertIn("missing session_id", report.lower())
 
+    def test_command_override_does_not_require_agent_session_id(self):
+        """Explicit commands can keep agent metadata without using agent resume."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                agents:
+                  codex:
+                    command: "codex"
+                    resume_mode: "flag"
+                    resume_template: "resume {session_id}"
+                    label_template: "{project}/{slot}/{window}"
+
+                slots:
+                  - name: "dev"
+                    runtime: "tmux"
+                    windows:
+                      - name: "shell"
+                        agent: "codex"
+                        command: "zsh"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            report = build_doctor_report(workspace, plan)
+
+            self.assertNotIn("missing session_id", report.lower())
+
     def test_doctor_reports_unknown_agent(self):
         """Test that doctor reports unknown agent references."""
         with tempfile.TemporaryDirectory() as tmp:

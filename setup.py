@@ -6,9 +6,8 @@ static bundle.
 
 Environment variables:
     CC_BRANCH_SKIP_WEBUI_BUILD=1
-        Skip the frontend build even if npm is available. Useful when
-        static files are already up-to-date or when you want to install
-        quickly without npm.
+        Skip the frontend build even if npm is available. Useful for
+        CLI-only source installs or when static files are already up-to-date.
 """
 
 from __future__ import annotations
@@ -31,15 +30,18 @@ def _build_webui() -> None:
     static_dir = root / "cc_branch" / "webui" / "static"
 
     if os.environ.get("CC_BRANCH_SKIP_WEBUI_BUILD") == "1":
-        # User explicitly asked to skip — respect that, but warn if
-        # static files look stale or missing.
+        # User explicitly asked to skip. If static files are missing, the
+        # installed CLI still works but `cc-branch serve` will explain how to
+        # rebuild or install a published package with bundled assets.
         if not (static_dir / "index.html").exists() and (
             web_dir / "package.json"
         ).exists():
-            raise RuntimeError(
-                "Static web UI assets are missing. "
-                "Run 'python scripts/build-webui.py' first, "
-                "or unset CC_BRANCH_SKIP_WEBUI_BUILD."
+            print(
+                "warning: CC_BRANCH_SKIP_WEBUI_BUILD=1 was set and static "
+                "web UI assets are missing. The CLI will install, but "
+                "`cc-branch serve` will be unavailable until the Web UI is "
+                "built or you install a published wheel/sdist.",
+                file=sys.stderr,
             )
         return
 
@@ -61,8 +63,11 @@ def _build_webui() -> None:
         if not (static_dir / "index.html").exists():
             raise RuntimeError(
                 "npm is not installed and static web UI assets are missing.\n"
-                "Either install Node.js/npm and re-run, or set "
-                "CC_BRANCH_SKIP_WEBUI_BUILD=1 to skip the web UI."
+                "Install Node.js/npm and re-run, or install the published "
+                "package with `pipx install cc-branch`.\n"
+                "For a CLI-only source install, set "
+                "CC_BRANCH_SKIP_WEBUI_BUILD=1; `cc-branch serve` will be "
+                "unavailable until the Web UI is built."
             ) from None
         return
 

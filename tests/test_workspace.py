@@ -626,8 +626,8 @@ class WorkspacePlannerTests(unittest.TestCase):
                 """,
             )
 
-            from cc_branch.cli import main
             from cc_branch.application.results import ActionResult
+            from cc_branch.cli import main
 
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),

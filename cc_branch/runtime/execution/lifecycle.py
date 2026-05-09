@@ -94,6 +94,7 @@ def stop_workspace(
 def stop_extra_windows(sync_report, target: str | None = None) -> list[str]:
     """Stop extra tmux windows selected from a runtime sync report."""
     import cc_branch.runtime.execution as execution
+
     from ..sync import extra_window_targets
 
     stopped: list[str] = []

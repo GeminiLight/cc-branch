@@ -6,7 +6,7 @@ import os
 import shlex
 from pathlib import Path
 
-from .types import OpenIntent, OpenerError, OpenerInfo
+from .types import OpenerError, OpenerInfo, OpenIntent
 
 
 def _validate_capability(info: OpenerInfo, intent: OpenIntent) -> None:

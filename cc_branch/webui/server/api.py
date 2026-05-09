@@ -18,10 +18,10 @@ from ...application.config_workflows import (
     read_workspace_config,
     save_workspace_config,
 )
-from ...config import project_dir_for_config
+from ...application.diagnostics import get_doctor_payload
 from ...application.workspace_actions import execute_workspace_action
 from ...application.workspace_status import get_workspace_status
-from ...application.diagnostics import get_doctor_payload
+from ...config import project_dir_for_config
 from ...openers import OpenerError
 from ...runtime.backends import get_backend
 from .terminal import _slot_exists

@@ -8,25 +8,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import help as _help_module
-from .commands.serve import is_loopback_host as _is_loopback_host
-from .constants import PRIMARY_COMMAND, SHORT_ALIAS, console
-from .dispatch import main, main_impl as _main_impl
-from .errors import format_file_not_found as _format_file_not_found
-from .errors import print_cli_error as _print_cli_error
-from .output import output_format as _output_format
-from .output import should_write_generated_state as _should_write_generated_state
-from .parser import build_parser
-from .targets import print_targets_help as _print_targets_help
-
-from ..application.config_workflows import initialize_minimal_workspace
-from ..application.config_workflows import initialize_workspace_from_environment
-from ..application.config_workflows import inspect_workspace_environment
-from ..application.config_workflows import profile_options
+from ..application.config_workflows import (
+    initialize_minimal_workspace,
+    initialize_workspace_from_environment,
+    inspect_workspace_environment,
+    profile_options,
+)
 from ..application.diagnostics import get_doctor_report, render_report
 from ..application.workspace_actions import attach_workspace as attach_workspace_action
 from ..application.workspace_actions import launch_workspace as launch_workspace_action
-from ..application.workspace_actions import open_dashboard_workspace as open_dashboard_workspace_action
+from ..application.workspace_actions import (
+    open_dashboard_workspace as open_dashboard_workspace_action,
+)
 from ..application.workspace_actions import open_workspace as open_workspace_action
 from ..application.workspace_actions import restart_workspace as restart_workspace_action
 from ..application.workspace_actions import start_workspace as start_workspace_action
@@ -37,6 +30,17 @@ from ..config import resolve_config_path
 from ..context import WorkspaceContext
 from ..planner import format_plan
 from ..runtime.sessions import inspect_session, list_sessions, prune_sessions, restore_session
+from . import help as _help_module
+from .commands.serve import is_loopback_host as _is_loopback_host
+from .constants import PRIMARY_COMMAND, SHORT_ALIAS, console
+from .dispatch import main
+from .dispatch import main_impl as _main_impl
+from .errors import format_file_not_found as _format_file_not_found
+from .errors import print_cli_error as _print_cli_error
+from .output import output_format as _output_format
+from .output import should_write_generated_state as _should_write_generated_state
+from .parser import build_parser
+from .targets import print_targets_help as _print_targets_help
 
 
 def print_help() -> None:

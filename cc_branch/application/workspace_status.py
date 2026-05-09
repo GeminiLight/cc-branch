@@ -13,7 +13,6 @@ from ..runtime.sync import build_runtime_sync_report
 from ..state import load_state
 from .results import ActionResult
 
-
 SessionExists = Callable[[str], bool]
 WindowExists = Callable[[str, str], bool]
 

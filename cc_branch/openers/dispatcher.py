@@ -15,13 +15,13 @@ from .commands import (
     _validate_capability,
 )
 from .editors import EditorWorkspaceOpener, editor_workspace_opener
-from .platform import _popen
+from .platform import _open_path, _popen
 from .registry import _opener_info
 from .terminal import (
     TerminalLauncher,
     terminal_launcher,
 )
-from .types import OpenCommandSpec, OpenerError, OpenIntent, OpenerInfo
+from .types import OpenCommandSpec, OpenerError, OpenerInfo, OpenIntent
 from .warp import WarpLauncher, warp_launcher
 
 
@@ -120,6 +120,9 @@ class OpenerDispatcher:
             raise OpenerError(f"Opener {opener_id} does not support command execution")
 
     def open_project(self, opener_id: str, info: OpenerInfo, cwd: Path) -> None:
+        if opener_id == "system-file-manager":
+            _open_path(cwd)
+            return
         if opener_id in (self.custom_openers or {}):
             self.open_custom(opener_id, cwd=cwd, command="")
             return

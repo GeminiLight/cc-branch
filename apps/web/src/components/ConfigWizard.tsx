@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
-  Code2,
-  GitBranch,
   Loader2,
   Minimize2,
   Monitor,
@@ -15,7 +13,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
-import { useAgents, useInitWorkspace, useProfiles } from "../hooks";
+import { useAgents, useProfiles, useSaveConfig } from "../hooks";
 import type { Profile } from "../types";
 
 interface ConfigWizardProps {
@@ -30,6 +28,7 @@ type Step = "select" | "done";
 interface PreviewWindow {
   name: string;
   preferredAgents: string[];
+  agent?: string;
 }
 
 interface PreviewSlot {
@@ -71,10 +70,10 @@ const templateSpecs: Record<string, TemplateSpec> = {
         windows: [
           { name: "planner", preferredAgents: ["codex", "claude", "gemini"] },
           { name: "builder", preferredAgents: ["codex", "claude", "gemini"] },
-          { name: "review", preferredAgents: ["claude", "codex", "gemini"] },
+          { name: "tester", preferredAgents: ["codex", "claude", "gemini"] },
+          { name: "reviewer", preferredAgents: ["claude", "codex", "gemini"] },
         ],
       },
-      { name: "scratch", runtime: "terminal", windows: [] },
     ],
   },
   "ai-pair": {
@@ -120,6 +119,10 @@ function agentForWindow(win: PreviewWindow, availableAgents: string[]): string {
   return win.preferredAgents.find((agent) => availableAgents.includes(agent)) || win.preferredAgents[0] || "shell";
 }
 
+function selectedAgentForWindow(win: PreviewWindow, availableAgents: string[]): string {
+  return win.agent || agentForWindow(win, availableAgents);
+}
+
 function yamlForTemplate(spec: TemplateSpec, projectName: string, availableAgents: string[]): string {
   const lines = [
     "version: 1",
@@ -148,7 +151,7 @@ function yamlForTemplate(spec: TemplateSpec, projectName: string, availableAgent
     lines.push("    windows:");
     for (const win of slot.windows) {
       lines.push(`      - name: "${win.name}"`);
-      lines.push(`        agent: "${agentForWindow(win, availableAgents)}"`);
+      lines.push(`        agent: "${selectedAgentForWindow(win, availableAgents)}"`);
     }
   }
 
@@ -158,23 +161,37 @@ function yamlForTemplate(spec: TemplateSpec, projectName: string, availableAgent
 function WorkspacePreview({
   spec,
   availableAgents,
+  onRenameSlot,
+  onRenameWindow,
+  onChangeAgent,
 }: {
   spec: TemplateSpec;
   availableAgents: string[];
+  onRenameSlot: (slotIndex: number, name: string) => void;
+  onRenameWindow: (slotIndex: number, windowIndex: number, name: string) => void;
+  onChangeAgent: (slotIndex: number, windowIndex: number, agent: string) => void;
 }) {
   const { t } = useI18n();
+  const agentOptions = availableAgents.length > 0 ? availableAgents : ["codex", "claude", "gemini"];
   return (
     <div className="space-y-2">
-      {spec.slots.map((slot) => (
-        <div key={slot.name} className="rounded-md border border-default bg-[var(--bg-card)] p-2.5">
+      {spec.slots.map((slot, slotIndex) => (
+        <div key={slotIndex} className="rounded-md border border-default bg-[var(--bg-card)] p-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Monitor className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
-              <span className="font-mono text-[12px] font-semibold text-primary truncate">{slot.name}</span>
+              <input
+                value={slot.name}
+                onChange={(e) => onRenameSlot(slotIndex, e.target.value)}
+                className="min-w-0 flex-1 cursor-text rounded border border-default bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[12px] font-semibold text-primary outline-none transition-colors hover:border-[var(--accent-border)] focus:border-[var(--accent-border)] focus:bg-[var(--bg-card)]"
+                aria-label={t("slotName")}
+              />
             </div>
-            <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-mono text-tertiary">
-              {slot.runtime}
-            </span>
+            {slot.runtime === "terminal" && (
+              <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-mono text-tertiary">
+                terminal
+              </span>
+            )}
           </div>
 
           {slot.runtime === "terminal" ? (
@@ -183,28 +200,58 @@ function WorkspacePreview({
             </div>
           ) : (
             <div className="mt-2 grid gap-1.5">
-              {slot.windows.map((win) => (
+              {slot.windows.map((win, windowIndex) => {
+                const selectedAgent = selectedAgentForWindow(win, availableAgents);
+                const options = agentOptions.includes(selectedAgent)
+                  ? agentOptions
+                  : [selectedAgent, ...agentOptions];
+                return (
                 <div
-                  key={win.name}
-                  className="grid grid-cols-[minmax(72px,0.9fr)_minmax(0,1.2fr)_auto] items-center gap-2 rounded border border-default bg-[var(--bg-elevated)] px-2 py-1.5"
+                  key={windowIndex}
+                  className="grid grid-cols-[minmax(86px,0.9fr)_minmax(0,1fr)_minmax(92px,auto)] items-center gap-2 rounded border border-default bg-[var(--bg-elevated)] px-2 py-1.5"
                 >
-                  <span className="font-mono text-[11px] text-primary truncate">{win.name}</span>
+                  <input
+                    value={win.name}
+                    onChange={(e) => onRenameWindow(slotIndex, windowIndex, e.target.value)}
+                    className="min-w-0 cursor-text rounded border border-default bg-[var(--bg-card)] px-2 py-1 font-mono text-[11px] text-primary outline-none transition-colors hover:border-[var(--accent-border)] focus:border-[var(--accent-border)] focus:bg-[var(--bg-elevated)]"
+                    aria-label={t("windowName")}
+                  />
                   <span className="h-1.5 rounded-full bg-[var(--accent)]/80" />
-                  <span className="rounded bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] font-mono text-[var(--accent)]">
-                    {agentForWindow(win, availableAgents)}
-                  </span>
+                  <select
+                    value={selectedAgent}
+                    onChange={(e) => onChangeAgent(slotIndex, windowIndex, e.target.value)}
+                    className="min-w-0 rounded border border-default bg-[var(--bg-card)] px-1.5 py-1 text-[10px] font-mono text-[var(--accent)] outline-none focus:border-[var(--accent-border)]"
+                    aria-label={t("agent")}
+                  >
+                    {options.map((agent) => (
+                      <option key={agent} value={agent}>{agent}</option>
+                    ))}
+                  </select>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       ))}
-      <div className="flex items-center gap-2 text-[11px] text-tertiary">
-        <GitBranch className="w-3.5 h-3.5" />
-        <span>{t("templatePreviewSync")}</span>
-      </div>
     </div>
   );
+}
+
+function templateSummary(spec: TemplateSpec): string {
+  return spec.slots
+    .flatMap((slot) => slot.runtime === "terminal" ? [slot.name] : slot.windows.map((win) => win.name))
+    .join(" / ");
+}
+
+function cloneTemplate(spec: TemplateSpec): TemplateSpec {
+  return {
+    id: spec.id,
+    slots: spec.slots.map((slot) => ({
+      ...slot,
+      windows: slot.windows.map((win) => ({ ...win, preferredAgents: [...win.preferredAgents] })),
+    })),
+  };
 }
 
 export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }: ConfigWizardProps) {
@@ -212,10 +259,11 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
   const toast = useToast();
   const { data: profiles } = useProfiles();
   const { data: agentsData } = useAgents(projectPath, isOpen);
-  const initMutation = useInitWorkspace();
+  const saveMutation = useSaveConfig();
 
   const [step, setStep] = useState<Step>("select");
   const [selectedProfileId, setSelectedProfileId] = useState("solo-dev");
+  const [draftSpec, setDraftSpec] = useState<TemplateSpec>(() => cloneTemplate(templateSpecs["solo-dev"]));
   const modalRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleId = useId();
@@ -225,7 +273,7 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
     () => agentsData?.agents.map((agent) => agent.id) || ["codex", "claude", "gemini"],
     [agentsData]
   );
-  const selectedSpec = templateSpecs[selectedProfileId] || templateSpecs["solo-dev"];
+  const selectedSpec = draftSpec;
   const projectName = projectNameFromPath(projectPath);
   const yamlPreview = useMemo(
     () => yamlForTemplate(selectedSpec, projectName, availableAgents),
@@ -235,7 +283,9 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
   useEffect(() => {
     if (!isOpen) return;
     if (!visibleProfiles.some((profile) => profile.id === selectedProfileId)) {
-      setSelectedProfileId(visibleProfiles[0]?.id || "solo-dev");
+      const nextId = visibleProfiles[0]?.id || "solo-dev";
+      setSelectedProfileId(nextId);
+      setDraftSpec(cloneTemplate(templateSpecs[nextId] || templateSpecs["solo-dev"]));
     }
   }, [isOpen, selectedProfileId, visibleProfiles]);
 
@@ -243,6 +293,7 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
     if (isOpen) return;
     setStep("select");
     setSelectedProfileId("solo-dev");
+    setDraftSpec(cloneTemplate(templateSpecs["solo-dev"]));
   }, [isOpen]);
 
   useEffect(() => {
@@ -285,7 +336,7 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
 
   const handleCreate = useCallback(async () => {
     try {
-      await initMutation.mutateAsync({ profile: selectedProfileId, bootstrapSessions: true, projectPath });
+      await saveMutation.mutateAsync({ content: yamlPreview, projectPath });
       setStep("done");
       toast.success(t("configSaved"));
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -296,7 +347,45 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [initMutation, selectedProfileId, projectPath, toast, t, onCreated, onClose]);
+  }, [saveMutation, yamlPreview, projectPath, toast, t, onCreated, onClose]);
+
+  const selectProfile = useCallback((profileId: string) => {
+    setSelectedProfileId(profileId);
+    setDraftSpec(cloneTemplate(templateSpecs[profileId] || templateSpecs["solo-dev"]));
+  }, []);
+
+  const updateSlotName = useCallback((slotIndex: number, name: string) => {
+    setDraftSpec((prev) => ({
+      ...prev,
+      slots: prev.slots.map((slot, index) => index === slotIndex ? { ...slot, name } : slot),
+    }));
+  }, []);
+
+  const updateWindowName = useCallback((slotIndex: number, windowIndex: number, name: string) => {
+    setDraftSpec((prev) => ({
+      ...prev,
+      slots: prev.slots.map((slot, index) => index === slotIndex
+        ? {
+            ...slot,
+            windows: slot.windows.map((win, winIndex) => winIndex === windowIndex ? { ...win, name } : win),
+          }
+        : slot
+      ),
+    }));
+  }, []);
+
+  const updateWindowAgent = useCallback((slotIndex: number, windowIndex: number, agent: string) => {
+    setDraftSpec((prev) => ({
+      ...prev,
+      slots: prev.slots.map((slot, index) => index === slotIndex
+        ? {
+            ...slot,
+            windows: slot.windows.map((win, winIndex) => winIndex === windowIndex ? { ...win, agent } : win),
+          }
+        : slot
+      ),
+    }));
+  }, []);
 
   if (!isOpen) return null;
 
@@ -321,7 +410,7 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
         aria-hidden="true"
         tabIndex={-1}
       />
-      <div ref={modalRef} className="relative z-10 w-full max-w-5xl max-h-[92dvh] surface-card border border-default rounded-lg animate-modal-in overflow-hidden flex flex-col">
+      <div ref={modalRef} className="relative z-10 w-[min(1024px,calc(100vw-2rem))] h-[min(620px,92dvh)] surface-card border border-default rounded-lg animate-modal-in overflow-hidden flex flex-col">
         <div className="px-4 sm:px-5 py-3 border-b border-default flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Wand2 className="w-4 h-4 text-[var(--accent)]" />
@@ -337,19 +426,20 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
           </button>
         </div>
 
-        <div className="overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {step === "select" && (
-            <div className="grid lg:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="grid min-h-full lg:grid-cols-[280px_minmax(0,1fr)]">
               <div className="border-b lg:border-b-0 lg:border-r border-default p-3 sm:p-4">
                 <p className="text-[12px] font-medium text-secondary">{t("chooseTemplate")}</p>
                 <div className="mt-3 space-y-1.5">
                   {visibleProfiles.map((profile) => {
                     const selected = selectedProfileId === profile.id;
+                    const spec = templateSpecs[profile.id];
                     return (
                       <button
                         type="button"
                         key={profile.id}
-                        onClick={() => setSelectedProfileId(profile.id)}
+                        onClick={() => selectProfile(profile.id)}
                         className={`w-full text-left px-3 py-2.5 rounded-md border transition-colors flex items-center gap-3 ${
                           selected
                             ? "border-[var(--accent-border)] bg-[var(--accent-bg)]"
@@ -366,6 +456,11 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
                           <p className="text-[11px] text-secondary truncate">
                             {profileDescriptionKeys[profile.id] ? t(profileDescriptionKeys[profile.id]) : profile.description}
                           </p>
+                          {spec && (
+                            <p className="mt-1 font-mono text-[10px] text-tertiary truncate">
+                              {templateSummary(spec)}
+                            </p>
+                          )}
                         </div>
                         {selected && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent)]" />}
                       </button>
@@ -379,33 +474,26 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
                 </div>
               </div>
 
-              <div className="p-3 sm:p-4 space-y-3">
-                <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.86fr)] gap-3">
+              <div className="flex min-h-full flex-col p-3 sm:p-4">
+                <div className="min-h-0 flex-1">
                   <section className="rounded-lg border border-default bg-[var(--bg-elevated)] p-3">
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <h4 className="text-[12px] font-semibold text-primary">{t("livePreview")}</h4>
                       <span className="text-[10px] font-mono text-tertiary">
-                        {selectedSpec.slots.length} {t("slotsTitle").toLowerCase()}
+                        {t("slotCount", { count: selectedSpec.slots.length })}
                       </span>
                     </div>
-                    <WorkspacePreview spec={selectedSpec} availableAgents={availableAgents} />
-                  </section>
-
-                  <section className="rounded-lg border border-default overflow-hidden bg-[var(--editor-bg)]">
-                    <div className="px-3 py-2 border-b border-default flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Code2 className="w-3.5 h-3.5 text-[var(--accent)]" />
-                        <span className="text-[11px] font-semibold text-primary">config.yaml</span>
-                      </div>
-                      <span className="text-[10px] text-tertiary">{t("templateWillWrite")}</span>
-                    </div>
-                    <pre className="m-0 max-h-[360px] overflow-auto px-3 py-3 text-[11px] leading-5 text-[var(--editor-fg)]">
-                      <code>{yamlPreview}</code>
-                    </pre>
+                    <WorkspacePreview
+                      spec={selectedSpec}
+                      availableAgents={availableAgents}
+                      onRenameSlot={updateSlotName}
+                      onRenameWindow={updateWindowName}
+                      onChangeAgent={updateWindowAgent}
+                    />
                   </section>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border border-default bg-[var(--bg-card)] px-3 py-2.5">
+                <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border border-default bg-[var(--bg-card)] px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold text-primary">{t("templateCreateHint")}</p>
                     <p className="text-[10px] text-tertiary truncate" title={projectPath}>
@@ -423,10 +511,10 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
                     <button
                       type="button"
                       onClick={handleCreate}
-                      disabled={initMutation.isPending}
+                      disabled={saveMutation.isPending}
                       className="control-touch px-3 rounded-md text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                     >
-                      {initMutation.isPending ? (
+                      {saveMutation.isPending ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
                         <Save className="w-3.5 h-3.5" />

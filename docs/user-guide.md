@@ -6,11 +6,11 @@
 
 ### 环境要求
 
-- `tmux`
 - 你会在配置里实际使用到的命令行工具
-- 只有通过 PyPI 或源码安装时才需要 Python 3.11 或更高版本
+- 只有通过 PyPI 或源码安装时才需要 Python 3.10 或更高版本
+- 只有使用 `runtime: tmux` 时才需要 `tmux`
 
-Windows 下请通过 WSL、MSYS2 或 Cygwin 提供可用的 `tmux`。
+没有 `tmux` 时，可以使用 `runtime: terminal`。这些 slot 会作为外部终端进程打开，不具备 tmux 的复用、后台生命周期或 dashboard 能力。
 
 ### 安装
 
@@ -477,7 +477,7 @@ cc-branch serve
 
 ### `tmux is required`
 
-说明当前环境里没有找到 `tmux`。
+说明当前操作需要 `runtime: tmux`，但当前环境里没有找到 `tmux`。如果不需要 tmux 的复用、后台生命周期或 dashboard 能力，把对应 slot 改成 `runtime: terminal` 即可。
 
 ### `unknown slot` / `unknown window`
 

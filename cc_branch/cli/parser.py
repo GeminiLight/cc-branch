@@ -5,7 +5,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from .. import __version__
 from ..constants import DEFAULT_CONFIG, DEFAULT_STATE
-from .constants import PRIMARY_COMMAND, SHORT_ALIAS
+from .constants import SHORT_ALIAS
 
 
 def _package_version() -> str:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ...models import WorkspacePlan
-from ...openers import OpenIntent, OpenerError
+from ...openers import OpenerError, OpenIntent
 from ...runtime.capabilities import external_process_slots, managed_slots
 from ...targets import parse_target
 

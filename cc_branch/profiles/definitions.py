@@ -4,21 +4,21 @@ from __future__ import annotations
 
 PROFILES = {
     "solo-dev": {
-        "description": "Single developer workspace with planner, builder, review, and scratch",
+        "description": "Four-agent coding workspace with planning, building, testing, and review",
         "slots": [
             {
                 "name": "dev",
                 "windows": [
                     {"name": "planner", "preferred_agents": ["codex", "claude", "gemini"]},
                     {"name": "builder", "preferred_agents": ["codex", "claude", "gemini"]},
-                    {"name": "review", "preferred_agents": ["claude", "codex", "gemini"]},
+                    {"name": "tester", "preferred_agents": ["codex", "claude", "gemini"]},
+                    {"name": "reviewer", "preferred_agents": ["claude", "codex", "gemini"]},
                 ],
             },
-            {"name": "scratch", "runtime": "terminal"},
         ],
     },
     "ai-pair": {
-        "description": "AI coding pair workflow with separate coder and reviewer",
+        "description": "Adversarial AI coding workflow with separate implementation and critique",
         "slots": [
             {
                 "name": "coder",

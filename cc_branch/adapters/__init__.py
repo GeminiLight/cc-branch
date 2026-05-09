@@ -7,11 +7,16 @@ for launch and label commands without embedding per-agent conditionals.
 from __future__ import annotations
 
 from .base import AgentAdapter
-from .none import NoneAdapter, NoneAdapter as _NoneAdapter
+from .none import NoneAdapter
+from .none import NoneAdapter as _NoneAdapter
 from .resume import (
     FlagResumeAdapter,
-    FlagResumeAdapter as _FlagResumeAdapter,
     InternalResumeAdapter,
+)
+from .resume import (
+    FlagResumeAdapter as _FlagResumeAdapter,
+)
+from .resume import (
     InternalResumeAdapter as _InternalResumeAdapter,
 )
 from .selection import get_adapter

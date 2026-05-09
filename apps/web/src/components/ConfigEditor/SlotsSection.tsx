@@ -13,6 +13,7 @@ import {
   Box,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
+import type { RuntimeAvailability } from "../../types";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
   FieldLabel,
@@ -218,6 +219,7 @@ function SlotCard({
   onDelete,
   onMoveUp,
   onMoveDown,
+  runtimeAvailability,
 }: {
   slot: SlotConfig;
   index: number;
@@ -227,10 +229,12 @@ function SlotCard({
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  runtimeAvailability?: RuntimeAvailability;
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
   const isTerminal = slot.runtime === "terminal";
+  const tmuxUnavailable = runtimeAvailability?.tmux?.available === false;
   const agentOptions = [
     { value: "", label: t("noneOption") },
     ...agents.map((a) => ({ value: a, label: a })),
@@ -361,7 +365,11 @@ function SlotCard({
                 value={slot.runtime}
                 onChange={(v) => onChange({ runtime: v as "tmux" | "terminal" })}
                 options={[
-                  { value: "tmux", label: "Tmux" },
+                  {
+                    value: "tmux",
+                    label: tmuxUnavailable ? `Tmux (${t("unavailable")})` : "Tmux",
+                    disabled: tmuxUnavailable,
+                  },
                   { value: "terminal", label: t("openTerminal") },
                 ]}
               />
@@ -457,14 +465,17 @@ export default function SlotsSection({
   onChange,
   expanded,
   onToggle,
+  runtimeAvailability,
 }: {
   slots: SlotConfig[];
   agents: string[];
   onChange: (slots: SlotConfig[]) => void;
   expanded: boolean;
   onToggle: () => void;
+  runtimeAvailability?: RuntimeAvailability;
 }) {
   const { t } = useI18n();
+  const defaultRuntime = runtimeAvailability?.tmux?.available === false ? "terminal" : "tmux";
 
   function addSlot() {
     const names = new Set(slots.map((s) => s.name));
@@ -478,27 +489,35 @@ export default function SlotsSection({
       ...slots,
       {
         name,
-        runtime: "tmux",
+        runtime: defaultRuntime,
         cwd: ".",
         env: {},
-        windows: [
-          {
-            name: "main",
-            agent: agents[0] ?? null,
-            command: null,
-            cwd: null,
-            env: {},
-            session_id: null,
-            label: null,
-            label_template: null,
-            resume_mode: null,
-            resume_template: null,
-            create_mode: null,
-            create_template: null,
-            label_mode: null,
-            rename_template: null,
-          },
-        ],
+        ...(defaultRuntime === "terminal"
+          ? agents[0]
+            ? { agent: agents[0] }
+            : { command: "zsh" }
+          : {}),
+        windows:
+          defaultRuntime === "tmux"
+            ? [
+                {
+                  name: "main",
+                  agent: agents[0] ?? null,
+                  command: null,
+                  cwd: null,
+                  env: {},
+                  session_id: null,
+                  label: null,
+                  label_template: null,
+                  resume_mode: null,
+                  resume_template: null,
+                  create_mode: null,
+                  create_template: null,
+                  label_mode: null,
+                  rename_template: null,
+                },
+              ]
+            : [],
       },
     ]);
   }
@@ -584,6 +603,7 @@ export default function SlotsSection({
               index={i}
               total={slots.length}
               agents={agents}
+              runtimeAvailability={runtimeAvailability}
               onChange={(p) => updateSlot(i, p)}
               onDelete={() => deleteSlot(i)}
               onMoveUp={() => moveSlot(i, -1)}

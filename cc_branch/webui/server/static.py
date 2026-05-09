@@ -6,6 +6,25 @@ import os
 from importlib.resources import files
 from urllib.parse import urlparse
 
+REQUIRED_STATIC_FILES = ("index.html",)
+
+
+def static_assets_available() -> bool:
+    """Return True when the packaged Web UI entry files are available."""
+    static_dir = files("cc_branch.webui.static")
+    return all((static_dir / filename).is_file() for filename in REQUIRED_STATIC_FILES)
+
+
+def missing_static_assets_message() -> str:
+    """Return an actionable message for installations without bundled assets."""
+    return (
+        "Web UI assets are missing from this installation. "
+        "This can happen after a CLI-only source install with "
+        "CC_BRANCH_SKIP_WEBUI_BUILD=1. Install the published package with "
+        "`pipx install cc-branch`, or rebuild from source with Node.js/npm "
+        "available by running `python scripts/build-webui.py` and reinstalling."
+    )
+
 
 def read_static_file(filename: str) -> str:
     """Read a text static file bundled with the package."""

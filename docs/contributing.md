@@ -26,8 +26,8 @@ If you change user-visible behavior, update docs in the same PR.
 
 ### Requirements
 
-- Python 3.11+
-- `tmux`
+- Python 3.10+
+- `tmux` only when testing `runtime: tmux`
 - Git
 
 ### Install for development

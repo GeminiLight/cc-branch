@@ -22,7 +22,7 @@
 ### 🤖 GitHub 配置
 - [x] **.github/workflows/ci.yml** - CI 流水线
   - 多平台 Python 测试（Ubuntu、macOS）
-  - 多 Python 版本（3.11、3.12）
+  - 多 Python 版本（3.10、3.11、3.12）
   - Web UI lint / test / build
   - Python 包构建检查
 - [x] **.github/workflows/publish-python.yml** - PyPI 发布

@@ -43,9 +43,13 @@ ENV/
 *~
 .DS_Store
 
-# CC Branch specific
+# CC Branch local runtime state
+.cc-branch/state.yaml
+.cc-branch/*.bak
 .cc-branch.state.yaml
 .cc-branch.state.yaml.bak
+.cc-branch.state.toml
+.cc-branch.state.toml.bak
 *.log
 
 # Frontend

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .constants import PRIMARY_COMMAND
 from ..constants import DEFAULT_CONFIG
+from .constants import PRIMARY_COMMAND
 
 
 def format_file_not_found(error: FileNotFoundError) -> str:

@@ -111,7 +111,7 @@ export function SelectInput({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   ariaLabel?: string;
 }) {
   return (
@@ -123,7 +123,7 @@ export function SelectInput({
         className="w-full control-touch pl-2.5 pr-7 rounded-md border border-default text-[13px] bg-[var(--bg-card)] appearance-none transition-colors focus:outline-none focus:border-[var(--accent)] cursor-pointer"
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
           </option>
         ))}

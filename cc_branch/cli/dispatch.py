@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..exceptions import CcbError
 from .commands.doctor import run_doctor
 from .commands.init import run_init
 from .commands.open import run_open
@@ -20,7 +21,6 @@ from .commands.workspace import (
 from .errors import format_file_not_found, print_cli_error
 from .output import should_write_generated_state
 from .targets import print_targets_help
-from ..exceptions import CcbError
 
 
 def main(argv: list[str] | None = None) -> int:

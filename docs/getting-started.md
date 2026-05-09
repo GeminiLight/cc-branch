@@ -4,16 +4,15 @@ CC Branch is a CLI-first workspace orchestrator for terminal AI workflows. It he
 
 ## What you need
 
-- `tmux`
 - The agent CLIs you want to reference in `.cc-branch/config.yaml`
-- Python 3.11+ only when installing from PyPI or source
-- On Windows, a `tmux`-capable environment such as WSL, MSYS2, or Cygwin
+- Python 3.10+ only when installing from PyPI or source
+- `tmux` only if you want reusable `runtime: tmux` slots
 
 ## Install
 
 ### Homebrew
 
-Recommended for macOS and Linux once the tap is published:
+Recommended for macOS and Linux after the tap is published:
 
 ```bash
 brew install GeminiLight/cc-branch/cc-branch
@@ -39,9 +38,13 @@ Use `pip install cc-branch` only inside a virtual environment. Prefer `pipx` for
 git clone https://github.com/GeminiLight/cc-branch.git
 cd cc-branch
 pip install .
-# Skip the Web UI build if you do not need it:
+# CLI-only source install without building the Web UI:
 # CC_BRANCH_SKIP_WEBUI_BUILD=1 pip install .
 ```
+
+Source installs build the bundled Web UI from `apps/web`, so they need Node.js/npm unless `CC_BRANCH_SKIP_WEBUI_BUILD=1` is set. The skip mode installs the CLI only; `cc-branch serve` will report that Web UI assets are missing until you build them with `python scripts/build-webui.py` and reinstall. Published wheel/sdist installs from PyPI already include the Web UI assets and do not require Node.js/npm.
+
+For common failures, see `docs/install-troubleshooting.md`.
 
 ## Check the CLI
 
@@ -61,7 +64,7 @@ cc-branch init
 
 During `init`, CC Branch typically:
 
-- checks `tmux`
+- checks which runtimes are available
 - detects supported agent CLIs on `PATH`
 - generates a starter config from the default `solo-dev` profile
 - writes `.cc-branch/state.yaml`
@@ -83,7 +86,7 @@ cc-branch plan
 
 This is the moment to confirm:
 
-- which tmux sessions will be created
+- which runtime targets will be created
 - which commands each window will run
 - which `session_id` values will be reused or created
 - which labels and post-launch commands will be applied
@@ -152,6 +155,7 @@ cc-branch init --minimal
 ## Next reads
 
 - `docs/quickstart.md`
+- `docs/install-troubleshooting.md`
 - `docs/user-guide.md`
 - `docs/features.md`
 - `docs/architecture.md`

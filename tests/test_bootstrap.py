@@ -64,7 +64,8 @@ class TestEnvironmentCheck(unittest.TestCase):
 
                 self.assertFalse(report.tmux_available)
                 self.assertIsNone(report.tmux_path)
-                self.assertTrue(report.has_blockers)
+                self.assertFalse(report.has_blockers)
+                self.assertTrue(report.can_proceed)
 
     def test_check_environment_no_agents(self):
         """Test environment check when no agent CLIs are available."""
@@ -266,6 +267,20 @@ class TestConfigGeneration(unittest.TestCase):
 
         self.assertIn('command: "pwsh"', config)
 
+    def test_generate_config_without_tmux_uses_terminal_runtime(self):
+        """Starter configs should not require tmux when it is unavailable."""
+        config = generate_starter_config(
+            "test-project",
+            ["codex", "claude"],
+            "solo-dev",
+            tmux_available=False,
+        )
+
+        self.assertNotIn('runtime: "tmux"', config)
+        self.assertIn('runtime: "terminal"', config)
+        self.assertIn('agent: "codex"', config)
+        self.assertIn('agent: "claude"', config)
+
 
 class TestSessionBootstrap(unittest.TestCase):
     """Test session bootstrapping functionality."""
@@ -457,7 +472,7 @@ class TestEnvironmentReport(unittest.TestCase):
             state_exists=False,
             has_write_permission=True,
         )
-        self.assertTrue(report_no_tmux.has_blockers)
+        self.assertFalse(report_no_tmux.has_blockers)
 
         report_no_write = EnvironmentReport(
             tmux_available=True,

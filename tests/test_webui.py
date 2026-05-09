@@ -19,6 +19,10 @@ from cc_branch.webui.server import (
     _open_terminal,
     _slot_exists,
 )
+from cc_branch.webui.server.static import (
+    missing_static_assets_message,
+    static_assets_available,
+)
 
 
 class SlotHelpersTests(unittest.TestCase):
@@ -124,6 +128,30 @@ class TerminalOpenTests(unittest.TestCase):
         self.assertEqual(open_with.call_args.kwargs["cli"], "'/tmp/cc branch'")
         self.assertEqual(open_with.call_args.kwargs["intent"].kind, "attach_target")
         self.assertEqual(open_with.call_args.kwargs["intent"].target, "dev window")
+
+
+class StaticAssetTests(unittest.TestCase):
+    """Tests for packaged Web UI asset checks."""
+
+    def test_static_assets_available_requires_index_html(self):
+        """A CLI-only source install should be detectable before serving."""
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            static_dir = Path(tmpdir)
+            with patch("cc_branch.webui.server.static.files", return_value=static_dir):
+                self.assertFalse(static_assets_available())
+
+            (static_dir / "index.html").write_text("<!doctype html>", encoding="utf-8")
+            with patch("cc_branch.webui.server.static.files", return_value=static_dir):
+                self.assertTrue(static_assets_available())
+
+    def test_missing_static_assets_message_names_recovery_paths(self):
+        """The serve failure should point users at installable fixes."""
+        message = missing_static_assets_message()
+
+        self.assertIn("pipx install cc-branch", message)
+        self.assertIn("python scripts/build-webui.py", message)
 
 
 class WebUIHandlerTests(unittest.TestCase):
@@ -459,9 +487,14 @@ slots:
 
     def test_api_config_returns_content(self):
         """Test /api/config returns config file content."""
+        from unittest.mock import patch
+
         server, port = self._start_test_server()
         try:
-            with urlopen(f"http://127.0.0.1:{port}/api/config", timeout=2) as response:
+            with (
+                patch("cc_branch.runtime.backends.TmuxBackend.available", return_value=False),
+                urlopen(f"http://127.0.0.1:{port}/api/config", timeout=2) as response,
+            ):
                 self.assertEqual(response.status, 200)
                 data = json.loads(response.read().decode())
 
@@ -470,6 +503,8 @@ slots:
                 self.assertIn("mtime", data)
                 self.assertTrue(data["content_hash"].startswith("sha256:"))
                 self.assertIn("test-project", data["content"])
+                self.assertFalse(data["runtimes"]["tmux"]["available"])
+                self.assertTrue(data["runtimes"]["terminal"]["available"])
         finally:
             self._stop_test_server(server)
 
