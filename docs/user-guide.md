@@ -48,7 +48,7 @@ cc-branch init
 - 检查 `tmux`
 - 探测常见命令行工具
 - 按模板生成起步配置
-- 创建 `.cc-branch.state.toml`
+- 创建 `.cc-branch.state.yaml`
 - 在需要时补齐 `session_id`
 - 更新 `.gitignore`
 
@@ -71,18 +71,14 @@ cc-branch init --profile minimal
 
 ## 配置文件和状态文件
 
-### 配置文件查找顺序
+### 配置文件
 
-1. `.cc-branch.yaml`
-2. `.cc-branch.yml`
-3. `.cc-branch.toml`
-
-推荐优先使用 `.cc-branch.yaml`。
+CC Branch 只自动读取 `.cc-branch.yaml`。首次发版不保留旧格式兼容。
 
 ### 两个关键文件
 
 - `.cc-branch.yaml`：项目配置，适合提交到仓库
-- `.cc-branch.state.toml`：本地运行状态，通常不建议提交
+- `.cc-branch.state.yaml`：本地运行状态，通常不建议提交
 
 状态文件里常见的信息包括：
 
@@ -106,7 +102,6 @@ display:
   columns: 2
   dashboard: true
 
-agents: {}
 slots: []
 ```
 
@@ -118,6 +113,33 @@ slots: []
 
 ### `agents`
 
+`agents` 是可选的 agent profile 覆盖区，不是每个项目都必须维护的基础配置。
+
+内置 agent profile 默认可用：claude、codex、gemini、cursor、kimi。也就是说，普通项目可以直接在 window 里写：
+
+```yaml
+windows:
+  - name: "planner"
+    agent: "codex"
+```
+
+只有在需要覆盖默认启动方式，或添加自定义 agent 时，才需要写 `agents`。
+
+有效 agent profile 的合并顺序是：
+
+1. 内置 `cc_branch/agents.yaml`
+2. 用户全局 `~/.cc-branch/agents.yaml`
+3. 工作区 `.cc-branch.agents.yaml`
+4. 当前 `.cc-branch.yaml` 里的 `agents`
+
+后面的层级覆盖前面的层级，并且是字段级覆盖。例如只改 `command` 时，默认的 `resume_template`、`label_template` 仍然保留：
+
+```yaml
+agents:
+  codex:
+    command: "codex --sandbox read-only"
+```
+
 每个 agent 可以声明这些字段：
 
 - `command`
@@ -128,8 +150,6 @@ slots: []
 - `label_template`
 - `label_mode`
 - `rename_template`
-
-内置 agent：claude、codex、gemini、cursor、kimi。
 
 如需添加自定义 agent，创建 `~/.cc-branch/agents.yaml`：
 
@@ -151,17 +171,18 @@ agents:
 
 ### `slots`
 
-每个 `slot` 在运行时都会对应一个 tmux 会话。
+每个 `slot` 通过 `runtime` 指定启动方式。
 
 常见字段有：
 
 - `name`
-- `backend`
+- `runtime`
+- `opener`
 - `cwd`
 - `env`
 - `windows`
 - `command`
-- `window_name`
+- `title`
 - `agent`
 - `session_id`
 - `label`
@@ -187,15 +208,16 @@ agents:
 
 ## 计划和运行时规则
 
-### `shell` slot 会被归一化
+### `terminal` runtime 会被归一化
 
 ```yaml
 - name: "scratch"
-  backend: "shell"
+  runtime: "terminal"
+  title: "scratch"
   command: "zsh"
 ```
 
-这类写法在运行时会被整理成一个只包含 `main` 窗口的结构。
+这类写法在计划阶段会被整理成一个只包含 `title`/`main` 窗口的结构，并通过本机终端 opener 打开。它不会创建 tmux 会话，也不会被 dashboard/stop 当作可持久化的 tmux 目标。
 
 ### 路径如何解析
 
@@ -224,7 +246,7 @@ CC Branch 会根据配置和本地状态，生成最终 `launch_command` 与 `po
 ### `plan`
 
 ```bash
-cc-branch plan [--write-state] [--bootstrap-if-missing] [--json]
+cc-branch plan [--write-state] [--json]
 ```
 
 适合在正式启动前先确认：
@@ -237,17 +259,26 @@ cc-branch plan [--write-state] [--bootstrap-if-missing] [--json]
 ### `start`
 
 ```bash
-cc-branch start [--prepare] [--bootstrap-if-missing] [--detach] [--dashboard]
+cc-branch start [--prepare] [--detach] [--dashboard]
 ```
 
-它会创建 tmux 会话和窗口，并默认进入第一个 slot。只想后台启动时使用 `--detach`。
+它会创建可复用的 tmux 会话和窗口，并默认进入第一个 slot。`--detach` 只创建 tmux session，不会 attach，也不会打开 `runtime: terminal` 外部窗口。
 
 需要总览面板时，使用 `cc-branch dashboard` 或 `cc-branch start --dashboard`。`start` 不会因为 `display.dashboard` 配置而静默切换到面板。
+
+### `open`
+
+```bash
+cc-branch open [slot[:window]] [--opener auto-terminal|warp|vscode|cursor]
+cc-branch open --project-dir [--opener auto-terminal|warp|vscode|cursor]
+```
+
+它是“打开可见窗口”的统一入口。`open` 会按 opener 适配 Terminal、Warp、VS Code、Cursor；打开 tmux slot 时会先确保 tmux session 存在，打开 `runtime: terminal` slot 时会启动外部终端进程。`--project-dir` 不会 attach workspace：终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。
 
 ### `status`
 
 ```bash
-cc-branch status [--write-state] [--bootstrap-if-missing] [--json]
+cc-branch status [--write-state] [--json]
 ```
 
 常见输出包括：
@@ -284,13 +315,13 @@ cc-branch restart dev:planner --detach
 ### `dashboard`
 
 ```bash
-cc-branch dashboard [--prepare] [--bootstrap-if-missing]
+cc-branch dashboard [--prepare]
 ```
 
 ### `doctor`
 
 ```bash
-cc-branch doctor [--write-state] [--bootstrap-if-missing] [--fix]
+cc-branch doctor [--write-state] [--fix]
 ```
 
 常见检查包括：
@@ -309,6 +340,14 @@ cc-branch doctor [--write-state] [--bootstrap-if-missing] [--fix]
 - 创建缺失目录
 - 为支持 `generated_uuid` 的窗口补写缺失的 `session_id`
 - 补充 `.gitignore`
+
+### `sync`
+
+```bash
+cc-branch sync [slot[:window]] [--dry-run] [--yes] [--stop-removed]
+```
+
+修改 `.cc-branch.yaml` 后，已经运行的 tmux window 不会自动换命令。`sync --dry-run` 会列出需要重启的 tmux target；确认后用 `sync --yes` 应用。
 
 ## 会话管理
 
@@ -366,11 +405,20 @@ cc-branch serve --host 0.0.0.0 --token "$CC_BRANCH_WEB_TOKEN"
 - 查看诊断结果
 - 查看可用模板
 - 初始化工作空间
-- 在本机系统终端打开 workspace dashboard 或某个 slot
-- 在 VS Code、Cursor 等编辑器中打开项目目录
-- 后台启动、重启、停止工作空间或 slot
+- 用同一个工具选择器打开工作空间或项目目录
+- 后台启动、重启、停止 tmux 工作空间或 slot
 
-Web UI 中的“在终端打开工作空间”会调用本机后端打开系统终端并运行 `cc-branch dashboard`。Open With 下拉可以选择可用 opener；VS Code 和 Cursor 这类编辑器 opener 只打开项目目录，不会自动 attach tmux。如果只想创建 tmux 会话但不弹出终端窗口，使用“后台启动”。
+Web UI 中有一个工具选择器和两个主要动作：
+
+- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入 Launch Configuration 并打开一个布局；VS Code、Cursor 会打开一个临时 `.code-workspace`。在 VS Code/Cursor 中，每个 tmux slot 只会生成一个 attach task，不会把 slot 内部的每个 tmux window 都展开成独立终端；`runtime: terminal` slot 才会生成对应的可见 shell task。
+- “打开项目目录”使用同一个所选工具，但只有工具支持 `open_project` 时才可点击。它不会启动或 attach workspace；终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。
+- Slot 或 window 旁边的“打开终端”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 terminal-runtime 命令；VS Code、Cursor 会打开一个只包含该 target 的 `.code-workspace` task，不会隐式回退到默认终端。
+
+`runtime: tmux` 是可复用的；即使之前已经在另一个 Terminal、Warp 或 iTerm2 窗口打开过，再次打开也会 attach 到同一组 tmux session。`runtime: terminal` 是外部进程，不能被复用或停止；再次打开会启动新的终端进程，需要用户手动关闭窗口。
+
+VS Code 和 Cursor 的 workspace 打开方式依赖编辑器 task 的 `runOn: folderOpen`。如果编辑器提示是否信任工作区或是否允许运行自动 task，需要用户确认一次。
+
+Warp 通过 Launch Configuration 执行命令；当 opener 支持 layout 时，CC Branch 会把 workspace 展开成 window 级 attach 命令和 terminal command，放进一个 Warp 布局。如果只想创建 tmux 会话但不弹出终端窗口，使用“后台启动”；如果想打开可见工作空间，使用“打开工作空间”或 `cc-branch open`。
 
 ### 额外说明
 

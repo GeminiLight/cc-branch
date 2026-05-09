@@ -30,6 +30,8 @@ def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> W
     merged = WorkspaceState(version=state.version)
     for key, entry in state.windows.items():
         merged.windows[key] = entry
+    for key, entry in state.slots.items():
+        merged.slots[key] = entry
     for key, update in plan_state_updates.items():
         existing = merged.windows.get(key)
         if existing:
@@ -39,6 +41,11 @@ def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> W
                 agent=update.get("agent", existing.agent),
                 slot=update.get("slot", existing.slot),
                 window=update.get("window", existing.window),
+                launch_fingerprint=existing.launch_fingerprint,
+                launch_spec_version=existing.launch_spec_version,
+                applied_at=existing.applied_at,
+                managed_runtime=existing.managed_runtime,
+                tmux_session=existing.tmux_session,
             )
         else:
             merged.windows[key] = WindowState(

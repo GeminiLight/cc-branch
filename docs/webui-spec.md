@@ -56,6 +56,7 @@ This is important for desktop wrappers or multi-project frontends.
 | `GET` | `/api/doctor` | Return doctor report, or setup guidance when config is missing |
 | `GET` | `/api/profiles` | Return available starter profiles |
 | `GET` | `/api/openers` | Return detected local applications that can open the workspace |
+| `GET` | `/api/agents` | Return effective agent profiles from built-in, user, workspace, and project layers |
 | `GET` | `/api/info` | Return backend info |
 | `GET` | `/api/project/probe` | Probe whether a project path is missing, needs init, invalid, or ready |
 
@@ -75,6 +76,7 @@ These APIs can be scoped by `project_path`:
 - `/api/config?project_path=/abs/path`
 - `/api/doctor?project_path=/abs/path`
 - `/api/openers?project_path=/abs/path`
+- `/api/agents?project_path=/abs/path`
 - `/api/init?project_path=/abs/path`
 - `/api/config?project_path=/abs/path`
 - `/api/action?project_path=/abs/path`
@@ -127,7 +129,7 @@ Supported actions:
 
 ```json
 {
-  "action": "open | launch | restart | stop",
+  "action": "open | launch | restart | stop | sync",
   "target": "project-slot-name",
   "opener": "auto-terminal",
   "intent": "workspace_dashboard | attach_target | project_folder"
@@ -140,11 +142,27 @@ Action semantics:
 
 - `open` opens through a local opener. Without `opener`, it uses `auto-terminal`. Without `intent`, workspace opens infer `workspace_dashboard` and target opens infer `attach_target`.
 - `workspace_dashboard` runs `cc-branch dashboard` in a command-capable terminal opener.
-- `attach_target` ensures the slot exists and runs `cc-branch attach <target>` in a command-capable terminal opener.
-- `project_folder` opens the project directory in an editor opener such as VS Code or Cursor and does not attach tmux.
+- `attach_target` ensures the slot exists and opens the target through the selected opener. Terminal openers run `cc-branch attach <target>` or the terminal-runtime command. VS Code and Cursor use a generated `.code-workspace` containing a single target task.
+- `project_folder` opens the project directory without attaching tmux. Terminal openers open an interactive shell in that directory; editor openers such as VS Code and Cursor open the folder.
 - `launch` starts tmux sessions in the background and does not open a visible terminal window.
 - `restart` recreates the workspace or target in the background.
 - `stop` stops the workspace or target.
+- `sync` restarts changed, missing, or untracked tmux windows so the running workspace matches the saved config.
+
+GUI semantics:
+
+- The GUI has one tool selector and two primary buttons: "Open workspace" and "Open project directory".
+- "Open workspace" adapts to the selected tool. Terminal openers run dashboard or attach commands. Warp uses Launch Configurations and can open one arranged layout. VS Code and Cursor open a generated `.code-workspace` file. For tmux slots, the workspace file contains one attach task per slot, not one task per tmux window; terminal-runtime slots are represented by their visible shell commands.
+- "Open project directory" uses the same selected tool. Terminal tools open a shell in the project directory; editor tools open the folder. The button is enabled only when that tool supports `open_project`.
+- Slot-level "Open terminal" buttons use the same selected tool as the workspace and project actions. Terminal openers run commands directly; VS Code and Cursor open a generated `.code-workspace` task for that target.
+
+Runtime behavior:
+
+- `runtime: tmux` is reusable. Opening the same workspace from Terminal, Warp, iTerm2, or another supported terminal attaches to the existing tmux sessions.
+- `runtime: terminal` is external and not reusable. Opening it starts a new visible process; stopping it means closing that terminal window manually.
+- If a workspace has only `runtime: terminal` slots, `open` uses the selected terminal opener to run those commands directly instead of opening a tmux dashboard.
+- Warp supports command execution through Launch Configurations. For pure terminal-runtime workspaces, CC Branch writes one temporary launch configuration so Warp can open a single arranged layout instead of many unrelated windows.
+- VS Code and Cursor workspace opens rely on editor tasks with `runOn: folderOpen`; the editor may ask the user to trust or allow automatic tasks before running them.
 
 ### `GET /api/openers`
 
@@ -159,7 +177,7 @@ Returns local opener metadata:
       "label": "System Terminal",
       "kind": "terminal",
       "available": true,
-      "capabilities": ["run_command", "dashboard", "attach_target"],
+      "capabilities": ["run_command", "dashboard", "attach_target", "open_project"],
       "source": "builtin"
     },
     {
@@ -167,9 +185,40 @@ Returns local opener metadata:
       "label": "VS Code",
       "kind": "editor",
       "available": true,
-      "capabilities": ["open_project"],
+      "capabilities": ["open_project", "workspace_file"],
       "source": "builtin",
       "executable": "/usr/local/bin/code"
+    },
+    {
+      "id": "warp",
+      "label": "Warp",
+      "kind": "terminal",
+      "available": true,
+      "capabilities": ["run_command", "dashboard", "attach_target", "open_project", "layout"],
+      "source": "builtin",
+      "executable": "/Applications/Warp.app"
+    }
+  ]
+}
+```
+
+### `GET /api/agents`
+
+Returns effective agent profiles for the selected project. These profiles are available to the Config Editor agent dropdown without expanding built-in defaults into `.cc-branch.yaml`.
+
+```json
+{
+  "agents": [
+    {
+      "id": "codex",
+      "command": "codex",
+      "resume_mode": "flag",
+      "resume_template": "resume {session_id}",
+      "create_mode": "none",
+      "create_template": "",
+      "label_template": "{project}/{slot}/{window}",
+      "label_mode": "metadata",
+      "rename_template": ""
     }
   ]
 }
@@ -186,16 +235,18 @@ Unavailable openers are still returned with `available: false` and a `reason` so
 - the CLI and backend support bearer-token/cookie enforcement for the Web UI and all APIs
 - non-loopback binds require `--token` or `CC_BRANCH_WEB_TOKEN`
 - API callers may reference only registered opener IDs; they cannot submit arbitrary commands through `/api/action`
-- editor openers such as VS Code and Cursor are limited to `project_folder` unless a future adapter explicitly supports command execution
+- editor openers such as VS Code and Cursor cannot receive arbitrary browser-provided shell commands; workspace opens use generated `.code-workspace` tasks derived from the resolved workspace plan, and project opens pass only the project directory
+- terminal openers run only commands produced from the resolved workspace plan; the browser cannot provide arbitrary shell text
 
 ## 7. Data model alignment
 
 The Web UI uses the same typed core as the CLI:
 
-- config loaded through `load_workspace()`
-- state loaded through `load_state()`
-- plans resolved through `plan_workspace()`
-- doctor rendered through `build_doctor_report()`
+- config editing, save conflict checks, initialization, and project probing go
+  through `application.config_workflows`
+- status payloads go through `application.workspace_status`
+- doctor payloads go through `application.diagnostics`
+- action POSTs go through `application.workspace_actions.execute_workspace_action`
 
 That means the browser view and terminal view are backed by the same canonical pipeline.
 

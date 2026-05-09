@@ -7,6 +7,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+import cc_branch
 from cc_branch.cli import build_parser, main, print_command_help, print_help
 
 
@@ -38,10 +39,34 @@ class CLITests(unittest.TestCase):
 
             slots:
               - name: "dev"
-                backend: "tmux"
+                runtime: "tmux"
                 windows:
                   - name: "planner"
                     agent: "claude"
+            """,
+        )
+
+    def _write_mixed_runtime_workspace(self, root: Path) -> None:
+        self._write(
+            root / ".cc-branch.yaml",
+            """
+            version: 1
+            project: "demo"
+            root: "."
+
+            slots:
+              - name: "dev"
+                runtime: "tmux"
+                windows:
+                  - name: "planner"
+                    command: "echo planner"
+                  - name: "coder"
+                    command: "echo coder"
+              - name: "scratch"
+                runtime: "terminal"
+                windows:
+                  - name: "shell"
+                    command: "zsh"
             """,
         )
 
@@ -50,6 +75,9 @@ class CLITests(unittest.TestCase):
             exit_code = main([])
             self.assertEqual(exit_code, 0)
             mock_console.print.assert_called()
+
+    def test_package_exposes_release_version(self):
+        self.assertEqual(cc_branch.__version__, "0.1.0")
 
     def test_main_with_help_flag_shows_help(self):
         with patch("cc_branch.cli.console") as mock_console:
@@ -63,10 +91,31 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             mock_console.print.assert_called()
 
-    def test_print_help_displays_all_commands(self):
-        with patch("cc_branch.cli.console") as mock_console:
-            print_help()
-            self.assertGreater(mock_console.print.call_count, 0)
+    def test_parser_exposes_release_ready_command_surface(self):
+        parser = build_parser()
+        commands = parser._subparsers._group_actions[0].choices
+
+        self.assertEqual(
+            list(commands),
+            [
+                "serve",
+                "init",
+                "start",
+                "open",
+                "status",
+                "plan",
+                "attach",
+                "stop",
+                "restart",
+                "sync",
+                "doctor",
+                "dashboard",
+                "session",
+                "help",
+            ],
+        )
+        for removed in ["sessions", "workspace", "target", "config", "ui", "state", "apply"]:
+            self.assertNotIn(removed, commands)
 
     def test_print_help_uses_current_short_alias(self):
         with patch("cc_branch.cli.console") as mock_console:
@@ -93,7 +142,7 @@ class CLITests(unittest.TestCase):
                 exit_code = main(["init"])
                 self.assertEqual(exit_code, 0)
                 self.assertTrue((root / ".cc-branch.yaml").exists())
-                self.assertTrue((root / ".cc-branch.state.toml").exists())
+                self.assertTrue((root / ".cc-branch.state.yaml").exists())
 
     def test_init_command_with_force_flag(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -116,6 +165,7 @@ class CLITests(unittest.TestCase):
 
             self.assertEqual(exit_code, 1)
             self.assertIn("No workspace config found", stdout.getvalue())
+            self.assertIn("cc-branch serve", stdout.getvalue())
             self.assertIn("cc-branch init", stdout.getvalue())
 
     def test_debug_mode_preserves_traceback_for_unexpected_diagnosis(self):
@@ -125,18 +175,18 @@ class CLITests(unittest.TestCase):
                 with self.assertRaises(FileNotFoundError):
                     main(["--debug", "plan"])
 
-    def test_plan_bootstrap_if_missing_persists_generated_state(self):
+    def test_plan_write_state_persists_generated_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root)
 
             with patch("cc_branch.cli.Path.cwd", return_value=root):
-                exit_code = main(["plan", "--bootstrap-if-missing"])
+                exit_code = main(["plan", "--write-state"])
 
             self.assertEqual(exit_code, 0)
-            state = (root / ".cc-branch.state.toml").read_text(encoding="utf-8")
+            state = (root / ".cc-branch.state.yaml").read_text(encoding="utf-8")
             self.assertIn('dev.planner', state)
-            self.assertIn('session_id = "', state)
+            self.assertIn('session_id:', state)
 
     def test_status_uses_runtime_status_formatting(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -146,88 +196,175 @@ class CLITests(unittest.TestCase):
             stdout = StringIO()
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.runtime.tmux_has_session", return_value=False),
-                patch("cc_branch.runtime.tmux_has_window", return_value=False),
+                patch("cc_branch.runtime.execution.tmux_has_session", return_value=False),
+                patch("cc_branch.runtime.execution.tmux_has_window", return_value=False),
                 redirect_stdout(stdout),
             ):
-                exit_code = main(["status", "--bootstrap-if-missing"])
+                exit_code = main(["status", "--write-state"])
 
             self.assertEqual(exit_code, 0)
             rendered = stdout.getvalue()
             self.assertIn("workspace demo @", rendered)
             self.assertIn("status=stopped", rendered)
 
-    def test_attach_routes_through_runtime_attach_slot(self):
+    def test_attach_routes_through_application_attach_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root)
+            from cc_branch.application.results import ActionResult
 
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.attach_slot") as attach_slot_mock,
+                patch(
+                    "cc_branch.cli.attach_workspace_action",
+                    return_value=ActionResult(ok=True, code="attach_applied", message="Attached dev"),
+                ) as attach_workspace,
             ):
                 exit_code = main(["attach", "dev"])
 
             self.assertEqual(exit_code, 0)
-            plan = attach_slot_mock.call_args.args[0]
+            workspace, plan, state, state_path = attach_workspace.call_args.args
+            self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
-            self.assertEqual(attach_slot_mock.call_args.args[1], "dev")
+            self.assertEqual(state.version, 1)
+            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(attach_workspace.call_args.kwargs["target"], "dev")
 
-    def test_stop_routes_through_runtime_stop_workspace(self):
+    def test_stop_routes_through_application_stop_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root)
+            from cc_branch.application.results import ActionResult
 
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.stop_workspace") as stop_workspace_mock,
+                patch(
+                    "cc_branch.cli.stop_workspace_action",
+                    return_value=ActionResult(ok=True, code="stop_applied", message="Stopped dev"),
+                ) as stop_workspace_mock,
             ):
                 exit_code = main(["stop", "dev"])
 
             self.assertEqual(exit_code, 0)
-            workspace, plan, target = stop_workspace_mock.call_args.args
+            workspace, plan, state, state_path = stop_workspace_mock.call_args.args
             self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
-            self.assertEqual(target, "dev")
+            self.assertEqual(state.version, 1)
+            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(stop_workspace_mock.call_args.kwargs["target"], "dev")
 
-    def test_start_routes_through_runtime_apply_workspace(self):
+    def test_start_detach_routes_through_application_launch_workspace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            from cc_branch.application.results import ActionResult
+
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch(
+                    "cc_branch.cli.launch_workspace_action",
+                    return_value=ActionResult(ok=True, code="launch_applied", message="Launched workspace"),
+                ) as launch_workspace,
+            ):
+                exit_code = main(["start", "--detach", "--prepare"])
+
+            self.assertEqual(exit_code, 0)
+            workspace, plan, state, state_path = launch_workspace.call_args.args
+            self.assertEqual(workspace.project, "demo")
+            self.assertEqual(plan.slots[0].name, "dev")
+            self.assertEqual(state.version, 1)
+            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+
+    def test_removed_aliases_are_not_registered_as_commands(self):
+        parser = build_parser()
+
+        for command in ["up", "apply", "sessions", "workspace", "target", "config", "ui", "state"]:
+            with self.subTest(command=command):
+                with redirect_stderr(StringIO()):
+                    with self.assertRaises(SystemExit):
+                        parser.parse_args([command])
+
+    def test_start_detach_does_not_open_terminal_runtime_slots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_mixed_runtime_workspace(root)
+
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.runtime.get_backend") as get_backend,
+                patch("cc_branch.runtime.execution.open_command") as open_command,
+            ):
+                backend = get_backend.return_value
+                backend.available.return_value = True
+                backend.has_session.return_value = False
+                backend.create_session.return_value = None
+                backend.create_window.return_value = None
+                backend.send_keys.return_value = None
+                exit_code = main(["start", "--detach"])
+
+            self.assertEqual(exit_code, 0)
+            open_command.assert_not_called()
+
+    def test_open_workspace_with_vscode_uses_one_task_per_tmux_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_mixed_runtime_workspace(root)
+
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_actions.ensure_slot", return_value=[]),
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, capability, custom=None: capability == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="VS Code"),
+            ):
+                exit_code = main(["open", "--opener", "vscode"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+            specs = open_workspace_file.call_args.kwargs["commands"]
+            self.assertEqual(
+                [(spec.title, spec.command) for spec in specs],
+                [
+                    ("dev", "cc-branch attach dev"),
+                    ("scratch:shell", "zsh"),
+                ],
+            )
+
+    def test_open_project_dir_uses_selected_opener(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root)
 
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.apply_workspace") as apply_workspace_mock,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Cursor"),
             ):
-                exit_code = main(["start", "--detach", "--bootstrap-if-missing"])
+                exit_code = main(["open", "--project-dir", "--opener", "cursor"])
 
             self.assertEqual(exit_code, 0)
-            plan = apply_workspace_mock.call_args.args[0]
-            self.assertEqual(plan.slots[0].name, "dev")
-            self.assertTrue(apply_workspace_mock.call_args.kwargs["detach"])
-
-    def test_up_is_not_registered_as_a_command(self):
-        parser = build_parser()
-
-        with redirect_stderr(StringIO()):
-            with self.assertRaises(SystemExit):
-                parser.parse_args(["up"])
+            self.assertEqual(open_with.call_args.kwargs["opener_id"], "cursor")
+            self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
 
     def test_start_does_not_open_dashboard_implicitly_when_enabled(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root, dashboard=True)
+            from cc_branch.application.results import ActionResult
 
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.open_dashboard") as open_dashboard_mock,
-                patch("cc_branch.cli.apply_workspace") as apply_workspace_mock,
+                patch(
+                    "cc_branch.cli.start_workspace_action",
+                    return_value=ActionResult(ok=True, code="start_applied", message="Started workspace"),
+                ) as start_workspace,
+                patch("cc_branch.cli.open_dashboard_workspace_action") as open_dashboard_workspace,
             ):
                 exit_code = main(["start"])
 
             self.assertEqual(exit_code, 0)
-            open_dashboard_mock.assert_not_called()
-            apply_workspace_mock.assert_called_once()
+            open_dashboard_workspace.assert_not_called()
+            start_workspace.assert_called_once()
 
     def test_start_dashboard_flag_opens_dashboard(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -236,31 +373,69 @@ class CLITests(unittest.TestCase):
 
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.open_dashboard") as open_dashboard_mock,
-                patch("cc_branch.cli.apply_workspace") as apply_workspace_mock,
+                patch("cc_branch.application.workspace_actions.ensure_slot", return_value=[]),
+                patch("cc_branch.application.workspace_actions.open_dashboard") as open_dashboard_mock,
+                patch("cc_branch.cli.start_workspace_action") as start_workspace_mock,
             ):
                 exit_code = main(["start", "--dashboard"])
 
             self.assertEqual(exit_code, 0)
             open_dashboard_mock.assert_called_once()
-            apply_workspace_mock.assert_not_called()
+            start_workspace_mock.assert_not_called()
 
-    def test_restart_routes_through_runtime_restart_workspace(self):
+    def test_start_dashboard_persists_created_tmux_slot_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root)
 
+            from cc_branch.models import AppliedWindowResult
+
+            results = [
+                AppliedWindowResult(
+                    slot="dev",
+                    window="planner",
+                    key="dev.planner",
+                    runtime="tmux",
+                    tmux_session="demo-dev",
+                    action="created",
+                )
+            ]
+
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.restart_workspace") as restart_workspace_mock,
+                patch("cc_branch.application.workspace_actions.ensure_slot", return_value=results),
+                patch("cc_branch.application.workspace_actions.open_dashboard"),
             ):
-                exit_code = main(["restart", "dev", "--detach", "--bootstrap-if-missing"])
+                exit_code = main(["start", "--dashboard", "--prepare"])
 
             self.assertEqual(exit_code, 0)
-            workspace, plan, target = restart_workspace_mock.call_args.args[:3]
+            state = (root / ".cc-branch.state.yaml").read_text(encoding="utf-8")
+            self.assertIn("launch_fingerprint", state)
+            self.assertIn("slots:", state)
+            self.assertIn("dev:", state)
+
+    def test_restart_routes_through_application_restart_workspace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            from cc_branch.application.results import ActionResult
+
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch(
+                    "cc_branch.cli.restart_workspace_action",
+                    return_value=ActionResult(ok=True, code="restart_applied", message="Restarted dev"),
+                ) as restart_workspace_mock,
+            ):
+                exit_code = main(["restart", "dev", "--detach", "--prepare"])
+
+            self.assertEqual(exit_code, 0)
+            workspace, plan, state, state_path = restart_workspace_mock.call_args.args
             self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
-            self.assertEqual(target, "dev")
+            self.assertEqual(state.version, 1)
+            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(restart_workspace_mock.call_args.kwargs["target"], "dev")
             self.assertTrue(restart_workspace_mock.call_args.kwargs["detach"])
 
     def test_attach_requires_target(self):
@@ -289,6 +464,7 @@ class CLITests(unittest.TestCase):
             "attach",
             "stop",
             "restart",
+            "sync",
             "doctor",
             "dashboard",
             "serve",
@@ -307,7 +483,6 @@ class CLITests(unittest.TestCase):
         rendered = stdout.getvalue()
         self.assertIn("--minimal", rendered)
         self.assertIn("--profile", rendered)
-        self.assertIn("bootstrapped automatically", rendered)
 
     def test_attach_help_documents_window_targets(self):
         stdout = StringIO()
@@ -340,7 +515,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             start_server.assert_called_once_with(
                 root / ".cc-branch.yaml",
-                root / ".cc-branch.state.toml",
+                root / ".cc-branch.state.yaml",
                 host="127.0.0.1",
                 port=9999,
                 token=None,
@@ -354,8 +529,8 @@ class CLITests(unittest.TestCase):
             project.mkdir()
             elsewhere.mkdir()
             self._write_workspace(project)
-            state_path = project / "custom-state.toml"
-            state_path.write_text("version = 1\n", encoding="utf-8")
+            state_path = project / "custom-state.yaml"
+            state_path.write_text("version: 1\n", encoding="utf-8")
 
             stdout = StringIO()
             with (
@@ -416,8 +591,9 @@ class CLITests(unittest.TestCase):
             stdout = StringIO()
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.runtime.tmux_has_session", return_value=False),
-                patch("cc_branch.runtime.tmux_has_window", return_value=False),
+                patch("cc_branch.application.workspace_status._default_session_exists", return_value=False),
+                patch("cc_branch.application.workspace_status._default_window_exists", return_value=False),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=False),
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--format", "json", "status"])
@@ -427,6 +603,41 @@ class CLITests(unittest.TestCase):
             self.assertEqual(data["project"], "demo")
             self.assertEqual(data["slots"][0]["status"], "stopped")
 
+    def test_doctor_format_json_returns_structured_report_and_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch.yaml",
+                """
+                version: 1
+                project: "demo"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "tmux"
+                    windows:
+                      - name: "planner"
+                        agent: "missing-agent"
+                """,
+            )
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--format", "json", "doctor"])
+
+            self.assertEqual(exit_code, 0)
+            data = json.loads(stdout.getvalue())
+            self.assertIsInstance(data["report"], dict)
+            self.assertIn("issues", data["report"])
+            self.assertIn("text", data)
+            self.assertTrue(
+                any(issue["issue_type"] == "unknown_agent" for issue in data["report"]["issues"])
+            )
+
     def test_session_alias_accepts_colon_target_for_inspect(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -435,7 +646,7 @@ class CLITests(unittest.TestCase):
             stdout = StringIO()
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.sessions.tmux_has_session", return_value=False),
+                patch("cc_branch.runtime.sessions.tmux_has_session", return_value=False),
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["session", "inspect", "dev:planner"])
@@ -444,7 +655,7 @@ class CLITests(unittest.TestCase):
             self.assertIn("Session:", stdout.getvalue())
             self.assertIn("dev.planner", stdout.getvalue())
 
-    def test_sessions_compat_accepts_colon_target_for_command(self):
+    def test_session_command_accepts_colon_target(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_workspace(root)
@@ -454,77 +665,10 @@ class CLITests(unittest.TestCase):
                 patch("cc_branch.cli.Path.cwd", return_value=root),
                 redirect_stdout(stdout),
             ):
-                exit_code = main(["sessions", "command", "dev:planner"])
+                exit_code = main(["session", "command", "dev:planner"])
 
             self.assertEqual(exit_code, 0)
             self.assertIn("Launch command", stdout.getvalue())
-
-    def test_grouped_workspace_plan_alias(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self._write_workspace(root)
-
-            stdout = StringIO()
-            with (
-                patch("cc_branch.cli.Path.cwd", return_value=root),
-                redirect_stdout(stdout),
-            ):
-                exit_code = main(["workspace", "plan"])
-
-            self.assertEqual(exit_code, 0)
-            self.assertIn("workspace demo plan", stdout.getvalue())
-
-    def test_grouped_workspace_start_alias(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self._write_workspace(root)
-
-            with (
-                patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.apply_workspace") as apply_workspace_mock,
-            ):
-                exit_code = main(["workspace", "start", "--detach"])
-
-            self.assertEqual(exit_code, 0)
-            self.assertEqual(apply_workspace_mock.call_args.args[0].slots[0].name, "dev")
-            self.assertTrue(apply_workspace_mock.call_args.kwargs["detach"])
-
-    def test_grouped_target_attach_alias(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self._write_workspace(root)
-
-            with (
-                patch("cc_branch.cli.Path.cwd", return_value=root),
-                patch("cc_branch.cli.attach_slot") as attach_slot_mock,
-            ):
-                exit_code = main(["target", "attach", "dev:planner"])
-
-            self.assertEqual(exit_code, 0)
-            self.assertEqual(attach_slot_mock.call_args.args[1], "dev:planner")
-
-    def test_state_bootstrap_writes_missing_state(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self._write_workspace(root)
-
-            with patch("cc_branch.cli.Path.cwd", return_value=root):
-                exit_code = main(["state", "bootstrap"])
-
-            self.assertEqual(exit_code, 0)
-            state = (root / ".cc-branch.state.toml").read_text(encoding="utf-8")
-            self.assertIn("dev.planner", state)
-
-    def test_state_bootstrap_dry_run_does_not_write_state(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            self._write_workspace(root)
-
-            with patch("cc_branch.cli.Path.cwd", return_value=root):
-                exit_code = main(["state", "bootstrap", "--dry-run"])
-
-            self.assertEqual(exit_code, 0)
-            self.assertFalse((root / ".cc-branch.state.toml").exists())
 
     def test_help_targets_explains_public_target_syntax(self):
         stdout = StringIO()
@@ -535,6 +679,162 @@ class CLITests(unittest.TestCase):
         rendered = stdout.getvalue()
         self.assertIn("dev:planner", rendered)
         self.assertIn("legacy compatibility", rendered)
+
+    def test_sync_dry_run_lists_restart_and_extra_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            self._write(
+                root / ".cc-branch.state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "11111111-1111-1111-1111-111111111111"
+                    label: "demo/dev/planner"
+                    agent: "claude"
+                    slot: "dev"
+                    window: "planner"
+                    launch_fingerprint: "sha256:old"
+                """,
+            )
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"planner", "extra"}),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["sync", "--dry-run", "--stop-removed"])
+
+            self.assertEqual(exit_code, 0)
+            rendered = stdout.getvalue()
+            self.assertIn("restart dev:planner", rendered)
+            self.assertIn("stop extra demo-dev:extra", rendered)
+
+    def test_sync_yes_restarts_changed_and_stops_extra(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            self._write(
+                root / ".cc-branch.state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "11111111-1111-1111-1111-111111111111"
+                    label: "demo/dev/planner"
+                    agent: "claude"
+                    slot: "dev"
+                    window: "planner"
+                    launch_fingerprint: "sha256:old"
+                """,
+            )
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"planner", "extra"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]) as restart_workspace,
+                patch("cc_branch.application.workspace_actions.stop_extra_windows", return_value=["demo-dev:extra"]) as stop_extra_windows,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["sync", "--yes", "--stop-removed"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(restart_workspace.call_args.args[2], "dev:planner")
+            self.assertTrue(restart_workspace.call_args.kwargs["detach"])
+            self.assertEqual(stop_extra_windows.call_args.args[1], None)
+            self.assertIn("stopped 1 extra window", stdout.getvalue())
+
+    def test_sync_yes_restarts_untracked_running_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            self._write(
+                root / ".cc-branch.state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "11111111-1111-1111-1111-111111111111"
+                    label: "demo/dev/planner"
+                    agent: "claude"
+                    slot: "dev"
+                    window: "planner"
+                """,
+            )
+
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"planner"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]) as restart_workspace,
+            ):
+                exit_code = main(["sync", "--yes"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(restart_workspace.call_args.args[2], "dev:planner")
+
+    def test_sync_rechecks_state_to_avoid_restarting_newly_created_missing_windows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch.yaml",
+                """
+                version: 1
+                project: "demo"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "tmux"
+                    windows:
+                      - name: "planner"
+                        command: "echo planner"
+                      - name: "review"
+                        command: "echo review"
+                """,
+            )
+            self._write(root / ".cc-branch.state.yaml", "version: 1")
+
+            from cc_branch.models import AppliedWindowResult
+
+            restart_results = [
+                AppliedWindowResult(
+                    slot="dev",
+                    window="planner",
+                    key="dev.planner",
+                    runtime="tmux",
+                    tmux_session="demo-dev",
+                    action="recreated",
+                ),
+                AppliedWindowResult(
+                    slot="dev",
+                    window="review",
+                    key="dev.review",
+                    runtime="tmux",
+                    tmux_session="demo-dev",
+                    action="recreated",
+                ),
+            ]
+
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.runtime.sync._tmux_has_session", side_effect=[False, False, True]),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"planner", "review"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=restart_results) as restart_workspace,
+                patch("cc_branch.application.workspace_actions.stop_extra_windows"),
+            ):
+                exit_code = main(["sync", "--yes"])
+
+            self.assertEqual(exit_code, 0)
+            restart_workspace.assert_called_once()
+            state = (root / ".cc-branch.state.yaml").read_text(encoding="utf-8")
+            self.assertIn("launch_fingerprint", state)
+            self.assertIn('window: review', state)
 
 
 class CLIHelpFormattingTests(unittest.TestCase):

@@ -6,16 +6,19 @@ Thanks for contributing to cc-branch.
 
 The current project is no longer just a small dict-based CLI. The main implementation surface now includes:
 
-- `cc_branch/cli.py` — CLI entrypoint and command routing
-- `cc_branch/models.py` — typed config / plan / state / doctor models
+- `cc_branch/cli/` — CLI parser, help rendering, and command dispatch facade
+- `cc_branch/application/` — shared workflow use cases for CLI, Web UI, and Python callers
+- `cc_branch/models/` — typed config / plan / state / doctor models
+- `cc_branch/config/` — workspace config path resolution, loading, normalization, and initialization
 - `cc_branch/context.py` — shared config → state → plan loading pipeline
-- `cc_branch/planner.py` — typed plan resolution
-- `cc_branch/adapters.py` — agent-specific create/resume behavior
-- `cc_branch/runtime.py` — tmux runtime operations
-- `cc_branch/state.py` + `cc_branch/repository.py` — typed state loading and atomic persistence
-- `cc_branch/sessions.py` — session lifecycle operations
-- `cc_branch/doctor.py` — diagnostics and safe auto-fix
-- `cc_branch/webui/server.py` — Web UI backend and packaged asset host
+- `cc_branch/planner/` — typed plan resolution
+- `cc_branch/adapters/` — agent-specific create/resume behavior
+- `cc_branch/agent_registry/` — layered built-in, user, workspace, and project agent definitions
+- `cc_branch/runtime/` — runtime capabilities, managed backends, execution, sync, shell helpers, and session lifecycle
+- `cc_branch/state.py` + `cc_branch/repository/` — typed state loading and atomic persistence
+- `cc_branch/bootstrap/` + `cc_branch/profiles/` — first-run setup and starter workspace profiles
+- `cc_branch/doctor/` — diagnostics and safe auto-fix
+- `cc_branch/webui/server/` — Web UI backend and packaged asset host
 
 If you change user-visible behavior, update docs in the same PR.
 
@@ -81,18 +84,19 @@ python3 -m unittest tests.test_webui
 
 ```text
 cc_branch/
-  cli.py
-  models.py
+  cli/
+  models/
+  config/
   context.py
-  planner.py
-  adapters.py
-  runtime.py
+  planner/
+  adapters/
+  agent_registry/
+  runtime/
   state.py
-  repository.py
-  sessions.py
-  doctor.py
-  bootstrap.py
-  profiles.py
+  repository/
+  doctor/
+  bootstrap/
+  profiles/
   webui/
 
 docs/
@@ -111,20 +115,44 @@ Agent definitions live in `cc_branch/agents.yaml`. To add a built-in agent:
    - `resume_mode` — `flag`, `internal`, or `none`
    - `resume_template` — template string using `{session_id}` etc.
 
-2. If the agent should appear in profile templates, update `PROFILES` in `cc_branch/profiles.py` (add the agent name to `preferred_agents` lists).
+2. If the agent should appear in profile templates, update `PROFILES` in `cc_branch/profiles/definitions.py` (add the agent name to `preferred_agents` lists).
 
 3. Run tests to make sure `doctor`, `init`, and `plan` still work.
 
-For user-local agents (no source change needed), see `README.md` → "Adding custom agents".
+For user-local agents, add or override entries in `~/.cc-branch/agents.yaml` or `.cc-branch.agents.yaml`. Overrides are field-level merges, so changing `command` does not require copying the built-in `resume_template`.
 
 ## Contribution guidelines
 
 - Prefer typed models over ad-hoc dicts in core logic
+- Put new user-facing workflow behavior in `cc_branch/application/`
+- Keep `cli/` focused on argparse, exit-code mapping, and terminal rendering
+- Keep `webui/server/` focused on HTTP routing, auth, JSON serialization, and static assets
 - Keep planner and runtime behavior covered by tests
 - Add tests for new user-visible CLI or Web UI behavior
 - Keep comments concise and useful
 - Preserve cross-platform assumptions: macOS, Linux, Windows-with-tmux environment
 - Be explicit about shipped vs proposed behavior in docs
+
+## Workflow Boundaries
+
+Use this rule of thumb when deciding where code belongs:
+
+- `cc_branch/application/workspace_actions/`: start, launch, restart, stop,
+  open, attach, dashboard, sync, and applied runtime-state persistence.
+- `cc_branch/application/workspace_status.py`: status payload construction,
+  including missing, needs-init, ready, and invalid-config states.
+- `cc_branch/application/config_workflows/`: config read/save/probe/init,
+  profile/opener/agent metadata, conflict detection, and validation-before-write.
+- `cc_branch/application/config_validation/`: raw config structural validation
+  before normalization or planning.
+- `cc_branch/application/diagnostics.py`: structured doctor reports and text
+  rendering.
+- `cc_branch/cli/`: parse args, call application use cases, render output.
+- `cc_branch/webui/server/`: map HTTP requests/responses to application
+  payloads.
+
+If a behavior must be identical in CLI and Web UI, it should not live in either
+presentation file.
 
 ## Documentation expectations
 

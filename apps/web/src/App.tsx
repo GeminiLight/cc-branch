@@ -102,9 +102,9 @@ function AppInner() {
   });
 
   return (
-    <div className="min-h-[100dvh] surface-page flex text-[13px] leading-relaxed">
+    <div className="h-[100dvh] surface-page flex overflow-hidden text-[14px] leading-relaxed">
       {/* Desktop sidebar */}
-      <div className="hidden md:block">
+      <div className="hidden md:block relative z-30">
         <Sidebar
           api={client}
           projects={projects}
@@ -125,28 +125,30 @@ function AppInner() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-12 border-b border-default surface-card flex items-center justify-between px-5 shrink-0">
+        <header className="h-[var(--chrome-height)] min-h-[var(--chrome-height)] border-b border-default chrome-surface flex items-center justify-between px-5 shrink-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
             {/* Mobile hamburger */}
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden h-7 w-7 rounded-md flex items-center justify-center text-secondary hover:text-primary hover:surface-hover transition-colors"
+              className="md:hidden icon-touch rounded-md flex items-center justify-center text-secondary hover:text-primary hover:surface-hover transition-colors"
               aria-label={t("openSidebar")}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
 
-            <span className="text-sm font-semibold text-primary tracking-tight">
-              {activeProject?.name || t("appTitle")}
-            </span>
-            {activeProject?.path && (
-              <Tooltip content={activeProject.path} side="bottom">
-                <span className="text-[11px] text-tertiary font-mono truncate max-w-[280px]">
-                  {activeProject.path}
-                </span>
-              </Tooltip>
-            )}
+            <div className="min-w-0 flex flex-col justify-center">
+              <span className="text-sm font-semibold text-primary tracking-tight leading-tight">
+                {activeProject?.name || t("appTitle")}
+              </span>
+              {activeProject?.path && (
+                <Tooltip content={activeProject.path} side="bottom">
+                  <span className="block text-[11px] text-tertiary font-mono truncate max-w-[min(52vw,520px)] leading-tight mt-0.5">
+                    {activeProject.path}
+                  </span>
+                </Tooltip>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-0.5 shrink-0">
@@ -156,7 +158,7 @@ function AppInner() {
               onChange={(v) => setLang(v as "en" | "zh")}
               items={langItems}
               trigger={
-                <div className="h-7 px-2 rounded-md flex items-center gap-1.5 text-[11px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors cursor-pointer">
+                <div className="control-touch px-2.5 rounded-md flex items-center gap-1.5 text-[12px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors cursor-pointer">
                   <Globe className="w-3 h-3" />
                   <span className="uppercase">{lang}</span>
                   <ChevronDown className="w-3 h-3 text-tertiary" />
@@ -170,14 +172,14 @@ function AppInner() {
               <button
                 type="button"
                 onClick={toggle}
-                className="h-7 w-7 rounded-md flex items-center justify-center text-secondary hover:text-primary hover:surface-hover transition-colors"
+                className="icon-touch rounded-md flex items-center justify-center text-secondary hover:text-primary hover:surface-hover transition-colors"
                 aria-label={theme === "light" ? t("dark") : t("light")}
                 aria-pressed={theme === "dark"}
               >
                 {theme === "light" ? (
-                  <Moon className="w-3.5 h-3.5" />
+                  <Moon className="w-4 h-4" />
                 ) : (
-                  <Sun className="w-3.5 h-3.5" />
+                  <Sun className="w-4 h-4" />
                 )}
               </button>
             </Tooltip>
@@ -185,9 +187,10 @@ function AppInner() {
         </header>
 
         {/* Tabs */}
-        <div className="px-5 pt-4">
+        <div className="px-4 sm:px-5 pt-3">
+          <div className="page-shell border-b border-subtle">
           <div
-            className="inline-flex items-center gap-1 rounded-lg border border-default surface-card p-1 shadow-sm"
+            className="inline-flex items-center gap-5 min-h-10"
             role="tablist"
             onKeyDown={(e) => {
               const idx = tabs.findIndex((t) => t.id === tab);
@@ -223,32 +226,32 @@ function AppInner() {
                   aria-controls={`panel-${id}`}
                   id={`tab-${id}`}
                   onClick={() => handleSetTab(id)}
-                  className={`relative h-8 rounded-md flex items-center gap-1.5 px-3 text-[13px] font-medium transition-colors ${
+                  className={`relative control-touch flex items-center gap-1.5 border-b-2 px-0 text-[13px] font-medium transition-colors ${
                     active
-                      ? "bg-[var(--accent-bg)] text-primary shadow-sm"
-                      : "text-tertiary hover:text-secondary hover:surface-hover"
+                      ? "border-[var(--accent)] text-primary"
+                      : "border-transparent text-tertiary hover:text-secondary"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {t(labelKey)}
-                  {active && <span className="absolute left-1.5 top-2 bottom-2 w-[2px] rounded-full bg-[var(--accent)]" />}
                 </button>
               );
             })}
           </div>
+          </div>
         </div>
 
         {/* Content */}
-        <main id="main-content" className="flex-1 px-5 py-4 min-w-0 overflow-y-auto" tabIndex={-1}>
+        <main id="main-content" className="flex-1 px-4 sm:px-5 py-5 min-w-0 overflow-y-auto" tabIndex={-1}>
           {activeProject ? (
             <>
-              <div role="tabpanel" id="panel-dashboard" aria-labelledby="tab-dashboard" hidden={tab !== "dashboard"}>
+              <div role="tabpanel" id="panel-dashboard" aria-labelledby="tab-dashboard" hidden={tab !== "dashboard"} className={`transition-opacity duration-200 ${tab === "dashboard" ? "opacity-100" : "opacity-0 hidden"}`}>
                 <Dashboard key={`dash-${activeProject.id}`} projectPath={activeProject.path} isActive={tab === "dashboard"} />
               </div>
-              <div role="tabpanel" id="panel-config" aria-labelledby="tab-config" hidden={tab !== "config"}>
+              <div role="tabpanel" id="panel-config" aria-labelledby="tab-config" hidden={tab !== "config"} className={`transition-opacity duration-200 ${tab === "config" ? "opacity-100" : "opacity-0 hidden"}`}>
                 <ConfigEditor key={`cfg-${activeProject.id}`} projectPath={activeProject.path} />
               </div>
-              <div role="tabpanel" id="panel-doctor" aria-labelledby="tab-doctor" hidden={tab !== "doctor"}>
+              <div role="tabpanel" id="panel-doctor" aria-labelledby="tab-doctor" hidden={tab !== "doctor"} className={`transition-opacity duration-200 ${tab === "doctor" ? "opacity-100" : "opacity-0 hidden"}`}>
                 <DoctorView key={`doc-${activeProject.id}`} projectPath={activeProject.path} />
               </div>
             </>
@@ -304,11 +307,12 @@ function MobileSidebarOverlay({
           activeProjectId={activeProjectId}
           onSelectProject={onSelectProject}
           onAddProject={onAddProject}
+          forceExpanded
         />
         <button
           type="button"
           onClick={() => setMobileSidebarOpen(false)}
-          className="absolute -right-10 top-3 w-8 h-8 rounded-full bg-[var(--bg-card)]/90 backdrop-blur flex items-center justify-center text-primary shadow-md border border-default"
+          className="absolute -right-10 top-3 w-10 h-10 rounded-full bg-[var(--bg-card)]/90 backdrop-blur flex items-center justify-center text-primary shadow-md border border-default"
           aria-label={t("cancel")}
         >
           <X className="w-4 h-4" />

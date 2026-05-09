@@ -42,7 +42,7 @@ export default function Modal({
       if (e.key !== "Tab" || !modalRef.current) return;
 
       const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
       );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -80,7 +80,7 @@ export default function Modal({
     // Auto-focus first element
     const timer = setTimeout(() => {
       const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
       );
       focusable?.[0]?.focus();
     }, 50);
@@ -132,34 +132,34 @@ export default function Modal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3 right-3 w-6 h-6 rounded flex items-center justify-center text-tertiary hover:text-primary hover:surface-hover transition-colors z-10"
+          className="absolute top-3 right-3 w-8 h-8 rounded flex items-center justify-center text-tertiary hover:text-primary hover:surface-hover transition-colors z-10"
           aria-label={t("cancel")}
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <div className="p-5">
+        <div className="p-5 pb-4">
           {icon && (
             <div
-              className={`w-9 h-9 rounded-md flex items-center justify-center mb-3 ${
+              className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
                 variant === "danger" ? "danger-bg" : "bg-[var(--accent-bg)]"
               }`}
             >
               {icon}
             </div>
           )}
-          <h3 id={titleId} className="text-sm font-semibold text-primary pr-5">
+          <h3 id={titleId} className="text-[15px] font-semibold text-primary pr-5">
             {title}
           </h3>
           {description && (
-            <p id={descId} className="text-[13px] text-secondary mt-1 leading-relaxed">
+            <p id={descId} className="text-[13px] text-secondary mt-1.5 leading-relaxed">
               {description}
             </p>
           )}
           {children && <div className="mt-3">{children}</div>}
         </div>
 
-        <div className="px-5 pb-4 flex items-center justify-end gap-2">
+        <div className="px-5 py-4 border-t border-default flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}

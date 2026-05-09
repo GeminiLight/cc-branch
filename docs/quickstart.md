@@ -55,7 +55,7 @@ cc-branch init
 - 检查环境
 - 探测本机可用的命令行工具
 - 根据默认的 `solo-dev` 模板生成起步配置
-- 创建 `.cc-branch.state.toml`
+- 创建 `.cc-branch.state.yaml`
 - 自动把本地状态文件加入 `.gitignore`
 
 只有在你想选择其他模板时，才需要使用 `--profile ai-pair` 或 `--profile minimal`。
@@ -97,10 +97,18 @@ cc-branch dashboard
 cc-branch start --dashboard
 ```
 
-如果你只想后台启动，不打开任何可见面板：
+如果你只想创建可复用的 tmux session，不进入工作台，也不打开 `runtime: terminal` 外部窗口：
 
 ```bash
 cc-branch start --detach --prepare
+```
+
+如果你想用指定工具打开可见工作空间：
+
+```bash
+cc-branch open --opener warp
+cc-branch open --opener vscode
+cc-branch open dev:planner --opener cursor
 ```
 
 ## 6. 日常命令
@@ -147,16 +155,15 @@ cc-branch serve
 - 查看或保存配置
 - 查看诊断结果
 - 用模板初始化工作空间
-- 在本机系统终端打开 workspace dashboard 或某个 slot
-- 在 VS Code、Cursor 等编辑器中打开项目目录
-- 后台启动、重启、停止工作空间或 slot
+- 用同一个工具选择器打开工作空间或项目目录
+- 后台启动、重启、停止 tmux 工作空间或 slot
 
-Web UI 里“在终端打开工作空间”会让本机后端打开一个系统终端并运行 `cc-branch dashboard`；Open With 可以选择 VS Code / Cursor 打开项目目录；“后台启动”只创建 tmux 会话，不会弹出窗口。
+Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用 Launch Configuration 打开布局；VS Code、Cursor 打开临时 `.code-workspace`。打开项目目录使用同一个所选工具：终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。在 VS Code/Cursor 中，tmux slot 只会生成一个 attach task，不会把 slot 里的每个 tmux window 都展开成独立终端；`runtime: terminal` slot 才会生成对应的可见 shell task。tmux 工作空间可复用；从另一个 Terminal/Warp/iTerm2 再打开时会 attach 到同一组 session。传统 `runtime: terminal` 不可复用，再次打开就是新的外部进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
 
 ## 8. 记住这两个文件
 
 - `.cc-branch.yaml`：项目配置，可以提交到仓库
-- `.cc-branch.state.toml`：本地状态文件，通常不建议提交
+- `.cc-branch.state.yaml`：本地状态文件，通常不建议提交
 
 ## 9. 接下来读什么
 

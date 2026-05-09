@@ -5,7 +5,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws:; img-src 'self' data:;" />
-    <title>CC Branch Dashboard</title>
+
+    <!-- Primary Meta Tags -->
+    <title>CC Branch - Multi-Agent Workspace Orchestrator</title>
+    <meta name="title" content="CC Branch - Multi-Agent Workspace Orchestrator" />
+    <meta name="description" content="Terminal workspace orchestrator for managing multi-agent development environments with tmux sessions and AI CLI tools." />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=2" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#eef4ef" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#071012" />
+
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("cc-branch-theme");
+          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
+          document.documentElement.classList.toggle("dark", theme === "dark");
+          document.documentElement.style.colorScheme = theme;
+        } catch (_) {
+          document.documentElement.style.colorScheme = "light";
+        }
+      })();
+    </script>
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CC Branch - Multi-Agent Workspace Orchestrator" />
+    <meta property="og:description" content="Terminal workspace orchestrator for managing multi-agent development environments with tmux sessions and AI CLI tools." />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="CC Branch - Multi-Agent Workspace Orchestrator" />
+    <meta name="twitter:description" content="Terminal workspace orchestrator for managing multi-agent development environments with tmux sessions and AI CLI tools." />
   </head>
   <body>
     <div id="root"></div>

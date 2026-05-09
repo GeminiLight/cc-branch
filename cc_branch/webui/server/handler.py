@@ -1,0 +1,334 @@
+"""HTTP handler and server startup for the Web UI."""
+
+from __future__ import annotations
+
+import json
+import mimetypes
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from ...application.results import ActionResult
+from ...config import resolve_config_path
+from ...constants import DEFAULT_STATE
+from . import api
+from .auth import (
+    auth_cookie_header,
+    check_auth,
+    cors_origin,
+    is_loopback_host,
+    origin_is_allowed,
+    query_token_is_valid,
+    request_origin_allowed,
+)
+from .static import canonical_static_path, read_static_bytes, read_static_file
+from .terminal import _cli_command
+
+_CLIENT_DISCONNECT_ERRORS = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
+
+
+class WebUIHandler(BaseHTTPRequestHandler):
+    """HTTP request handler for cc-branch Web UI."""
+
+    def __init__(
+        self,
+        config_path: Path,
+        state_path: Path,
+        *args: Any,
+        token: str | None = None,
+        **kwargs: Any,
+    ):
+        self.config_path = config_path
+        self.state_path = state_path
+        self._token = token
+        super().__init__(*args, **kwargs)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        """Suppress default request logging."""
+        pass
+
+    def _send_json(self, data: Any, status: int = 200) -> None:
+        payload = json.dumps(data).encode()
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self._set_cors()
+            self.end_headers()
+            self.wfile.write(payload)
+        except _CLIENT_DISCONNECT_ERRORS:
+            return
+
+    def _send_action_result(self, result: ActionResult, *, message: str | None = None) -> bool:
+        if not result.ok:
+            self._send_json({
+                "success": False,
+                "error": result.message,
+                "code": result.code,
+                "changed_targets": list(result.changed_targets),
+                "warnings": list(result.warnings),
+            }, 400)
+            return False
+        self._send_json({
+            "success": True,
+            "code": result.code,
+            "message": message or result.message,
+            "changed_targets": list(result.changed_targets),
+            "warnings": list(result.warnings),
+        })
+        return True
+
+    def _serve_text(
+        self,
+        content: str,
+        content_type: str = "text/html",
+        extra_headers: dict[str, str] | None = None,
+        status: int = 200,
+    ) -> None:
+        payload = content.encode()
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            for name, value in (extra_headers or {}).items():
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(payload)
+        except _CLIENT_DISCONNECT_ERRORS:
+            return
+
+    def _serve_static(self, filename: str) -> None:
+        try:
+            content = read_static_bytes(filename)
+        except FileNotFoundError:
+            self.send_error(404)
+            return
+        except OSError:
+            self.send_error(500)
+            return
+
+        content_type, _ = mimetypes.guess_type(filename)
+        if content_type is None:
+            content_type = "application/octet-stream"
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.end_headers()
+            self.wfile.write(content)
+        except _CLIENT_DISCONNECT_ERRORS:
+            return
+
+    def _cors_origin(self) -> str:
+        return cors_origin(
+            origin=self.headers.get("Origin"),
+            host_header=self.headers.get("Host"),
+            client_host=self.client_address[0],
+            client_port=self.client_address[1],
+            token=self._token,
+        )
+
+    @staticmethod
+    def _is_loopback_host(host: str | None) -> bool:
+        return is_loopback_host(host)
+
+    def _origin_is_allowed(self, origin: str) -> bool:
+        return origin_is_allowed(origin, host_header=self.headers.get("Host"), token=self._token)
+
+    def _request_origin_allowed(self) -> bool:
+        return request_origin_allowed(
+            self.headers.get("Origin"),
+            host_header=self.headers.get("Host"),
+            token=self._token,
+        )
+
+    def _set_cors(self) -> None:
+        origin = self.headers.get("Origin")
+        if origin and not self._origin_is_allowed(origin):
+            return
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+    def _check_auth(self) -> bool:
+        return check_auth(
+            self._token,
+            authorization=self.headers.get("Authorization", ""),
+            cookie_header=self.headers.get("Cookie", ""),
+        )
+
+    def _require_auth(self) -> bool:
+        if self._check_auth():
+            return True
+        self._send_json({"error": "Unauthorized"}, 401)
+        return False
+
+    def _query_token_is_valid(self) -> bool:
+        return query_token_is_valid(self._token, self._get_query())
+
+    def _auth_cookie_header(self) -> str:
+        return auth_cookie_header(self._token)
+
+    def _get_query(self) -> dict[str, list[str]]:
+        """Parse query string from the current request path."""
+        parsed = urlparse(self.path)
+        return parse_qs(parsed.query)
+
+    def _get_project_path(self) -> Path | None:
+        """Return overridden project directory from query string, or None."""
+        query = self._get_query()
+        paths = query.get("project_path", [])
+        if paths and paths[0]:
+            return Path(paths[0]).expanduser()
+        return None
+
+    def _resolve_paths(self) -> tuple[Path, Path]:
+        """Return (config_path, state_path) for the current request."""
+        project_dir = self._get_project_path()
+        if project_dir:
+            return resolve_config_path(project_dir), project_dir / DEFAULT_STATE
+        return self.config_path, self.state_path
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path == "/":
+            self._serve_index()
+        elif (
+            path.startswith("/static/")
+            or path.startswith("/assets/")
+            or path in {"/favicon.png", "/favicon.svg", "/icons.svg"}
+        ):
+            filename = canonical_static_path(self.path)
+            if filename is None:
+                self.send_error(403)
+                return
+            self._serve_static(filename)
+        elif path == "/api/status":
+            if self._require_auth():
+                self._api_status()
+        elif path == "/api/config":
+            if self._require_auth():
+                self._api_config()
+        elif path == "/api/doctor":
+            if self._require_auth():
+                self._api_doctor()
+        elif path == "/api/profiles":
+            if self._require_auth():
+                self._api_profiles()
+        elif path == "/api/openers":
+            if self._require_auth():
+                self._api_openers()
+        elif path == "/api/agents":
+            if self._require_auth():
+                self._api_agents()
+        elif path == "/api/info":
+            if self._require_auth():
+                self._api_info()
+        elif path == "/api/project/probe":
+            if self._require_auth():
+                self._api_project_probe()
+        else:
+            self.send_error(404)
+
+    def _serve_index(self) -> None:
+        try:
+            if self._token and not self._check_auth():
+                if self._query_token_is_valid():
+                    self.send_response(303)
+                    self.send_header("Location", "/")
+                    self.send_header("Set-Cookie", self._auth_cookie_header())
+                    self.send_header("Referrer-Policy", "no-referrer")
+                    self.end_headers()
+                    return
+                self._serve_text("Unauthorized", "text/plain; charset=utf-8", status=401)
+                return
+            html = read_static_file("index.html")
+            headers = {"Referrer-Policy": "no-referrer"}
+            self._serve_text(html, "text/html; charset=utf-8", headers)
+        except Exception:
+            self.send_error(500)
+
+    def _route_post(self, path: str) -> None:
+        """Route POST requests ignoring query string."""
+        if path == "/api/action":
+            self._api_action()
+        elif path == "/api/init":
+            self._api_init()
+        elif path == "/api/config":
+            self._api_save_config()
+        else:
+            self.send_error(404)
+
+    def do_POST(self) -> None:
+        if not self._request_origin_allowed():
+            self._send_json({"error": "Forbidden origin"}, 403)
+            return
+        parsed = urlparse(self.path)
+        self._route_post(parsed.path)
+
+    def do_OPTIONS(self) -> None:
+        if not self._request_origin_allowed():
+            self.send_response(403)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self._set_cors()
+        self.end_headers()
+
+    def _api_status(self) -> None:
+        api.api_status(self)
+
+    def _api_config(self) -> None:
+        api.api_config(self)
+
+    def _api_doctor(self) -> None:
+        api.api_doctor(self)
+
+    def _api_profiles(self) -> None:
+        api.api_profiles(self)
+
+    def _api_openers(self) -> None:
+        api.api_openers(self)
+
+    def _api_agents(self) -> None:
+        api.api_agents(self)
+
+    def _api_info(self) -> None:
+        api.api_info(self)
+
+    def _api_project_probe(self) -> None:
+        api.api_project_probe(self)
+
+    def _api_init(self) -> None:
+        api.api_init(self)
+
+    def _api_save_config(self) -> None:
+        api.api_save_config(self)
+
+    def _api_action(self) -> None:
+        api.api_action(self)
+
+
+def start_server(
+    config_path: Path,
+    state_path: Path,
+    host: str = "127.0.0.1",
+    port: int = 8080,
+    token: str | None = None,
+) -> None:
+    """Start the web UI server."""
+    from functools import partial
+
+    handler = partial(WebUIHandler, config_path, state_path, token=token)
+    server = HTTPServer((host, port), handler)
+
+    print(f"Starting cc-branch Web UI at http://{host}:{port}")
+    if token:
+        print("Authentication enabled (token required for Web UI and API access)")
+        print(f"Open once with: http://{host}:{port}/?token={token}")
+    print("Press Ctrl+C to stop")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping server...")
+        server.shutdown()

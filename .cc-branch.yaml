@@ -33,9 +33,17 @@ agents:
     label_template: '{project}/{slot}/{window}'
 slots:
   - name: dev
-    backend: shell
+    runtime: tmux
     cwd: .
+    windows:
+      - name: shell
+        agent: codex
+        command: zsh
+      - name: window-2
+        agent: claude
   - name: scratch
-    backend: shell
+    runtime: terminal
     cwd: .
     command: zsh
+    title: hi
+    agent: codex

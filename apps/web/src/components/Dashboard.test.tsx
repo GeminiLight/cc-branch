@@ -21,11 +21,11 @@ function readyWorkspaceResult() {
       status: 'ready',
       project: 'demo',
       config_path: '/tmp/demo/.cc-branch.yaml',
-      state_path: '/tmp/demo/.cc-branch.state.toml',
+      state_path: '/tmp/demo/.cc-branch.state.yaml',
       slots: [
         {
           name: 'dev',
-          backend: 'tmux',
+          runtime: 'tmux',
           status: 'running',
           session_name: 'demo-dev',
           windows: [
@@ -112,7 +112,7 @@ describe('Dashboard actions', () => {
             label: 'VS Code',
             kind: 'editor',
             available: true,
-            capabilities: ['open_project'],
+            capabilities: ['open_project', 'workspace_file'],
             source: 'builtin',
           },
           {
@@ -135,7 +135,7 @@ describe('Dashboard actions', () => {
   it('opens the workspace dashboard from the primary toolbar button', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in System Terminal' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -148,10 +148,10 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('opens the project folder with the selected editor opener', async () => {
+  it('opens the project directory with an available project opener', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open with System Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open project in VS Code' }))
 
@@ -166,37 +166,158 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('remembers the selected opener from localStorage', async () => {
-    window.localStorage.setItem('cc-branch.open.default./tmp/demo', 'vscode')
+  it('remembers the selected tool from localStorage', async () => {
+    mocks.openersResult.current = {
+      data: {
+        default: 'auto-terminal',
+        openers: [
+          {
+            id: 'auto-terminal',
+            label: 'System Terminal',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target'],
+            source: 'builtin',
+          },
+          {
+            id: 'warp',
+            label: 'Warp',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target', 'layout'],
+            source: 'builtin',
+          },
+        ],
+      },
+    }
+    window.localStorage.setItem('cc-branch.open.tool./tmp/demo', 'warp')
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open project in VS Code' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in Warp' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'open',
+        target: undefined,
+        opener: 'warp',
+        intent: 'workspace_dashboard',
+        projectPath: '/tmp/demo',
+      })
+    })
+  })
+
+  it('lists editor tools and adapts workspace open through workspace files', async () => {
+    renderDashboard()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
+    fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in VS Code' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: undefined,
         opener: 'vscode',
+        intent: 'workspace_dashboard',
+        projectPath: '/tmp/demo',
+      })
+    })
+  })
+
+  it('uses the selected opener when opening the project directory', async () => {
+    mocks.openersResult.current = {
+      data: {
+        default: 'auto-terminal',
+        openers: [
+          {
+            id: 'auto-terminal',
+            label: 'System Terminal',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target'],
+            source: 'builtin',
+          },
+          {
+            id: 'vscode',
+            label: 'VS Code',
+            kind: 'editor',
+            available: true,
+            capabilities: ['open_project', 'workspace_file'],
+            source: 'builtin',
+          },
+          {
+            id: 'warp',
+            label: 'Warp',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target', 'open_project', 'layout'],
+            source: 'builtin',
+          },
+        ],
+      },
+    }
+    renderDashboard()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open project in Warp' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'open',
+        target: undefined,
+        opener: 'warp',
         intent: 'project_folder',
         projectPath: '/tmp/demo',
       })
     })
   })
 
-  it('does not select unavailable openers', () => {
+  it('opens a Cursor workspace through a generated workspace file', async () => {
+    mocks.openersResult.current = {
+      data: {
+        default: 'auto-terminal',
+        openers: [
+          {
+            id: 'auto-terminal',
+            label: 'System Terminal',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target'],
+            source: 'builtin',
+          },
+          {
+            id: 'cursor',
+            label: 'Cursor',
+            kind: 'editor',
+            available: true,
+            capabilities: ['open_project', 'workspace_file'],
+            source: 'builtin',
+          },
+        ],
+      },
+    }
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open with System Terminal' }))
-    expect(screen.getByRole('option', { name: 'Cursor' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Cursor' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in Cursor' }))
 
-    expect(screen.getByRole('button', { name: 'Open workspace in terminal' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'open',
+        target: undefined,
+        opener: 'cursor',
+        intent: 'workspace_dashboard',
+        projectPath: '/tmp/demo',
+      })
+    })
   })
 
-  it('uses a terminal opener for slot attach when the selected opener is an editor', async () => {
+  it('uses the selected opener for slot opens', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open with System Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open terminal dev' }))
 
@@ -204,7 +325,7 @@ describe('Dashboard actions', () => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: 'dev',
-        opener: 'auto-terminal',
+        opener: 'vscode',
         intent: 'attach_target',
         projectPath: '/tmp/demo',
       })
@@ -242,15 +363,40 @@ describe('Dashboard actions', () => {
   })
 
   it('opens a specific window in a terminal', async () => {
+    mocks.openersResult.current = {
+      data: {
+        default: 'auto-terminal',
+        openers: [
+          {
+            id: 'auto-terminal',
+            label: 'System Terminal',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target'],
+            source: 'builtin',
+          },
+          {
+            id: 'warp',
+            label: 'Warp',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target', 'open_project', 'layout'],
+            source: 'builtin',
+          },
+        ],
+      },
+    }
     renderDashboard()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open terminal dev:planner' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: 'dev:planner',
-        opener: 'auto-terminal',
+        opener: 'warp',
         intent: 'attach_target',
         projectPath: '/tmp/demo',
       })
@@ -275,14 +421,40 @@ describe('Dashboard actions', () => {
   })
 
   it('runs slot restart from the slot card button', async () => {
+    mocks.openersResult.current = {
+      data: {
+        default: 'auto-terminal',
+        openers: [
+          {
+            id: 'auto-terminal',
+            label: 'System Terminal',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target'],
+            source: 'builtin',
+          },
+          {
+            id: 'warp',
+            label: 'Warp',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'dashboard', 'attach_target', 'open_project', 'layout'],
+            source: 'builtin',
+          },
+        ],
+      },
+    }
     renderDashboard()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
     fireEvent.click(screen.getByRole('button', { name: 'Restart dev' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'restart',
         target: 'dev',
+        opener: 'warp',
         projectPath: '/tmp/demo',
       })
     })
@@ -309,7 +481,7 @@ describe('Dashboard actions', () => {
         status: 'needs_init',
         project_path: '/tmp/demo',
         config_path: '/tmp/demo/.cc-branch.yaml',
-        state_path: '/tmp/demo/.cc-branch.state.toml',
+        state_path: '/tmp/demo/.cc-branch.state.yaml',
         project_name: 'demo',
         slots: [],
       },

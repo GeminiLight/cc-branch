@@ -93,7 +93,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
       }
       if (e.key !== "Tab" || !modalRef.current) return;
       const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
       );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

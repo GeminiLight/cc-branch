@@ -55,7 +55,11 @@ cc-branch init    # 创建 .cc-branch.yaml 和本机状态文件
 cc-branch start   # 启动 tmux 工作台并进入
 ```
 
-如果只想在后台启动 session，不进入工作台，使用 `cc-branch start --detach`。
+如果希望 CC Branch 用你选择的本地工具打开工作空间，使用 `cc-branch open`。例如：`cc-branch open --opener warp` 或 `cc-branch open --opener vscode`。
+
+只有在你只想创建可复用的 tmux session、且不想进入工作台或打开 terminal-runtime 窗口时，才使用 `cc-branch start --detach`。
+
+Web UI 里选择一个本地工具后，可以执行“打开工作空间”或“打开项目目录”。终端类工具会在项目目录打开一个交互 shell；VS Code、Cursor 等编辑器会打开项目文件夹。后台启动只用于创建 tmux session，不会弹出可见窗口。
 
 可选检查：
 
@@ -84,7 +88,7 @@ slots:
 
 ## 更多
 
-项目配置保存在 `.cc-branch.yaml`；本机运行状态保存在 `.cc-branch.state.toml`，通常不提交。更多说明见 `docs/getting-started.md`、`docs/user-guide.md` 和 `docs/features.md`。
+项目配置保存在 `.cc-branch.yaml`；本机运行状态保存在 `.cc-branch.state.yaml`，通常不提交。更多说明见 `docs/getting-started.md`、`docs/user-guide.md` 和 `docs/features.md`。
 
 ## 许可证
 

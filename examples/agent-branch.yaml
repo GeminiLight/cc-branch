@@ -27,7 +27,7 @@ agents:
 
 slots:
   - name: "dev"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     windows:
       - name: "planner"
@@ -36,6 +36,6 @@ slots:
         agent: "claude"
 
   - name: "scratch"
-    backend: "shell"
+    runtime: "terminal"
     cwd: "."
     command: "zsh"

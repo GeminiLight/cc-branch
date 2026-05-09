@@ -19,7 +19,7 @@ Turns `.cc-branch.yaml` config into running tmux workspaces with persistent agen
 - **Slots**: Top-level workspaces (map to tmux sessions)
 - **Windows**: Execution units within slots (can bind agents or run commands)
 - **Agents**: Reusable definitions for AI CLI tools (Claude Code, Codex, etc.)
-- **State**: `.cc-branch.state.toml` stores runtime metadata (session IDs, labels)
+- **State**: `.cc-branch.state.yaml` stores runtime metadata (session IDs, labels)
 
 ## Project Structure
 
@@ -36,7 +36,7 @@ cc_branch/
 ## Key Files
 
 - `.cc-branch.yaml` - Workspace config (commit to git)
-- `.cc-branch.state.toml` - Local runtime state (don't commit)
+- `.cc-branch.state.yaml` - Local runtime state (don't commit)
 - `examples/` - Usage scenarios
 - `docs/` - Full documentation
 

@@ -41,7 +41,7 @@ agents:
 slots:
   # Main development slot with multiple agents
   - name: "dev"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     windows:
       # Window 1: Codex for coding
@@ -62,14 +62,14 @@ slots:
 
   # Scratch terminal for quick commands
   - name: "scratch"
-    backend: "shell"
+    runtime: "terminal"
     cwd: "."
     command: "zsh"
 
 # How to use:
 # 1. cp examples/scenario-solo-dev.yaml .cc-branch.yaml
-# 2. cc-branch state bootstrap
-# 3. cc-branch up
+# 2. cc-branch plan --write-state
+# 3. cc-branch start
 # 4. cc-branch attach dev:coder      # Start coding
 # 5. cc-branch attach dev:reviewer   # Get code review
 # 6. cc-branch attach dev:server     # Check server logs

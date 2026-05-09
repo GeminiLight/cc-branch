@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { AlertTriangle } from "lucide-react";
+import { useI18n } from "../../i18n";
 
 interface LineEditorProps {
   value: string;
@@ -8,6 +9,7 @@ interface LineEditorProps {
 }
 
 export default function LineEditor({ value, onChange, error }: LineEditorProps) {
+  const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const [lineCount, setLineCount] = useState(1);
@@ -65,7 +67,7 @@ export default function LineEditor({ value, onChange, error }: LineEditorProps) 
         onScroll={handleScroll}
         className="flex-1 h-full py-4 px-3 text-[12.5px] font-mono text-[var(--editor-fg)] bg-[var(--editor-bg)] resize-none focus:outline-none leading-[1.65]"
         spellCheck={false}
-        aria-label="Configuration editor"
+        aria-label={t("configurationEditor")}
       />
 
       {/* Error overlay */}

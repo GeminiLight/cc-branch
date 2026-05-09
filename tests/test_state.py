@@ -17,7 +17,7 @@ class StateTests(unittest.TestCase):
         """Test that load_state returns empty state for missing file."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / "nonexistent.toml"
+            state_path = root / "nonexistent.yaml"
 
             state = load_state(state_path)
             self.assertEqual(state.version, 1)
@@ -27,16 +27,16 @@ class StateTests(unittest.TestCase):
         """Test that load_state correctly parses existing state file."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.toml"
+            state_path = root / ".cc-branch.state.yaml"
             self._write(
                 state_path,
                 """
-                version = 1
-
-                [windows."dev.editor"]
-                session_id = "12345678-1234-1234-1234-123456789012"
-                label = "project/dev/editor"
-                agent = "claude"
+                version: 1
+                windows:
+                  dev.editor:
+                    session_id: "12345678-1234-1234-1234-123456789012"
+                    label: "project/dev/editor"
+                    agent: "claude"
                 """,
             )
 
@@ -49,11 +49,11 @@ class StateTests(unittest.TestCase):
             )
             self.assertEqual(state.windows["dev.editor"].label, "project/dev/editor")
 
-    def test_save_state_creates_valid_toml(self):
-        """Test that save_state creates a valid TOML file."""
+    def test_save_state_creates_valid_yaml(self):
+        """Test that save_state creates a valid YAML file."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.toml"
+            state_path = root / ".cc-branch.state.yaml"
 
             state = WorkspaceState(
                 version=1,
@@ -68,6 +68,10 @@ class StateTests(unittest.TestCase):
 
             save_state(state_path, state)
             self.assertTrue(state_path.exists())
+            content = state_path.read_text(encoding="utf-8")
+            self.assertIn("version: 1", content)
+            self.assertIn("dev.editor:", content)
+            self.assertNotIn("[windows.", content)
 
             # Verify it can be loaded back
             loaded_state = load_state(state_path)
@@ -81,7 +85,7 @@ class StateTests(unittest.TestCase):
         """Test that state can be saved and loaded without data loss."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.toml"
+            state_path = root / ".cc-branch.state.yaml"
 
             original_state = WorkspaceState(
                 version=1,
@@ -172,13 +176,23 @@ class StateTests(unittest.TestCase):
         """Test that state version is preserved through operations."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.toml"
+            state_path = root / ".cc-branch.state.yaml"
 
             state = WorkspaceState(version=1, windows={})
             save_state(state_path, state)
             loaded = load_state(state_path)
 
             self.assertEqual(loaded.version, 1)
+
+    def test_load_state_rejects_toml_state_file(self):
+        """TOML state files are not supported for the first release."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / ".cc-branch.state.toml"
+            self._write(state_path, "version = 1")
+
+            with self.assertRaises(ValueError):
+                load_state(state_path)
 
 
 if __name__ == '__main__':

@@ -44,7 +44,8 @@ ENV/
 .DS_Store
 
 # CC Branch specific
-.cc-branch.state.toml
+.cc-branch.state.yaml
+.cc-branch.state.yaml.bak
 *.log
 
 # Frontend
@@ -58,7 +59,9 @@ cc_branch/webui/static/*
 
 # Temporary files
 *.tmp
+image*.png
 .cache/
 logo/archive
 
 wiki/
+discussions/

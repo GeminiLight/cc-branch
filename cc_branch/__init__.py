@@ -33,6 +33,8 @@ from .repository import StateRepository
 from .sessions import inspect_session, list_sessions, prune_sessions, restore_session
 from .state import load_state, merge_state, save_state
 
+__version__ = "0.1.0"
+
 
 def main(argv: list[str] | None = None) -> int:
     from .cli import main as cli_main
@@ -42,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "init_workspace",
+    "__version__",
     "load_state",
     "load_workspace",
     "main",

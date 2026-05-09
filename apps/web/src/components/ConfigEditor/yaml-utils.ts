@@ -53,10 +53,11 @@ function coerceWindowConfig(raw: unknown): WindowConfig {
 
 function coerceSlotConfig(raw: unknown): SlotConfig {
   const r = raw as Record<string, unknown>;
-  const backend = String(r?.backend ?? "tmux");
+  const runtime = String(r?.runtime ?? "tmux");
   const slot: SlotConfig = {
     name: String(r?.name ?? ""),
-    backend: backend === "shell" ? "shell" : "tmux",
+    runtime: runtime === "terminal" ? "terminal" : "tmux",
+    opener: r?.opener != null ? String(r.opener) : undefined,
     cwd: String(r?.cwd ?? "."),
     env: r?.env && typeof r.env === "object" ? Object.fromEntries(
       Object.entries(r.env as Record<string, unknown>).map(([k, v]) => [k, String(v)])
@@ -66,7 +67,7 @@ function coerceSlotConfig(raw: unknown): SlotConfig {
       : [],
   };
   if (r?.command != null) slot.command = String(r.command);
-  if (r?.window_name != null) slot.window_name = String(r.window_name);
+  if (r?.title != null) slot.title = String(r.title);
   if (r?.agent != null) slot.agent = String(r.agent);
   if (r?.session_id != null) slot.session_id = String(r.session_id);
   if (r?.label != null) slot.label = String(r.label);
@@ -143,14 +144,15 @@ function cleanWindowConfig(win: WindowConfig): Record<string, unknown> {
 function cleanSlotConfig(slot: SlotConfig): Record<string, unknown> {
   const out: Record<string, unknown> = {
     name: slot.name,
-    backend: slot.backend,
+    runtime: slot.runtime,
     cwd: slot.cwd,
   };
+  if (slot.opener != null) out.opener = slot.opener;
   if (Object.keys(slot.env).length > 0) out.env = slot.env;
 
-  if (slot.backend === "shell") {
+  if (slot.runtime === "terminal") {
     if (slot.command != null) out.command = slot.command;
-    if (slot.window_name != null) out.window_name = slot.window_name;
+    if (slot.title != null) out.title = slot.title;
     if (slot.agent != null) out.agent = slot.agent;
     if (slot.session_id != null) out.session_id = slot.session_id;
     if (slot.label != null) out.label = slot.label;
@@ -200,16 +202,32 @@ export function serializeConfigForm(data: ConfigFormData): string {
 /**
  * Validate a config form. Returns array of error strings, empty if valid.
  */
-export function validateConfigForm(data: ConfigFormData): string[] {
+function defaultValidationMessage(key: string, vars?: Record<string, string | number>): string {
+  const messages: Record<string, string> = {
+    projectNameRequired: "Project name is required",
+    allSlotsMustHaveName: "All slots must have a name",
+    allWindowsMustHaveName: "All windows must have a name",
+    duplicateSlotNames: "Duplicate slot names: {names}",
+  };
+  const template = messages[key] || key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(vars?.[name] ?? `{${name}}`));
+}
+
+export function validateConfigForm(
+  data: ConfigFormData,
+  t: (key: string, vars?: Record<string, string | number>) => string = defaultValidationMessage
+): string[] {
   const errors: string[] = [];
-  if (!data.project.trim()) errors.push("Project name is required");
-  if (data.slots.some((s) => !s.name.trim())) errors.push("All slots must have a name");
-  if (data.slots.some((s) => s.backend === "tmux" && s.windows.some((w) => !w.name.trim()))) {
-    errors.push("All windows must have a name");
+  if (!data.project.trim()) errors.push(t("projectNameRequired"));
+  if (data.slots.some((s) => !s.name.trim())) errors.push(t("allSlotsMustHaveName"));
+  if (data.slots.some((s) => s.runtime === "tmux" && s.windows.some((w) => !w.name.trim()))) {
+    errors.push(t("allWindowsMustHaveName"));
   }
   // Duplicate slot names
   const slotNames = data.slots.map((s) => s.name);
   const dupSlots = slotNames.filter((name, i) => slotNames.indexOf(name) !== i);
-  if (dupSlots.length > 0) errors.push(`Duplicate slot names: ${[...new Set(dupSlots)].join(", ")}`);
+  if (dupSlots.length > 0) {
+    errors.push(t("duplicateSlotNames", { names: [...new Set(dupSlots)].join(", ") }));
+  }
   return errors;
 }

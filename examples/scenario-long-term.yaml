@@ -60,7 +60,7 @@ agents:
 slots:
   # Planning and architecture slot
   - name: "planning"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     windows:
       - name: "architect"
@@ -73,7 +73,7 @@ slots:
 
   # Implementation slot
   - name: "implementation"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     env:
       PYTHONPATH: "./src"
@@ -92,7 +92,7 @@ slots:
 
   # Testing and validation slot
   - name: "testing"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     windows:
       - name: "tester"
@@ -109,7 +109,7 @@ slots:
 
   # Monitoring slot
   - name: "monitor"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     windows:
       - name: "logs"
@@ -122,8 +122,8 @@ slots:
 #
 # Initial setup:
 # 1. cp examples/scenario-long-term.yaml .cc-branch.yaml
-# 2. cc-branch state bootstrap
-# 3. cc-branch up
+# 2. cc-branch plan --write-state
+# 3. cc-branch start
 #
 # Daily workflow:
 # 1. cc-branch status  # Check what sessions exist

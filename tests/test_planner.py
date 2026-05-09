@@ -28,7 +28,7 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "vim"
@@ -36,7 +36,7 @@ class PlannerTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             self.assertEqual(len(plan.slots), 1)
@@ -55,7 +55,7 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "vim"
@@ -63,7 +63,7 @@ class PlannerTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             self.assertEqual(plan.slots[0].tmux_session, "myproject-dev")
@@ -87,7 +87,7 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         agent: "claude"
@@ -95,7 +95,7 @@ class PlannerTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=True)
 
             window = plan.slots[0].windows[0]
@@ -121,25 +121,25 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         agent: "claude"
                 """,
             )
             self._write(
-                root / ".cc-branch.state.toml",
+                root / ".cc-branch.state.yaml",
                 """
-                version = 1
-
-                [windows."dev.editor"]
-                session_id = "existing-session-id"
-                label = "test/dev/editor"
+                version: 1
+                windows:
+                  dev.editor:
+                    session_id: "existing-session-id"
+                    label: "test/dev/editor"
                 """,
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             window = plan.slots[0].windows[0]
@@ -163,7 +163,7 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         agent: "claude"
@@ -171,14 +171,14 @@ class PlannerTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=True)
 
             window = plan.slots[0].windows[0]
             self.assertEqual(window.resolved_label, "myproject/dev/editor")
 
-    def test_plan_workspace_handles_shell_backend(self):
-        """Test that plan_workspace handles shell backend correctly."""
+    def test_plan_workspace_handles_terminal_runtime(self):
+        """Test that plan_workspace handles terminal runtime correctly."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
@@ -190,19 +190,51 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "scratch"
-                    backend: "shell"
+                    runtime: "terminal"
                     command: "bash"
                 """,
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             slot = plan.slots[0]
-            self.assertEqual(slot.backend, "shell")
+            self.assertEqual(slot.runtime, "terminal")
             self.assertEqual(len(slot.windows), 1)
             self.assertEqual(slot.windows[0].name, "main")
+
+    def test_terminal_runtime_uses_single_window_even_if_windows_remain(self):
+        """Switching a slot to terminal should not launch every old tmux window."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                slots:
+                  - name: "scratch"
+                    runtime: "terminal"
+                    windows:
+                      - name: "one"
+                        command: "echo one"
+                      - name: "two"
+                        command: "echo two"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch.yaml")
+            state = load_state(root / ".cc-branch.state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            slot = plan.slots[0]
+            self.assertEqual(slot.runtime, "terminal")
+            self.assertEqual(len(slot.windows), 1)
+            self.assertEqual(slot.windows[0].name, "one")
+            self.assertEqual(slot.windows[0].launch_command, "echo one")
 
     def test_plan_workspace_resolves_cwd(self):
         """Test that plan_workspace resolves working directories."""
@@ -218,7 +250,7 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     cwd: "subdir"
                     windows:
                       - name: "editor"
@@ -227,7 +259,7 @@ class PlannerTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             window = plan.slots[0].windows[0]
@@ -240,7 +272,7 @@ class PlannerTests(unittest.TestCase):
             "slots": [
                 {
                     "name": "dev",
-                    "backend": "tmux",
+                    "runtime": "tmux",
                     "tmux_session": "test-dev",
                     "windows": [
                         {
@@ -273,7 +305,7 @@ class PlannerTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "shell"
+                    runtime: "terminal"
                     command: "python server.py"
                     env:
                       DEBUG: "true"
@@ -282,7 +314,7 @@ class PlannerTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             launch_command = plan.slots[0].windows[0].launch_command

@@ -12,6 +12,7 @@ import {
   Terminal,
   Box,
 } from "lucide-react";
+import { useI18n } from "../../i18n";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
   FieldLabel,
@@ -42,19 +43,24 @@ function WindowCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const agentOptions = [
-    { value: "", label: "— None —" },
+    { value: "", label: t("noneOption") },
     ...agents.map((a) => ({ value: a, label: a })),
   ];
 
+  const windowName = win.name || t("unnamed");
+
   return (
-    <div className="border border-default rounded-md bg-[var(--bg-page)]">
-      <div className="flex items-center gap-1 px-2 py-1.5">
+    <div className="rounded-md border border-default bg-[var(--bg-card)]">
+      <div className="flex items-center gap-1 px-2.5 py-2">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="p-0.5 rounded text-tertiary hover:text-primary transition-colors shrink-0"
+          className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors shrink-0 flex items-center justify-center"
+          aria-label={expanded ? t("collapseWindow", { name: windowName }) : t("expandWindow", { name: windowName })}
+          title={expanded ? t("collapseWindow", { name: windowName }) : t("expandWindow", { name: windowName })}
         >
           <ChevronDown
             className={`w-3.5 h-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
@@ -62,7 +68,7 @@ function WindowCard({
         </button>
         <Box className="w-3 h-3 text-tertiary shrink-0" />
         <span className="text-[12px] font-medium text-primary flex-1 min-w-0 truncate">
-          {win.name || "(unnamed)"}
+          {windowName}
         </span>
         {win.agent && (
           <span className="text-[10px] text-[var(--accent)] bg-[var(--accent-bg)] px-1.5 py-0.5 rounded shrink-0">
@@ -74,7 +80,9 @@ function WindowCard({
             type="button"
             onClick={onMoveUp}
             disabled={!canMoveUp}
-            className="p-0.5 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30"
+            className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30 flex items-center justify-center"
+            title={t("moveWindowUp", { name: windowName })}
+            aria-label={t("moveWindowUp", { name: windowName })}
           >
             <ChevronUp className="w-3 h-3" />
           </button>
@@ -82,14 +90,18 @@ function WindowCard({
             type="button"
             onClick={onMoveDown}
             disabled={!canMoveDown}
-            className="p-0.5 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30"
+            className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30 flex items-center justify-center"
+            title={t("moveWindowDown", { name: windowName })}
+            aria-label={t("moveWindowDown", { name: windowName })}
           >
             <ChevronDown className="w-3 h-3" />
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="p-0.5 rounded text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors"
+            className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
+            title={t("removeWindow", { name: windowName })}
+            aria-label={t("removeWindow", { name: windowName })}
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -97,10 +109,10 @@ function WindowCard({
       </div>
 
       {expanded && (
-        <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-default animate-stagger">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="px-3 pb-3 pt-1 space-y-2.5 animate-stagger">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <FieldLabel required>Name</FieldLabel>
+              <FieldLabel required>{t("name")}</FieldLabel>
               <TextInput
                 value={win.name}
                 onChange={(v) => onChange({ name: v })}
@@ -109,18 +121,26 @@ function WindowCard({
               />
             </div>
             <div>
-              <FieldLabel>Agent</FieldLabel>
+              <FieldLabel>{t("agent")}</FieldLabel>
               <SelectInput
                 value={win.agent ?? ""}
                 onChange={(v) => onChange({ agent: v || null })}
                 options={agentOptions}
               />
             </div>
+            <div>
+              <FieldLabel>{t("sessionId")}</FieldLabel>
+              <TextInput
+                value={win.session_id ?? ""}
+                onChange={(v) => onChange({ session_id: v || null })}
+                placeholder={t("sessionIdPlaceholder")}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <FieldLabel>Command override</FieldLabel>
+              <FieldLabel>{t("commandOverride")}</FieldLabel>
               <TextInput
                 value={win.command ?? ""}
                 onChange={(v) => onChange({ command: v || null })}
@@ -128,51 +148,43 @@ function WindowCard({
               />
             </div>
             <div>
-              <FieldLabel>Working directory</FieldLabel>
+              <FieldLabel>{t("workingDirectory")}</FieldLabel>
               <TextInput
                 value={win.cwd ?? ""}
                 onChange={(v) => onChange({ cwd: v || null })}
-                placeholder="relative to slot cwd"
+                placeholder={t("relativeToSlotCwd")}
               />
             </div>
           </div>
 
           <div>
-            <FieldLabel>Environment variables</FieldLabel>
+            <FieldLabel>{t("environmentVariables")}</FieldLabel>
             <KeyValueList
               items={win.env}
               onChange={(env) => onChange({ env })}
             />
           </div>
 
-          {/* Advanced toggles */}
+          {/* Agent behaviour overrides */}
           <details className="group">
             <summary className="flex items-center gap-1 text-[11px] text-tertiary cursor-pointer select-none hover:text-secondary transition-colors">
               <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-              Advanced overrides
+              {t("agentBehaviorOverrides")}
             </summary>
             <div className="pt-2 space-y-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <FieldLabel>Session ID</FieldLabel>
-                  <TextInput
-                    value={win.session_id ?? ""}
-                    onChange={(v) => onChange({ session_id: v || null })}
-                    placeholder="uuid or leave empty"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Label</FieldLabel>
+                  <FieldLabel>{t("label")}</FieldLabel>
                   <TextInput
                     value={win.label ?? ""}
                     onChange={(v) => onChange({ label: v || null })}
-                    placeholder="override label"
+                    placeholder={t("overrideLabel")}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <FieldLabel>Resume template override</FieldLabel>
+                  <FieldLabel>{t("resumeTemplateOverride")}</FieldLabel>
                   <TextInput
                     value={win.resume_template ?? ""}
                     onChange={(v) => onChange({ resume_template: v || null })}
@@ -180,7 +192,7 @@ function WindowCard({
                   />
                 </div>
                 <div>
-                  <FieldLabel>Create template override</FieldLabel>
+                  <FieldLabel>{t("createTemplateOverride")}</FieldLabel>
                   <TextInput
                     value={win.create_template ?? ""}
                     onChange={(v) => onChange({ create_template: v || null })}
@@ -216,10 +228,11 @@ function SlotCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
-  const isShell = slot.backend === "shell";
+  const isTerminal = slot.runtime === "terminal";
   const agentOptions = [
-    { value: "", label: "— None —" },
+    { value: "", label: t("noneOption") },
     ...agents.map((a) => ({ value: a, label: a })),
   ];
 
@@ -266,13 +279,17 @@ function SlotCard({
     onChange({ windows: next });
   }
 
+  const slotName = slot.name || t("unnamed");
+
   return (
-    <div className="border border-default rounded-lg surface-card">
-      <div className="flex items-center gap-1 px-2.5 py-2 border-b border-default bg-[var(--bg-hover)]/30">
+    <div className="rounded-md border border-default bg-[var(--bg-card)] shadow-sm">
+      <div className="flex items-center gap-1 px-3 py-2">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="p-0.5 rounded text-tertiary hover:text-primary transition-colors shrink-0"
+          className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors shrink-0 flex items-center justify-center"
+          aria-label={expanded ? t("collapseSlot", { name: slotName }) : t("expandSlot", { name: slotName })}
+          title={expanded ? t("collapseSlot", { name: slotName }) : t("expandSlot", { name: slotName })}
         >
           <ChevronDown
             className={`w-3.5 h-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
@@ -281,14 +298,14 @@ function SlotCard({
         <Layers className="w-3.5 h-3.5 text-tertiary shrink-0" />
         <div className="flex-1 min-w-0">
           <span className="text-[13px] font-semibold text-primary">
-            {slot.name || "(unnamed)"}
+            {slotName}
           </span>
           <span className="ml-2 text-[10px] text-tertiary uppercase tracking-wide">
-            {slot.backend}
+            {slot.runtime}
           </span>
-          {!isShell && (
+          {!isTerminal && (
             <span className="ml-2 text-[10px] text-tertiary">
-              {slot.windows.length} window{slot.windows.length !== 1 ? "s" : ""}
+              {t("windowCount", { count: slot.windows.length })}
             </span>
           )}
         </div>
@@ -297,8 +314,9 @@ function SlotCard({
             type="button"
             onClick={onMoveUp}
             disabled={index === 0}
-            className="p-1 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30"
-            title="Move up"
+            className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30 flex items-center justify-center"
+            title={t("moveSlotUp", { name: slotName })}
+            aria-label={t("moveSlotUp", { name: slotName })}
           >
             <ChevronUp className="w-3 h-3" />
           </button>
@@ -306,16 +324,18 @@ function SlotCard({
             type="button"
             onClick={onMoveDown}
             disabled={index === total - 1}
-            className="p-1 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30"
-            title="Move down"
+            className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors disabled:opacity-30 flex items-center justify-center"
+            title={t("moveSlotDown", { name: slotName })}
+            aria-label={t("moveSlotDown", { name: slotName })}
           >
             <ChevronDown className="w-3 h-3" />
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="p-1 rounded text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors"
-            title="Remove slot"
+            className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
+            title={t("removeSlotNamed", { name: slotName })}
+            aria-label={t("removeSlotNamed", { name: slotName })}
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -323,11 +343,11 @@ function SlotCard({
       </div>
 
       {expanded && (
-        <div className="p-3 space-y-3 animate-stagger">
+        <div className="px-3 pb-3 pt-1 space-y-3 animate-stagger">
           {/* Slot basics */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <FieldLabel required>Name</FieldLabel>
+              <FieldLabel required>{t("name")}</FieldLabel>
               <TextInput
                 value={slot.name}
                 onChange={(v) => onChange({ name: v })}
@@ -336,18 +356,18 @@ function SlotCard({
               />
             </div>
             <div>
-              <FieldLabel>Backend</FieldLabel>
+              <FieldLabel>{t("runtime")}</FieldLabel>
               <SelectInput
-                value={slot.backend}
-                onChange={(v) => onChange({ backend: v as "tmux" | "shell" })}
+                value={slot.runtime}
+                onChange={(v) => onChange({ runtime: v as "tmux" | "terminal" })}
                 options={[
                   { value: "tmux", label: "Tmux" },
-                  { value: "shell", label: "Shell" },
+                  { value: "terminal", label: t("openTerminal") },
                 ]}
               />
             </div>
             <div>
-              <FieldLabel>Working directory</FieldLabel>
+              <FieldLabel>{t("workingDirectory")}</FieldLabel>
               <TextInput
                 value={slot.cwd}
                 onChange={(v) => onChange({ cwd: v })}
@@ -357,18 +377,18 @@ function SlotCard({
           </div>
 
           <div>
-            <FieldLabel>Environment variables</FieldLabel>
+            <FieldLabel>{t("environmentVariables")}</FieldLabel>
             <KeyValueList
               items={slot.env}
               onChange={(env) => onChange({ env })}
             />
           </div>
 
-          {/* Shell slot fields */}
-          {isShell && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-2.5 rounded-md bg-[var(--accent-bg)]/50 border border-[var(--accent-border)]">
+          {/* Terminal runtime fields */}
+          {isTerminal && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-md bg-[var(--accent-bg)]/40">
               <div>
-                <FieldLabel>Command</FieldLabel>
+                <FieldLabel>{t("command")}</FieldLabel>
                 <TextInput
                   value={slot.command ?? ""}
                   onChange={(v) => onChange({ command: v || undefined })}
@@ -376,15 +396,15 @@ function SlotCard({
                 />
               </div>
               <div>
-                <FieldLabel>Window name</FieldLabel>
+                <FieldLabel>{t("title")}</FieldLabel>
                 <TextInput
-                  value={slot.window_name ?? ""}
-                  onChange={(v) => onChange({ window_name: v || undefined })}
+                  value={slot.title ?? ""}
+                  onChange={(v) => onChange({ title: v || undefined })}
                   placeholder="main"
                 />
               </div>
               <div>
-                <FieldLabel>Agent</FieldLabel>
+                <FieldLabel>{t("agent")}</FieldLabel>
                 <SelectInput
                   value={slot.agent ?? ""}
                   onChange={(v) => onChange({ agent: v || undefined })}
@@ -392,7 +412,7 @@ function SlotCard({
                 />
               </div>
               <div>
-                <FieldLabel>Session ID</FieldLabel>
+                <FieldLabel>{t("sessionId")}</FieldLabel>
                 <TextInput
                   value={slot.session_id ?? ""}
                   onChange={(v) => onChange({ session_id: v || undefined })}
@@ -403,10 +423,10 @@ function SlotCard({
           )}
 
           {/* Tmux windows */}
-          {!isShell && (
+          {!isTerminal && (
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-secondary uppercase tracking-wide">
-                Windows
+                {t("windows")}
               </p>
               {slot.windows.map((win, i) => (
                 <WindowCard
@@ -421,7 +441,7 @@ function SlotCard({
                   onMoveDown={() => moveWindow(i, 1)}
                 />
               ))}
-              <AddButton onClick={addWindow}>Add window</AddButton>
+              <AddButton onClick={addWindow}>{t("addWindow")}</AddButton>
             </div>
           )}
         </div>
@@ -444,6 +464,8 @@ export default function SlotsSection({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
+
   function addSlot() {
     const names = new Set(slots.map((s) => s.name));
     let name = "new-slot";
@@ -456,7 +478,7 @@ export default function SlotsSection({
       ...slots,
       {
         name,
-        backend: "tmux",
+        runtime: "tmux",
         cwd: ".",
         env: {},
         windows: [
@@ -506,16 +528,19 @@ export default function SlotsSection({
     .filter((name, i, arr) => arr.indexOf(name) !== i);
   const emptyNames = slots.filter((s) => !s.name.trim());
   const emptyWindows = slots.filter(
-    (s) => s.backend === "tmux" && s.windows.some((w) => !w.name.trim())
+    (s) => s.runtime === "tmux" && s.windows.some((w) => !w.name.trim())
   );
 
   return (
-    <div className="border border-default rounded-lg surface-card">
-      <div className="px-3 py-2.5 border-b border-default flex items-center justify-between">
+    <section className="rounded-md transition-colors">
+      <div className={`px-4 py-3 flex items-center justify-between rounded-md transition-colors ${
+        expanded ? "bg-[var(--bg-hover)]/45" : "hover:surface-hover"
+      }`}>
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-center gap-2 text-left group flex-1"
+          className="flex items-center gap-2 text-left group flex-1 control-touch"
+          aria-label={expanded ? t("collapseSlotsSection") : t("expandSlotsSection")}
         >
           <ChevronDown
             className={`w-3.5 h-3.5 text-tertiary shrink-0 transition-transform ${
@@ -524,32 +549,32 @@ export default function SlotsSection({
           />
           <Layers className="w-3.5 h-3.5 text-tertiary" />
           <div className="min-w-0">
-            <span className="text-[13px] font-semibold text-primary">Slots</span>
+            <span className="text-[13px] font-semibold text-primary">{t("slotsTitle")}</span>
             <span className="text-[11px] text-tertiary ml-2">
-              {slots.length} slot{slots.length !== 1 ? "s" : ""}
+              {slots.length}
             </span>
           </div>
         </button>
         <button
           type="button"
           onClick={addSlot}
-          className="h-7 px-2 rounded text-[11px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1 shrink-0"
+          className="control-touch px-3 rounded-md text-[12px] font-medium bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add
+          {t("add")}
         </button>
       </div>
 
       {expanded && (
-        <div className="p-3 space-y-3 animate-stagger">
+        <div className="px-4 pb-4 space-y-3 animate-stagger">
           {dupNames.length > 0 && (
-            <InlineError message={`Duplicate slot names: ${[...new Set(dupNames)].join(", ")}`} />
+            <InlineError message={t("duplicateSlotNames", { names: [...new Set(dupNames)].join(", ") })} />
           )}
           {emptyNames.length > 0 && (
-            <InlineError message="All slots must have a name" />
+            <InlineError message={t("allSlotsMustHaveName")} />
           )}
           {emptyWindows.length > 0 && (
-            <InlineError message="All windows must have a name" />
+            <InlineError message={t("allWindowsMustHaveName")} />
           )}
 
           {slots.map((slot, i) => (
@@ -569,14 +594,14 @@ export default function SlotsSection({
           {slots.length === 0 && (
             <div className="text-center py-6 border border-dashed border-default rounded-md">
               <Terminal className="w-5 h-5 text-tertiary mx-auto mb-1.5" />
-              <p className="text-[12px] text-secondary">No slots yet</p>
+              <p className="text-[12px] text-secondary">{t("noSlotsYet")}</p>
               <p className="text-[11px] text-tertiary mt-0.5">
-                Add a slot to define workspace containers
+                {t("addSlotHint")}
               </p>
             </div>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

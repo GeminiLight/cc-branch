@@ -21,6 +21,8 @@ const ToastContext = createContext<ToastCtx>({
   info: () => {},
 });
 
+const MAX_TOASTS = 5;
+
 export function useToast() {
   return useContext(ToastContext);
 }
@@ -56,10 +58,10 @@ function ToastBar({ toast, onRemove }: { toast: ToastItem; onRemove: (id: string
         <button
           type="button"
           onClick={() => onRemove(toast.id)}
-          className="w-5 h-5 rounded flex items-center justify-center text-tertiary hover:text-primary hover:surface-hover transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus:opacity-100 focus:pointer-events-auto"
+          className="w-8 h-8 rounded-md flex items-center justify-center text-tertiary hover:text-primary hover:surface-hover transition-colors"
           aria-label={t("dismissNotification")}
         >
-          <X className="w-3 h-3" />
+          <X className="w-4 h-4" />
         </button>
       </div>
       <div className="h-[2px] bg-[var(--border-subtle)] overflow-hidden">
@@ -86,8 +88,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
       setToasts((p) => {
         const next = [...p, { id, message, type, duration }];
-        // Keep max 5 toasts
-        if (next.length > 5) return next.slice(next.length - 5);
+        if (next.length > MAX_TOASTS) return next.slice(next.length - MAX_TOASTS);
         return next;
       });
     },
@@ -103,14 +104,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-toast flex flex-col items-center gap-2 pointer-events-none">
+      <div className="fixed bottom-4 right-4 z-toast flex flex-col items-end gap-2 pointer-events-none">
         {toasts.map((t, i) => (
           <div
             key={t.id}
             className="pointer-events-auto"
             style={{
-              transform: `scale(${1 - (toasts.length - 1 - i) * 0.03})`,
-              opacity: 1 - (toasts.length - 1 - i) * 0.15,
+              transform: `scale(${1 - (toasts.length - 1 - i) * 0.05})`,
+              opacity: 1 - (toasts.length - 1 - i) * 0.2,
             }}
           >
             <ToastBar toast={t} onRemove={remove} />

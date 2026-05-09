@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import tempfile
 import threading
 import time
@@ -39,10 +40,10 @@ class TerminalOpenTests(unittest.TestCase):
         from unittest.mock import patch
 
         with (
-            patch("cc_branch.webui.server.sys.platform", "win32"),
-            patch("cc_branch.webui.server.sys.argv", ["C:/Program Files/cc-branch/cc-branch.exe"]),
-            patch("cc_branch.webui.server.Path.exists", return_value=True),
-            patch("cc_branch.webui.server.Path.resolve", return_value="C:/Program Files/cc-branch/cc-branch.exe"),
+            patch("cc_branch.webui.server.terminal.sys.platform", "win32"),
+            patch("cc_branch.webui.server.terminal.sys.argv", ["C:/Program Files/cc-branch/cc-branch.exe"]),
+            patch("cc_branch.webui.server.terminal.Path.exists", return_value=True),
+            patch("cc_branch.webui.server.terminal.Path.resolve", return_value="C:/Program Files/cc-branch/cc-branch.exe"),
         ):
             command = _cli_command()
 
@@ -53,14 +54,41 @@ class TerminalOpenTests(unittest.TestCase):
         from unittest.mock import patch
 
         with (
-            patch("cc_branch.webui.server.sys.platform", "win32"),
-            patch("cc_branch.webui.server.sys.argv", ["C:/Users/O'Neil/bin/cc-branch.exe"]),
-            patch("cc_branch.webui.server.Path.exists", return_value=True),
-            patch("cc_branch.webui.server.Path.resolve", return_value="C:/Users/O'Neil/bin/cc-branch.exe"),
+            patch("cc_branch.webui.server.terminal.sys.platform", "win32"),
+            patch("cc_branch.webui.server.terminal.sys.argv", ["C:/Users/O'Neil/bin/cc-branch.exe"]),
+            patch("cc_branch.webui.server.terminal.Path.exists", return_value=True),
+            patch("cc_branch.webui.server.terminal.Path.resolve", return_value="C:/Users/O'Neil/bin/cc-branch.exe"),
         ):
             command = _cli_command()
 
         self.assertEqual(command, "& 'C:/Users/O''Neil/bin/cc-branch.exe'")
+
+    def test_cli_command_uses_repo_bin_when_cli_is_not_installed(self):
+        """Source checkouts should open external tools with a real local CLI path."""
+        from unittest.mock import patch
+
+        expected = Path(__file__).resolve().parents[1] / "bin" / "cc-branch"
+        with (
+            patch("cc_branch.webui.server.terminal.sys.argv", ["-"]),
+            patch("cc_branch.webui.server.terminal.shutil.which", return_value=None),
+        ):
+            command = _cli_command()
+
+        self.assertEqual(command, shlex.quote(str(expected)))
+
+    def test_cli_command_ignores_python_module_entrypoint_when_repo_bin_exists(self):
+        """python -m launches should not generate a non-executable .py command."""
+        from unittest.mock import patch
+
+        module_entry = Path(__file__).resolve().parents[1] / "cc_branch" / "__main__.py"
+        expected = Path(__file__).resolve().parents[1] / "bin" / "cc-branch"
+        with (
+            patch("cc_branch.webui.server.terminal.sys.argv", [str(module_entry)]),
+            patch("cc_branch.webui.server.terminal.shutil.which", return_value=None),
+        ):
+            command = _cli_command()
+
+        self.assertEqual(command, shlex.quote(str(expected)))
 
     def test_macos_terminal_open_reports_osascript_failure(self):
         """macOS Terminal automation failures should surface to the Web UI."""
@@ -68,9 +96,9 @@ class TerminalOpenTests(unittest.TestCase):
 
         failed = Mock(returncode=1, stderr="Not authorized to send Apple events")
         with (
-            patch("cc_branch.openers.sys.platform", "darwin"),
-            patch("cc_branch.openers.shutil.which", return_value="/usr/bin/osascript"),
-            patch("cc_branch.openers.subprocess.run", return_value=failed),
+            patch("cc_branch.openers.terminal.sys.platform", "darwin"),
+            patch("cc_branch.openers.terminal.shutil.which", return_value="/usr/bin/osascript"),
+            patch("cc_branch.openers.terminal.subprocess.run", return_value=failed),
         ):
             with self.assertRaisesRegex(RuntimeError, "Cannot open Terminal"):
                 _open_terminal(Path("/tmp"), "cc-branch dashboard")
@@ -79,7 +107,7 @@ class TerminalOpenTests(unittest.TestCase):
         """Legacy helper should not split executable paths on spaces."""
         from unittest.mock import patch
 
-        with patch("cc_branch.webui.server.open_with") as open_with:
+        with patch("cc_branch.webui.server.terminal.open_with") as open_with:
             _open_terminal(Path("/tmp"), "'/tmp/cc branch' dashboard")
 
         self.assertEqual(open_with.call_args.args[0], "auto-terminal")
@@ -90,7 +118,7 @@ class TerminalOpenTests(unittest.TestCase):
         """Legacy helper should pass a raw target, not a pre-quoted shell fragment."""
         from unittest.mock import patch
 
-        with patch("cc_branch.webui.server.open_with") as open_with:
+        with patch("cc_branch.webui.server.terminal.open_with") as open_with:
             _open_terminal(Path("/tmp"), "'/tmp/cc branch' attach 'dev window'")
 
         self.assertEqual(open_with.call_args.kwargs["cli"], "'/tmp/cc branch'")
@@ -106,7 +134,7 @@ class WebUIHandlerTests(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.cwd = Path(self.tmpdir.name)
         self.config_path = self.cwd / ".cc-branch.yaml"
-        self.state_path = self.cwd / ".cc-branch.state.toml"
+        self.state_path = self.cwd / ".cc-branch.state.yaml"
 
         config_content = """version: 1
 project: "test-project"
@@ -123,7 +151,7 @@ agents:
 
 slots:
   - name: "dev"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "."
     windows:
       - name: "coder"
@@ -132,11 +160,30 @@ slots:
         command: "zsh"
 """
         self.config_path.write_text(config_content)
-        self.state_path.write_text('version = 1\n')
+        self.state_path.write_text("version: 1\n")
 
     def tearDown(self):
         """Clean up temporary workspace."""
         self.tmpdir.cleanup()
+
+    def test_send_json_ignores_client_disconnect(self):
+        """Closed browser connections should not produce API error tracebacks."""
+        handler = WebUIHandler.__new__(WebUIHandler)
+        calls: list[tuple[str, object]] = []
+
+        class BrokenPipeWriter:
+            def write(self, _payload: bytes) -> None:
+                raise BrokenPipeError()
+
+        handler.send_response = lambda status: calls.append(("status", status))
+        handler.send_header = lambda name, value: calls.append((name, value))
+        handler._set_cors = lambda: None
+        handler.end_headers = lambda: calls.append(("end_headers", None))
+        handler.wfile = BrokenPipeWriter()
+
+        handler._send_json({"ok": True})
+
+        self.assertIn(("status", 200), calls)
 
     def _start_test_server(self, port: int = 0, token: str | None = None) -> tuple:
         """Start a test server and return (server, port)."""
@@ -161,7 +208,13 @@ slots:
         """Test /api/status returns valid JSON with expected structure."""
         server, port = self._start_test_server()
         try:
-            with urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response:
+            from unittest.mock import patch
+
+            with (
+                patch("cc_branch.webui.server._slot_exists", return_value=False),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=False),
+                urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response,
+            ):
                 self.assertEqual(response.status, 200)
                 data = json.loads(response.read().decode())
 
@@ -176,7 +229,7 @@ slots:
 
                 slot = data["slots"][0]
                 self.assertEqual(slot["name"], "dev")
-                self.assertEqual(slot["backend"], "tmux")
+                self.assertEqual(slot["runtime"], "tmux")
                 self.assertIn("status", slot)
                 self.assertIn("session_name", slot)
                 self.assertIn("windows", slot)
@@ -187,6 +240,69 @@ slots:
                 self.assertEqual(windows[0]["agent"], "claude")
                 self.assertEqual(windows[1]["name"], "terminal")
                 self.assertEqual(windows[1]["command"], "zsh")
+                self.assertIn("runtime_sync", data)
+                self.assertEqual(data["runtime_sync"]["summary"]["missing"], 2)
+                self.assertEqual(windows[0]["sync_status"], "missing")
+                self.assertTrue(windows[0]["needs_restart"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_status_marks_untracked_windows_actionable(self):
+        """Running windows without fingerprints should be visibly reconcilable."""
+        from unittest.mock import patch
+
+        self.state_path.write_text(
+            """version: 1
+windows:
+  dev.coder:
+    session_id: "11111111-1111-1111-1111-111111111111"
+    label: "test-project/dev/coder"
+    agent: "claude"
+    slot: "dev"
+    window: "coder"
+""",
+            encoding="utf-8",
+        )
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server._slot_exists", return_value=True),
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"coder", "terminal"}),
+                urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response,
+            ):
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            coder = data["slots"][0]["windows"][0]
+            self.assertEqual(coder["sync_status"], "untracked")
+            self.assertTrue(coder["needs_restart"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_status_marks_terminal_runtime_external(self):
+        """Terminal runtimes are visible external processes, not stopped tmux sessions."""
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            slot = data["slots"][0]
+            self.assertEqual(slot["name"], "scratch")
+            self.assertEqual(slot["runtime"], "terminal")
+            self.assertEqual(slot["status"], "external")
         finally:
             self._stop_test_server(server)
 
@@ -296,14 +412,14 @@ slots:
         alt_dir = self.cwd / "alt"
         alt_dir.mkdir()
         alt_config = alt_dir / ".cc-branch.yaml"
-        alt_state = alt_dir / ".cc-branch.state.toml"
+        alt_state = alt_dir / ".cc-branch.state.yaml"
         alt_config.write_text(
             self.config_path.read_text(encoding="utf-8").replace(
                 'project: "test-project"', 'project: "alt-project"'
             ),
             encoding="utf-8",
         )
-        alt_state.write_text("version = 1\n", encoding="utf-8")
+        alt_state.write_text("version: 1\n", encoding="utf-8")
 
         server, port = self._start_test_server()
         try:
@@ -326,7 +442,7 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.openers.shutil.which", return_value="/usr/local/bin/code"):
+            with patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"):
                 with urlopen(f"http://127.0.0.1:{port}/api/openers", timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
@@ -349,7 +465,69 @@ slots:
 
                 self.assertIn("content", data)
                 self.assertIn("path", data)
+                self.assertIn("mtime", data)
+                self.assertTrue(data["content_hash"].startswith("sha256:"))
                 self.assertIn("test-project", data["content"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_save_config_rejects_stale_base_version(self):
+        """Saving should not silently overwrite config changes made elsewhere."""
+        from urllib.error import HTTPError
+
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/config", timeout=2) as response:
+                original = json.loads(response.read().decode())
+
+            external_content = self.config_path.read_text(encoding="utf-8").replace(
+                'project: "test-project"', 'project: "external-change"'
+            )
+            self.config_path.write_text(external_content, encoding="utf-8")
+
+            request = Request(
+                f"http://127.0.0.1:{port}/api/config",
+                data=json.dumps(
+                    {
+                        "content": original["content"],
+                        "base_mtime": original["mtime"],
+                        "base_content_hash": original["content_hash"],
+                    }
+                ).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(HTTPError) as ctx:
+                urlopen(request, timeout=2)
+
+            self.assertEqual(ctx.exception.code, 409)
+            data = json.loads(ctx.exception.read().decode())
+            self.assertEqual(data["code"], "config_conflict")
+            self.assertIn("external-change", data["current_content"])
+            self.assertEqual(self.config_path.read_text(encoding="utf-8"), external_content)
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_save_config_validates_before_writing(self):
+        """Invalid drafts should return 400 and leave the current file untouched."""
+        from urllib.error import HTTPError
+
+        before = self.config_path.read_text(encoding="utf-8")
+        server, port = self._start_test_server()
+        try:
+            request = Request(
+                f"http://127.0.0.1:{port}/api/config",
+                data=json.dumps({"content": "- invalid\n"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(HTTPError) as ctx:
+                urlopen(request, timeout=2)
+
+            self.assertEqual(ctx.exception.code, 400)
+            data = json.loads(ctx.exception.read().decode())
+            self.assertEqual(data["code"], "invalid_config")
+            self.assertEqual(self.config_path.read_text(encoding="utf-8"), before)
         finally:
             self._stop_test_server(server)
 
@@ -362,7 +540,38 @@ slots:
                 data = json.loads(response.read().decode())
 
                 self.assertIn("report", data)
-                self.assertIn("doctor", data["report"])
+                self.assertIsInstance(data["report"], dict)
+                self.assertIn("issues", data["report"])
+                self.assertIn("text", data)
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_doctor_returns_structured_report_and_text(self):
+        """Doctor API should expose structured issues without dropping text compatibility."""
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "coder"
+        agent: "missing-agent"
+""")
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/doctor", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertIsInstance(data["report"], dict)
+            self.assertIn("issues", data["report"])
+            self.assertIn("text", data)
+            self.assertIn("unknown agent", data["text"].lower())
+            self.assertTrue(
+                any(issue["issue_type"] == "unknown_agent" for issue in data["report"]["issues"])
+            )
         finally:
             self._stop_test_server(server)
 
@@ -389,14 +598,83 @@ slots:
 
     def test_action_stop_accepts_public_slot_target(self):
         """Stop actions should accept public slot targets, not only tmux names."""
-        from unittest.mock import patch
+        server, port = self._start_test_server()
+        try:
+            request = Request(
+                f"http://127.0.0.1:{port}/api/action",
+                data=json.dumps({"action": "stop", "target": "dev"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(request, timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+                self.assertTrue(data["success"])
+                self.assertEqual(data["message"], "Stopped dev")
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_stop_terminal_runtime_reports_manual_close(self):
+        """The Web UI should not claim it can stop an external terminal process."""
+        from urllib.error import HTTPError
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.webui.server.stop_workspace") as stop_workspace:
+            request = Request(
+                f"http://127.0.0.1:{port}/api/action",
+                data=json.dumps({"action": "stop", "target": "scratch"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(HTTPError) as ctx:
+                urlopen(request, timeout=2)
+
+            self.assertEqual(ctx.exception.code, 400)
+            data = json.loads(ctx.exception.read().decode())
+            self.assertIn("close the terminal window manually", data["error"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_launch_workspace_starts_only_tmux_slots(self):
+        """Background launch should not pop external terminal runtime windows."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "main"
+        command: "zsh"
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            from cc_branch.application.results import ActionResult
+
+            with patch(
+                "cc_branch.application.workspace_actions.lifecycle.WorkspaceLifecycleActions.launch_workspace",
+                return_value=ActionResult(ok=True, code="launch_applied", message="Launched workspace"),
+            ) as launch_workspace:
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
-                    data=json.dumps({"action": "stop", "target": "dev"}).encode(),
+                    data=json.dumps({"action": "launch"}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
@@ -404,9 +682,81 @@ slots:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
                     self.assertTrue(data["success"])
-                    self.assertEqual(data["message"], "Stopped dev")
+                    self.assertEqual(data["message"], "Launched tmux slots; terminal slots open separately")
 
-                self.assertEqual(stop_workspace.call_args.args[2], "dev")
+                self.assertEqual(launch_workspace.call_count, 1)
+                self.assertIsNone(launch_workspace.call_args.kwargs.get("target"))
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_launch_all_terminal_workspace_is_rejected(self):
+        """Background launch has no useful meaning for pure terminal-runtime workspaces."""
+        from urllib.error import HTTPError
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            request = Request(
+                f"http://127.0.0.1:{port}/api/action",
+                data=json.dumps({"action": "launch"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(HTTPError) as ctx:
+                urlopen(request, timeout=2)
+
+            self.assertEqual(ctx.exception.code, 400)
+            data = json.loads(ctx.exception.read().decode())
+            self.assertIn("Open terminal slots directly", data["error"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_launch_terminal_window_uses_requested_opener(self):
+        """Launching a terminal-runtime target should use the selected opener and target only."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    windows:
+      - name: "old-a"
+        command: "echo a"
+      - name: "old-b"
+        command: "echo b"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "launch", "target": "scratch:old-a", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened scratch:old-a in Warp")
+
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("scratch:old-a", "echo a"),
+                ])
         finally:
             self._stop_test_server(server)
 
@@ -417,8 +767,8 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
-                patch("cc_branch.webui.server._cli_command", return_value="cc-branch"),
-                patch("cc_branch.webui.server.open_with") as open_with,
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -430,10 +780,155 @@ slots:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
                     self.assertTrue(data["success"])
-                    self.assertEqual(data["message"], "Opened workspace dashboard in terminal")
+                    self.assertEqual(data["message"], "Opened workspace dashboard in System Terminal")
 
                 self.assertEqual(open_with.call_args.kwargs["opener_id"], "auto-terminal")
                 self.assertEqual(open_with.call_args.kwargs["intent"].kind, "workspace_dashboard")
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_all_terminal_workspace_launches_terminal_slots(self):
+        """Pure terminal-runtime workspaces should not open a tmux dashboard command."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "open", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertTrue(data["success"])
+                    self.assertEqual(data["message"], "Opened workspace in Warp")
+
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual(len(specs), 1)
+                self.assertEqual(specs[0].title, "scratch:main")
+                self.assertEqual(specs[0].command, "zsh")
+                open_with.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_workspace_with_layout_opener_opens_all_slots(self):
+        """Layout-capable openers should receive the whole workspace, not just dashboard."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "planner"
+        command: "zsh"
+      - name: "review"
+        command: "python -m pytest"
+  - name: "scratch"
+    runtime: "terminal"
+    command: "npm run dev"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_supports", return_value=True),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "open", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened workspace in Warp")
+
+                self.assertEqual(ensure_slot.call_count, 1)
+                self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([spec.title for spec in specs], ["dev:planner", "dev:review", "scratch:main"])
+                self.assertEqual(
+                    [spec.command for spec in specs],
+                    ["cc-branch attach dev:planner", "cc-branch attach dev:review", "npm run dev"],
+                )
+                open_with.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_mixed_workspace_without_layout_opens_dashboard_and_terminal_slots(self):
+        """Non-layout terminal openers still open the full mixed workspace via fallback windows."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "main"
+        command: "zsh"
+  - name: "scratch"
+    runtime: "terminal"
+    command: "npm run dev"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_supports", return_value=False),
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "open", "opener": "terminal-app"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(
+                        data["message"],
+                        "Opened tmux dashboard and terminal slots in Terminal.app",
+                    )
+
+                self.assertEqual(open_with.call_args.kwargs["opener_id"], "terminal-app")
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "workspace_dashboard")
+                self.assertEqual(open_command_layout.call_args.args[0], "terminal-app")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual(len(specs), 1)
+                self.assertEqual(specs[0].command, "npm run dev")
         finally:
             self._stop_test_server(server)
 
@@ -444,9 +939,9 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
-                patch("cc_branch.webui.server._cli_command", return_value="cc-branch"),
-                patch("cc_branch.webui.server.ensure_slot") as ensure_slot,
-                patch("cc_branch.webui.server.open_with") as open_with,
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -458,7 +953,7 @@ slots:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
                     self.assertTrue(data["success"])
-                    self.assertEqual(data["message"], "Opened dev in terminal")
+                    self.assertEqual(data["message"], "Opened dev in System Terminal")
 
                 self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
                 self.assertEqual(open_with.call_args.kwargs["opener_id"], "auto-terminal")
@@ -474,9 +969,9 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
-                patch("cc_branch.webui.server._cli_command", return_value="cc-branch"),
-                patch("cc_branch.webui.server.ensure_slot") as ensure_slot,
-                patch("cc_branch.webui.server.open_with") as open_with,
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -488,12 +983,343 @@ slots:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
                     self.assertTrue(data["success"])
-                    self.assertEqual(data["message"], "Opened dev:coder in terminal")
+                    self.assertEqual(data["message"], "Opened dev:coder in System Terminal")
 
                 self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
                 self.assertEqual(open_with.call_args.kwargs["opener_id"], "auto-terminal")
                 self.assertEqual(open_with.call_args.kwargs["intent"].kind, "attach_target")
                 self.assertEqual(open_with.call_args.kwargs["intent"].target, "dev:coder")
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_terminal_runtime_does_not_spawn_attach_terminal(self):
+        """Terminal runtime targets are launched directly, not via cc-branch attach."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "open", "target": "scratch", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertTrue(data["success"])
+                    self.assertEqual(data["message"], "Opened scratch in Warp")
+
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual(len(specs), 1)
+                self.assertEqual(specs[0].title, "scratch:main")
+                self.assertEqual(specs[0].command, "zsh")
+                open_with.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_restart_terminal_runtime_uses_requested_opener(self):
+        """Restarting a terminal-runtime slot should honor the selected opener."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "restart", "target": "scratch", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened scratch in Warp")
+
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("scratch:main", "zsh"),
+                ])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_restart_terminal_window_uses_only_requested_window(self):
+        """Restarting a terminal-runtime window should not open every window in the slot."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    windows:
+      - name: "old-a"
+        command: "echo a"
+      - name: "old-b"
+        command: "echo b"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "restart", "target": "scratch:old-a", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened scratch:old-a in Warp")
+
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("scratch:old-a", "echo a"),
+                ])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_restart_terminal_runtime_with_vscode_uses_workspace_file(self):
+        """Editor openers should restart terminal-runtime targets via a single task workspace."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "restart", "target": "scratch", "opener": "vscode"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened scratch in VS Code")
+
+                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("scratch:main", "zsh"),
+                ])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_sync_restarts_changed_tmux_windows(self):
+        """Sync should only restart windows whose desired launch spec changed."""
+        from unittest.mock import patch
+
+        self.state_path.write_text(
+            """version: 1
+windows:
+  dev.coder:
+    session_id: "11111111-1111-1111-1111-111111111111"
+    label: "test-project/dev/coder"
+    agent: "claude"
+    slot: "dev"
+    window: "coder"
+    launch_fingerprint: "sha256:old"
+""",
+            encoding="utf-8",
+        )
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"coder", "terminal"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]) as restart_workspace,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "sync"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+
+            self.assertEqual(data["message"], "Synced 2 target(s)")
+            self.assertIn(
+                "dev:coder",
+                [call.args[2] for call in restart_workspace.call_args_list],
+            )
+            self.assertTrue(restart_workspace.call_args.kwargs["detach"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_sync_restarts_untracked_tmux_windows(self):
+        """Old running windows without fingerprints should have an explicit sync path."""
+        from unittest.mock import patch
+
+        self.state_path.write_text(
+            """version: 1
+windows:
+  dev.coder:
+    session_id: "11111111-1111-1111-1111-111111111111"
+    label: "test-project/dev/coder"
+    agent: "claude"
+    slot: "dev"
+    window: "coder"
+""",
+            encoding="utf-8",
+        )
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"coder", "terminal"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]) as restart_workspace,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "sync"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+
+            self.assertEqual(data["message"], "Synced 2 target(s)")
+            self.assertIn(
+                "dev:coder",
+                [call.args[2] for call in restart_workspace.call_args_list],
+            )
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_sync_can_stop_extra_windows_when_requested(self):
+        """Extra windows are only stopped when the caller explicitly opts in."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"coder", "terminal", "old"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]),
+                patch("cc_branch.application.workspace_actions.stop_extra_windows", return_value=["test-project-dev:old"]) as stop_extra_windows,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "sync", "stop_removed": True}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+
+            self.assertIn("stopped 1 extra window", data["message"])
+            self.assertIsNone(stop_extra_windows.call_args.args[1])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_sync_does_not_treat_string_false_as_stop_removed(self):
+        """Destructive stop_removed must require a real JSON boolean true."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.runtime.sync._tmux_has_session", return_value=True),
+                patch("cc_branch.runtime.sync._list_window_names", return_value={"coder", "terminal", "old"}),
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]),
+                patch("cc_branch.application.workspace_actions.stop_extra_windows") as stop_extra_windows,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "sync", "stop_removed": "false"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+
+            stop_extra_windows.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_terminal_window_uses_requested_opener(self):
+        """A selected opener should be honored for terminal-runtime targets."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "scratch"
+    runtime: "terminal"
+    windows:
+      - name: "old-a"
+        command: "echo a"
+      - name: "old-b"
+        command: "echo b"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "open", "target": "scratch:old-a", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual(len(specs), 1)
+                self.assertEqual(specs[0].command, "echo a")
         finally:
             self._stop_test_server(server)
 
@@ -505,8 +1331,8 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
-                patch("cc_branch.webui.server.ensure_slot") as ensure_slot,
-                patch("cc_branch.webui.server.open_with") as open_with,
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -531,7 +1357,7 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.webui.server.open_with") as open_with:
+            with patch("cc_branch.application.workspace_actions.open_with") as open_with:
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
                     data=json.dumps({
@@ -553,8 +1379,303 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_rejects_editor_attach_intent(self):
-        """Editor openers should not silently downgrade attach requests."""
+    def test_api_agents_returns_effective_profiles(self):
+        """The Web UI should list registry agents even when config omits agents."""
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+agents:
+  codex:
+    command: "codex --sandbox read-only"
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "planner"
+        agent: "codex"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/agents", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            agents = {agent["id"]: agent for agent in data["agents"]}
+            self.assertIn("claude", agents)
+            self.assertIn("codex", agents)
+            self.assertEqual(agents["codex"]["command"], "codex --sandbox read-only")
+            self.assertEqual(agents["codex"]["resume_mode"], "flag")
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_workspace_with_vscode_uses_workspace_file(self):
+        """Editor tools should adapt workspace open through a generated workspace file."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "open",
+                        "opener": "vscode",
+                        "intent": "workspace_dashboard",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened workspace in VS Code")
+
+                self.assertEqual(ensure_slot.call_count, 1)
+                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev", "cc-branch attach dev"),
+                ])
+                open_with.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_mixed_workspace_with_vscode_collapses_tmux_slots(self):
+        """Editor workspace opens should not expand tmux windows in mixed workspaces."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "shell"
+        command: "zsh"
+      - name: "window-2"
+        command: "claude"
+  - name: "scratch"
+    runtime: "terminal"
+    command: "zsh"
+    title: "hi"
+""")
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "open",
+                        "opener": "vscode",
+                        "intent": "workspace_dashboard",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+
+                self.assertEqual(ensure_slot.call_count, 1)
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev", "cc-branch attach dev"),
+                    ("scratch:hi", "zsh"),
+                ])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_workspace_with_vscode_uses_executable_cli_in_tasks(self):
+        """Editor workspace tasks should use a CLI path that works outside the server shell."""
+        from unittest.mock import patch
+
+        expected_cli = shlex.quote(str(Path(__file__).resolve().parents[1] / "bin" / "cc-branch"))
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.terminal.sys.argv", ["-"]),
+                patch("cc_branch.webui.server.terminal.shutil.which", return_value=None),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.ensure_slot"),
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "open",
+                        "opener": "vscode",
+                        "intent": "workspace_dashboard",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([spec.command for spec in specs], [
+                    f"{expected_cli} attach dev",
+                ])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_workspace_with_warp_receives_full_layout_commands(self):
+        """Warp workspace opens should receive tmux attach panes plus terminal-runtime panes."""
+        from unittest.mock import patch
+
+        self.config_path.write_text("""version: 1
+project: "test-project"
+root: "."
+
+slots:
+  - name: "dev"
+    runtime: "tmux"
+    windows:
+      - name: "planner"
+        command: "zsh"
+      - name: "review"
+        command: "python -m pytest"
+  - name: "scratch"
+    runtime: "terminal"
+    command: "npm run dev"
+""")
+        expected_cli = shlex.quote(str(Path(__file__).resolve().parents[1] / "bin" / "cc-branch"))
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.terminal.sys.argv", ["-"]),
+                patch("cc_branch.webui.server.terminal.shutil.which", return_value=None),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "layout"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "open",
+                        "opener": "warp",
+                        "intent": "workspace_dashboard",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened workspace in Warp")
+
+                self.assertEqual(ensure_slot.call_count, 1)
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([spec.title for spec in specs], [
+                    "dev:planner",
+                    "dev:review",
+                    "scratch:main",
+                ])
+                self.assertEqual([spec.command for spec in specs], [
+                    f"{expected_cli} attach dev:planner",
+                    f"{expected_cli} attach dev:review",
+                    "npm run dev",
+                ])
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_target_with_vscode_uses_single_workspace_file_task(self):
+        """Selected editor openers should open a single target through workspace tasks."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "open",
+                        "target": "dev:terminal",
+                        "opener": "vscode",
+                        "intent": "attach_target",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened dev:terminal in VS Code")
+
+                self.assertEqual(ensure_slot.call_count, 1)
+                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev:terminal", "cc-branch attach dev:terminal"),
+                ])
+                open_with.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_slot_with_vscode_attaches_slot_not_each_tmux_window(self):
+        """Editor slot opens should not expand tmux windows into multiple auto-run tasks."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "open",
+                        "target": "dev",
+                        "opener": "vscode",
+                        "intent": "attach_target",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertEqual(data["message"], "Opened dev in VS Code")
+
+                self.assertEqual(ensure_slot.call_count, 1)
+                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev", "cc-branch attach dev"),
+                ])
+                open_with.assert_not_called()
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_rejects_editor_attach_without_workspace_file_support(self):
+        """Project-only editor openers still cannot attach targets."""
         from unittest.mock import patch
         from urllib.error import HTTPError
 
@@ -562,7 +1683,10 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.webui.server.open_with", side_effect=OpenerError("Opener vscode does not support attach_target")):
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", return_value=False),
+                patch("cc_branch.application.workspace_actions.open_with", side_effect=OpenerError("Opener vscode does not support attach_target")),
+            ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
                     data=json.dumps({
@@ -593,7 +1717,7 @@ slots:
 
                 body = response.read().decode()
                 self.assertIn("CC Branch", body)
-                self.assertIn("Dashboard", body)
+                self.assertIn("Multi-Agent Workspace Orchestrator", body)
                 self.assertIn('<div id="root">', body)
                 self.assertIn("<script", body)
         finally:
@@ -888,7 +2012,7 @@ class CLIIntegrationTests(unittest.TestCase):
         ) as start_server:
             context = context_cls.return_value
             context.config_path = Path("/tmp/.cc-branch.yaml")
-            context.state_path = Path("/tmp/.cc-branch.state.toml")
+            context.state_path = Path("/tmp/.cc-branch.state.yaml")
             context.state = object()
             context.load.return_value = (object(), object())
 
@@ -908,7 +2032,7 @@ class CLIIntegrationTests(unittest.TestCase):
         ) as start_server:
             context = context_cls.return_value
             context.config_path = Path("/tmp/.cc-branch.yaml")
-            context.state_path = Path("/tmp/.cc-branch.state.toml")
+            context.state_path = Path("/tmp/.cc-branch.state.yaml")
             context.state = object()
             context.load.return_value = (object(), object())
 
@@ -917,7 +2041,7 @@ class CLIIntegrationTests(unittest.TestCase):
         self.assertEqual(result, 0)
         start_server.assert_called_once_with(
             Path("/tmp/.cc-branch.yaml"),
-            Path("/tmp/.cc-branch.state.toml"),
+            Path("/tmp/.cc-branch.state.yaml"),
             host="0.0.0.0",
             port=8080,
             token="secret-token",

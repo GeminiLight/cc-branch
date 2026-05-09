@@ -49,37 +49,53 @@ User opens Doctor view
   -> User sees missing commands, unknown agents, invalid env keys, etc.
 ```
 
-### 1.5 Open a workspace or slot in a terminal
+### 1.5 Open a workspace or slot
 
 ```text
-User clicks "Open workspace in terminal"
-  -> Frontend posts to /api/action with {action: "open", opener: "auto-terminal", intent: "workspace_dashboard"}
-  -> Backend asks the selected local opener to open a terminal
-  -> New terminal runs `cc-branch dashboard`
+User selects a tool, then clicks "Open workspace"
+  -> Frontend posts to /api/action with {action: "open", opener: selectedTool, intent: "workspace_dashboard"}
+  -> Backend adapts the workspace open to the selected tool
 ```
+
+Terminal tools run dashboard or attach commands. Warp writes a Launch Configuration under Warp's launch configuration directory and opens it through `warp://launch/...` so Warp can open one layout. VS Code and Cursor open a generated `.code-workspace`; tmux slots become one attach task per slot, while terminal-runtime slots become visible shell tasks. Those editors may ask the user to allow automatic tasks.
+
+The dashboard itself is still tmux-backed, so opening the same workspace from a different terminal attaches to the same reusable sessions.
 
 For a slot-level button:
 
 ```text
 User clicks "Open terminal" on a slot
-  -> Frontend posts to /api/action with {action: "open", target: "dev", opener: "auto-terminal", intent: "attach_target"}
+  -> Frontend posts to /api/action with {action: "open", target: "dev", opener: selectedTool, intent: "attach_target"}
   -> Backend ensures the tmux slot exists
-  -> New terminal runs `cc-branch attach dev`
+  -> The selected tool opens the target
 ```
 
-The terminal is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported terminal emulator or the OS blocks automation, the UI shows the returned error.
+Terminal tools run `cc-branch attach <target>` or the terminal-runtime command. VS Code and Cursor open a generated `.code-workspace` with a single task for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
 
-### 1.6 Open a project in an editor
+### 1.6 Open a project in the selected tool
 
 ```text
-User chooses "VS Code" or "Cursor" from Open With
-  -> Frontend posts to /api/action with {action: "open", opener: "vscode", intent: "project_folder"}
-  -> Backend runs the registered editor CLI, such as `code <project-root>`
-  -> Editor opens the project folder
+User chooses a terminal, Warp, VS Code, or Cursor from Tool
+  -> User clicks "Open project directory"
+  -> Frontend posts to /api/action with {action: "open", opener: selectedTool, intent: "project_folder"}
+  -> Backend runs the selected opener's project-open adapter
+  -> Terminal tools open an interactive shell at the project folder
+  -> Editor tools open the project folder
   -> No tmux attach is implied
 ```
 
-Editor openers are not treated as terminals. If the user tries to attach a slot through an opener that only supports `project_folder`, the backend rejects the request instead of silently doing a different action.
+VS Code and Cursor use their CLIs, such as `code <project-root>` or `cursor <project-root>`. Warp opens a new Warp window at the project directory through its URL scheme. Terminal.app, iTerm2, Linux terminals, and Windows terminals open a shell with the project directory as the working directory.
+
+### 1.6.1 Terminal-runtime workspace
+
+```text
+User opens a workspace that has only runtime: terminal slots
+  -> Frontend still posts {action: "open", intent: "workspace_dashboard"}
+  -> Backend sees there are no tmux slots
+  -> Backend runs the terminal slot commands through the selected terminal opener
+```
+
+Terminal-runtime slots are not reusable. Every open starts a new external terminal process. Warp is the exception only in presentation: CC Branch can group multiple terminal slot commands into one Warp Launch Configuration layout, but those processes still are not tmux sessions and cannot be stopped or reattached by CC Branch.
 
 ### 1.7 Start without opening a terminal
 
@@ -120,7 +136,7 @@ A desktop wrapper can launch the backend with explicit paths:
 
 ```text
 Wrapper sets CC_BRANCH_CONFIG=/abs/path/.cc-branch.yaml
-Wrapper sets CC_BRANCH_STATE=/abs/path/.cc-branch.state.toml
+Wrapper sets CC_BRANCH_STATE=/abs/path/.cc-branch.state.yaml
 Wrapper starts Python backend
   -> WorkspaceContext uses overridden paths
   -> Web UI works without depending on process cwd

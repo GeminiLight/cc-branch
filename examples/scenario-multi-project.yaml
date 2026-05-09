@@ -50,7 +50,7 @@ agents:
 slots:
   # Frontend project
   - name: "frontend"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "./frontend"
     env:
       NODE_ENV: "development"
@@ -64,7 +64,7 @@ slots:
 
   # Backend project
   - name: "backend"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "./backend"
     env:
       NODE_ENV: "development"
@@ -79,7 +79,7 @@ slots:
 
   # Shared library
   - name: "lib"
-    backend: "tmux"
+    runtime: "tmux"
     cwd: "./shared-lib"
     windows:
       - name: "code"
@@ -90,8 +90,8 @@ slots:
 # How to use:
 # 1. Make sure you have frontend/, backend/, and shared-lib/ directories
 # 2. cp examples/scenario-multi-project.yaml .cc-branch.yaml
-# 3. cc-branch state bootstrap
-# 4. cc-branch up
+# 3. cc-branch plan --write-state
+# 4. cc-branch start
 # 5. cc-branch dashboard             # See all projects at once
 # 6. cc-branch attach frontend:code  # Work on frontend
 # 7. cc-branch attach backend:code   # Switch to backend

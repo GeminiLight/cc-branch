@@ -13,8 +13,9 @@ export function useWorkspaceAction() {
       opener,
       intent,
       projectPath,
+      stopRemoved,
     }: WorkspaceActionRequest) =>
-      api.runWorkspaceAction({ action, target, opener, intent, projectPath }),
+      api.runWorkspaceAction({ action, target, opener, intent, projectPath, stopRemoved }),
     onSuccess: (_, { projectPath }) => {
       queryClient.invalidateQueries({ queryKey: ["workspace", "status", projectPath] });
       queryClient.invalidateQueries({ queryKey: ["workspace", "doctor", projectPath] });

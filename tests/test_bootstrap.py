@@ -12,6 +12,7 @@ from cc_branch.bootstrap import (
     bootstrap_sessions,
     check_environment,
     generate_starter_config,
+    summarize_config,
 )
 from cc_branch.config import init_workspace
 from cc_branch.models import WorkspaceConfig, WorkspaceState
@@ -183,12 +184,24 @@ class TestConfigGeneration(unittest.TestCase):
 
         self.assertIn("version: 1", config)
         self.assertIn('project: "test-project"', config)
-        self.assertIn("codex:", config)
-        self.assertIn("claude:", config)
-        self.assertIn("gemini:", config)
+        self.assertNotIn("agents:", config)
+        self.assertIn('agent: "codex"', config)
+        self.assertIn('agent: "claude"', config)
         self.assertIn("planner", config)
         self.assertIn("builder", config)
         self.assertIn("review", config)
+
+    def test_summarize_config_counts_referenced_agents_without_agent_definitions(self):
+        """Init summaries should count used agents, not only explicit overrides."""
+        config = generate_starter_config(
+            "test-project",
+            ["codex", "claude", "gemini"],
+            "solo-dev"
+        )
+
+        summary = summarize_config(config)
+
+        self.assertEqual(summary.agents, 2)
 
     def test_generate_config_with_one_agent(self):
         """Test config generation when only one agent is available."""
@@ -198,8 +211,8 @@ class TestConfigGeneration(unittest.TestCase):
             "solo-dev"
         )
 
-        self.assertIn("claude:", config)
-        self.assertNotIn("codex:", config)
+        self.assertNotIn("agents:", config)
+        self.assertIn('agent: "claude"', config)
         self.assertIn("planner", config)  # Should still have windows
 
     def test_generate_config_with_no_agents(self):
@@ -211,7 +224,7 @@ class TestConfigGeneration(unittest.TestCase):
         )
 
         self.assertIn("version: 1", config)
-        self.assertIn("agents: {}", config)
+        self.assertNotIn("agents:", config)
         self.assertIn("shell", config)  # Should have shell fallback
 
     def test_generate_config_unknown_profile(self):
@@ -227,7 +240,8 @@ class TestConfigGeneration(unittest.TestCase):
             "minimal"
         )
 
-        self.assertIn("claude:", config)
+        self.assertNotIn("agents:", config)
+        self.assertIn('agent: "claude"', config)
         self.assertIn("main", config)
         self.assertIn("agent", config)
 

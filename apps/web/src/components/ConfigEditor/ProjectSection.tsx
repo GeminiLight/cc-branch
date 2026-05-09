@@ -3,6 +3,7 @@
  */
 
 import { Folder } from "lucide-react";
+import { useI18n } from "../../i18n";
 import type { ConfigFormData } from "./types";
 import { SectionHeader, CollapsibleSection, FieldLabel, TextInput } from "./FormPrimitives";
 
@@ -17,10 +18,12 @@ export default function ProjectSection({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
+
   return (
-    <div className="border border-default rounded-lg surface-card">
+    <section className="rounded-md transition-colors">
       <SectionHeader
-        title="Project"
+        title={t("project")}
         subtitle={`${data.project} / ${data.root}`}
         icon={<Folder className="w-3.5 h-3.5" />}
         expanded={expanded}
@@ -29,7 +32,7 @@ export default function ProjectSection({
       <CollapsibleSection expanded={expanded}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <FieldLabel required>Project name</FieldLabel>
+            <FieldLabel required>{t("projectName")}</FieldLabel>
             <TextInput
               value={data.project}
               onChange={(v) => onChange({ project: v })}
@@ -38,7 +41,7 @@ export default function ProjectSection({
             />
           </div>
           <div>
-            <FieldLabel>Root directory</FieldLabel>
+            <FieldLabel>{t("rootDirectory")}</FieldLabel>
             <TextInput
               value={data.root}
               onChange={(v) => onChange({ root: v })}
@@ -47,6 +50,6 @@ export default function ProjectSection({
           </div>
         </div>
       </CollapsibleSection>
-    </div>
+    </section>
   );
 }

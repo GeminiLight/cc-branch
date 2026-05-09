@@ -17,6 +17,9 @@ import type {
   WorkspaceAction,
   WorkspaceActionRequest,
   OpenersData,
+  AgentsData,
+  ConfigSaveResult,
+  ConfigIssue,
 } from "../types";
 
 export interface APIClient {
@@ -25,13 +28,35 @@ export interface APIClient {
   getDoctor(projectPath?: string, signal?: AbortSignal): Promise<DoctorReport>;
   probeProject(projectPath: string, signal?: AbortSignal): Promise<ProjectProbe>;
   getOpeners(projectPath?: string, signal?: AbortSignal): Promise<OpenersData>;
+  getAgents(projectPath?: string, signal?: AbortSignal): Promise<AgentsData>;
   runAction(action: WorkspaceAction, target?: string, projectPath?: string): Promise<ActionResult>;
   runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult>;
   stopSlot(sessionName: string, projectPath?: string): Promise<ActionResult>;
   getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }>;
   getProfiles(signal?: AbortSignal): Promise<Profile[]>;
   initWorkspace(profile: string, bootstrapSessions: boolean, projectPath?: string): Promise<InitResult>;
-  saveConfig(content: string, projectPath?: string): Promise<{ success: boolean; path: string }>;
+  saveConfig(
+    content: string,
+    projectPath?: string,
+    baseMtime?: number | null,
+    baseContentHash?: string | null
+  ): Promise<ConfigSaveResult>;
+}
+
+export class APIRequestError extends Error {
+  status: number;
+  code?: string;
+  currentContent?: string;
+  issues?: ConfigIssue[];
+
+  constructor(status: number, data: Record<string, unknown>) {
+    super(String(data.error || `HTTP ${status}`));
+    this.name = "APIRequestError";
+    this.status = status;
+    this.code = typeof data.code === "string" ? data.code : undefined;
+    this.currentContent = typeof data.current_content === "string" ? data.current_content : undefined;
+    this.issues = Array.isArray(data.issues) ? (data.issues as ConfigIssue[]) : undefined;
+  }
 }
 
 function qs(projectPath?: string): string {
@@ -83,16 +108,23 @@ export class HTTPClient implements APIClient {
     return data as OpenersData;
   }
 
+  async getAgents(projectPath?: string, signal?: AbortSignal): Promise<AgentsData> {
+    const res = await fetch(`${this.baseUrl}/api/agents${qs(projectPath)}`, { signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentsData;
+  }
+
   async runAction(action: WorkspaceAction, target?: string, projectPath?: string): Promise<ActionResult> {
     return this.runWorkspaceAction({ action, target, projectPath });
   }
 
   async runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult> {
-    const { projectPath, ...body } = request;
+    const { projectPath, stopRemoved, ...body } = request;
     const res = await fetch(`${this.baseUrl}/api/action${qs(projectPath)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, stop_removed: stopRemoved }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -128,15 +160,24 @@ export class HTTPClient implements APIClient {
     return data as InitResult;
   }
 
-  async saveConfig(content: string, projectPath?: string): Promise<{ success: boolean; path: string }> {
+  async saveConfig(
+    content: string,
+    projectPath?: string,
+    baseMtime?: number | null,
+    baseContentHash?: string | null
+  ): Promise<ConfigSaveResult> {
     const res = await fetch(`${this.baseUrl}/api/config${qs(projectPath)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({
+        content,
+        base_mtime: baseMtime,
+        base_content_hash: baseContentHash,
+      }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data as { success: boolean; path: string };
+    if (!res.ok) throw new APIRequestError(res.status, data);
+    return data as ConfigSaveResult;
   }
 }
 
@@ -194,17 +235,25 @@ export class TauriClient implements APIClient {
     return data as OpenersData;
   }
 
+  async getAgents(projectPath?: string): Promise<AgentsData> {
+    const baseUrl = await this._baseUrl();
+    const res = await fetch(`${baseUrl}/api/agents${qs(projectPath)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentsData;
+  }
+
   async runAction(action: WorkspaceAction, target?: string, projectPath?: string): Promise<ActionResult> {
     return this.runWorkspaceAction({ action, target, projectPath });
   }
 
   async runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult> {
-    const { projectPath, ...body } = request;
+    const { projectPath, stopRemoved, ...body } = request;
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/action${qs(projectPath)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, stop_removed: stopRemoved }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -239,16 +288,25 @@ export class TauriClient implements APIClient {
     return data as InitResult;
   }
 
-  async saveConfig(content: string, projectPath?: string): Promise<{ success: boolean; path: string }> {
+  async saveConfig(
+    content: string,
+    projectPath?: string,
+    baseMtime?: number | null,
+    baseContentHash?: string | null
+  ): Promise<ConfigSaveResult> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/config${qs(projectPath)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({
+        content,
+        base_mtime: baseMtime,
+        base_content_hash: baseContentHash,
+      }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data as { success: boolean; path: string };
+    if (!res.ok) throw new APIRequestError(res.status, data);
+    return data as ConfigSaveResult;
   }
 }
 

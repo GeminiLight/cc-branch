@@ -52,7 +52,7 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
       icon: Settings,
       title: t("step2Title"),
       desc: t("step2Desc"),
-      code: `slots:\n  - name: "dev"\n    backend: "tmux"\n    windows:\n      - name: "planner"\n        agent: "claude"`,
+      code: `slots:\n  - name: "dev"\n    runtime: "tmux"\n    windows:\n      - name: "planner"\n        agent: "claude"`,
       previewItems: [
         { label: "slots", desc: t("step2Slots") },
         { label: "agents", desc: t("step2Agents") },

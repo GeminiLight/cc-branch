@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Folded Dock logo concept</title>
+  <desc id="desc">A project dock unfolding into workspace lanes.</desc>
+  <rect width="256" height="256" rx="56" fill="#10292B"/>
+
+  <!-- Back fold. It extends under the front rail so there is no notch at the join. -->
+  <path
+    d="M92 56
+       L158 91
+       C164 95 167 102 167 110
+       V207
+       L92 174Z"
+    fill="#0F766E"/>
+
+  <!-- Front rail. Custom path: round left side, calmer right corners for a cleaner fold seam. -->
+  <path
+    d="M76 56
+       H96
+       C104 56 110 62 110 70
+       V186
+       C110 194 104 200 96 200
+       H76
+       C66 200 58 192 58 182
+       V74
+       C58 64 66 56 76 56Z"
+    fill="#2DD4BF"/>
+
+  <!-- Workspace lanes. Uneven lengths make them feel like real targets, not decoration. -->
+  <rect x="144" y="75" width="56" height="16" rx="8" fill="#F6FFF9"/>
+  <rect x="144" y="120" width="70" height="16" rx="8" fill="#F4B740"/>
+  <rect x="144" y="165" width="58" height="16" rx="8" fill="#35D08F"/>
+</svg>

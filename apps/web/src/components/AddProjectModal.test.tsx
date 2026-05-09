@@ -9,7 +9,7 @@ const api = {
   getApiInfo: vi.fn().mockResolvedValue({
     port: 8080,
     config_path: '/tmp/demo/.cc-branch.yaml',
-    state_path: '/tmp/demo/.cc-branch.state.toml',
+    state_path: '/tmp/demo/.cc-branch.state.yaml',
   }),
   probeProject: vi.fn(),
 } as unknown as APIClient

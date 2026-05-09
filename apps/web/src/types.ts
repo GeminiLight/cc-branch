@@ -12,14 +12,57 @@ export interface WindowInfo {
   session_id: string | null;
   label: string | null;
   cwd: string;
+  status?: "running" | "stopped" | "external";
+  sync_status?: SyncStatus;
+  needs_restart?: boolean;
 }
 
 export interface SlotInfo {
   name: string;
-  backend: string;
-  status: "running" | "stopped";
+  runtime: string;
+  status: "running" | "stopped" | "external";
   session_name: string;
   windows: WindowInfo[];
+  sync_status?: SyncStatus;
+  extra_windows?: RuntimeSyncWindow[];
+}
+
+export type SyncStatus = "current" | "changed" | "missing" | "extra" | "orphaned" | "untracked" | "external";
+
+export interface RuntimeSyncWindow {
+  name: string;
+  key: string;
+  runtime_status: string;
+  sync_status: SyncStatus;
+  needs_restart: boolean;
+  desired_fingerprint?: string | null;
+  applied_fingerprint?: string | null;
+  change_reason: string[];
+}
+
+export interface RuntimeSyncSlot {
+  name: string;
+  runtime: string;
+  tmux_session: string;
+  sync_status: SyncStatus;
+  windows: RuntimeSyncWindow[];
+  extra_windows: RuntimeSyncWindow[];
+}
+
+export interface RuntimeSyncReport {
+  summary: Record<SyncStatus, number>;
+  slots: RuntimeSyncSlot[];
+  orphaned_state: Record<string, unknown>[];
+  historical_sessions: Record<string, unknown>[];
+}
+
+export interface ConfigIssue {
+  issue_type: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  target: string;
+  context: Record<string, unknown>;
+  fixable: boolean;
 }
 
 export interface WorkspaceStatus {
@@ -30,6 +73,7 @@ export interface WorkspaceStatus {
   config_path: string;
   state_path: string;
   slots: SlotInfo[];
+  runtime_sync?: RuntimeSyncReport;
   error?: string;
 }
 
@@ -39,11 +83,33 @@ export interface ConfigData {
   path: string;
   project_path?: string;
   state_path?: string;
+  mtime?: number | null;
+  content_hash?: string;
+  issues?: ConfigIssue[];
+}
+
+export interface ConfigSaveResult {
+  success: boolean;
+  path: string;
+  mtime?: number | null;
+  content_hash?: string;
+  diagnostics?: string;
+  issues?: ConfigIssue[];
+}
+
+export type DoctorIssue = ConfigIssue;
+
+export interface DoctorReportPayload {
+  project: string;
+  issues: DoctorIssue[];
+  has_errors?: boolean;
+  has_warnings?: boolean;
 }
 
 export interface DoctorReport {
   status?: "ready" | "needs_init" | "missing" | "invalid_config";
-  report: string;
+  report: string | DoctorReportPayload;
+  text?: string;
   error?: string;
 }
 
@@ -52,7 +118,7 @@ export interface ActionResult {
   message: string;
 }
 
-export type WorkspaceAction = "launch" | "restart" | "stop" | "open";
+export type WorkspaceAction = "launch" | "restart" | "stop" | "open" | "sync";
 export type OpenIntent = "workspace_dashboard" | "attach_target" | "project_folder";
 
 export interface WorkspaceActionRequest {
@@ -61,6 +127,7 @@ export interface WorkspaceActionRequest {
   opener?: string;
   intent?: OpenIntent;
   projectPath?: string;
+  stopRemoved?: boolean;
 }
 
 export interface OpenerInfo {
@@ -77,6 +144,22 @@ export interface OpenerInfo {
 export interface OpenersData {
   default: string;
   openers: OpenerInfo[];
+}
+
+export interface AgentProfileInfo {
+  id: string;
+  command: string;
+  resume_mode: string;
+  resume_template: string;
+  create_mode: string;
+  create_template: string;
+  label_template: string;
+  label_mode: string;
+  rename_template: string;
+}
+
+export interface AgentsData {
+  agents: AgentProfileInfo[];
 }
 
 export interface ProjectProbe {

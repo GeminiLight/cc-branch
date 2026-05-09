@@ -15,13 +15,13 @@ class DesktopBackendTests(unittest.TestCase):
             "--config",
             "/tmp/project/.cc-branch.yaml",
             "--state",
-            "/tmp/project/.cc-branch.state.toml",
+            "/tmp/project/.cc-branch.state.yaml",
         ])
 
         self.assertEqual(args.host, "127.0.0.1")
         self.assertEqual(args.port, 8765)
         self.assertEqual(args.config, "/tmp/project/.cc-branch.yaml")
-        self.assertEqual(args.state, "/tmp/project/.cc-branch.state.toml")
+        self.assertEqual(args.state, "/tmp/project/.cc-branch.state.yaml")
 
     def test_main_starts_webui_server_with_explicit_paths(self):
         with patch("cc_branch.desktop_backend.start_server") as start_server:
@@ -33,7 +33,7 @@ class DesktopBackendTests(unittest.TestCase):
                 "--config",
                 "/tmp/project/.cc-branch.yaml",
                 "--state",
-                "/tmp/project/.cc-branch.state.toml",
+                "/tmp/project/.cc-branch.state.yaml",
                 "--token",
                 "secret",
             ])
@@ -41,7 +41,7 @@ class DesktopBackendTests(unittest.TestCase):
         self.assertEqual(result, 0)
         start_server.assert_called_once_with(
             Path("/tmp/project/.cc-branch.yaml"),
-            Path("/tmp/project/.cc-branch.state.toml"),
+            Path("/tmp/project/.cc-branch.state.yaml"),
             host="127.0.0.1",
             port=8765,
             token="secret",

@@ -210,7 +210,7 @@ fn show_window(window: tauri::WebviewWindow) {
 pub fn run() {
     let cwd = std::env::current_dir().unwrap_or_default();
     let config_path = cwd.join(".cc-branch.yaml");
-    let state_path = cwd.join(".cc-branch.state.toml");
+    let state_path = cwd.join(".cc-branch.state.yaml");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

@@ -15,15 +15,17 @@ import {
   RotateCcw,
   ExternalLink,
   SquareTerminal,
+  Wand2,
 } from "lucide-react";
-import type { OpenIntent, OpenerInfo, SlotInfo, WorkspaceAction } from "../types";
+import type { OpenIntent, OpenerInfo, SlotInfo, SyncStatus, WorkspaceAction } from "../types";
 // Dashboard uses hooks only; api prop kept for SetupGuide compatibility
 import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
+import EmptyState from "./ui/EmptyState";
 import { useWorkspace, useWorkspaceAction, useRelativeTime, useOpeners } from "../hooks";
 import Modal from "./ui/Modal";
 import SetupGuide from "./SetupGuide";
-import { SkeletonCard } from "./ui/Skeleton";
+import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
 
 interface DashboardProps {
@@ -49,41 +51,67 @@ const DEFAULT_OPENER: OpenerInfo = {
 };
 
 function openerStorageKey(projectPath?: string): string {
-  return `cc-branch.open.default.${projectPath || "current"}`;
+  return `cc-branch.open.tool.${projectPath || "current"}`;
 }
 
 function openerSupports(opener: OpenerInfo | undefined, capability: string): boolean {
   return Boolean(opener?.available && opener.capabilities.includes(capability));
 }
 
-function workspaceIntent(opener: OpenerInfo): OpenIntent {
-  return openerSupports(opener, "dashboard") ? "workspace_dashboard" : "project_folder";
+function canOpenWorkspace(opener: OpenerInfo | undefined): boolean {
+  return Boolean(
+    openerSupports(opener, "dashboard") ||
+    openerSupports(opener, "layout") ||
+    openerSupports(opener, "workspace_file")
+  );
 }
 
 function workspaceOpenLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
-  if (workspaceIntent(opener) === "project_folder") {
-    return t("openProjectIn", { app: opener.label });
-  }
-  return t("openWorkspace");
+  return t("openWorkspaceIn", { app: opener.label });
 }
 
-function StatusBadge({ status }: { status: "running" | "stopped" }) {
+function StatusBadge({ status }: { status: SlotInfo["status"] }) {
   const isRunning = status === "running";
+  const isExternal = status === "external";
   const { t } = useI18n();
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
         isRunning
           ? "success-bg success"
+          : isExternal
+            ? "accent-bg accent"
           : "text-tertiary bg-[var(--border-subtle)]"
       }`}
+      title={isExternal ? t("externalTerminal") : undefined}
     >
-      <span
-        className={`w-1 h-1 rounded-full ${
-          isRunning ? "bg-[var(--success)]" : "bg-tertiary"
-        }`}
-      />
-      {isRunning ? t("running") : t("stopped")}
+      {isRunning ? (
+        <Activity className="w-3 h-3" />
+      ) : isExternal ? (
+        <Monitor className="w-3 h-3" />
+      ) : (
+        <CircleStop className="w-3 h-3" />
+      )}
+      {isRunning ? t("running") : isExternal ? t("external") : t("stopped")}
+    </span>
+  );
+}
+
+function SyncBadge({ status }: { status?: SyncStatus }) {
+  const { t } = useI18n();
+  if (!status || status === "current" || status === "external") return null;
+  const isActionable = status === "changed" || status === "missing" || status === "untracked";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+        isActionable
+          ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+          : "bg-[var(--bg-hover)] text-tertiary"
+      }`}
+      title={t(`syncStatus_${status}`)}
+    >
+      {isActionable && <AlertTriangle className="w-3 h-3" />}
+      {t(`syncStatus_${status}`)}
     </span>
   );
 }
@@ -94,14 +122,14 @@ const SlotCard = memo(function SlotCard({
   onConfirmAction,
   onCopy,
   busy,
-  attachOpenerId,
+  openerId,
 }: {
   slot: SlotInfo;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
-  onConfirmAction: (action: WorkspaceAction, target: string, label: string) => void;
+  onConfirmAction: (action: WorkspaceAction, target: string | undefined, label: string) => void;
   onCopy: (value: string, label: string) => void;
   busy: boolean;
-  attachOpenerId: string;
+  openerId: string;
 }) {
   const isRunning = slot.status === "running";
   const { t } = useI18n();
@@ -109,7 +137,7 @@ const SlotCard = memo(function SlotCard({
 
   return (
     <div
-      className={`surface-card border rounded-lg overflow-hidden transition-all hover:shadow-sm hover:-translate-y-px ${
+      className={`surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out hover:shadow-md hover:border-[var(--border-strong)] ${
         isRunning ? "border-[var(--accent-border)] shadow-sm" : "border-default"
       }`}
     >
@@ -119,9 +147,9 @@ const SlotCard = memo(function SlotCard({
           isRunning ? "accent-bg" : "surface-elevated"
         }`}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 ${
+            className={`w-9 h-9 rounded-md border flex items-center justify-center shrink-0 ${
               isRunning
                 ? "bg-[var(--bg-card)] border-[var(--accent-border)]"
                 : "bg-[var(--bg-card)] border-default"
@@ -129,97 +157,100 @@ const SlotCard = memo(function SlotCard({
           >
             <Monitor
               className={`w-4 h-4 shrink-0 ${
-                isRunning ? "success" : "text-tertiary"
+                isRunning ? "text-[var(--accent)]" : "text-tertiary"
               }`}
             />
           </div>
           <div className="min-w-0">
-            <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
-              {slot.name}
-            </h3>
-            <p className="text-[10px] text-tertiary font-mono mt-px truncate">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
+                {slot.name}
+              </h3>
+              <StatusBadge status={slot.status} />
+              <SyncBadge status={slot.sync_status} />
+            </div>
+            <p className="text-[11px] text-tertiary font-mono mt-0.5 truncate">
               {slot.session_name}
+              <span className="text-muted mx-1">·</span>
+              <span className="text-muted">{slot.runtime}</span>
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0 flex-wrap self-start sm:self-auto">
-          <span className="text-[10px] px-1.5 py-px rounded bg-[var(--border-subtle)] text-tertiary font-medium">
-            {slot.backend}
-          </span>
-          <StatusBadge status={slot.status} />
-          <button
-            type="button"
-            onClick={() => onCopy(slotTarget, `${slotTarget} target`)}
-            className="h-6 w-6 rounded text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
-            aria-label={`Copy target ${slotTarget}`}
-            title="Copy target"
-          >
-            <Clipboard className="w-3 h-3" />
-          </button>
+        <div className="flex items-center gap-2 shrink-0">
           {isRunning ? (
             <>
               <button
                 type="button"
-                onClick={() => onRunAction("open", slotTarget, attachOpenerId, "attach_target")}
+                onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
                 disabled={busy}
-                className="h-7 px-2.5 rounded-md text-[11px] font-semibold bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1 disabled:opacity-50 shadow-sm"
+                className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
                 aria-label={`${t("openTerminal")} ${slotTarget}`}
               >
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
                 {t("open")}
               </button>
-              <button
-                type="button"
-                onClick={() => onRunAction("restart", slotTarget)}
-                disabled={busy}
-                className="h-7 px-2.5 rounded-md text-[11px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center gap-1 disabled:opacity-50"
-                aria-label={`Restart ${slotTarget}`}
-              >
-                <RotateCcw className="w-3 h-3" />
-                {t("restart")}
-              </button>
+              <div className="flex items-center gap-1 p-0.5 rounded-md border border-default surface-card">
+                <button
+                  type="button"
+                  onClick={() => onRunAction("restart", slotTarget, openerId)}
+                  disabled={busy}
+                  className="icon-touch sm:min-h-9 sm:min-w-9 rounded text-[11px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
+                  aria-label={`${t("restart")} ${slotTarget}`}
+                  title={t("restart")}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onConfirmAction("stop", slotTarget, slotTarget)}
+                  disabled={busy}
+                  className="icon-touch sm:min-h-9 sm:min-w-9 rounded text-[11px] font-medium danger hover:danger-bg transition-colors flex items-center justify-center disabled:opacity-50"
+                  aria-label={`${t("stop")} ${slotTarget}`}
+                  title={t("stop")}
+                >
+                  <CircleStop className="w-4 h-4" />
+                </button>
+              </div>
             </>
           ) : (
             <button
               type="button"
-              onClick={() => onRunAction("open", slotTarget, attachOpenerId, "attach_target")}
+              onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
               disabled={busy}
-              className="h-7 px-2.5 rounded-md text-[11px] font-semibold bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1 disabled:opacity-50 shadow-sm"
+              className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
               aria-label={`${t("openTerminal")} ${slotTarget}`}
             >
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-3.5 h-3.5" />
               {t("open")}
             </button>
           )}
-          {isRunning && (
-            <button
-              type="button"
-              onClick={() => onConfirmAction("stop", slotTarget, slotTarget)}
-              disabled={busy}
-              className="h-7 px-2.5 rounded-md text-[11px] font-medium danger danger-bg hover:opacity-80 transition-opacity flex items-center gap-1"
-              aria-label={`${t("stop")} ${slotTarget}`}
-            >
-              <CircleStop className="w-3 h-3" />
-              {t("stop")}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => onCopy(slotTarget, `${slotTarget} target`)}
+            className="icon-touch sm:min-h-9 sm:min-w-9 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
+            aria-label={`${t("copyTarget")} ${slotTarget}`}
+            title={t("copyTarget")}
+          >
+            <Clipboard className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
       {/* Windows */}
-      <div className="divide-y divide-default">
+      <div className="p-1.5 space-y-1">
         {slot.windows.map((w) => {
           const windowTarget = `${slot.name}:${w.name}`;
           return (
           <div
             key={w.name}
-            className="group px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:surface-hover transition-colors"
+            className="group rounded-md border border-transparent px-2.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-[var(--accent-bg)] hover:border-[var(--accent-border)] focus-within:bg-[var(--accent-bg)] focus-within:border-[var(--accent-border)] transition-[background-color,border-color,box-shadow] duration-150"
+            role="listitem"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-md bg-[var(--border-subtle)] flex items-center justify-center shrink-0 group-hover:bg-[var(--bg-card)] group-hover:shadow-sm transition-all">
-                <SquareTerminal className="w-3.5 h-3.5 text-tertiary shrink-0" />
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-md border border-default bg-[var(--bg-elevated)] text-tertiary flex items-center justify-center shrink-0 group-hover:bg-[var(--bg-card)] group-hover:border-[var(--accent-border)] group-hover:text-[var(--accent)] group-hover:shadow-sm group-focus-within:bg-[var(--bg-card)] group-focus-within:border-[var(--accent-border)] group-focus-within:text-[var(--accent)] transition-[background-color,border-color,color,box-shadow] duration-150">
+                <SquareTerminal className="w-4 h-4 shrink-0" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-semibold text-primary">
                     {w.name}
@@ -229,51 +260,49 @@ const SlotCard = memo(function SlotCard({
                       {w.agent}
                     </span>
                   )}
+                  <SyncBadge status={w.sync_status} />
                 </div>
-                {w.label && (
-                  <p className="text-[11px] text-tertiary truncate">{w.label}</p>
-                )}
-                {w.session_id && (
-                  <p className="text-[10px] font-mono text-muted">
-                    {w.session_id.slice(0, 14)}…
-                  </p>
-                )}
+                <div className="flex items-center gap-2 mt-0.5">
+                  {w.label && (
+                    <p className="text-[11px] text-tertiary truncate">{w.label}</p>
+                  )}
+                  {w.session_id && (
+                    <p className="text-[10px] font-mono text-muted" title={w.session_id}>
+                      {w.session_id.slice(0, 10)}…
+                    </p>
+                  )}
+                </div>
+                <div className="hidden lg:flex items-center gap-1.5 mt-1 min-w-0 text-[10px] text-tertiary font-mono">
+                  <span className="truncate max-w-[360px]" title={w.command || "-"}>
+                    {w.command || "-"}
+                  </span>
+                  <span className="text-muted">·</span>
+                  <span className="truncate max-w-[360px]" title={w.cwd}>
+                    {w.cwd}
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-              <div className="text-right hidden sm:block">
-                <p
-                  className="text-[11px] font-mono text-secondary truncate max-w-[100px] md:max-w-[160px]"
-                  title={w.command || "-"}
-                >
-                  {w.command || "-"}
-                </p>
-                <p
-                  className="text-[10px] text-tertiary truncate max-w-[100px] md:max-w-[160px]"
-                  title={w.cwd}
-                >
-                  {w.cwd}
-                </p>
-              </div>
+            <div className="flex items-center gap-2 shrink-0 lg:justify-end">
               <button
                 type="button"
-                onClick={() => onRunAction("open", windowTarget, attachOpenerId, "attach_target")}
+                onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
                 disabled={busy}
-                className="h-7 px-2.5 rounded-md text-[11px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center gap-1 disabled:opacity-50"
+                className="control-touch min-w-11 sm:min-w-0 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                 aria-label={`${t("openTerminal")} ${windowTarget}`}
                 title={`${t("openTerminal")} ${windowTarget}`}
               >
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t("open")}</span>
               </button>
               <button
                 type="button"
                 onClick={() => onCopy(`cc-branch attach ${windowTarget}`, `attach command for ${windowTarget}`)}
-                className="h-7 w-7 rounded-md text-tertiary hover:text-primary hover:surface-card border border-transparent hover:border-default transition-colors flex items-center justify-center"
-                aria-label={`Copy attach command for ${windowTarget}`}
-                title="Copy attach command"
+                className="icon-touch sm:min-h-9 sm:min-w-9 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
+                aria-label={`${t("copyAttachCommand")} ${windowTarget}`}
+                title={t("copyAttachCommand")}
               >
-                <Copy className="w-3 h-3" />
+                <Copy className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -283,6 +312,59 @@ const SlotCard = memo(function SlotCard({
     </div>
   );
 });
+
+function DashboardLoading() {
+  return (
+    <div className="page-shell space-y-3 pt-1" aria-label="Loading workspace">
+      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Skeleton width={36} height={36} />
+            <div className="space-y-2 min-w-0 flex-1">
+              <Skeleton width={180} height={14} />
+              <Skeleton width={280} height={10} className="max-w-full" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton width={138} height={36} />
+            <Skeleton width={96} height={36} />
+            <Skeleton width={112} height={36} />
+          </div>
+        </div>
+      </div>
+
+      <div className="surface-card border border-default rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-default flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Skeleton width={34} height={34} />
+            <div className="space-y-2">
+              <Skeleton width={150} height={13} />
+              <Skeleton width={220} height={10} />
+            </div>
+          </div>
+          <Skeleton width={120} height={34} />
+        </div>
+        <div className="divide-y divide-[var(--border-subtle)]">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="px-4 py-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <Skeleton width={30} height={30} />
+                <div className="space-y-2 min-w-0 flex-1">
+                  <Skeleton width={row === 1 ? "48%" : "36%"} height={12} />
+                  <Skeleton width={row === 2 ? "62%" : "74%"} height={9} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton width={64} height={32} />
+                <Skeleton width={32} height={32} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard({ projectPath, isActive = true }: DashboardProps) {
   const { t } = useI18n();
@@ -308,7 +390,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
     };
   }, []);
 
-  const requestConfirmedAction = useCallback((action: WorkspaceAction, target: string, label: string) => {
+  const requestConfirmedAction = useCallback((action: WorkspaceAction, target: string | undefined, label: string) => {
     setPendingAction({ action, target, label, danger: action === "stop" });
     setModalOpen(true);
   }, []);
@@ -370,13 +452,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   }, [data]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-3 max-w-3xl animate-stagger">
-        <SkeletonCard />
-        <SkeletonCard />
-        <SkeletonCard />
-      </div>
-    );
+    return <DashboardLoading />;
   }
 
   if (isError) {
@@ -397,7 +473,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
         <button
           type="button"
           onClick={() => refetch()}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium bg-[var(--accent)] text-[var(--text-on-accent)] hover:opacity-90 transition-opacity"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           {t("refresh")}
@@ -424,7 +500,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
         <button
           type="button"
           onClick={() => refetch()}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium bg-[var(--accent)] text-[var(--text-on-accent)] hover:opacity-90 transition-opacity"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           {t("refresh")}
@@ -435,35 +511,40 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
 
   if (!data || data.slots.length === 0) {
     return (
-      <div className="text-center py-20">
-        <div className="w-10 h-10 rounded-lg bg-[var(--border-subtle)] flex items-center justify-center mx-auto mb-3">
-          <Activity className="w-5 h-5 text-tertiary" />
-        </div>
-        <p className="text-[13px] text-secondary">{t("noSlots")}</p>
-      </div>
+      <EmptyState
+        icon={<Activity className="w-6 h-6" />}
+        title={t("noSlots")}
+        description={t("noSlotsHint")}
+        action={
+          <p className="text-[12px] text-tertiary mt-2">
+            {t("configureInConfigTab")}
+          </p>
+        }
+      />
     );
   }
 
   const runningCount = data.slots.filter((s) => s.status === "running").length;
-  const totalCount = data.slots.length;
+  const stoppedCount = data.slots.filter((s) => s.status === "stopped").length;
+  const externalCount = data.slots.filter((s) => s.status === "external").length;
+  const hasTmuxSlots = data.slots.some((s) => s.runtime === "tmux");
+  const syncSummary = data.runtime_sync?.summary;
+  const syncCount = (syncSummary?.changed || 0) + (syncSummary?.missing || 0) + (syncSummary?.untracked || 0);
+  const untrackedCount = syncSummary?.untracked || 0;
+  const extraCount = syncSummary?.extra || 0;
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
-  const selectedOpener = openers.find((opener) => opener.id === selectedOpenerId && opener.available)
-    || openers.find((opener) => opener.id === defaultOpenerId && opener.available)
-    || openers.find((opener) => opener.available)
+  const availableOpeners = openers.filter((opener) => opener.available);
+  const selectedOpener = availableOpeners.find((opener) => opener.id === selectedOpenerId)
+    || availableOpeners.find((opener) => opener.id === defaultOpenerId)
+    || availableOpeners[0]
     || DEFAULT_OPENER;
-  const attachOpener = openerSupports(selectedOpener, "attach_target")
-    ? selectedOpener
-    : openers.find((opener) => opener.id === "auto-terminal" && opener.available)
-      || openers.find((opener) => opener.available && opener.capabilities.includes("attach_target"))
-      || DEFAULT_OPENER;
   const openerItems = openers.map((opener) => ({
     label: opener.label,
     value: opener.id,
     disabled: !opener.available,
     description: opener.reason,
   }));
-  const selectedWorkspaceIntent = workspaceIntent(selectedOpener);
 
   const setDefaultOpener = (value: string) => {
     setSelectedOpenerId(value);
@@ -473,30 +554,34 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   };
 
   const runWorkspaceOpen = () => {
-    runAction("open", undefined, selectedOpener.id, selectedWorkspaceIntent);
+    runAction("open", undefined, selectedOpener.id, "workspace_dashboard");
+  };
+
+  const runProjectOpen = () => {
+    if (!openerSupports(selectedOpener, "open_project")) return;
+    runAction("open", undefined, selectedOpener.id, "project_folder");
   };
 
   return (
-    <div className="space-y-3 max-w-5xl">
+    <div className="page-shell space-y-4">
       {/* Project summary */}
-      <div className="surface-command border border-strong rounded-lg px-4 py-3 flex flex-col gap-3 shadow-sm relative overflow-hidden">
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--accent)]" />
+      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
               <FolderGit2 className="w-4 h-4 text-[var(--accent)]" />
             </div>
-            <div>
-              <p className="text-[15px] font-semibold text-primary leading-tight">
+            <div className="min-w-0">
+              <p className="text-[16px] font-semibold text-primary leading-tight truncate">
                 {data.project || data.project_name}
               </p>
-              <p className="text-[11px] text-tertiary">
-                {runningCount} {t("running")} · {totalCount - runningCount}{" "}
-                {t("stopped")}
+              <p className="text-[12px] text-tertiary mt-0.5">
+                {runningCount} {t("running")} · {stoppedCount} {t("stopped")}
+                {externalCount > 0 ? ` · ${externalCount} ${t("external")}` : ""}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-tertiary shrink-0">
+          <div className="flex items-center gap-2 text-[12px] text-tertiary shrink-0 rounded-full bg-[var(--bg-card)]/70 px-3 py-1.5">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
                 isFetching ? "bg-[var(--accent)] animate-pulse" : "bg-[var(--success)]"
@@ -507,76 +592,135 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
             <span>{lastUpdated || "--"}</span>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] items-start xl:items-center gap-3">
+          {/* Primary actions */}
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 min-w-0 max-w-full">
             <button
               type="button"
               onClick={runWorkspaceOpen}
-              disabled={actionMutation.isPending}
-              className="h-8 px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+              disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
+              className="control-touch px-4 rounded-md text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 shadow-sm max-w-full"
+              title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
+              aria-label={workspaceOpenLabel(t, selectedOpener)}
             >
-              <ExternalLink className="w-3.5 h-3.5" />
-              {workspaceOpenLabel(t, selectedOpener)}
+              {actionMutation.isPending ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <ExternalLink className="w-4 h-4 shrink-0" />
+              )}
+              <span className="truncate">{workspaceOpenLabel(t, selectedOpener)}</span>
             </button>
+            <button
+              type="button"
+              onClick={runProjectOpen}
+              disabled={actionMutation.isPending || !openerSupports(selectedOpener, "open_project")}
+              title={openerSupports(selectedOpener, "open_project") ? t("openProjectIn", { app: selectedOpener.label }) : t("toolCannotOpenProject", { app: selectedOpener.label })}
+              aria-label={openerSupports(selectedOpener, "open_project") ? t("openProjectIn", { app: selectedOpener.label }) : t("openProjectDirectory")}
+              className="control-touch px-4 rounded-md text-[13px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-all flex items-center justify-center sm:justify-start gap-2 disabled:opacity-45 disabled:cursor-not-allowed"
+            >
+              {actionMutation.isPending ? (
+                <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+              ) : (
+                <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span className="truncate">{t("openProjectDirectory")}</span>
+            </button>
+            {syncCount > 0 && (
+              <button
+                type="button"
+                onClick={() => requestConfirmedAction("sync", undefined, t("runtimeChanges"))}
+                disabled={actionMutation.isPending || !hasTmuxSlots}
+                className="control-touch px-4 rounded-md text-[13px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 shadow-sm max-w-full"
+                title={t("syncChangesHint", { count: syncCount })}
+                aria-label={t("syncChanges")}
+              >
+                <Wand2 className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("syncChanges")}</span>
+                <span className="rounded-md bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-bold">
+                  {syncCount}
+                </span>
+              </button>
+            )}
+          </div>
+          {/* Secondary actions */}
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] sm:flex sm:flex-wrap items-center gap-2 justify-self-stretch xl:justify-self-end xl:justify-items-end">
+            <div className="flex items-center gap-1 p-1 rounded-md bg-[var(--bg-card)]/80 shadow-sm">
+              <button
+                type="button"
+                onClick={() => runAction("launch", undefined)}
+                disabled={actionMutation.isPending || !hasTmuxSlots}
+                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
+                title={hasTmuxSlots ? t("startOnly") : t("tmuxOnlyAction")}
+                aria-label={t("startOnly")}
+              >
+                <Play className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => runAction("restart", undefined)}
+                disabled={actionMutation.isPending || !hasTmuxSlots}
+                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
+                title={hasTmuxSlots ? t("restart") : t("tmuxOnlyAction")}
+                aria-label={t("restart")}
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingAction({ action: "stop", label: "workspace", danger: true });
+                  setModalOpen(true);
+                }}
+                disabled={actionMutation.isPending || runningCount === 0}
+                className="icon-touch rounded danger hover:danger-bg transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                title={t("stopWorkspace")}
+                aria-label={t("stopWorkspace")}
+              >
+                <CircleStop className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
+                title={t("refresh")}
+                aria-label={t("refresh")}
+              >
+                <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+              </button>
+            </div>
             <Dropdown
-              align="left"
+              align="right"
               value={selectedOpener.id}
               items={openerItems}
               onChange={setDefaultOpener}
+              ariaLabel={t("selectedTool", { app: selectedOpener.label })}
               trigger={
-                <span className="h-8 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-hover transition-colors border border-default flex items-center gap-1.5">
-                  <span>{t("openWith", { app: selectedOpener.label })}</span>
-                  <ChevronDown className="w-3 h-3 text-tertiary" />
+                <span className="control-touch px-3.5 rounded-md text-[13px] font-semibold text-secondary hover:text-primary surface-hover transition-colors flex items-center gap-1.5 w-full sm:w-auto sm:max-w-[220px] shadow-sm">
+                  <span className="hidden sm:inline text-tertiary font-medium">{t("tool")}</span>
+                  <span className="truncate">{selectedOpener.label}</span>
+                  <ChevronDown className="w-3 h-3 text-tertiary shrink-0" />
                 </span>
               }
             />
-            <button
-              type="button"
-              onClick={() => runAction("launch", undefined)}
-              disabled={actionMutation.isPending}
-              className="h-8 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-hover transition-colors border border-default flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Play className="w-3.5 h-3.5" />
-              {t("startOnly")}
-            </button>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => runAction("restart", undefined)}
-              disabled={actionMutation.isPending}
-              className="h-8 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-hover transition-colors border border-default flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              {t("restart")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPendingAction({ action: "stop", label: "workspace", danger: true });
-                setModalOpen(true);
-              }}
-              disabled={actionMutation.isPending || runningCount === 0}
-              className="h-8 px-3 rounded-md text-[12px] font-medium danger danger-bg hover:opacity-80 transition-opacity flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <CircleStop className="w-3.5 h-3.5" />
-              {t("stopWorkspace")}
-            </button>
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="h-8 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-hover transition-colors border border-default flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
-              {t("refresh")}
-            </button>
           </div>
         </div>
         {lastActionMessage && (
           <div className="flex items-center gap-2 rounded-md border border-[var(--success)]/10 success-bg px-2.5 py-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-[var(--success)] shrink-0" />
             <p className="text-[11px] font-medium text-secondary">{lastActionMessage}</p>
+          </div>
+        )}
+        {(syncCount > 0 || untrackedCount > 0 || extraCount > 0) && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--warning)]/10 bg-[var(--warning-bg)] px-2.5 py-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning)] shrink-0 mt-0.5" />
+            <p className="text-[11px] font-medium text-secondary leading-relaxed">
+              {syncCount > 0
+                ? t("runtimeChangesPending", { count: syncCount })
+                : untrackedCount > 0
+                  ? t("runtimeUntracked", { count: untrackedCount })
+                  : t("runtimeExtraWindows", { count: extraCount })}
+            </p>
           </div>
         )}
       </div>
@@ -590,7 +734,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
             onConfirmAction={requestConfirmedAction}
             onCopy={copyToClipboard}
             busy={actionMutation.isPending}
-            attachOpenerId={attachOpener.id}
+            openerId={selectedOpener.id}
           />
         </div>
       ))}
@@ -602,10 +746,16 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
           setModalOpen(false);
           setPendingAction(null);
         }}
-        title={pendingAction?.action === "stop" ? t("stop") : t("confirm")}
+        title={pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm")}
         description={t("confirmAction", { action: pendingAction?.action || "", name: pendingAction?.label || "" })}
-        icon={<AlertTriangle className="w-5 h-5 danger" />}
-        confirmText={pendingAction?.action === "stop" ? t("stop") : t("confirm")}
+        icon={
+          pendingAction?.action === "sync" ? (
+            <Wand2 className="w-5 h-5 text-[var(--warning)]" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 danger" />
+          )
+        }
+        confirmText={pendingAction?.action === "stop" ? t("stop") : pendingAction?.action === "sync" ? t("syncChanges") : t("confirm")}
         cancelText={t("cancel")}
         onConfirm={confirmAction}
         variant={pendingAction?.danger ? "danger" : "default"}

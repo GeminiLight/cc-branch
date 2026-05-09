@@ -18,11 +18,14 @@ import {
   Code2,
   AlertTriangle,
   ChevronDown,
+  Info,
 } from "lucide-react";
+import { APIRequestError } from "../../api/client";
+import type { ConfigIssue } from "../../types";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
-import { useConfig, useSaveConfig, useKeyboardShortcuts } from "../../hooks";
+import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
 import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
@@ -36,9 +39,16 @@ interface ConfigEditorProps {
 }
 
 type EditorMode = "form" | "yaml";
+type IssueTone = "danger" | "warning" | "info";
 
 function hasYamlComments(value: string): boolean {
   return value.split("\n").some((line) => line.trimStart().startsWith("#"));
+}
+
+function issueTone(issues: ConfigIssue[]): IssueTone {
+  if (issues.some((issue) => issue.severity === "error")) return "danger";
+  if (issues.some((issue) => issue.severity === "warning")) return "warning";
+  return "info";
 }
 
 export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
@@ -48,6 +58,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
   const saveMutation = useSaveConfig();
 
   const [mode, setMode] = useState<EditorMode>("form");
+  const { data: agentsData } = useAgents(projectPath, mode === "form");
   const [formData, setFormData] = useState<ConfigFormData>(createDefaultConfig());
   const [yamlContent, setYamlContent] = useState("");
   const [yamlError, setYamlError] = useState<string | null>(null);
@@ -55,6 +66,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
   const [copied, setCopied] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [serverIssues, setServerIssues] = useState<ConfigIssue[] | null>(null);
 
   // Section expand/collapse state
   const [expandedSections, setExpandedSections] = useState({
@@ -80,6 +92,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
       setHasUnsavedChanges(false);
       setYamlError(null);
       setFormErrors([]);
+      setServerIssues(null);
     }
   }, [data?.content]);
 
@@ -123,6 +136,11 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
+  const isDirty = useCallback(
+    (value: string) => value !== (initialContentRef.current ?? data?.content ?? ""),
+    [data?.content]
+  );
+
   /* ── Form change handlers ── */
   const updateForm = useCallback(
     (patch: Partial<ConfigFormData>) => {
@@ -130,12 +148,13 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
         const next = { ...prev, ...patch };
         const yaml = serializeConfigForm(next);
         setYamlContent(yaml);
-        setHasUnsavedChanges(yaml !== (data?.content || ""));
-        setFormErrors(validateConfigForm(next));
+        setHasUnsavedChanges(isDirty(yaml));
+        setFormErrors(validateConfigForm(next, t));
+        setServerIssues(null);
         return next;
       });
     },
-    [data?.content]
+    [isDirty, t]
   );
 
   const updateDisplay = useCallback(
@@ -144,24 +163,35 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
         const next = { ...prev, display: { ...prev.display, ...patch } };
         const yaml = serializeConfigForm(next);
         setYamlContent(yaml);
-        setHasUnsavedChanges(yaml !== (data?.content || ""));
+        setHasUnsavedChanges(isDirty(yaml));
+        setServerIssues(null);
         return next;
       });
     },
-    [data?.content]
+    [isDirty]
   );
 
   const updateAgents = useCallback(
-    (agents: ConfigFormData["agents"]) => {
+    (agents: ConfigFormData["agents"], rename?: { from: string; to: string }) => {
       setFormData((prev) => {
-        const next = { ...prev, agents };
+        const slots = rename
+          ? prev.slots.map((slot) => ({
+              ...slot,
+              windows: slot.windows.map((window) => ({
+                ...window,
+                agent: window.agent === rename.from ? rename.to : window.agent,
+              })),
+            }))
+          : prev.slots;
+        const next = { ...prev, agents, slots };
         const yaml = serializeConfigForm(next);
         setYamlContent(yaml);
-        setHasUnsavedChanges(yaml !== (data?.content || ""));
+        setHasUnsavedChanges(isDirty(yaml));
+        setServerIssues(null);
         return next;
       });
     },
-    [data?.content]
+    [isDirty]
   );
 
   const updateSlots = useCallback(
@@ -170,19 +200,21 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
         const next = { ...prev, slots };
         const yaml = serializeConfigForm(next);
         setYamlContent(yaml);
-        setHasUnsavedChanges(yaml !== (data?.content || ""));
-        setFormErrors(validateConfigForm(next));
+        setHasUnsavedChanges(isDirty(yaml));
+        setFormErrors(validateConfigForm(next, t));
+        setServerIssues(null);
         return next;
       });
     },
-    [data?.content]
+    [isDirty, t]
   );
 
   /* ── YAML change handler ── */
   const handleYamlChange = useCallback(
     (value: string) => {
       setYamlContent(value);
-      setHasUnsavedChanges(value !== (data?.content || ""));
+      setHasUnsavedChanges(isDirty(value));
+      setServerIssues(null);
       if (yamlValidateTimerRef.current) clearTimeout(yamlValidateTimerRef.current);
       yamlValidateTimerRef.current = setTimeout(() => {
         try {
@@ -191,13 +223,13 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
           // Also sync to form data if valid
           const parsed = parseConfigYaml(value);
           setFormData(parsed);
-          setFormErrors(validateConfigForm(parsed));
+          setFormErrors(validateConfigForm(parsed, t));
         } catch (e: unknown) {
           setYamlError(String(e));
         }
       }, 200);
     },
-    [data?.content]
+    [isDirty, t]
   );
 
   /* ── Mode switch ── */
@@ -217,7 +249,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
         try {
           const parsed = parseConfigYaml(yamlContent);
           setFormData(parsed);
-          setFormErrors(validateConfigForm(parsed));
+          setFormErrors(validateConfigForm(parsed, t));
           setYamlError(null);
         } catch {
           // Keep current form data if YAML is invalid
@@ -237,17 +269,39 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
       return;
     }
     try {
-      await saveMutation.mutateAsync({ content: contentToSave, projectPath });
+      const result = await saveMutation.mutateAsync({
+        content: contentToSave,
+        projectPath,
+        baseMtime: data?.mtime,
+        baseContentHash: data?.content_hash,
+      });
+      initialContentRef.current = contentToSave;
+      setYamlContent(contentToSave);
+      if (mode === "yaml") {
+        setFormData(parseConfigYaml(contentToSave));
+      }
       setHasUnsavedChanges(false);
       setYamlError(null);
+      setServerIssues(result.issues ?? []);
       setSaveFlash(true);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setSaveFlash(false), 1500);
-      toast.success(t("configSaved"));
+      toast.success(result.diagnostics ? t("configSavedNoRestart") : t("configSaved"));
     } catch (e: unknown) {
-      toast.error(String(e));
+      if (e instanceof APIRequestError) {
+        if (e.issues?.length) {
+          setServerIssues(e.issues);
+        }
+        if (e.code === "config_conflict") {
+          toast.error(t("configConflict"));
+        } else {
+          toast.error(e.message);
+        }
+      } else {
+        toast.error(e instanceof Error ? e.message : String(e));
+      }
     }
-  }, [projectPath, mode, formData, yamlContent, formErrors, saveMutation, toast, t]);
+  }, [projectPath, mode, formData, yamlContent, formErrors, saveMutation, toast, t, data?.mtime, data?.content_hash]);
 
   /* ── Copy ── */
   const copy = useCallback(async () => {
@@ -270,7 +324,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
 
   if (isLoading) {
     return (
-      <div className="surface-card border border-default rounded-lg max-w-3xl p-4 space-y-4 animate-stagger">
+      <div className="surface-card border border-default rounded-lg page-shell p-4 space-y-4 animate-stagger">
         <div className="flex items-center gap-2">
           <div className="w-24 h-3 bg-[var(--border-subtle)] rounded animate-skeleton" />
           <div className="w-16 h-3 bg-[var(--border-subtle)] rounded animate-skeleton" />
@@ -293,120 +347,155 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
   }
 
   const currentYaml = mode === "form" ? serializeConfigForm(formData) : yamlContent;
+  const displayedIssues = serverIssues ?? (!hasUnsavedChanges ? data?.issues ?? [] : []);
+  const displayedIssueTone = issueTone(displayedIssues);
+  const displayedIssueClass =
+    displayedIssueTone === "danger"
+      ? "border-[var(--danger)]/15 bg-[var(--danger-bg)] text-[var(--danger)]"
+      : displayedIssueTone === "warning"
+        ? "border-[var(--warning)]/20 bg-[var(--warning-bg)] text-[var(--warning)]"
+        : "border-default bg-[var(--bg-hover)] text-secondary";
+  const referencedAgents = formData.slots.flatMap((slot) => [
+    slot.agent,
+    ...slot.windows.map((window) => window.agent),
+  ]).filter((agent): agent is string => Boolean(agent));
+  const effectiveAgentNames = Array.from(new Set([
+    ...(agentsData?.agents.map((agent) => agent.id) || []),
+    ...Object.keys(formData.agents),
+    ...referencedAgents,
+  ]));
 
   return (
-    <div className="max-w-3xl">
-      {/* Toolbar */}
-      <div className="surface-card border border-default rounded-lg mb-3">
-        <div className="px-4 py-2.5 border-b border-default flex items-center justify-between flex-wrap gap-2">
+    <div className="page-shell">
+      {/* Header actions */}
+      <div className="mb-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <FileCode2 className="w-3.5 h-3.5 text-tertiary" />
-            <span className="text-[11px] font-semibold text-tertiary uppercase tracking-wide">
+            <FileCode2 className="w-4 h-4 text-tertiary" />
+            <h2 className="text-[15px] font-semibold text-primary">
               {t("configuration")}
-            </span>
-            {data?.path && (
-              <span className="text-[10px] text-muted font-mono">
-                {data.path.split("/").pop()}
-              </span>
-            )}
+            </h2>
             {hasUnsavedChanges && (
-              <span className="text-[10px] text-[var(--warning)] font-medium">
-                • unsaved
+              <span className="rounded-md bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
+                {t("unsaved")}
               </span>
             )}
           </div>
-
-          <div className="flex items-center gap-1">
-            {/* Mode toggle */}
-            <div className="flex items-center bg-[var(--bg-hover)] rounded-md p-0.5 mr-2">
-              <button
-                type="button"
-                onClick={() => switchMode("form")}
-                className={`h-6 px-2 rounded text-[11px] font-medium flex items-center gap-1 transition-colors ${
-                  mode === "form"
-                    ? "bg-[var(--bg-card)] text-primary shadow-sm"
-                    : "text-tertiary hover:text-secondary"
-                }`}
-              >
-                <LayoutList className="w-3 h-3" />
-                Form
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode("yaml")}
-                className={`h-6 px-2 rounded text-[11px] font-medium flex items-center gap-1 transition-colors ${
-                  mode === "yaml"
-                    ? "bg-[var(--bg-card)] text-primary shadow-sm"
-                    : "text-tertiary hover:text-secondary"
-                }`}
-              >
-                <Code2 className="w-3 h-3" />
-                YAML
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={copy}
-              className="h-7 px-2 rounded text-[11px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center gap-1"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3 text-[var(--success)]" />
-                  <span className="text-[var(--success)]">{t("copied")}</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  {t("copy")}
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saveMutation.isPending || !hasUnsavedChanges || (!!yamlError && mode === "yaml") || (formErrors.length > 0 && mode === "form")}
-              className="h-7 px-2 rounded text-[11px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saveMutation.isPending ? (
-                <div className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Save className="w-3 h-3" />
-              )}
-              {t("save")}
-            </button>
-          </div>
+          {data?.path && (
+            <p className="mt-1 text-[11px] text-tertiary font-mono truncate">
+              {data.path}
+            </p>
+          )}
         </div>
 
-        {/* Validation errors bar */}
-        {(mode === "form" ? formErrors : yamlError ? [yamlError] : []).length > 0 && (
-          <div className="px-4 py-2 border-b border-default bg-[var(--danger-bg)] flex items-start gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-[var(--danger)] shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              {(mode === "form" ? formErrors : [yamlError!]).map((err, i) => (
-                <p key={i} className="text-[11px] text-[var(--danger)]">
-                  {err}
-                </p>
-              ))}
-            </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-[var(--bg-hover)] rounded-md p-0.5">
+            <button
+              type="button"
+              onClick={() => switchMode("form")}
+              className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
+                mode === "form"
+                  ? "bg-[var(--bg-card)] text-primary shadow-sm"
+                  : "text-tertiary hover:text-secondary"
+              }`}
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              Form
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("yaml")}
+              className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
+                mode === "yaml"
+                  ? "bg-[var(--bg-card)] text-primary shadow-sm"
+                  : "text-tertiary hover:text-secondary"
+              }`}
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              YAML
+            </button>
           </div>
-        )}
 
-        {/* Save success flash */}
-        {saveFlash && (
-          <div className="px-4 py-2 border-b border-default bg-[var(--success-bg)] flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-[var(--success)]" />
-            <span className="text-[11px] text-[var(--success)] font-medium">
-              {t("configSaved")}
-            </span>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={copy}
+            className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center gap-1.5"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-[var(--success)]" />
+                <span className="text-[var(--success)]">{t("copied")}</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                {t("copy")}
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveMutation.isPending || !hasUnsavedChanges || (!!yamlError && mode === "yaml") || (formErrors.length > 0 && mode === "form")}
+            className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          >
+            {saveMutation.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
+            {t("save")}
+          </button>
+        </div>
       </div>
+
+      {/* Validation / save status */}
+      <div className="mb-3 rounded-md border border-default bg-[var(--bg-hover)] px-3 py-2 flex items-start gap-2">
+        <Info className="w-3.5 h-3.5 text-tertiary shrink-0 mt-0.5" />
+        <p className="text-[11px] text-secondary leading-relaxed">
+          {t("configSaveRuntimeHint")}
+        </p>
+      </div>
+
+      {displayedIssues.length > 0 && (
+        <div className={`mb-3 rounded-md border px-3 py-2 flex items-start gap-2 ${displayedIssueClass}`}>
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 min-w-0">
+            {displayedIssues.map((issue, i) => (
+              <p key={`${issue.issue_type}:${issue.target}:${i}`} className="text-[11px] leading-relaxed">
+                {issue.message}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(mode === "form" ? formErrors : yamlError ? [yamlError] : []).length > 0 && (
+        <div className="mb-3 rounded-md border border-[var(--danger)]/15 bg-[var(--danger-bg)] px-3 py-2 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-[var(--danger)] shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            {(mode === "form" ? formErrors : [yamlError!]).map((err, i) => (
+              <p key={i} className="text-[11px] text-[var(--danger)]">
+                {err}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {saveFlash && (
+        <div className="mb-3 rounded-md border border-[var(--success)]/15 bg-[var(--success-bg)] px-3 py-2 flex items-center gap-2">
+          <Check className="w-3.5 h-3.5 text-[var(--success)]" />
+          <span className="text-[11px] text-[var(--success)] font-medium">
+            {t("configSavedNoRestart")}
+          </span>
+        </div>
+      )}
 
       {/* Editor body */}
       {mode === "form" ? (
-        <div className="space-y-3">
+        <div className="surface-card border border-default rounded-lg p-1.5 space-y-1 shadow-sm">
           <ProjectSection
             data={formData}
             onChange={updateForm}
@@ -427,21 +516,21 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
           />
           <SlotsSection
             slots={formData.slots}
-            agents={Object.keys(formData.agents)}
+            agents={effectiveAgentNames}
             onChange={updateSlots}
             expanded={expandedSections.slots}
             onToggle={() => toggleSection("slots")}
           />
 
           {/* YAML preview sidebar (collapsible) */}
-          <details className="group border border-default rounded-lg surface-card overflow-hidden">
-            <summary className="px-3 py-2.5 flex items-center gap-2 cursor-pointer select-none hover:surface-hover transition-colors">
+          <details className="group rounded-lg bg-transparent">
+            <summary className="px-4 py-3 flex items-center gap-2 cursor-pointer select-none rounded-lg hover:surface-hover transition-colors">
               <ChevronDown className="w-3.5 h-3.5 text-tertiary transition-transform group-open:rotate-180" />
               <Code2 className="w-3.5 h-3.5 text-tertiary" />
-              <span className="text-[12px] font-medium text-secondary">Generated YAML</span>
+              <span className="text-[12px] font-medium text-secondary">{t("generatedYaml")}</span>
             </summary>
-            <div className="border-t border-default">
-              <pre className="language-yaml !rounded-none !border-0 !m-0 max-h-80 overflow-auto">
+            <div className="px-4 pb-4">
+              <pre className="language-yaml !border-0 !m-0 max-h-80 overflow-auto rounded-lg bg-[var(--editor-bg)]">
                 <code ref={codeRef} className="language-yaml">
                   {currentYaml}
                 </code>

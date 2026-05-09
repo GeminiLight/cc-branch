@@ -16,10 +16,23 @@ export function useSaveConfig() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ content, projectPath }: { content: string; projectPath?: string }) =>
-      api.saveConfig(content, projectPath),
+    mutationFn: ({
+      content,
+      projectPath,
+      baseMtime,
+      baseContentHash,
+    }: {
+      content: string;
+      projectPath?: string;
+      baseMtime?: number | null;
+      baseContentHash?: string | null;
+    }) => api.saveConfig(content, projectPath, baseMtime, baseContentHash),
     onSuccess: (_, { projectPath }) => {
       queryClient.invalidateQueries({ queryKey: ["workspace", "config", projectPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "agents", projectPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "status", projectPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "doctor", projectPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "openers", projectPath] });
     },
   });
 }

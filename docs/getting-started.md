@@ -64,7 +64,7 @@ During `init`, CC Branch typically:
 - checks `tmux`
 - detects supported agent CLIs on `PATH`
 - generates a starter config from the default `solo-dev` profile
-- writes `.cc-branch.state.toml`
+- writes `.cc-branch.state.yaml`
 - bootstraps `session_id` values when needed
 - updates `.gitignore` for local state
 
@@ -73,12 +73,7 @@ Use `--profile ai-pair` or `--profile minimal` only when you want a non-default 
 ### 2. Know the two files it creates
 
 - `.cc-branch.yaml` — project config you can commit
-- `.cc-branch.state.toml` — machine-local runtime state
-
-Legacy config files still load if present:
-
-- `.cc-branch.yml`
-- `.cc-branch.toml`
+- `.cc-branch.state.yaml` — machine-local runtime state
 
 ### 3. Preview the resolved plan
 
@@ -99,9 +94,17 @@ This is the moment to confirm:
 cc-branch start
 ```
 
-`start` creates the configured tmux sessions and attaches to the first slot. Use `cc-branch start --detach` when you only want to start sessions in the background.
+`start` creates the configured tmux sessions and attaches to the first slot. Use `cc-branch start --detach` only when you want reusable tmux sessions created without attaching or opening terminal-runtime slots.
 
 Use `cc-branch dashboard` or `cc-branch start --dashboard` when you want the tiled dashboard. `start` itself does not silently switch into dashboard mode based on config.
+
+Use `cc-branch open` when you want CC Branch to open the visible workspace in your chosen local app:
+
+```bash
+cc-branch open --opener warp
+cc-branch open --opener vscode
+cc-branch open dev:planner --opener cursor
+```
 
 ### 5. Work with it day to day
 
@@ -123,7 +126,7 @@ By default, it starts on `http://127.0.0.1:8080`.
 
 You can also run `cc-branch serve` before `cc-branch init`; the Web UI will show a setup flow and create the config after you choose a starter profile.
 
-In the Web UI, "Open workspace in terminal" asks the local backend to open a system terminal and run `cc-branch dashboard`. "Start in background" only creates tmux sessions and does not open a visible terminal window.
+In the Web UI, choose one tool and then use either "Open workspace" or "Open project directory". Workspace open adapts to the tool: Terminal/iTerm2 run dashboard or attach commands, Warp uses Launch Configurations for layouts, and VS Code/Cursor open a generated `.code-workspace`. Project directory opens start an interactive shell in terminal apps and open the folder in editor apps. In VS Code/Cursor, each tmux slot becomes one attach task, so tmux windows are not expanded into separate integrated terminals; plain `runtime: terminal` slots become visible shell tasks. Tmux workspaces are reusable, so opening from another Terminal, Warp, or iTerm2 window attaches to the same sessions. Plain `runtime: terminal` slots are external processes and are not reusable. "Start in background" only creates tmux sessions and does not open a visible terminal window.
 
 If you bind it to a non-loopback host, use `--token` or `CC_BRANCH_WEB_TOKEN`.
 When a token is configured, open the printed `/?token=...` URL once to establish the browser cookie.
@@ -135,6 +138,8 @@ When a token is configured, open the printed `/?token=...` URL once to establish
 | `solo-dev` | One developer with planner, builder, review, and scratch windows |
 | `ai-pair` | A coder and reviewer workflow |
 | `minimal` | A very small setup with one main agent window |
+
+Starter profiles keep `.cc-branch.yaml` focused on workspace structure. Built-in agent profiles are available automatically, so generated configs reference `agent: codex` or `agent: claude` without copying the full agent definition into every project.
 
 ## Minimal init mode
 

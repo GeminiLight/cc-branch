@@ -3,6 +3,7 @@
  */
 
 import { Monitor } from "lucide-react";
+import { useI18n } from "../../i18n";
 import type { DisplayConfig } from "./types";
 import {
   SectionHeader,
@@ -24,11 +25,14 @@ export default function DisplaySection({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
+  const modeLabel = data.mode === "grid" ? t("grid") : t("list");
+
   return (
-    <div className="border border-default rounded-lg surface-card">
+    <section className="rounded-md transition-colors">
       <SectionHeader
-        title="Display"
-        subtitle={`${data.mode} / ${data.columns} col${data.columns > 1 ? "s" : ""}${data.dashboard ? " / dashboard" : ""}`}
+        title={t("display")}
+        subtitle={`${modeLabel} / ${data.columns} ${t("columns")}${data.dashboard ? ` / ${t("dashboard")}` : ""}`}
         icon={<Monitor className="w-3.5 h-3.5" />}
         expanded={expanded}
         onToggle={onToggle}
@@ -36,18 +40,18 @@ export default function DisplaySection({
       <CollapsibleSection expanded={expanded}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
           <div>
-            <FieldLabel>Layout mode</FieldLabel>
+            <FieldLabel>{t("layoutMode")}</FieldLabel>
             <SelectInput
               value={data.mode}
               onChange={(v) => onChange({ mode: v as "grid" | "list" })}
               options={[
-                { value: "grid", label: "Grid" },
-                { value: "list", label: "List" },
+                { value: "grid", label: t("grid") },
+                { value: "list", label: t("list") },
               ]}
             />
           </div>
           <div>
-            <FieldLabel>Columns</FieldLabel>
+            <FieldLabel>{t("columns")}</FieldLabel>
             <NumberInput
               value={data.columns}
               onChange={(v) => onChange({ columns: Math.max(1, Math.min(6, v)) })}
@@ -59,11 +63,12 @@ export default function DisplaySection({
             <Toggle
               checked={data.dashboard}
               onChange={(v) => onChange({ dashboard: v })}
+              label={t("autoOpenDashboard")}
             />
-            <span className="text-[13px] text-secondary">Auto-open dashboard</span>
+            <span className="text-[13px] text-secondary">{t("autoOpenDashboard")}</span>
           </div>
         </div>
       </CollapsibleSection>
-    </div>
+    </section>
   );
 }

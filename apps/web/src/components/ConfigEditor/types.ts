@@ -34,13 +34,14 @@ export interface WindowConfig {
 
 export interface SlotConfig {
   name: string;
-  backend: "tmux" | "shell";
+  runtime: "tmux" | "terminal";
+  opener?: string;
   cwd: string;
   env: Record<string, string>;
   windows: WindowConfig[];
-  // shell-slot shorthand fields
+  // Single-window runtime fields
   command?: string;
-  window_name?: string;
+  title?: string;
   agent?: string;
   session_id?: string;
   label?: string;
@@ -91,7 +92,7 @@ export const DEFAULT_WINDOW: WindowConfig = {
 
 export const DEFAULT_SLOT: SlotConfig = {
   name: "",
-  backend: "tmux",
+  runtime: "tmux",
   cwd: ".",
   env: {},
   windows: [{ ...DEFAULT_WINDOW, name: "main" }],

@@ -5,7 +5,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from cc_branch.config import load_workspace
-from cc_branch.doctor import auto_fix_issues, build_doctor_report
+from cc_branch.doctor import (
+    auto_fix_issues,
+    build_doctor_report,
+    collect_doctor_report,
+    render_doctor_report,
+)
+from cc_branch.models import DoctorReport
 from cc_branch.planner import plan_workspace
 from cc_branch.state import load_state
 
@@ -35,7 +41,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         agent: "codex"
@@ -43,7 +49,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -62,7 +68,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         agent: "nonexistent-agent"
@@ -70,7 +76,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -89,7 +95,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     cwd: "nonexistent-directory"
                     windows:
                       - name: "editor"
@@ -98,7 +104,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -117,18 +123,18 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "vim"
                   - name: "dev"
-                    backend: "shell"
+                    runtime: "terminal"
                     command: "bash"
                 """,
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -147,7 +153,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "vim"
@@ -157,7 +163,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -176,7 +182,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "shell"
+                    runtime: "terminal"
                     command: "bash"
                     env:
                       INVALID-KEY: "value"
@@ -184,7 +190,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -203,7 +209,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "definitely-nonexistent-command-12345"
@@ -211,7 +217,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -230,7 +236,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "echo"
@@ -238,7 +244,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -261,7 +267,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         command: "vim"
@@ -269,12 +275,43 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.toml")
+            state = load_state(root / ".cc-branch.state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
             self.assertIsInstance(report, str)
             self.assertGreater(len(report), 0)
+
+    def test_doctor_collects_structured_report_before_rendering(self):
+        """Doctor should expose structured issues separately from text rendering."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "tmux"
+                    windows:
+                      - name: "editor"
+                        agent: "nonexistent-agent"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch.yaml")
+            state = load_state(root / ".cc-branch.state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            report = collect_doctor_report(workspace, plan)
+            rendered = render_doctor_report(report)
+
+            self.assertIsInstance(report, DoctorReport)
+            self.assertTrue(any(issue.issue_type == "unknown_agent" for issue in report.issues))
+            self.assertIn("unknown agent", rendered.lower())
 
     def test_doctor_fix_bootstraps_generated_uuid_sessions(self):
         """doctor --fix path should write session IDs using the current windows state schema."""
@@ -298,7 +335,7 @@ class DoctorTests(unittest.TestCase):
 
                 slots:
                   - name: "dev"
-                    backend: "tmux"
+                    runtime: "tmux"
                     windows:
                       - name: "editor"
                         agent: "claude"
@@ -306,7 +343,7 @@ class DoctorTests(unittest.TestCase):
             )
 
             workspace = load_workspace(root / ".cc-branch.yaml")
-            state_path = root / ".cc-branch.state.toml"
+            state_path = root / ".cc-branch.state.yaml"
             state = load_state(state_path)
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 

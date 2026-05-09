@@ -25,21 +25,21 @@ const ThemeContext = createContext<ThemeCtx>({
 
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-  if (stored) return stored;
+  if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.toggle("dark", theme === "dark");
+  root.style.colorScheme = theme;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-    localStorage.setItem(STORAGE_KEY, theme);
+    applyTheme(theme);
   }, [theme]);
 
   // Listen for system theme changes
@@ -55,10 +55,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const setTheme = useCallback((t: Theme) => setThemeState(t), []);
+  const setTheme = useCallback((t: Theme) => {
+    localStorage.setItem(STORAGE_KEY, t);
+    setThemeState(t);
+  }, []);
 
   const toggle = useCallback(() => {
-    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
+    setThemeState((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      localStorage.setItem(STORAGE_KEY, next);
+      return next;
+    });
   }, []);
 
   return (

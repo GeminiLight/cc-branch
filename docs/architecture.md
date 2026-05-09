@@ -16,30 +16,45 @@ All of them are built on the same internal pipeline:
 config file + state file
         |
         v
-   config.py / state.py
+   config/ + state.py
         |
         v
-      models.py
+      models/
         |
         v
    context.py loads:
    WorkspaceConfig + WorkspaceState
         |
         v
-     planner.py
+     planner/
         |
         v
      WorkspacePlan
         |
-   +----+---------+-----------+-------------+
-   |              |           |             |
-   v              v           v             v
-runtime.py    doctor.py  sessions.py   webui/server.py
+        v
+application/
+   workspace_actions/
+   workspace_status.py
+   config_workflows/
+   diagnostics.py
+   state_store.py
+        |
+   +----+---------+-----------+
+   |              |           |
+   v              v           v
+  cli/       webui/server/   Python callers
 ```
+
+Root-level modules are intentionally kept as entrypoints, small compatibility
+facades, or simple leaf helpers. Subsystems with multiple responsibilities live
+in package directories such as `application/`, `cli/`, `doctor/`, `models/`,
+`planner/`, `runtime/`, `openers/`, `bootstrap/`, `config/`,
+`agent_registry/`, `adapters/`, `profiles/`, `repository/`, and
+`webui/server/`.
 
 ## 2. Core typed models
 
-Defined in `cc_branch/models.py`.
+Defined in `cc_branch/models/`.
 
 ### Config-side models
 
@@ -64,19 +79,47 @@ Defined in `cc_branch/models.py`.
 
 These models are the canonical in-memory representation. File I/O and JSON serialization happen at the edges.
 
-## 3. Config loading
+## 3. Application layer
 
-Implemented in `cc_branch/config.py`.
+Implemented in `cc_branch/application/`.
+
+This is the workflow boundary shared by CLI, Web UI, and local Python callers.
+Presentation layers parse requests, call application use cases, and render
+results. They do not own runtime orchestration, config save semantics, doctor
+collection, or applied-state persistence.
+
+Key modules:
+
+- `workspace_actions/` owns start, launch, restart, stop, open, attach,
+  dashboard, sync workflows, and Web UI action dispatch from raw action
+  requests.
+- `workspace_status.py` owns ready/missing/needs-init/invalid-config status
+  query payloads.
+- `config_workflows/` owns config read/save/probe/init/profile/opener/agent
+  workflows, conflict detection, and validation-before-write.
+- `config_validation/` collects structural config issues before normalization
+  or runtime execution.
+- `diagnostics.py` exposes structured doctor reports and text rendering.
+- `state_store.py` centralizes load/mutate/save state updates for application
+  workflows.
+
+Application code returns transport-neutral result objects. HTTP status codes,
+Rich formatting, argparse errors, and frontend display choices belong at the
+edges.
+
+## 4. Config loading
+
+Implemented in `cc_branch/config/`.
 
 Responsibilities:
 
-- resolve config file path, preferring `.cc-branch.yaml`
-- still accept legacy `.cc-branch.yml` and `.cc-branch.toml`
+- resolve the canonical `.cc-branch.yaml` config file path
+- reject non-YAML workspace config files
 - normalize raw config defaults
 - materialize `WorkspaceConfig`
-- generate starter config/state via `init_workspace()`
+- keep legacy starter-config helpers for compatibility
 
-## 4. Shared load pipeline: `WorkspaceContext`
+## 5. Shared load pipeline: `WorkspaceContext`
 
 Implemented in `cc_branch/context.py`.
 
@@ -93,13 +136,13 @@ It is responsible for:
 
 This is the main command-time boundary object.
 
-## 5. Planning
+## 6. Planning
 
-Implemented in `cc_branch/planner.py`.
+Implemented in `cc_branch/planner/`.
 
 Responsibilities:
 
-- normalize shell slots into a synthetic `main` window
+- normalize single-window terminal slots into a synthetic `title`/`main` window
 - resolve slot and window working directories
 - merge slot/window env vars
 - build tmux session names
@@ -115,32 +158,39 @@ Responsibilities:
 - resolved window launch commands
 - resolved labels and session IDs
 - post-launch commands
-- state updates that should be written back to `.cc-branch.state.toml`
+- state updates that should be written back to `.cc-branch.state.yaml`
 
-## 6. Agent adapters
+## 7. Agent adapters
 
-Implemented in `cc_branch/adapters.py`.
+Implemented in `cc_branch/adapters/`.
 
 This layer keeps planner logic from turning into a pile of per-agent conditionals.
 
 Current adapter strategies:
 
-- `_NoneAdapter`
-- `_FlagResumeAdapter`
-- `_InternalResumeAdapter`
+- `NoneAdapter`
+- `FlagResumeAdapter`
+- `InternalResumeAdapter`
 
 Selection is based on `resume_mode`.
 
-Agent definitions are loaded from `cc_branch/agents.yaml` (built-in) and merged with optional user overrides at `~/.cc-branch/agents.yaml` or workspace-local `.cc-branch.agents.yaml`. The registry is implemented in `cc_branch/agent_registry.py`.
+Agent definitions are loaded from layered registries and merged field-by-field:
+
+1. `cc_branch/agents.yaml` built-ins
+2. `~/.cc-branch/agents.yaml` user overrides
+3. `.cc-branch.agents.yaml` workspace-local overrides
+4. `.cc-branch.yaml` project-level `agents` overrides
+
+The registry is implemented in `cc_branch/agent_registry/`, and `load_workspace()` injects the effective profiles into `WorkspaceConfig.agents`. Project configs only need an `agents` section when they override defaults or define project-specific agents.
 
 This is the main extension point for supporting more CLI-specific launch semantics.
 
-## 7. State persistence
+## 8. State persistence
 
 Implemented across:
 
 - `cc_branch/state.py`
-- `cc_branch/repository.py`
+- `cc_branch/repository/`
 
 ### `state.py`
 
@@ -150,39 +200,91 @@ Public typed API:
 - `merge_state()`
 - `save_state()`
 
-### `repository.py`
+### `repository/`
 
 `StateRepository` handles:
 
-- TOML serialization/deserialization
+- YAML serialization/deserialization
 - atomic writes through temp file + replace
 - backup creation
 - rollback support
 
 This gives the project safer persistence semantics than direct `write_text()` calls.
 
-## 8. Runtime layer
+Application workflows that mutate applied runtime metadata use
+`application.state_store.StateStore` instead of open-coded load/modify/save
+logic in CLI or Web UI handlers.
 
-Implemented in `cc_branch/runtime.py`.
+## 9. Runtime Layer
+
+Implemented in `cc_branch/runtime/`.
+
+```text
+cc_branch/runtime/
+  __init__.py      public facade for the historical cc_branch.runtime API
+  execution/       workspace execution, lifecycle, dashboard, and status
+  backends.py      managed session/window backend protocol and TmuxBackend
+  capabilities.py slot runtime capability table
+  sync/            desired/applied/runtime synchronization reports
+  sessions.py      first-class session list/inspect/prune/restore operations
+  shells.py        platform-aware shell command helpers
+```
+
+The root modules `runtime_sync.py`, `runtime_capabilities.py`, `backends.py`,
+`sessions.py`, and `shells.py` are compatibility facades. New internal code
+should import from the owning `cc_branch.runtime.*` module.
+
+CC Branch separates two axes that are easy to conflate:
+
+- **Slot runtime**: how a slot is managed by CC Branch. Today the shipped
+  runtimes are `tmux` and `terminal`.
+- **Shell command**: what runs inside a terminal process, such as `bash`, `zsh`,
+  `pwsh`, `powershell`, or an agent CLI command.
+
+`tmux` is not treated as "the only runtime" in application policy. It is the
+runtime that currently exposes the richest capability set: persistent sessions,
+multiple windows, background start, attach, stop/restart, sync inspection, and
+dashboard composition. A `terminal` slot opens an external process through an
+opener and is intentionally not reusable or stoppable by CC Branch.
 
 Responsibilities:
 
-- create / update tmux sessions and windows
-- attach to slot or window targets
-- stop and restart workspace targets
-- open the dashboard session
+- create / update managed runtime sessions and windows
+- open external terminal-runtime processes
+- attach to targets when the runtime supports attach
+- stop and restart workspace targets when the runtime supports lifecycle control
+- open the dashboard session when the runtime supports dashboard composition
 - build structured status data
 - render plain-text status output
 
+### Runtime Capabilities
+
+`cc_branch/runtime/capabilities.py` defines the shipped runtime capability
+table. Business logic should ask capability questions such as:
+
+- `is_managed_runtime(runtime)`
+- `is_external_process_runtime(runtime)`
+- `supports_background_start(runtime)`
+- `supports_attach(runtime)`
+- `supports_stop(runtime)`
+- `supports_dashboard(runtime)`
+
+Do not add new workflow branches by scattering raw string checks such as
+`slot.runtime == "tmux"` through application code. Add or update runtime
+capabilities first, then route behavior through the capability helpers.
+
 ### Backend abstraction
 
-`cc_branch/backends.py` defines the `Backend` protocol and the default `TmuxBackend`.
+`cc_branch/runtime/backends.py` defines the `Backend` protocol and the default
+`TmuxBackend`.
 
-The current runtime is still tmux-based, but the code no longer hardcodes every operation directly in business logic.
+The default managed backend is still tmux. The backend protocol is the adapter
+for session/window operations, while runtime capabilities are the application
+policy contract that decides which workflows a runtime can participate in.
 
-## 9. Session lifecycle layer
+## 10. Session lifecycle layer
 
-Implemented in `cc_branch/sessions.py`.
+Implemented in `cc_branch/runtime/sessions.py`.
 
 This is a newer surface that treats sessions as first-class objects.
 
@@ -201,9 +303,9 @@ Status values:
 
 This layer sits between raw runtime state and user-facing maintenance workflows.
 
-## 10. Diagnostics layer
+## 11. Diagnostics layer
 
-Implemented in `cc_branch/doctor.py`.
+Implemented across `cc_branch/doctor/` and `cc_branch/application/diagnostics.py`.
 
 Responsibilities:
 
@@ -217,24 +319,28 @@ Current auto-fixes include:
 - generating missing `session_id` values for `generated_uuid` flows
 - updating `.gitignore`
 
-## 11. CLI layer
+## 12. CLI layer
 
-Implemented in `cc_branch/cli.py`.
+Implemented in `cc_branch/cli/`.
 
 Responsibilities:
 
 - help and parser definition
 - `init` cold-start UX
-- dispatch over `WorkspaceContext`
+- dispatch over `WorkspaceContext` and application use cases
 - render rich tables and human-readable text for sessions and help output
 - expose the command surface:
   - workspace commands
   - session commands
   - Web UI command
 
-## 12. Web UI layer
+The CLI must not call runtime mutation helpers directly. Start, attach,
+dashboard, launch, restart, stop, open, sync, doctor, and config initialization
+go through application modules.
 
-Implemented in `cc_branch/webui/server.py` and packaged assets under `cc_branch/webui/static/`.
+## 13. Web UI layer
+
+Implemented in `cc_branch/webui/server/` and packaged assets under `cc_branch/webui/static/`.
 
 Responsibilities:
 
@@ -244,12 +350,16 @@ Responsibilities:
 - support token/cookie auth for the Web UI and all JSON APIs when configured
 - provide a stable backend for desktop wrappers or local browser use
 
-## 13. First-run bootstrap system
+The Web UI handler owns HTTP routing and JSON serialization. Workspace
+semantics live in application use cases, including action loading, target
+normalization, open-intent resolution, and terminal-runtime fallbacks.
+
+## 14. First-run bootstrap system
 
 Implemented across:
 
-- `cc_branch/bootstrap.py`
-- `cc_branch/profiles.py`
+- `cc_branch/bootstrap/`
+- `cc_branch/profiles/`
 
 Responsibilities:
 
@@ -265,12 +375,16 @@ Built-in profiles:
 - `ai-pair`
 - `minimal`
 
-## 14. Current design constraints
+## 15. Current design constraints
 
 ### Shipped constraints
 
-- runtime is still tmux-centric
-- shell slots are a config shorthand, not a separate non-tmux runtime
+- `runtime: tmux` is the persistent managed runtime path used by
+  dashboard/attach/stop/sync
+- `runtime: terminal` opens visible local terminal windows through configured
+  openers and is not treated as a persistent managed session
+- Bash/Zsh/PowerShell are shell commands or opener implementation details, not
+  slot runtime names
 - CLI `serve` refuses non-loopback binds unless `--token` or `CC_BRANCH_WEB_TOKEN` is set
 - token-protected Web UI sessions must be opened once via the printed `/?token=...` URL
 - Web UI design docs may include future work; only the backend/API described in `docs/webui-spec.md` should be treated as current
@@ -279,5 +393,8 @@ Built-in profiles:
 
 - planner and runtime both operate on typed models
 - state persistence goes through the repository-backed path
-- user-facing commands should load through `WorkspaceContext`
+- user-facing commands should load through `WorkspaceContext` and then call
+  application use cases for workflow behavior
+- new workflow behavior belongs in `cc_branch/application/` unless it is purely
+  presentation, serialization, or compatibility glue
 - docs must distinguish clearly between shipped behavior and roadmap ideas

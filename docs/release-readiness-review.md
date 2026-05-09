@@ -27,6 +27,10 @@ None remaining.
 - Removed public pre-release stage wording from package metadata and the publishing guide examples.
 - Ran Ruff import cleanup and removed stale import hygiene issues.
 - Rebuilt the Web UI bundle and verified Python packaging includes static Web UI assets in both sdist and wheel.
+- Fixed VS Code/Cursor workspace opening so tmux slots are not expanded into one auto-run editor task per tmux window.
+- Added stale generated `.code-workspace` cleanup for editor openers and regression coverage for mixed tmux + terminal workspaces.
+- Added `cc_branch.__version__` so the release checklist and package metadata have an explicit source version to update.
+- Updated GitHub workflows to use reproducible `npm ci` installs and pinned Node.js 20.19.0 for current frontend dependency engine requirements.
 
 ### Non-Blocking Notes
 
@@ -39,24 +43,24 @@ None remaining.
 The following checks passed locally:
 
 ```bash
-python3.11 -m ruff check .
+python3.11 -m ruff check cc_branch tests
 python3.11 -m unittest discover tests
-/tmp/ccb-py310-venv/bin/python -m unittest discover tests
 python3.11 -m compileall cc_branch
 npm run lint
 npm run test
+apps/web: npm run build
 python3.11 scripts/build-webui.py
-python3.11 -m build
+python3.11 -m build --no-isolation
 python3.11 -m twine check dist/*
 ```
 
 Results:
 
-- Python 3.11 unit tests: 182 passed.
-- Python 3.10 unit tests: 182 passed.
-- Frontend Web UI tests: 43 passed.
+- Python 3.11 unit tests: 232 passed.
+- Frontend Web UI tests: 51 passed.
 - Ruff: all checks passed.
-- Package build: sdist and wheel built successfully.
+- Frontend build: passed.
+- Package build: sdist and wheel built successfully. The local sandbox used `--no-isolation` because outbound package downloads are blocked; CI should continue using isolated builds.
 - Twine check: sdist and wheel passed.
 
 ## GitHub Ready Checklist

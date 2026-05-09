@@ -53,14 +53,16 @@ cc-branch init    # create .cc-branch.yaml and local state
 cc-branch start   # start the tmux workspace and enter it
 ```
 
-Use `cc-branch start --detach` when you only want to start sessions in the background.
+Use `cc-branch open` when you want CC Branch to open the workspace through your configured local app. For example, `cc-branch open --opener warp` or `cc-branch open --opener vscode`.
+
+Use `cc-branch start --detach` only when you want to create reusable tmux sessions without attaching or opening terminal-runtime slots.
 
 Optional checks:
 
 - `cc-branch plan` previews what will be launched before starting anything.
 - `cc-branch doctor` checks common environment/config issues.
 
-In the Web UI, the primary workspace action opens a local terminal and runs `cc-branch dashboard`. Open With can also open the project folder in VS Code or Cursor. Use the background start action when you only want tmux sessions created without a visible terminal.
+In the Web UI, choose one local tool and then use either "Open workspace" or "Open project directory". CC Branch adapts the action for terminals, Warp, VS Code, and Cursor. Project directory opens start an interactive shell in terminal apps and open the folder in editor apps. Use the background start action only when you want tmux sessions created without a visible terminal.
 
 ## Example Config
 
@@ -68,10 +70,6 @@ In the Web UI, the primary workspace action opens a local terminal and runs `cc-
 version: 1
 project: "my-app"
 root: "."
-
-agents:
-  codex:
-    command: "codex"
 
 slots:
   - name: "dev"
@@ -82,9 +80,11 @@ slots:
         command: "npm run dev"
 ```
 
+Built-in agent profiles such as `codex`, `claude`, `gemini`, `cursor`, and `kimi` are available by default. Add an `agents` section only when you want to override a profile or define a custom local agent.
+
 ## More
 
-Project config is stored in `.cc-branch.yaml`; local runtime state is stored in `.cc-branch.state.toml` and is usually not committed. For more detail, see `docs/getting-started.md`, `docs/user-guide.md`, and `docs/features.md`.
+Project config is stored in `.cc-branch.yaml`; local runtime state is stored in `.cc-branch.state.yaml` and is usually not committed. For more detail, see `docs/getting-started.md`, `docs/user-guide.md`, and `docs/features.md`.
 
 ## License
 
