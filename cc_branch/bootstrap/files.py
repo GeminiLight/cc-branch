@@ -41,6 +41,7 @@ def initialize_workspace_files(
     """Create config, state, and gitignore entries for a new workspace."""
     config_content = generate_starter_config(target_dir.name, available_agents, profile)
     config_path = target_dir / DEFAULT_CONFIG
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(config_content, encoding="utf-8")
 
     summary = summarize_config(config_content)
@@ -51,6 +52,7 @@ def initialize_workspace_files(
         state = bootstrap_sessions(workspace, state)
 
     state_path = target_dir / DEFAULT_STATE
+    state_path.parent.mkdir(parents=True, exist_ok=True)
     save_state(state_path, state)
     gitignore_created, gitignore_updated = ensure_state_gitignored(target_dir, DEFAULT_STATE)
 

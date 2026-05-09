@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .config import load_workspace, resolve_config_path
-from .constants import DEFAULT_STATE
+from .config import load_workspace, resolve_config_path, resolve_state_path
 from .models import WorkspaceConfig, WorkspacePlan, WorkspaceState
 from .planner import plan_workspace
 from .state import load_state, merge_state, save_state
@@ -43,7 +42,7 @@ class WorkspaceContext:
             if state_path
             else Path(state_env)
             if state_env
-            else cwd / DEFAULT_STATE
+            else resolve_state_path(cwd, self._config_path)
         )
         self._workspace: WorkspaceConfig | None = None
         self._state: WorkspaceState | None = None

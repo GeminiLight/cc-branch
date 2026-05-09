@@ -25,6 +25,8 @@ import Tooltip from "./components/ui/Tooltip";
 import Dashboard from "./components/Dashboard";
 import ConfigEditor from "./components/ConfigEditor";
 import DoctorView from "./components/DoctorView";
+import SettingsModal from "./components/SettingsModal";
+import { projectDirFromConfigPath } from "./utils/projectPath";
 
 type Tab = "dashboard" | "config" | "doctor";
 
@@ -54,15 +56,14 @@ function AppInner() {
 
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Auto-inject current project on mount
   useEffect(() => {
     client
       .getApiInfo()
       .then((info) => {
-        const dir = info.config_path
-          ? info.config_path.replace(/[\\/]\.cc-branch\.yaml$/, "")
-          : "";
+        const dir = info.config_path ? projectDirFromConfigPath(info.config_path) : "";
         if (dir) injectCurrentProject(dir);
       })
       .catch(() => {
@@ -90,6 +91,11 @@ function AppInner() {
 
   const handleSetTab = useCallback((id: Tab) => setTab(id), []);
 
+  const handleOpenSettings = useCallback(() => {
+    setMobileSidebarOpen(false);
+    setSettingsOpen(true);
+  }, [setMobileSidebarOpen]);
+
   // Global keyboard shortcuts
   useKeyboardShortcuts({
     onTab1: () => setTab("dashboard"),
@@ -111,6 +117,7 @@ function AppInner() {
           activeProjectId={activeProjectId}
           onSelectProject={handleSelectProject}
           onAddProject={() => setAddModalOpen(true)}
+          onOpenSettings={handleOpenSettings}
         />
       </div>
 
@@ -121,6 +128,7 @@ function AppInner() {
         activeProjectId={activeProjectId}
         onSelectProject={handleSelectProject}
         onAddProject={() => setAddModalOpen(true)}
+        onOpenSettings={handleOpenSettings}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -271,6 +279,10 @@ function AppInner() {
           onAdd={handleAddProject}
         />
       </Suspense>
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }
@@ -281,12 +293,14 @@ function MobileSidebarOverlay({
   activeProjectId,
   onSelectProject,
   onAddProject,
+  onOpenSettings,
 }: {
   client: ReturnType<typeof useApiClient>;
   projects: ReturnType<typeof useProjectStore.getState>["projects"];
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
   onAddProject: () => void;
+  onOpenSettings: () => void;
 }) {
   const { t } = useI18n();
   const mobileSidebarOpen = useUIStore((s) => s.mobileSidebarOpen);
@@ -307,6 +321,7 @@ function MobileSidebarOverlay({
           activeProjectId={activeProjectId}
           onSelectProject={onSelectProject}
           onAddProject={onAddProject}
+          onOpenSettings={onOpenSettings}
           forceExpanded
         />
         <button

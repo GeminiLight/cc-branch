@@ -4,6 +4,7 @@ import { useQueries } from "@tanstack/react-query";
 import type { APIClient } from "../api/client";
 import { useProjectStore, type ProjectItem } from "../stores/projectStore";
 import { useI18n } from "../i18n";
+import logoUrl from "../assets/logo/logo.svg";
 
 interface SidebarProps {
   api: APIClient;
@@ -11,6 +12,7 @@ interface SidebarProps {
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
   onAddProject: () => void;
+  onOpenSettings: () => void;
   forceExpanded?: boolean;
 }
 
@@ -69,21 +71,15 @@ function paletteForProject(project: ProjectItem): string {
 
 function AppMark({ compact = false }: { compact?: boolean }) {
   return (
-    <div
-      className={`relative shrink-0 rounded-lg overflow-hidden bg-[#10292b] shadow-sm ${
+    <img
+      src={logoUrl}
+      alt=""
+      className={`shrink-0 rounded-lg shadow-sm ${
         compact ? "w-9 h-9" : "w-10 h-10"
       }`}
       aria-hidden="true"
-    >
-      <span className="absolute left-[22%] top-[22%] h-[56%] w-[19%] rounded-md bg-[#2dd4bf]" />
-      <span
-        className="absolute left-[38%] top-[23%] h-[53%] w-[28%] bg-[#0f766e]"
-        style={{ clipPath: "polygon(0 0, 100% 26%, 100% 100%, 0 72%)" }}
-      />
-      <span className="absolute left-[61%] top-[30%] h-[7%] w-[25%] rounded-full bg-[#f6fff9]" />
-      <span className="absolute left-[61%] top-[48%] h-[7%] w-[32%] rounded-full bg-[#f4b740]" />
-      <span className="absolute left-[61%] top-[66%] h-[7%] w-[27%] rounded-full bg-[#35d08f]" />
-    </div>
+      draggable={false}
+    />
   );
 }
 
@@ -93,6 +89,7 @@ export default function Sidebar({
   activeProjectId,
   onSelectProject,
   onAddProject,
+  onOpenSettings,
   forceExpanded = false,
 }: SidebarProps) {
   const { t } = useI18n();
@@ -309,6 +306,7 @@ export default function Sidebar({
         </button>
         <button
           type="button"
+          onClick={onOpenSettings}
           className={`control-touch rounded-lg flex items-center justify-center gap-1.5 text-[12px] font-semibold text-secondary hover:text-primary hover:bg-[var(--bg-hover)] transition-colors border border-default ${
             collapsed ? "w-full px-0" : "w-full px-3"
           }`}

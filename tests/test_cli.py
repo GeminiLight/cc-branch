@@ -15,11 +15,12 @@ class CLITests(unittest.TestCase):
     """Tests for the CLI interface and the real non-Web command seam."""
 
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def _write_workspace(self, root: Path, *, dashboard: bool = False) -> None:
         self._write(
-            root / ".cc-branch.yaml",
+            root / ".cc-branch/config.yaml",
             f"""
             version: 1
             project: "demo"
@@ -48,7 +49,7 @@ class CLITests(unittest.TestCase):
 
     def _write_mixed_runtime_workspace(self, root: Path) -> None:
         self._write(
-            root / ".cc-branch.yaml",
+            root / ".cc-branch/config.yaml",
             """
             version: 1
             project: "demo"
@@ -141,13 +142,14 @@ class CLITests(unittest.TestCase):
             with patch("cc_branch.cli.Path.cwd", return_value=root):
                 exit_code = main(["init"])
                 self.assertEqual(exit_code, 0)
-                self.assertTrue((root / ".cc-branch.yaml").exists())
-                self.assertTrue((root / ".cc-branch.state.yaml").exists())
+                self.assertTrue((root / ".cc-branch/config.yaml").exists())
+                self.assertTrue((root / ".cc-branch/state.yaml").exists())
 
     def test_init_command_with_force_flag(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            config_path.parent.mkdir(parents=True)
             config_path.write_text("existing content", encoding="utf-8")
 
             with patch("cc_branch.cli.Path.cwd", return_value=root):
@@ -184,7 +186,7 @@ class CLITests(unittest.TestCase):
                 exit_code = main(["plan", "--write-state"])
 
             self.assertEqual(exit_code, 0)
-            state = (root / ".cc-branch.state.yaml").read_text(encoding="utf-8")
+            state = (root / ".cc-branch/state.yaml").read_text(encoding="utf-8")
             self.assertIn('dev.planner', state)
             self.assertIn('session_id:', state)
 
@@ -227,7 +229,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
             self.assertEqual(state.version, 1)
-            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(state_path, root / ".cc-branch/state.yaml")
             self.assertEqual(attach_workspace.call_args.kwargs["target"], "dev")
 
     def test_stop_routes_through_application_stop_workspace(self):
@@ -250,7 +252,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
             self.assertEqual(state.version, 1)
-            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(state_path, root / ".cc-branch/state.yaml")
             self.assertEqual(stop_workspace_mock.call_args.kwargs["target"], "dev")
 
     def test_start_detach_routes_through_application_launch_workspace(self):
@@ -273,7 +275,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
             self.assertEqual(state.version, 1)
-            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(state_path, root / ".cc-branch/state.yaml")
 
     def test_removed_aliases_are_not_registered_as_commands(self):
         parser = build_parser()
@@ -345,6 +347,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertEqual(open_with.call_args.kwargs["opener_id"], "cursor")
             self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+            self.assertEqual(open_with.call_args.kwargs["cwd"], root)
 
     def test_start_does_not_open_dashboard_implicitly_when_enabled(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -409,7 +412,7 @@ class CLITests(unittest.TestCase):
                 exit_code = main(["start", "--dashboard", "--prepare"])
 
             self.assertEqual(exit_code, 0)
-            state = (root / ".cc-branch.state.yaml").read_text(encoding="utf-8")
+            state = (root / ".cc-branch/state.yaml").read_text(encoding="utf-8")
             self.assertIn("launch_fingerprint", state)
             self.assertIn("slots:", state)
             self.assertIn("dev:", state)
@@ -434,7 +437,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(workspace.project, "demo")
             self.assertEqual(plan.slots[0].name, "dev")
             self.assertEqual(state.version, 1)
-            self.assertEqual(state_path, root / ".cc-branch.state.yaml")
+            self.assertEqual(state_path, root / ".cc-branch/state.yaml")
             self.assertEqual(restart_workspace_mock.call_args.kwargs["target"], "dev")
             self.assertTrue(restart_workspace_mock.call_args.kwargs["detach"])
 
@@ -514,8 +517,8 @@ class CLITests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             start_server.assert_called_once_with(
-                root / ".cc-branch.yaml",
-                root / ".cc-branch.state.yaml",
+                root / ".cc-branch/config.yaml",
+                root / ".cc-branch/state.yaml",
                 host="127.0.0.1",
                 port=9999,
                 token=None,
@@ -539,7 +542,7 @@ class CLITests(unittest.TestCase):
             ):
                 exit_code = main([
                     "--config",
-                    str(project / ".cc-branch.yaml"),
+                    str(project / ".cc-branch/config.yaml"),
                     "--state",
                     str(state_path),
                     "plan",
@@ -607,7 +610,7 @@ class CLITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -685,7 +688,7 @@ class CLITests(unittest.TestCase):
             root = Path(tmp)
             self._write_workspace(root)
             self._write(
-                root / ".cc-branch.state.yaml",
+                root / ".cc-branch/state.yaml",
                 """
                 version: 1
                 windows:
@@ -718,7 +721,7 @@ class CLITests(unittest.TestCase):
             root = Path(tmp)
             self._write_workspace(root)
             self._write(
-                root / ".cc-branch.state.yaml",
+                root / ".cc-branch/state.yaml",
                 """
                 version: 1
                 windows:
@@ -754,7 +757,7 @@ class CLITests(unittest.TestCase):
             root = Path(tmp)
             self._write_workspace(root)
             self._write(
-                root / ".cc-branch.state.yaml",
+                root / ".cc-branch/state.yaml",
                 """
                 version: 1
                 windows:
@@ -782,7 +785,7 @@ class CLITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -798,7 +801,7 @@ class CLITests(unittest.TestCase):
                         command: "echo review"
                 """,
             )
-            self._write(root / ".cc-branch.state.yaml", "version: 1")
+            self._write(root / ".cc-branch/state.yaml", "version: 1")
 
             from cc_branch.models import AppliedWindowResult
 
@@ -832,7 +835,7 @@ class CLITests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             restart_workspace.assert_called_once()
-            state = (root / ".cc-branch.state.yaml").read_text(encoding="utf-8")
+            state = (root / ".cc-branch/state.yaml").read_text(encoding="utf-8")
             self.assertIn("launch_fingerprint", state)
             self.assertIn('window: review', state)
 

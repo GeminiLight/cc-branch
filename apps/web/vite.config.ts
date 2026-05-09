@@ -7,4 +7,14 @@ import svgr from 'vite-plugin-svgr'
 export default defineConfig({
   plugins: [react(), tailwindcss(), svgr()],
   base: './',
+  server: {
+    proxy: process.env.CC_BRANCH_API_TARGET
+      ? {
+          '/api': {
+            target: process.env.CC_BRANCH_API_TARGET,
+            changeOrigin: true,
+          },
+        }
+      : undefined,
+  },
 })

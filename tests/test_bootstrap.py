@@ -111,7 +111,8 @@ class TestEnvironmentCheck(unittest.TestCase):
         """Test environment check when config already exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
             target_dir = Path(tmpdir)
-            config_path = target_dir / ".cc-branch.yaml"
+            config_path = target_dir / ".cc-branch/config.yaml"
+            config_path.parent.mkdir(parents=True)
             config_path.write_text("version: 1\n")
 
             with patch("cc_branch.bootstrap.which") as mock_which:

@@ -20,8 +20,8 @@ function readyWorkspaceResult() {
     data: {
       status: 'ready',
       project: 'demo',
-      config_path: '/tmp/demo/.cc-branch.yaml',
-      state_path: '/tmp/demo/.cc-branch.state.yaml',
+      config_path: '/tmp/demo/.cc-branch/config.yaml',
+      state_path: '/tmp/demo/.cc-branch/state.yaml',
       slots: [
         {
           name: 'dev',
@@ -67,6 +67,9 @@ vi.mock('../hooks', () => ({
   }),
   useProfiles: () => ({
     data: [],
+  }),
+  useAgents: () => ({
+    data: { agents: [] },
   }),
   useInitWorkspace: () => ({
     mutateAsync: vi.fn(),
@@ -480,8 +483,8 @@ describe('Dashboard actions', () => {
       data: {
         status: 'needs_init',
         project_path: '/tmp/demo',
-        config_path: '/tmp/demo/.cc-branch.yaml',
-        state_path: '/tmp/demo/.cc-branch.state.yaml',
+        config_path: '/tmp/demo/.cc-branch/config.yaml',
+        state_path: '/tmp/demo/.cc-branch/state.yaml',
         project_name: 'demo',
         slots: [],
       },
@@ -494,8 +497,8 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('No workspace config found')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Create from a starter profile' })).toBeInTheDocument()
+    expect(screen.getByText('Set up demo.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create from a starter template' })).toBeInTheDocument()
     expect(screen.queryByText(/Run cc-branch init/)).not.toBeInTheDocument()
     expect(screen.queryByText('No slots configured')).not.toBeInTheDocument()
   })

@@ -20,6 +20,7 @@ class DoctorTests(unittest.TestCase):
     """Tests for workspace diagnostics functionality."""
 
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def test_doctor_reports_missing_session_id(self):
@@ -27,7 +28,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -48,8 +49,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -60,7 +61,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -75,8 +76,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -87,7 +88,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -103,8 +104,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -115,7 +116,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -133,8 +134,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -145,7 +146,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -162,8 +163,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -174,7 +175,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -189,8 +190,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -201,7 +202,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -216,8 +217,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -228,7 +229,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -243,8 +244,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -259,7 +260,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -274,8 +275,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             report = build_doctor_report(workspace, plan)
 
@@ -287,7 +288,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -302,8 +303,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             report = collect_doctor_report(workspace, plan)
@@ -318,7 +319,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -342,8 +343,8 @@ class DoctorTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state_path = root / ".cc-branch.state.yaml"
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state_path = root / ".cc-branch/state.yaml"
             state = load_state(state_path)
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 

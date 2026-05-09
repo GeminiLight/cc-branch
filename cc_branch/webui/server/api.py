@@ -18,6 +18,7 @@ from ...application.config_workflows import (
     read_workspace_config,
     save_workspace_config,
 )
+from ...config import project_dir_for_config
 from ...application.workspace_actions import execute_workspace_action
 from ...application.workspace_status import get_workspace_status
 from ...application.diagnostics import get_doctor_payload
@@ -94,7 +95,7 @@ def api_info(handler) -> None:
 
 def api_project_probe(handler) -> None:
     try:
-        project_dir = handler._get_project_path() or handler.config_path.parent
+        project_dir = handler._get_project_path() or project_dir_for_config(handler.config_path)
         result = probe_project(project_dir)
         handler._send_json(result.payload)
     except Exception as error:
@@ -112,7 +113,7 @@ def api_init(handler) -> None:
         config_path, _state_path = handler._resolve_paths()
 
         result = initialize_workspace(
-            config_path.parent,
+            project_dir_for_config(config_path),
             profile=profile,
             bootstrap_sessions=bootstrap_sessions,
         )

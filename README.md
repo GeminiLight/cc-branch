@@ -44,12 +44,12 @@ cd /path/to/project
 cc-branch serve
 ```
 
-Default address: `http://127.0.0.1:8080`. If the project is not configured yet, the Web UI will guide you through creating `.cc-branch.yaml`.
+Default address: `http://127.0.0.1:8080`. If the project is not configured yet, the Web UI will guide you through creating `.cc-branch/config.yaml`.
 
 If you prefer the terminal flow:
 
 ```bash
-cc-branch init    # create .cc-branch.yaml and local state
+cc-branch init    # create .cc-branch/config.yaml and local state
 cc-branch start   # start the tmux workspace and enter it
 ```
 
@@ -84,7 +84,7 @@ Built-in agent profiles such as `codex`, `claude`, `gemini`, `cursor`, and `kimi
 
 ## More
 
-Project config is stored in `.cc-branch.yaml`; local runtime state is stored in `.cc-branch.state.yaml` and is usually not committed. For more detail, see `docs/getting-started.md`, `docs/user-guide.md`, and `docs/features.md`.
+Project config is stored in `.cc-branch/config.yaml`; local runtime state is stored in `.cc-branch/state.yaml` and is usually not committed. For more detail, see `docs/getting-started.md`, `docs/user-guide.md`, and `docs/features.md`.
 
 ## License
 

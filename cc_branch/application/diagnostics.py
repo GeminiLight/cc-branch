@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..config import load_workspace
+from ..config import load_workspace, project_dir_for_config
 from ..doctor import collect_doctor_report, render_doctor_report
 from ..models import DoctorReport, WorkspaceConfig, WorkspacePlan
 from ..planner import plan_workspace
@@ -24,14 +24,15 @@ def render_report(report: DoctorReport) -> str:
 
 def get_doctor_payload(config_path: Path, state_path: Path) -> ActionResult:
     """Load and render structured doctor diagnostics for presentation surfaces."""
-    if not config_path.parent.exists():
+    project_dir = project_dir_for_config(config_path)
+    if not project_dir.exists():
         return ActionResult(
             ok=True,
             code="workspace_missing",
             message="Project directory does not exist",
             payload={
                 "status": "missing",
-                "report": f"Project directory does not exist: {config_path.parent}",
+                "report": f"Project directory does not exist: {project_dir}",
             },
         )
     if not config_path.exists():

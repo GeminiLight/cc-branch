@@ -125,7 +125,7 @@ That creates three concrete risks:
 - Do not introduce a dependency injection framework.
 - Do not replace `http.server` as part of this spec.
 - Do not replace tmux as the default runtime.
-- Do not break existing `.cc-branch.yaml` files.
+- Do not break existing `.cc-branch/config.yaml` files.
 - Do not remove current public Python APIs such as `load_workspace()`,
   `plan_workspace()`, and `WorkspaceContext`.
 

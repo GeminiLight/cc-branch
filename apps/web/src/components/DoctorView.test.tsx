@@ -27,7 +27,7 @@ describe('DoctorView summary', () => {
       data: {
         report: [
           'Workspace:',
-          '✓ config: .cc-branch.yaml found',
+          '✓ config: .cc-branch/config.yaml found',
           '✗ tmux: not installed',
           '→ brew install tmux',
           '⚠ agent: codex CLI not found',

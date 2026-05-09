@@ -36,7 +36,7 @@ def _print_existing_config_error(config_path: Path) -> None:
     console.print()
     console.print("[dim]Options:[/dim]")
     console.print("  • Use [cyan]--force[/cyan] to overwrite existing config")
-    console.print("  • Edit [cyan].cc-branch.yaml[/cyan] manually")
+    console.print(f"  • Edit [cyan]{DEFAULT_CONFIG}[/cyan] manually")
     console.print("  • Delete the file and run init again")
     console.print()
 
@@ -55,7 +55,7 @@ def _run_minimal_init(cwd: Path, args: argparse.Namespace) -> int:
     cli.console.print(f"[green]✓[/green] Created {config_path.name}")
     cli.console.print(f"[green]✓[/green] Created {state_path.name}")
     cli.console.print()
-    cli.console.print("[dim]Config created. Edit .cc-branch.yaml to customize.[/dim]")
+    cli.console.print(f"[dim]Config created. Edit {DEFAULT_CONFIG} to customize.[/dim]")
     cli.console.print("[dim]Run 'cc-branch plan' to preview before launch.[/dim]")
     cli.console.print()
     return 0
@@ -135,14 +135,14 @@ def _print_environment_report(env_report) -> None:
     console.print()
     console.print("[bold]Config:[/bold]")
     if env_report.config_exists:
-        console.print("  [yellow]⚠[/yellow] .cc-branch.yaml: exists")
+        console.print(f"  [yellow]⚠[/yellow] {DEFAULT_CONFIG}: exists")
     elif env_report.available_agents:
-        console.print("  [yellow]⚠[/yellow] .cc-branch.yaml: missing")
+        console.print(f"  [yellow]⚠[/yellow] {DEFAULT_CONFIG}: missing")
         console.print(
             f"    [dim]→ Will create starter config with {len(env_report.available_agents)} agent(s)[/dim]"
         )
     else:
-        console.print("  [yellow]⚠[/yellow] .cc-branch.yaml: missing")
+        console.print(f"  [yellow]⚠[/yellow] {DEFAULT_CONFIG}: missing")
         console.print("    [dim]→ Will create minimal config with shell workspace[/dim]")
     console.print()
 

@@ -25,7 +25,7 @@ We will respond within 48 hours and work with you to understand and address the 
 
 When using CC Branch:
 
-- **Never commit** `.cc-branch.state.yaml` to version control (it's in .gitignore by default)
+- **Never commit** `.cc-branch/state.yaml` to version control (it's in .gitignore by default)
 - **Review generated configs** before running `cc-branch start` or `cc-branch open`
 - **Be cautious** with custom commands in window configurations
 - **Keep dependencies updated** regularly

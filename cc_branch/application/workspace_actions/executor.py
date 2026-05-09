@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from ...config import load_workspace
+from ...config import load_workspace, project_dir_for_config
 from ...openers import OpenIntent
 from ...planner import plan_workspace
 from ...runtime.capabilities import is_external_process_runtime
@@ -40,6 +40,7 @@ class WorkspaceActionExecutor:
         workspace = load_workspace(config_path)
         state = load_state(state_path)
         plan = plan_workspace(workspace, state, False)
+        project_dir = project_dir_for_config(config_path)
         public_target = self.targets.normalize_action_target(plan, target)
         opener_id = opener or "auto-terminal"
 
@@ -66,7 +67,7 @@ class WorkspaceActionExecutor:
                         plan,
                         state,
                         state_path,
-                        cwd=config_path.parent,
+                        cwd=project_dir,
                         cli=cli,
                         opener=opener_id,
                         target=public_target,
@@ -97,7 +98,7 @@ class WorkspaceActionExecutor:
                         plan,
                         state,
                         state_path,
-                        cwd=config_path.parent,
+                        cwd=project_dir,
                         cli=cli,
                         opener=opener_id,
                         target=public_target,
@@ -114,7 +115,7 @@ class WorkspaceActionExecutor:
                 plan,
                 state,
                 state_path,
-                cwd=config_path.parent,
+                cwd=project_dir,
                 cli=cli,
                 opener=opener_id,
                 target=public_target,

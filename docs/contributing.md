@@ -119,7 +119,7 @@ Agent definitions live in `cc_branch/agents.yaml`. To add a built-in agent:
 
 3. Run tests to make sure `doctor`, `init`, and `plan` still work.
 
-For user-local agents, add or override entries in `~/.cc-branch/agents.yaml` or `.cc-branch.agents.yaml`. Overrides are field-level merges, so changing `command` does not require copying the built-in `resume_template`.
+For user-local agents, add or override entries in `~/.cc-branch/agents.yaml` or `.cc-branch/agents.yaml`. Overrides are field-level merges, so changing `command` does not require copying the built-in `resume_template`.
 
 ## Contribution guidelines
 

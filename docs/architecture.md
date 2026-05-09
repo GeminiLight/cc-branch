@@ -113,7 +113,7 @@ Implemented in `cc_branch/config/`.
 
 Responsibilities:
 
-- resolve the canonical `.cc-branch.yaml` config file path
+- resolve the canonical `.cc-branch/config.yaml` config file path
 - reject non-YAML workspace config files
 - normalize raw config defaults
 - materialize `WorkspaceConfig`
@@ -158,7 +158,7 @@ Responsibilities:
 - resolved window launch commands
 - resolved labels and session IDs
 - post-launch commands
-- state updates that should be written back to `.cc-branch.state.yaml`
+- state updates that should be written back to `.cc-branch/state.yaml`
 
 ## 7. Agent adapters
 
@@ -178,8 +178,8 @@ Agent definitions are loaded from layered registries and merged field-by-field:
 
 1. `cc_branch/agents.yaml` built-ins
 2. `~/.cc-branch/agents.yaml` user overrides
-3. `.cc-branch.agents.yaml` workspace-local overrides
-4. `.cc-branch.yaml` project-level `agents` overrides
+3. `.cc-branch/agents.yaml` workspace-local overrides
+4. `.cc-branch/config.yaml` project-level `agents` overrides
 
 The registry is implemented in `cc_branch/agent_registry/`, and `load_workspace()` injects the effective profiles into `WorkspaceConfig.agents`. Project configs only need an `agents` section when they override defaults or define project-specific agents.
 

@@ -204,7 +204,7 @@ Returns local opener metadata:
 
 ### `GET /api/agents`
 
-Returns effective agent profiles for the selected project. These profiles are available to the Config Editor agent dropdown without expanding built-in defaults into `.cc-branch.yaml`.
+Returns effective agent profiles for the selected project. These profiles are available to the Config Editor agent dropdown without expanding built-in defaults into `.cc-branch/config.yaml`.
 
 ```json
 {

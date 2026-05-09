@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...constants import DEFAULT_STATE
+from ...config import project_dir_for_config
 from ..results import ActionResult
 
 
@@ -12,13 +12,14 @@ def read_workspace_config(config_path: Path, state_path: Path) -> ActionResult:
     """Read config editor payload for an existing or not-yet-initialized project."""
     import cc_branch.application.config_workflows as workflows
 
+    project_dir = project_dir_for_config(config_path)
     base_payload = {
         "content": "",
         "path": str(config_path),
-        "project_path": str(config_path.parent),
+        "project_path": str(project_dir),
         "state_path": str(state_path),
     }
-    if not config_path.parent.exists():
+    if not project_dir.exists():
         return ActionResult(
             ok=True,
             code="config_missing",
@@ -57,7 +58,7 @@ def probe_project(project_dir: Path) -> ActionResult:
 
     path_exists = project_dir.exists() and project_dir.is_dir()
     config_path = workflows.resolve_config_path(project_dir)
-    state_path = project_dir / DEFAULT_STATE
+    state_path = workflows.resolve_state_path(project_dir, config_path)
     config_exists = path_exists and config_path.exists()
     state_exists = path_exists and state_path.exists()
 

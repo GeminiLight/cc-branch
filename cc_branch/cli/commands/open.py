@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from ...config import project_dir_for_config
 from ...context import WorkspaceContext
 from ...openers import OpenIntent
 from ..constants import PRIMARY_COMMAND
@@ -22,7 +23,7 @@ def run_open(ctx: WorkspaceContext, args: argparse.Namespace) -> int:
         plan,
         state,
         ctx.state_path,
-        cwd=ctx.config_path.parent,
+        cwd=project_dir_for_config(ctx.config_path),
         cli=PRIMARY_COMMAND,
         opener=opener,
         target=args.target,

@@ -226,6 +226,10 @@
     background:
       linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 94%, var(--accent) 6%), var(--bg-card));
   }
+  .onboarding-hero {
+    background:
+      linear-gradient(135deg, color-mix(in oklch, var(--bg-card) 92%, var(--accent) 8%) 0%, var(--bg-card) 44%, color-mix(in oklch, var(--bg-card) 92%, var(--warning) 8%) 100%);
+  }
   .surface-elevated { background-color: var(--bg-elevated); }
   .surface-hover { background-color: var(--bg-hover); }
   .surface-active { background-color: var(--bg-active); }

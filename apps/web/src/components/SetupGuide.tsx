@@ -1,11 +1,8 @@
 import { useState } from "react";
 import {
-  ChevronRight,
-  FileText,
+  ArrowRight,
+  GitBranch,
   RefreshCw,
-  Rocket,
-  Settings,
-  Terminal,
   Wand2,
 } from "lucide-react";
 import { useI18n } from "../i18n";
@@ -16,147 +13,153 @@ interface SetupGuideProps {
   onRefresh?: () => void;
 }
 
-interface StepWithCode {
-  icon: typeof Terminal;
-  title: string;
-  desc: string;
-  code: string;
-  tip?: string;
-  previewItems?: never;
-}
-
-interface StepWithPreview {
-  icon: typeof Settings;
-  title: string;
-  desc: string;
-  code: string;
-  previewItems: { label: string; desc: string }[];
-  tip?: never;
-}
-
-type Step = StepWithCode | StepWithPreview;
-
 export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) {
   const { t } = useI18n();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const projectName = projectPath?.split(/[\\/]/).filter(Boolean).pop() || t("project");
 
-  const steps: Step[] = [
-    {
-      icon: Wand2,
-      title: t("step1Title"),
-      desc: t("step1Desc"),
-      code: t("step1Code"),
-      tip: t("step1Tip"),
-    },
-    {
-      icon: Settings,
-      title: t("step2Title"),
-      desc: t("step2Desc"),
-      code: `slots:\n  - name: "dev"\n    runtime: "tmux"\n    windows:\n      - name: "planner"\n        agent: "claude"`,
-      previewItems: [
-        { label: "slots", desc: t("step2Slots") },
-        { label: "agents", desc: t("step2Agents") },
-        { label: "windows", desc: t("step2Windows") },
-      ],
-    },
-    {
-      icon: Rocket,
-      title: t("step3Title"),
-      desc: t("step3Desc"),
-      code: "cc-branch start",
-      tip: t("step3Tip"),
-    },
+  const previewLanes = [
+    { name: "planner", agent: "codex", tone: "accent" },
+    { name: "builder", agent: "codex", tone: "success" },
+    { name: "review", agent: "claude", tone: "warning" },
+    { name: "scratch", agent: "terminal", tone: "neutral" },
   ];
 
-  return (
-    <div className="max-w-md mx-auto py-12 px-4">
-      <div className="text-center mb-8">
-        <div className="w-10 h-10 rounded-lg bg-[var(--accent-bg)] mx-auto mb-3 flex items-center justify-center">
-          <Settings className="w-5 h-5 text-[var(--accent)]" />
-        </div>
-        <h1 className="text-lg font-semibold text-primary tracking-tight">
-          {t("noConfigTitle")}
-        </h1>
-        <p className="text-[13px] text-secondary mt-1">{t("noConfigDesc")}</p>
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="mt-4 inline-flex items-center gap-1.5 h-8 px-4 rounded text-[13px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
-        >
-          <Wand2 className="w-3.5 h-3.5" />
-          {t("createConfigInteractively")}
-        </button>
-      </div>
+  const quickFacts = [t("setupSafeTitle"), t("setupReviewTitle"), t("setupLaunchLaterTitle")];
 
-      <div className="space-y-2">
-        {steps.map((step, i) => (
-          <div
-            key={i}
-            className="surface-card border border-default rounded-lg overflow-hidden"
-          >
-            <div className="px-4 py-3 flex items-start gap-3">
-              <div className="w-7 h-7 rounded bg-[var(--accent-bg)] flex items-center justify-center shrink-0 mt-px">
-                <step.icon className="w-3.5 h-3.5 text-[var(--accent)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-[var(--accent)]">
-                    {t("step")} {i + 1}
-                  </span>
-                  <ChevronRight className="w-3 h-3 text-tertiary" />
-                </div>
-                <h3 className="text-[13px] font-semibold text-primary mt-px">
-                  {step.title}
-                </h3>
-                <p className="text-[11px] text-secondary mt-0.5 leading-relaxed">
-                  {step.desc}
+  return (
+    <div className="page-shell py-5 sm:py-7">
+      <section className="onboarding-hero overflow-hidden rounded-lg border border-default shadow-sm">
+        <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+          <div className="px-5 py-5 sm:px-7 sm:py-7 lg:px-8 lg:py-8 flex flex-col">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)]">
+                <GitBranch className="w-3 h-3" />
+                {t("onboardingEyebrow")}
+              </span>
+              <span className="inline-flex items-center rounded-md border border-default bg-[var(--bg-card)]/70 px-2.5 py-1 text-[11px] font-medium text-tertiary">
+                {t("onboardingStatus")}
+              </span>
+            </div>
+
+            <div className="mt-7 max-w-[580px]">
+              <h1 className="text-[30px] sm:text-[38px] leading-[1.08] font-semibold tracking-tight text-primary">
+                {t("noConfigTitle", { project: projectName })}
+              </h1>
+              <p className="mt-4 text-[15px] leading-7 text-secondary max-w-[42ch]">
+                {t("noConfigDesc")}
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] items-stretch">
+              <div className="rounded-md border border-default bg-[var(--bg-card)]/72 px-3.5 py-3 min-w-0">
+                <p className="text-[10px] font-semibold uppercase text-tertiary">{t("projectDirectory")}</p>
+                <p className="mt-1 truncate font-mono text-[12px] text-primary" title={projectPath}>
+                  {projectPath || t("current")}
                 </p>
-                {step.code && (
-                  <div className="mt-2 bg-[var(--editor-bg)] border border-[var(--editor-border)] rounded px-2.5 py-1.5">
-                    <code className="text-[11px] font-mono text-[var(--editor-fg)] whitespace-pre-wrap">
-                      {step.code}
-                    </code>
-                  </div>
-                )}
-                {"previewItems" in step && step.previewItems && (
-                  <div className="mt-2 space-y-0.5">
-                    {step.previewItems.map((item, j) => (
+              </div>
+              <div className="rounded-md border border-[var(--success)]/20 bg-[var(--success-bg)] px-3.5 py-3 min-w-[160px]">
+                <p className="text-[10px] font-semibold uppercase text-tertiary">{t("setupNextOutcome")}</p>
+                <p className="mt-1 text-[12px] font-semibold text-primary">.cc-branch/config.yaml</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={() => setWizardOpen(true)}
+                className="control-touch inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-5 text-[13px] font-semibold text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors shadow-sm"
+              >
+                <Wand2 className="w-4 h-4" />
+                {t("createConfigInteractively")}
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRefresh?.()}
+                disabled={!onRefresh}
+                className="control-touch inline-flex items-center justify-center gap-1.5 rounded-md border border-default bg-[var(--bg-card)]/72 px-3.5 text-[13px] font-medium text-secondary hover:text-primary hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                {t("refresh")}
+              </button>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {quickFacts.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-md border border-default bg-[var(--bg-card)]/62 px-2.5 py-1.5 text-[11px] font-medium text-secondary"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t lg:border-t-0 lg:border-l border-default bg-[var(--bg-card)]/58 px-4 py-5 sm:px-6 sm:py-7">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-tertiary">{t("onboardingMapEyebrow")}</p>
+                <h2 className="mt-1 text-[16px] font-semibold text-primary">{t("onboardingMapTitle")}</h2>
+              </div>
+              <span className="rounded-md border border-default bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-mono text-tertiary">
+                tmux
+              </span>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-default bg-[var(--editor-bg)] p-3.5 shadow-sm">
+              <div className="flex items-center gap-1.5 border-b border-default pb-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#d4574f]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#d9a338]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#3e9f75]" />
+                <span className="ml-2 truncate font-mono text-[10px] text-tertiary">
+                  cc-branch / {projectName}
+                </span>
+              </div>
+
+              <div className="mt-3 grid gap-2">
+                {previewLanes.map((lane) => (
+                  <div
+                    key={lane.name}
+                    className="grid grid-cols-[82px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-default bg-[var(--bg-card)] px-2.5 py-2"
+                  >
+                    <span className="font-mono text-[11px] font-semibold text-primary">{lane.name}</span>
+                    <div className="h-1.5 rounded-full bg-[var(--border-subtle)] overflow-hidden">
                       <div
-                        key={j}
-                        className="flex items-center gap-2 text-[11px] text-secondary bg-[var(--border-subtle)]/40 px-2 py-1 rounded"
-                      >
-                        <code className="text-[9px] font-mono text-[var(--accent)] font-semibold bg-[var(--accent-bg)] px-1 rounded">
-                          {item.label}
-                        </code>
-                        <span>{item.desc}</span>
-                      </div>
-                    ))}
+                        className={`h-full rounded-full ${
+                          lane.tone === "success"
+                            ? "bg-[var(--success)]"
+                            : lane.tone === "warning"
+                              ? "bg-[var(--warning)]"
+                              : lane.tone === "neutral"
+                                ? "bg-[var(--text-muted)]"
+                                : "bg-[var(--accent)]"
+                        }`}
+                        style={{ width: lane.name === "scratch" ? "42%" : "74%" }}
+                      />
+                    </div>
+                    <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[10px] text-secondary">
+                      {lane.agent}
+                    </span>
                   </div>
-                )}
-                {"tip" in step && step.tip && (
-                  <p className="text-[11px] text-tertiary mt-1.5 flex items-center gap-1">
-                    <FileText className="w-3 h-3" />
-                    {step.tip}
-                  </p>
-                )}
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-md border border-default bg-[var(--bg-card)]/72 px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary">
+                <span className="font-semibold text-primary">{t("setupFlowLabel")}</span>
+                <span>{t("setupFlowPick")}</span>
+                <span className="text-tertiary">/</span>
+                <span>{t("setupFlowPreview")}</span>
+                <span className="text-tertiary">/</span>
+                <span>{t("setupFlowCreate")}</span>
               </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      {onRefresh && (
-        <div className="text-center mt-5">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded text-[13px] font-medium surface-hover text-secondary hover:text-primary transition-colors border border-default"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            {t("refresh")}
-          </button>
         </div>
-      )}
+      </section>
 
       <ConfigWizard
         projectPath={projectPath}

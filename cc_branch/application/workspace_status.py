@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from ..config import load_workspace
+from ..config import load_workspace, project_dir_for_config
 from ..models import WorkspaceConfig, WorkspacePlan, WorkspaceState
 from ..planner import plan_workspace
 from ..runtime.capabilities import is_external_process_runtime, is_managed_runtime
@@ -38,7 +38,7 @@ def workspace_setup_payload(
     error: str | None = None,
 ) -> dict:
     """Return shared setup-state payload for workspace queries."""
-    project_dir = config_path.parent
+    project_dir = project_dir_for_config(config_path)
     payload = {
         "status": status,
         "project_path": str(project_dir),
@@ -137,7 +137,8 @@ def get_workspace_status(
     window_exists: WindowExists | None = None,
 ) -> ActionResult:
     """Load, plan, and inspect a workspace status for presentation surfaces."""
-    if not config_path.parent.exists():
+    project_dir = project_dir_for_config(config_path)
+    if not project_dir.exists():
         return ActionResult(
             ok=True,
             code="workspace_missing",

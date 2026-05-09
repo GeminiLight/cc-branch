@@ -48,7 +48,7 @@ cc-branch init
 - 检查 `tmux`
 - 探测常见命令行工具
 - 按模板生成起步配置
-- 创建 `.cc-branch.state.yaml`
+- 创建 `.cc-branch/state.yaml`
 - 在需要时补齐 `session_id`
 - 更新 `.gitignore`
 
@@ -73,12 +73,12 @@ cc-branch init --profile minimal
 
 ### 配置文件
 
-CC Branch 只自动读取 `.cc-branch.yaml`。首次发版不保留旧格式兼容。
+CC Branch 只自动读取 `.cc-branch/config.yaml`。首次发版不保留旧格式兼容。
 
 ### 两个关键文件
 
-- `.cc-branch.yaml`：项目配置，适合提交到仓库
-- `.cc-branch.state.yaml`：本地运行状态，通常不建议提交
+- `.cc-branch/config.yaml`：项目配置，适合提交到仓库
+- `.cc-branch/state.yaml`：本地运行状态，通常不建议提交
 
 状态文件里常见的信息包括：
 
@@ -129,8 +129,8 @@ windows:
 
 1. 内置 `cc_branch/agents.yaml`
 2. 用户全局 `~/.cc-branch/agents.yaml`
-3. 工作区 `.cc-branch.agents.yaml`
-4. 当前 `.cc-branch.yaml` 里的 `agents`
+3. 工作区 `.cc-branch/agents.yaml`
+4. 当前 `.cc-branch/config.yaml` 里的 `agents`
 
 后面的层级覆盖前面的层级，并且是字段级覆盖。例如只改 `command` 时，默认的 `resume_template`、`label_template` 仍然保留：
 
@@ -347,7 +347,7 @@ cc-branch doctor [--write-state] [--fix]
 cc-branch sync [slot[:window]] [--dry-run] [--yes] [--stop-removed]
 ```
 
-修改 `.cc-branch.yaml` 后，已经运行的 tmux window 不会自动换命令。`sync --dry-run` 会列出需要重启的 tmux target；确认后用 `sync --yes` 应用。
+修改 `.cc-branch/config.yaml` 后，已经运行的 tmux window 不会自动换命令。`sync --dry-run` 会列出需要重启的 tmux target；确认后用 `sync --yes` 应用。
 
 ## 会话管理
 
@@ -394,7 +394,7 @@ cc-branch serve --host 127.0.0.1 --port 8080
 cc-branch serve --host 0.0.0.0 --token "$CC_BRANCH_WEB_TOKEN"
 ```
 
-`serve` 可以直接在没有 `.cc-branch.yaml` 的目录中启动。此时 Web UI 会显示 setup 流程，用户选择模板或保存 YAML 后才会写入配置文件。
+`serve` 可以直接在没有 `.cc-branch/config.yaml` 的目录中启动。此时 Web UI 会显示 setup 流程，用户选择模板或保存 YAML 后才会写入配置文件。
 
 如果配置了 token，第一次在浏览器打开时使用服务端打印的 `/?token=...` 链接。验证通过后，服务端会设置 HttpOnly cookie，后续访问根页面和所有 `/api/*` 请求都会使用这个 cookie。
 

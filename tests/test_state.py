@@ -11,6 +11,7 @@ class StateTests(unittest.TestCase):
     """Tests for state management functionality."""
 
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def test_load_state_returns_empty_for_missing_file(self):
@@ -27,7 +28,7 @@ class StateTests(unittest.TestCase):
         """Test that load_state correctly parses existing state file."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.yaml"
+            state_path = root / ".cc-branch/state.yaml"
             self._write(
                 state_path,
                 """
@@ -53,7 +54,7 @@ class StateTests(unittest.TestCase):
         """Test that save_state creates a valid YAML file."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.yaml"
+            state_path = root / ".cc-branch/state.yaml"
 
             state = WorkspaceState(
                 version=1,
@@ -85,7 +86,7 @@ class StateTests(unittest.TestCase):
         """Test that state can be saved and loaded without data loss."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.yaml"
+            state_path = root / ".cc-branch/state.yaml"
 
             original_state = WorkspaceState(
                 version=1,
@@ -176,7 +177,7 @@ class StateTests(unittest.TestCase):
         """Test that state version is preserved through operations."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            state_path = root / ".cc-branch.state.yaml"
+            state_path = root / ".cc-branch/state.yaml"
 
             state = WorkspaceState(version=1, windows={})
             save_state(state_path, state)

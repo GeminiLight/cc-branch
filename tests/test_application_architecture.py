@@ -242,6 +242,16 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertTrue(callable(config.load_workspace))
         self.assertTrue(callable(config.load_workspace_from_text))
         self.assertTrue(callable(config.init_workspace))
+        self.assertTrue(callable(config.resolve_state_path))
+
+    def test_new_workspace_paths_live_under_project_metadata_directory(self):
+        from cc_branch.config import resolve_config_path, resolve_state_path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            self.assertEqual(resolve_config_path(root), root / ".cc-branch/config.yaml")
+            self.assertEqual(resolve_state_path(root), root / ".cc-branch/state.yaml")
 
     def test_repository_module_is_package_facade(self):
         import importlib
@@ -362,7 +372,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -375,8 +385,8 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             slot = plan.slots[0]
@@ -422,13 +432,14 @@ class RuntimeBoundaryTests(unittest.TestCase):
             self.assertTrue(use_case.__doc__)
 
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def test_runtime_sync_uses_backend_for_runtime_inspection(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -443,8 +454,8 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             previous_backend = get_backend()
             set_backend(FakeBackend({"demo-dev": {"planner", "extra"}}))
@@ -462,7 +473,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -477,8 +488,8 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             previous_backend = get_backend()
             set_backend(FakeBackend({"demo-dev": {"planner"}}))
@@ -487,15 +498,15 @@ class RuntimeBoundaryTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    config_path=root / ".cc-branch.yaml",
-                    state_path=root / ".cc-branch.state.yaml",
+                    config_path=root / ".cc-branch/config.yaml",
+                    state_path=root / ".cc-branch/state.yaml",
                 )
             finally:
                 set_backend(previous_backend)
 
             self.assertEqual(status["status"], "ready")
             self.assertEqual(status["project"], "demo")
-            self.assertEqual(status["config_path"], str(root / ".cc-branch.yaml"))
+            self.assertEqual(status["config_path"], str(root / ".cc-branch/config.yaml"))
             self.assertEqual(status["slots"][0]["status"], "running")
             self.assertEqual(status["slots"][0]["windows"][0]["status"], "running")
             self.assertEqual(status["slots"][0]["windows"][0]["sync_status"], "untracked")
@@ -503,17 +514,21 @@ class RuntimeBoundaryTests(unittest.TestCase):
     def test_workspace_status_query_owns_setup_and_invalid_config_states(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            missing_config = root / "missing" / ".cc-branch.yaml"
-            missing_result = get_workspace_status(missing_config, missing_config.parent / ".cc-branch.state.yaml")
+            missing_config = root / "missing" / ".cc-branch/config.yaml"
+            missing_result = get_workspace_status(
+                missing_config,
+                root / "missing" / ".cc-branch/state.yaml",
+            )
 
             self.assertTrue(missing_result.ok)
             self.assertEqual(missing_result.code, "workspace_missing")
             self.assertEqual(missing_result.payload["status"], "missing")
             self.assertEqual(missing_result.payload["slots"], [])
 
-            invalid_config = root / ".cc-branch.yaml"
+            invalid_config = root / ".cc-branch/config.yaml"
+            invalid_config.parent.mkdir(parents=True)
             invalid_config.write_text("version: [\n", encoding="utf-8")
-            invalid_result = get_workspace_status(invalid_config, root / ".cc-branch.state.yaml")
+            invalid_result = get_workspace_status(invalid_config, root / ".cc-branch/state.yaml")
 
             self.assertFalse(invalid_result.ok)
             self.assertEqual(invalid_result.code, "invalid_config")
@@ -523,8 +538,11 @@ class RuntimeBoundaryTests(unittest.TestCase):
     def test_doctor_payload_query_owns_setup_and_ready_report_states(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            missing_config = root / "missing" / ".cc-branch.yaml"
-            missing_result = get_doctor_payload(missing_config, missing_config.parent / ".cc-branch.state.yaml")
+            missing_config = root / "missing" / ".cc-branch/config.yaml"
+            missing_result = get_doctor_payload(
+                missing_config,
+                root / "missing" / ".cc-branch/state.yaml",
+            )
 
             self.assertTrue(missing_result.ok)
             self.assertEqual(missing_result.code, "workspace_missing")
@@ -532,7 +550,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
             self.assertIn("Project directory does not exist", missing_result.payload["report"])
 
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -546,7 +564,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
                         command: "echo planner"
                 """,
             )
-            ready_result = get_doctor_payload(root / ".cc-branch.yaml", root / ".cc-branch.state.yaml")
+            ready_result = get_doctor_payload(root / ".cc-branch/config.yaml", root / ".cc-branch/state.yaml")
 
             self.assertTrue(ready_result.ok)
             self.assertEqual(ready_result.code, "doctor_ready")
@@ -558,7 +576,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 class StateStoreBoundaryTests(unittest.TestCase):
     def test_state_store_update_loads_mutates_and_saves_state(self):
         with tempfile.TemporaryDirectory() as tmp:
-            state_path = Path(tmp) / ".cc-branch.state.yaml"
+            state_path = Path(tmp) / ".cc-branch/state.yaml"
             store = StateStore(state_path)
 
             def add_window(state: WorkspaceState) -> WorkspaceState:
@@ -782,6 +800,7 @@ class ArchitectureRuleTests(unittest.TestCase):
 
 class ConfigWorkflowTests(unittest.TestCase):
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def test_save_workspace_config_rejects_stale_base_without_writing(self):
@@ -789,8 +808,8 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
-            state_path = root / ".cc-branch.state.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            state_path = root / ".cc-branch/state.yaml"
             self._write(
                 config_path,
                 """
@@ -823,8 +842,8 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
-            state_path = root / ".cc-branch.state.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            state_path = root / ".cc-branch/state.yaml"
             self._write(
                 config_path,
                 """
@@ -854,8 +873,8 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
-            state_path = root / ".cc-branch.state.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            state_path = root / ".cc-branch/state.yaml"
             content = textwrap.dedent(
                 """
                 version: 1
@@ -882,7 +901,7 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            result = read_workspace_config(root / ".cc-branch.yaml", root / ".cc-branch.state.yaml")
+            result = read_workspace_config(root / ".cc-branch/config.yaml", root / ".cc-branch/state.yaml")
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "config_needs_init")
@@ -894,7 +913,7 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -908,7 +927,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                 """,
             )
 
-            result = read_workspace_config(config_path, root / ".cc-branch.state.yaml")
+            result = read_workspace_config(config_path, root / ".cc-branch/state.yaml")
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "config_ready")
@@ -921,7 +940,7 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -935,7 +954,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                 """,
             )
 
-            result = read_workspace_config(config_path, root / ".cc-branch.state.yaml")
+            result = read_workspace_config(config_path, root / ".cc-branch/state.yaml")
 
             self.assertTrue(result.ok)
             self.assertEqual(result.payload["issues"][0]["issue_type"], "unknown_field")
@@ -947,7 +966,7 @@ class ConfigWorkflowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -976,8 +995,8 @@ class ConfigWorkflowTests(unittest.TestCase):
             root = Path(tmp)
             env = Mock(available_agents=["codex", "claude"])
             init_result = Mock(
-                config_path=root / ".cc-branch.yaml",
-                state_path=root / ".cc-branch.state.yaml",
+                config_path=root / ".cc-branch/config.yaml",
+                state_path=root / ".cc-branch/state.yaml",
                 gitignore_created=True,
                 gitignore_updated=False,
             )
@@ -993,7 +1012,7 @@ class ConfigWorkflowTests(unittest.TestCase):
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "workspace_initialized")
-            self.assertEqual(result.payload["config_path"], str(root / ".cc-branch.yaml"))
+            self.assertEqual(result.payload["config_path"], str(root / ".cc-branch/config.yaml"))
             self.assertEqual(result.payload["summary"], {"slots": 2, "windows": 3, "agents": 2})
             self.assertEqual(result.payload["agents_detected"], ["codex", "claude"])
             check_environment.assert_called_once_with(root)
@@ -1025,7 +1044,7 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -1066,7 +1085,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                 "resume_mode": "flag",
             }
             with patch("cc_branch.application.config_workflows.load_agent_registry", return_value={"codex": agent_spec}):
-                result = agent_options(root / ".cc-branch.yaml")
+                result = agent_options(root / ".cc-branch/config.yaml")
 
             self.assertTrue(result.ok)
             self.assertEqual(result.payload["agents"], [{"id": "codex", "command": "codex", "resume_mode": "flag"}])
@@ -1089,7 +1108,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                         unexpected_slot: true
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
 
             self.assertEqual([issue.issue_type for issue in issues], ["unknown_field", "unknown_field"])
@@ -1119,7 +1138,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                         command: "zsh"
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
 
             errors = [issue for issue in issues if issue.severity == "error"]
@@ -1132,8 +1151,8 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
-            state_path = root / ".cc-branch.state.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            state_path = root / ".cc-branch/state.yaml"
 
             result = save_workspace_config(
                 config_path,
@@ -1161,8 +1180,8 @@ class ConfigWorkflowTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
-            state_path = root / ".cc-branch.state.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            state_path = root / ".cc-branch/state.yaml"
 
             result = save_workspace_config(
                 config_path,
@@ -1207,7 +1226,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                             agent: 789
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
 
             errors = [issue for issue in issues if issue.issue_type == "invalid_type"]
@@ -1243,7 +1262,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                         command: "bash"
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
 
             errors = [issue for issue in issues if issue.severity == "error"]
@@ -1279,7 +1298,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                               ALSO.BAD: "2"
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
 
             errors = [issue for issue in issues if issue.issue_type == "invalid_env_key"]
@@ -1307,7 +1326,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                         windows: worker
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
 
             shape_errors = {
@@ -1332,7 +1351,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                         command: "zsh"
                     """
                 ),
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
             )
             self.assertIn(
                 ("slots", "list"),
@@ -1346,11 +1365,12 @@ class ConfigWorkflowTests(unittest.TestCase):
 
 class WorkspaceActionsTests(unittest.TestCase):
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def _workspace_plan_state(self, root: Path):
         self._write(
-            root / ".cc-branch.yaml",
+            root / ".cc-branch/config.yaml",
             """
             version: 1
             project: "demo"
@@ -1364,8 +1384,8 @@ class WorkspaceActionsTests(unittest.TestCase):
                     command: "echo planner"
             """,
         )
-        workspace = load_workspace(root / ".cc-branch.yaml")
-        state = load_state(root / ".cc-branch.state.yaml")
+        workspace = load_workspace(root / ".cc-branch/config.yaml")
+        state = load_state(root / ".cc-branch/state.yaml")
         plan = plan_workspace(workspace, state, bootstrap_missing=False)
         return workspace, plan, state
 
@@ -1380,7 +1400,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/state.yaml",
                     apply_changes=False,
                 )
             finally:
@@ -1418,7 +1438,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                         workspace,
                         plan,
                         state,
-                        root / ".cc-branch.state.yaml",
+                        root / ".cc-branch/state.yaml",
                         apply_changes=True,
                     )
             finally:
@@ -1428,7 +1448,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual(result.code, "sync_applied")
             self.assertEqual(result.changed_targets, ("dev:planner",))
             restart_workspace.assert_called_once()
-            updated = load_state(root / ".cc-branch.state.yaml")
+            updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
             self.assertEqual(updated.windows["dev.planner"].managed_runtime, "tmux")
 
@@ -1438,7 +1458,7 @@ class WorkspaceActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             workspace, plan, stale_state = self._workspace_plan_state(root)
-            state_path = root / ".cc-branch.state.yaml"
+            state_path = root / ".cc-branch/state.yaml"
             StateStore(state_path).save(
                 WorkspaceState(
                     windows={
@@ -1490,7 +1510,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             workspace, plan, state = self._workspace_plan_state(root)
 
             with patch("cc_branch.application.workspace_actions._stop_runtime_workspace") as runtime_stop:
-                result = stop_workspace(workspace, plan, state, root / ".cc-branch.state.yaml", target="dev")
+                result = stop_workspace(workspace, plan, state, root / ".cc-branch/state.yaml", target="dev")
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "stop_applied")
@@ -1505,7 +1525,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             workspace, plan, state = self._workspace_plan_state(root)
 
             with patch("cc_branch.application.workspace_actions._stop_runtime_workspace") as runtime_stop:
-                result = stop_workspace(workspace, plan, state, root / ".cc-branch.state.yaml", target="missing")
+                result = stop_workspace(workspace, plan, state, root / ".cc-branch/state.yaml", target="missing")
 
             self.assertFalse(result.ok)
             self.assertEqual(result.code, "target_not_found")
@@ -1518,7 +1538,7 @@ class WorkspaceActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -1530,12 +1550,12 @@ class WorkspaceActionsTests(unittest.TestCase):
                     command: "zsh"
                 """,
             )
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             with patch("cc_branch.application.workspace_actions._stop_runtime_workspace") as runtime_stop:
-                result = stop_workspace(workspace, plan, state, root / ".cc-branch.state.yaml", target="scratch")
+                result = stop_workspace(workspace, plan, state, root / ".cc-branch/state.yaml", target="scratch")
 
             self.assertFalse(result.ok)
             self.assertEqual(result.code, "terminal_runtime_external")
@@ -1567,7 +1587,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/state.yaml",
                     target="dev",
                     detach=True,
                 )
@@ -1576,7 +1596,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual(result.code, "restart_applied")
             self.assertEqual(result.message, "Restarted dev")
             runtime_restart.assert_called_once_with(workspace, plan, "dev", detach=True)
-            updated = load_state(root / ".cc-branch.state.yaml")
+            updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
             self.assertEqual(updated.windows["dev.planner"].managed_runtime, "tmux")
 
@@ -1584,7 +1604,7 @@ class WorkspaceActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -1596,11 +1616,11 @@ class WorkspaceActionsTests(unittest.TestCase):
                     command: "zsh"
                 """,
             )
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
-            result = restart_workspace(workspace, plan, state, root / ".cc-branch.state.yaml")
+            result = restart_workspace(workspace, plan, state, root / ".cc-branch/state.yaml")
 
             self.assertFalse(result.ok)
             self.assertEqual(result.code, "no_tmux_runtime")
@@ -1622,7 +1642,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/state.yaml",
                     detach=False,
                 )
 
@@ -1650,20 +1670,20 @@ class WorkspaceActionsTests(unittest.TestCase):
                 "cc_branch.application.workspace_actions.ensure_slot",
                 return_value=result_payload,
             ) as ensure_slot:
-                result = launch_workspace(workspace, plan, state, root / ".cc-branch.state.yaml", target="dev")
+                result = launch_workspace(workspace, plan, state, root / ".cc-branch/state.yaml", target="dev")
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "launch_applied")
             self.assertEqual(result.message, "Launched dev")
             self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
-            updated = load_state(root / ".cc-branch.state.yaml")
+            updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
 
     def test_launch_workspace_rejects_background_terminal_only_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -1675,11 +1695,11 @@ class WorkspaceActionsTests(unittest.TestCase):
                     command: "zsh"
                 """,
             )
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
-            result = launch_workspace(workspace, plan, state, root / ".cc-branch.state.yaml")
+            result = launch_workspace(workspace, plan, state, root / ".cc-branch/state.yaml")
 
             self.assertFalse(result.ok)
             self.assertEqual(result.code, "no_tmux_runtime")
@@ -1712,7 +1732,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/state.yaml",
                     cwd=root,
                     cli="cc-branch",
                     opener="vscode",
@@ -1726,7 +1746,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual([(spec.title, spec.command) for spec in specs], [
                 ("dev:planner", "cc-branch attach dev:planner"),
             ])
-            updated = load_state(root / ".cc-branch.state.yaml")
+            updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
 
     def test_open_terminal_target_uses_command_layout_without_attach_terminal(self):
@@ -1735,7 +1755,7 @@ class WorkspaceActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -1749,8 +1769,8 @@ class WorkspaceActionsTests(unittest.TestCase):
                         command: "zsh"
                 """,
             )
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             with (
@@ -1763,7 +1783,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/state.yaml",
                     cwd=root,
                     cli="cc-branch",
                     opener="warp",
@@ -1784,7 +1804,7 @@ class WorkspaceActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -1801,8 +1821,8 @@ class WorkspaceActionsTests(unittest.TestCase):
                     command: "zsh"
                 """,
             )
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             with (
@@ -1815,7 +1835,7 @@ class WorkspaceActionsTests(unittest.TestCase):
                     workspace,
                     plan,
                     state,
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/state.yaml",
                     cwd=root,
                     cli="cc-branch",
                     opener="warp",
@@ -1850,8 +1870,8 @@ class WorkspaceActionsTests(unittest.TestCase):
                 return_value=result_payload,
             ) as ensure_slot:
                 result = execute_workspace_action(
-                    root / ".cc-branch.yaml",
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/config.yaml",
+                    root / ".cc-branch/state.yaml",
                     action="launch",
                     target="demo-dev",
                     opener="auto-terminal",
@@ -1868,7 +1888,7 @@ class WorkspaceActionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "demo"
@@ -1887,8 +1907,8 @@ class WorkspaceActionsTests(unittest.TestCase):
                 patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
             ):
                 result = execute_workspace_action(
-                    root / ".cc-branch.yaml",
-                    root / ".cc-branch.state.yaml",
+                    root / ".cc-branch/config.yaml",
+                    root / ".cc-branch/state.yaml",
                     action="launch",
                     target="scratch",
                     opener="warp",

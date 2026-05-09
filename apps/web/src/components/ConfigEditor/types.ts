@@ -1,7 +1,7 @@
 /**
  * ConfigEditor — form data types.
  *
- * Mirrors the .cc-branch.yaml schema for structured editing.
+ * Mirrors the .cc-branch/config.yaml schema for structured editing.
  */
 
 export interface AgentConfig {

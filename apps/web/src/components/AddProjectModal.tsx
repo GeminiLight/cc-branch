@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { FolderOpen, Loader2, Plus, X, MapPin } from "lucide-react";
 import type { APIClient } from "../api/client";
 import { useI18n } from "../i18n";
+import { projectDirFromConfigPath } from "../utils/projectPath";
 import { useToast } from "./ui/Toast";
 
 interface AddProjectModalProps {
@@ -74,8 +75,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
     api.getApiInfo()
       .then((info) => {
         if (info.config_path) {
-          const dir = info.config_path.replace(/[\\/]\.cc-branch\.yaml$/, "");
-          setCurrentDir(dir);
+          setCurrentDir(projectDirFromConfigPath(info.config_path));
         }
       })
       .catch(() => {

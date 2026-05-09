@@ -13,6 +13,7 @@ class PlannerTests(unittest.TestCase):
     """Tests for workspace planning functionality."""
 
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def test_plan_workspace_generates_basic_plan(self):
@@ -20,7 +21,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -35,8 +36,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             self.assertEqual(len(plan.slots), 1)
@@ -47,7 +48,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "myproject"
@@ -62,8 +63,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             self.assertEqual(plan.slots[0].tmux_session, "myproject-dev")
@@ -73,7 +74,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -94,8 +95,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=True)
 
             window = plan.slots[0].windows[0]
@@ -107,7 +108,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -128,7 +129,7 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
             self._write(
-                root / ".cc-branch.state.yaml",
+                root / ".cc-branch/state.yaml",
                 """
                 version: 1
                 windows:
@@ -138,8 +139,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             window = plan.slots[0].windows[0]
@@ -150,7 +151,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "myproject"
@@ -170,8 +171,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=True)
 
             window = plan.slots[0].windows[0]
@@ -182,7 +183,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -195,8 +196,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             slot = plan.slots[0]
@@ -209,7 +210,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -226,8 +227,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             slot = plan.slots[0]
@@ -242,7 +243,7 @@ class PlannerTests(unittest.TestCase):
             root = Path(tmp)
             (root / "subdir").mkdir()
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -258,8 +259,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             window = plan.slots[0].windows[0]
@@ -297,7 +298,7 @@ class PlannerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.yaml",
+                root / ".cc-branch/config.yaml",
                 """
                 version: 1
                 project: "test"
@@ -313,8 +314,8 @@ class PlannerTests(unittest.TestCase):
                 """,
             )
 
-            workspace = load_workspace(root / ".cc-branch.yaml")
-            state = load_state(root / ".cc-branch.state.yaml")
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
 
             launch_command = plan.slots[0].windows[0].launch_command

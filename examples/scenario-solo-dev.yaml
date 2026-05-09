@@ -67,7 +67,7 @@ slots:
     command: "zsh"
 
 # How to use:
-# 1. cp examples/scenario-solo-dev.yaml .cc-branch.yaml
+# 1. cp examples/scenario-solo-dev.yaml .cc-branch/config.yaml
 # 2. cc-branch plan --write-state
 # 3. cc-branch start
 # 4. cc-branch attach dev:coder      # Start coding

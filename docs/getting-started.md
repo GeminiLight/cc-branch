@@ -5,7 +5,7 @@ CC Branch is a CLI-first workspace orchestrator for terminal AI workflows. It he
 ## What you need
 
 - `tmux`
-- The agent CLIs you want to reference in `.cc-branch.yaml`
+- The agent CLIs you want to reference in `.cc-branch/config.yaml`
 - Python 3.10+ only when installing from PyPI or source
 - On Windows, a `tmux`-capable environment such as WSL, MSYS2, or Cygwin
 
@@ -64,7 +64,7 @@ During `init`, CC Branch typically:
 - checks `tmux`
 - detects supported agent CLIs on `PATH`
 - generates a starter config from the default `solo-dev` profile
-- writes `.cc-branch.state.yaml`
+- writes `.cc-branch/state.yaml`
 - bootstraps `session_id` values when needed
 - updates `.gitignore` for local state
 
@@ -72,8 +72,8 @@ Use `--profile ai-pair` or `--profile minimal` only when you want a non-default 
 
 ### 2. Know the two files it creates
 
-- `.cc-branch.yaml` — project config you can commit
-- `.cc-branch.state.yaml` — machine-local runtime state
+- `.cc-branch/config.yaml` — project config you can commit
+- `.cc-branch/state.yaml` — machine-local runtime state
 
 ### 3. Preview the resolved plan
 
@@ -139,7 +139,7 @@ When a token is configured, open the printed `/?token=...` URL once to establish
 | `ai-pair` | A coder and reviewer workflow |
 | `minimal` | A very small setup with one main agent window |
 
-Starter profiles keep `.cc-branch.yaml` focused on workspace structure. Built-in agent profiles are available automatically, so generated configs reference `agent: codex` or `agent: claude` without copying the full agent definition into every project.
+Starter profiles keep `.cc-branch/config.yaml` focused on workspace structure. Built-in agent profiles are available automatically, so generated configs reference `agent: codex` or `agent: claude` without copying the full agent definition into every project.
 
 ## Minimal init mode
 

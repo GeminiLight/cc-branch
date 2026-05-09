@@ -7,7 +7,13 @@ from ..diagnostics import get_doctor_report, render_report
 from ...agent_registry import load_agent_registry
 from ...bootstrap import check_environment, initialize_workspace_files
 from ...config import init_workspace as init_minimal_workspace
-from ...config import load_workspace, load_workspace_from_text, resolve_config_path
+from ...config import (
+    load_workspace,
+    load_workspace_from_text,
+    project_dir_for_config,
+    resolve_config_path,
+    resolve_state_path,
+)
 from ...openers import list_openers
 from ...planner import plan_workspace
 from ...profiles import get_available_profiles, get_profile_description
@@ -56,9 +62,11 @@ __all__ = [
     "plan_workspace",
     "probe_project",
     "profile_options",
+    "project_dir_for_config",
     "read_workspace_config",
     "render_report",
     "resolve_config_path",
+    "resolve_state_path",
     "save_workspace_config",
     "write_text_atomic",
 ]

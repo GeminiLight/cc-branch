@@ -4,6 +4,7 @@ import argparse
 from importlib.metadata import PackageNotFoundError, version
 
 from .. import __version__
+from ..constants import DEFAULT_CONFIG, DEFAULT_STATE
 from .constants import PRIMARY_COMMAND, SHORT_ALIAS
 
 
@@ -22,9 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-h", "--help", action="store_true", help="show this help message")
     parser.add_argument("--version", action="version", version=f"cc-branch {_package_version()}")
-    parser.add_argument("--project", type=str, help="project directory containing .cc-branch.yaml")
-    parser.add_argument("--config", type=str, help="path to .cc-branch.yaml")
-    parser.add_argument("--state", type=str, help="path to .cc-branch.state.yaml")
+    parser.add_argument("--project", type=str, help=f"project directory containing {DEFAULT_CONFIG}")
+    parser.add_argument("--config", type=str, help=f"path to {DEFAULT_CONFIG}")
+    parser.add_argument("--state", type=str, help=f"path to {DEFAULT_STATE}")
     parser.add_argument(
         "--format",
         choices=["text", "json"],
@@ -208,5 +209,4 @@ def _add_session_group(
 
     command_cmd = nested.add_parser("command", help="print the launch command for a target", description="Print the launch command for a target")
     command_cmd.add_argument("key", metavar="slot[:window]", help="target such as dev:planner")
-
 

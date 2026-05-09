@@ -10,13 +10,14 @@ class ConfigTests(unittest.TestCase):
     """Tests for configuration loading and initialization."""
 
     def _write(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
     def test_load_workspace_parses_basic_config(self):
         """Test that load_workspace correctly parses a basic configuration."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -36,7 +37,7 @@ class ConfigTests(unittest.TestCase):
         """Test that load_workspace correctly parses agent definitions."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -60,7 +61,7 @@ class ConfigTests(unittest.TestCase):
         """Agent references should work without repeating built-in profiles in each config."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -88,7 +89,7 @@ class ConfigTests(unittest.TestCase):
         """Project agent overrides should not require copying every default field."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -117,11 +118,11 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(workspace.agents["codex"].label_template, "{project}/{slot}/{window}")
 
     def test_load_workspace_reads_workspace_local_agent_registry(self):
-        """Workspace-local registry files should add agents without bloating .cc-branch.yaml."""
+        """Workspace-local registry files should add agents without bloating .cc-branch/config.yaml."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
-                root / ".cc-branch.agents.yaml",
+                root / ".cc-branch/agents.yaml",
                 """
                 agents:
                   local-agent:
@@ -130,7 +131,7 @@ class ConfigTests(unittest.TestCase):
                     resume_template: "--resume {session_id}"
                 """,
             )
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -156,7 +157,7 @@ class ConfigTests(unittest.TestCase):
         """Test that load_workspace correctly parses slot definitions."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -199,13 +200,12 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_workspace(config_path)
 
-    def test_resolve_config_path_does_not_fallback_to_legacy_toml(self):
-        """Only the canonical YAML config path is auto-discovered."""
+    def test_resolve_config_path_defaults_to_project_config_directory(self):
+        """New workspaces should keep cc-branch files under .cc-branch/."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self._write(root / ".cc-branch.toml", 'version = 1\nproject = "demo"')
 
-            self.assertEqual(resolve_config_path(root), root / ".cc-branch.yaml")
+            self.assertEqual(resolve_config_path(root), root / ".cc-branch/config.yaml")
 
     def test_init_workspace_creates_default_config(self):
         """Test that init_workspace creates a valid default configuration."""
@@ -215,7 +215,8 @@ class ConfigTests(unittest.TestCase):
 
             self.assertTrue(config_path.exists())
             self.assertTrue(state_path.exists())
-            self.assertEqual(state_path.name, ".cc-branch.state.yaml")
+            self.assertEqual(config_path, root / ".cc-branch/config.yaml")
+            self.assertEqual(state_path, root / ".cc-branch/state.yaml")
 
             # Verify the config is valid
             workspace = load_workspace(config_path)
@@ -237,7 +238,8 @@ class ConfigTests(unittest.TestCase):
         """Test that init_workspace with force=True overwrites existing files."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
+            config_path.parent.mkdir()
             config_path.write_text("old content")
 
             new_config_path, _ = init_workspace(root, force=True, bootstrap_sessions=False)
@@ -249,7 +251,7 @@ class ConfigTests(unittest.TestCase):
         """Test that load_workspace correctly parses display configuration."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """
@@ -273,7 +275,7 @@ class ConfigTests(unittest.TestCase):
         """Test that load_workspace correctly parses environment variables."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = root / ".cc-branch.yaml"
+            config_path = root / ".cc-branch/config.yaml"
             self._write(
                 config_path,
                 """

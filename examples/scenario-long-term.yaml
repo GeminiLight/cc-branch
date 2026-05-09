@@ -121,7 +121,7 @@ slots:
 # How to use:
 #
 # Initial setup:
-# 1. cp examples/scenario-long-term.yaml .cc-branch.yaml
+# 1. cp examples/scenario-long-term.yaml .cc-branch/config.yaml
 # 2. cc-branch plan --write-state
 # 3. cc-branch start
 #
@@ -145,6 +145,6 @@ slots:
 # - Use `cc-branch restart <slot>` to refresh a specific slot
 #
 # Maintenance:
-# - Backup .cc-branch.state.toml to preserve session IDs
-# - Commit .cc-branch.yaml to version control
-# - Don't commit .cc-branch.state.toml (it's machine-specific)
+# - Backup .cc-branch/state.yaml to preserve session IDs
+# - Commit .cc-branch/config.yaml to version control
+# - Don't commit .cc-branch/state.yaml (it's machine-specific)

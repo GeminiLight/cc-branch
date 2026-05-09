@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from ..agent_registry import load_agent_registry
-from ..constants import DEFAULT_CONFIG, DEFAULT_STATE
+from ..config import resolve_config_path, resolve_state_path
 from ..runtime import which
 from .models import AgentStatus, EnvironmentReport
 
@@ -44,8 +44,8 @@ def check_environment(
             )
         )
 
-    config_path = target_dir / DEFAULT_CONFIG
-    state_path = target_dir / DEFAULT_STATE
+    config_path = resolve_config_path(target_dir)
+    state_path = resolve_state_path(target_dir, config_path)
 
     return EnvironmentReport(
         tmux_available=tmux_available,

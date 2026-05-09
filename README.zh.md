@@ -46,12 +46,12 @@ cc-branch serve
 
 默认地址：`http://127.0.0.1:8080`
 
-如果项目还没有 `.cc-branch.yaml`，Web UI 会引导你创建。
+如果项目还没有 `.cc-branch/config.yaml`，Web UI 会引导你创建。
 
 如果你更喜欢命令行流程：
 
 ```bash
-cc-branch init    # 创建 .cc-branch.yaml 和本机状态文件
+cc-branch init    # 创建 .cc-branch/config.yaml 和本机状态文件
 cc-branch start   # 启动 tmux 工作台并进入
 ```
 
@@ -88,7 +88,7 @@ slots:
 
 ## 更多
 
-项目配置保存在 `.cc-branch.yaml`；本机运行状态保存在 `.cc-branch.state.yaml`，通常不提交。更多说明见 `docs/getting-started.md`、`docs/user-guide.md` 和 `docs/features.md`。
+项目配置保存在 `.cc-branch/config.yaml`；本机运行状态保存在 `.cc-branch/state.yaml`，通常不提交。更多说明见 `docs/getting-started.md`、`docs/user-guide.md` 和 `docs/features.md`。
 
 ## 许可证
 

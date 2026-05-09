@@ -11,6 +11,19 @@ pub enum BackendProcess {
     Python(Child),
 }
 
+impl BackendProcess {
+    fn kill(self) {
+        match self {
+            BackendProcess::Sidecar(child) => {
+                let _ = child.kill();
+            }
+            BackendProcess::Python(mut child) => {
+                let _ = child.kill();
+            }
+        }
+    }
+}
+
 pub struct PythonServer {
     pub process: Mutex<Option<BackendProcess>>,
     pub port: u16,
@@ -27,15 +40,8 @@ impl PythonServer {
 impl Drop for PythonServer {
     fn drop(&mut self) {
         if let Ok(mut process) = self.process.lock() {
-            if let Some(mut child) = process.take() {
-                match &mut child {
-                    BackendProcess::Sidecar(child) => {
-                        let _ = child.kill();
-                    }
-                    BackendProcess::Python(child) => {
-                        let _ = child.kill();
-                    }
-                }
+            if let Some(child) = process.take() {
+                child.kill();
             }
         }
     }
@@ -129,7 +135,7 @@ fn start_python_server(config_path: &str, state_path: &str) -> Result<(Child, u1
         return Err(format!(
             "{}\n\n\
              Hints:\n\
-             • Make sure you are running the desktop app from a directory that contains .cc-branch.yaml\n\
+             • Make sure you are running the desktop app from a directory that contains .cc-branch/config.yaml\n\
              • Check that 'cc-branch serve' works manually in this directory",
             e
         ));
@@ -209,8 +215,8 @@ fn show_window(window: tauri::WebviewWindow) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cwd = std::env::current_dir().unwrap_or_default();
-    let config_path = cwd.join(".cc-branch.yaml");
-    let state_path = cwd.join(".cc-branch.state.yaml");
+    let config_path = cwd.join(".cc-branch").join("config.yaml");
+    let state_path = cwd.join(".cc-branch").join("state.yaml");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -382,8 +388,8 @@ pub fn run() {
                 // Gracefully terminate the Python child process before exiting.
                 if let Some(state) = app_handle.try_state::<PythonServer>() {
                     if let Ok(mut guard) = state.process.lock() {
-                        if let Some(mut child) = guard.take() {
-                            let _ = child.kill();
+                        if let Some(child) = guard.take() {
+                            child.kill();
                         }
                     }
                 }

@@ -133,8 +133,9 @@ class WebUIHandlerTests(unittest.TestCase):
         """Create a temporary workspace for testing."""
         self.tmpdir = tempfile.TemporaryDirectory()
         self.cwd = Path(self.tmpdir.name)
-        self.config_path = self.cwd / ".cc-branch.yaml"
-        self.state_path = self.cwd / ".cc-branch.state.yaml"
+        self.config_path = self.cwd / ".cc-branch/config.yaml"
+        self.state_path = self.cwd / ".cc-branch/state.yaml"
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
         config_content = """version: 1
 project: "test-project"
@@ -411,8 +412,9 @@ slots:
         """Test /api/status routes correctly when project_path is provided."""
         alt_dir = self.cwd / "alt"
         alt_dir.mkdir()
-        alt_config = alt_dir / ".cc-branch.yaml"
-        alt_state = alt_dir / ".cc-branch.state.yaml"
+        alt_config = alt_dir / ".cc-branch/config.yaml"
+        alt_state = alt_dir / ".cc-branch/state.yaml"
+        alt_config.parent.mkdir(parents=True, exist_ok=True)
         alt_config.write_text(
             self.config_path.read_text(encoding="utf-8").replace(
                 'project: "test-project"', 'project: "alt-project"'
@@ -593,6 +595,46 @@ slots:
                 self.assertFalse(data["config_exists"])
                 self.assertEqual(data["status"], "needs_init")
                 self.assertEqual(data["project_name"], "needs-init")
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_project_probe_without_query_uses_project_root(self):
+        """Default project probe should report the project, not the metadata directory."""
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/project/probe", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertEqual(data["path"], str(self.cwd))
+            self.assertEqual(data["status"], "ready")
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_init_with_project_path_writes_to_project_metadata_dir(self):
+        """Web setup should create .cc-branch/ under the selected project root."""
+        alt_dir = self.cwd / "fresh-project"
+        alt_dir.mkdir()
+
+        server, port = self._start_test_server()
+        try:
+            project_path = quote(str(alt_dir))
+            request = Request(
+                f"http://127.0.0.1:{port}/api/init?project_path={project_path}",
+                data=json.dumps({"profile": "minimal", "bootstrap_sessions": False}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(request, timeout=5) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertTrue(data["success"])
+            self.assertEqual(data["config_path"], str(alt_dir / ".cc-branch/config.yaml"))
+            self.assertEqual(data["state_path"], str(alt_dir / ".cc-branch/state.yaml"))
+            self.assertTrue((alt_dir / ".cc-branch/config.yaml").exists())
+            self.assertTrue((alt_dir / ".cc-branch/state.yaml").exists())
+            self.assertFalse((alt_dir / ".cc-branch/.cc-branch/config.yaml").exists())
         finally:
             self._stop_test_server(server)
 
@@ -2011,8 +2053,8 @@ class CLIIntegrationTests(unittest.TestCase):
             "cc_branch.webui.server.start_server"
         ) as start_server:
             context = context_cls.return_value
-            context.config_path = Path("/tmp/.cc-branch.yaml")
-            context.state_path = Path("/tmp/.cc-branch.state.yaml")
+            context.config_path = Path("/tmp/.cc-branch/config.yaml")
+            context.state_path = Path("/tmp/.cc-branch/state.yaml")
             context.state = object()
             context.load.return_value = (object(), object())
 
@@ -2031,8 +2073,8 @@ class CLIIntegrationTests(unittest.TestCase):
             "cc_branch.webui.server.start_server"
         ) as start_server:
             context = context_cls.return_value
-            context.config_path = Path("/tmp/.cc-branch.yaml")
-            context.state_path = Path("/tmp/.cc-branch.state.yaml")
+            context.config_path = Path("/tmp/.cc-branch/config.yaml")
+            context.state_path = Path("/tmp/.cc-branch/state.yaml")
             context.state = object()
             context.load.return_value = (object(), object())
 
@@ -2040,8 +2082,8 @@ class CLIIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         start_server.assert_called_once_with(
-            Path("/tmp/.cc-branch.yaml"),
-            Path("/tmp/.cc-branch.state.yaml"),
+            Path("/tmp/.cc-branch/config.yaml"),
+            Path("/tmp/.cc-branch/state.yaml"),
             host="0.0.0.0",
             port=8080,
             token="secret-token",

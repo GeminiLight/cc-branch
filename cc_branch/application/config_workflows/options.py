@@ -47,9 +47,10 @@ def agent_options(config_path: Path) -> ActionResult:
         workspace = workflows.load_workspace(config_path)
         agents = workspace.agents
     else:
+        project_dir = workflows.project_dir_for_config(config_path)
         agents = {
             name: definition.to_agent_spec()
-            for name, definition in workflows.load_agent_registry(cwd=config_path.parent).items()
+            for name, definition in workflows.load_agent_registry(cwd=project_dir).items()
         }
     return ActionResult(
         ok=True,

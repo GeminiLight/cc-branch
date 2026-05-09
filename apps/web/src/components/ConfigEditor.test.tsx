@@ -51,7 +51,7 @@ describe('ConfigEditor diagnostics', () => {
           '        command: zsh',
           '',
         ].join('\n'),
-        path: '/tmp/demo/.cc-branch.yaml',
+        path: '/tmp/demo/.cc-branch/config.yaml',
         project_path: '/tmp/demo',
         state_path: '/tmp/demo/.cc-branch.state.toml',
         mtime: 1,

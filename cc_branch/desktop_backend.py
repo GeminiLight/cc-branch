@@ -11,6 +11,7 @@ import argparse
 import os
 from pathlib import Path
 
+from .constants import DEFAULT_CONFIG, DEFAULT_STATE
 from .webui.server import start_server
 
 
@@ -18,8 +19,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the CC Branch desktop backend")
     parser.add_argument("--host", default="127.0.0.1", help="host to bind to")
     parser.add_argument("--port", type=int, required=True, help="port to listen on")
-    parser.add_argument("--config", required=True, help="path to .cc-branch.yaml")
-    parser.add_argument("--state", required=True, help="path to .cc-branch.state.yaml")
+    parser.add_argument("--config", required=True, help=f"path to {DEFAULT_CONFIG}")
+    parser.add_argument("--state", required=True, help=f"path to {DEFAULT_STATE}")
     parser.add_argument(
         "--token",
         default=os.environ.get("CC_BRANCH_WEB_TOKEN"),

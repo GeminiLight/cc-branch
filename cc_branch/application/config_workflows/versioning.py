@@ -22,6 +22,7 @@ def write_text_atomic(path: Path, content: str) -> None:
     """Write text through a temp file and backup existing content."""
     temp_path = path.with_suffix(path.suffix + ".tmp")
     backup_path = path.with_suffix(path.suffix + ".bak")
+    path.parent.mkdir(parents=True, exist_ok=True)
     temp_path.write_text(content, encoding="utf-8")
     if path.exists():
         shutil.copy2(path, backup_path)

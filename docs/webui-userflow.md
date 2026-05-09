@@ -135,8 +135,8 @@ Frontend chooses another project directory
 A desktop wrapper can launch the backend with explicit paths:
 
 ```text
-Wrapper sets CC_BRANCH_CONFIG=/abs/path/.cc-branch.yaml
-Wrapper sets CC_BRANCH_STATE=/abs/path/.cc-branch.state.yaml
+Wrapper sets CC_BRANCH_CONFIG=/abs/path/.cc-branch/config.yaml
+Wrapper sets CC_BRANCH_STATE=/abs/path/.cc-branch/state.yaml
 Wrapper starts Python backend
   -> WorkspaceContext uses overridden paths
   -> Web UI works without depending on process cwd

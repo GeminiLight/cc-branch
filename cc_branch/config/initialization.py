@@ -11,18 +11,21 @@ from ..runtime.shells import default_shell_command
 from ..state import merge_state, save_state
 from .loading import load_workspace
 from .paths import resolve_config_path
+from .paths import resolve_state_path
 
 
 def init_workspace(target_dir: Path, force: bool, bootstrap_sessions: bool) -> tuple[Path, Path]:
     """Create starter workspace config and state files."""
     config_path = resolve_config_path(target_dir)
-    state_path = target_dir / DEFAULT_STATE
+    state_path = resolve_state_path(target_dir, config_path)
     shell_command = default_shell_command()
 
     if config_path.exists() and not force:
         raise FileExistsError(f"{config_path} already exists (use --force to overwrite)")
 
     config_path = target_dir / DEFAULT_CONFIG
+    state_path = target_dir / DEFAULT_STATE
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     project = target_dir.name
     config_body = f"""version: 1
 project: "{project}"

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..constants import WORKSPACE_AGENT_REGISTRY
+
 
 def builtin_agents_path() -> Path:
     """Return the package path for built-in agent definitions."""
@@ -19,4 +21,4 @@ def user_override_path() -> Path:
 
 def workspace_override_path(cwd: Path | None = None) -> Path:
     """Return the workspace-local registry override path."""
-    return (cwd or Path.cwd()) / ".cc-branch.agents.yaml"
+    return (cwd or Path.cwd()) / WORKSPACE_AGENT_REGISTRY

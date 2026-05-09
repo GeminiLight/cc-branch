@@ -35,7 +35,7 @@ class AgentDefinition:
         }
 
     def to_yaml_block(self) -> str:
-        """Render the agent definition as a YAML block for ``.cc-branch.yaml``."""
+        """Render the agent definition as a YAML block for ``.cc-branch/config.yaml``."""
         lines = [f'  {self.name}:']
         lines.append(f'    command: "{self.command}"')
         if self.resume_mode and self.resume_mode != "none":

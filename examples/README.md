@@ -7,7 +7,7 @@ This directory contains example workspace configs for common terminal AI workflo
 1. Copy an example into your project:
 
 ```bash
-cp examples/scenario-solo-dev.yaml .cc-branch.yaml
+cp examples/scenario-solo-dev.yaml .cc-branch/config.yaml
 ```
 
 2. Preview or launch the workspace:
@@ -54,5 +54,5 @@ A clean starter-style config showing the canonical YAML shape.
 
 - run `cc-branch plan --write-state` when you want to generate local session metadata before launch
 - use `cc-branch status` and `cc-branch session list` to inspect what exists
-- commit `.cc-branch.yaml`, not `.cc-branch.state.toml`
+- commit `.cc-branch/config.yaml`, not `.cc-branch/state.yaml`
 - use `cc-branch doctor` if commands, cwd paths, or session IDs look wrong

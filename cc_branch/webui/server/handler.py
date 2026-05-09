@@ -10,8 +10,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from ...application.results import ActionResult
-from ...config import resolve_config_path
-from ...constants import DEFAULT_STATE
+from ...config import resolve_config_path, resolve_state_path
 from . import api
 from .auth import (
     auth_cookie_header,
@@ -185,7 +184,8 @@ class WebUIHandler(BaseHTTPRequestHandler):
         """Return (config_path, state_path) for the current request."""
         project_dir = self._get_project_path()
         if project_dir:
-            return resolve_config_path(project_dir), project_dir / DEFAULT_STATE
+            config_path = resolve_config_path(project_dir)
+            return config_path, resolve_state_path(project_dir, config_path)
         return self.config_path, self.state_path
 
     def do_GET(self) -> None:

@@ -49,6 +49,7 @@ class StateRepository:
         temp_path = self._path.with_suffix(self._path.suffix + ".tmp")
         backup_path = self._path.with_suffix(self._path.suffix + ".bak")
 
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         temp_path.write_text(content, encoding="utf-8")
         if self._path.exists():
             shutil.copy2(self._path, backup_path)

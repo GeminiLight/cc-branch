@@ -89,7 +89,7 @@ slots:
 
 # How to use:
 # 1. Make sure you have frontend/, backend/, and shared-lib/ directories
-# 2. cp examples/scenario-multi-project.yaml .cc-branch.yaml
+# 2. cp examples/scenario-multi-project.yaml .cc-branch/config.yaml
 # 3. cc-branch plan --write-state
 # 4. cc-branch start
 # 5. cc-branch dashboard             # See all projects at once
