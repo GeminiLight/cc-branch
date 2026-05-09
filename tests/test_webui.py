@@ -782,7 +782,10 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+            with (
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
                     data=json.dumps({"action": "launch", "target": "scratch:old-a", "opener": "warp"}).encode(),
@@ -846,6 +849,8 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.opener_supports", return_value=True),
                 patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
@@ -895,6 +900,7 @@ slots:
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
                 patch("cc_branch.application.workspace_actions.opener_supports", return_value=True),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
@@ -947,6 +953,7 @@ slots:
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Terminal.app"),
                 patch("cc_branch.application.workspace_actions.opener_supports", return_value=False),
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
                 patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
@@ -1051,6 +1058,7 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
                 patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
@@ -1091,7 +1099,10 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+            with (
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
                     data=json.dumps({"action": "restart", "target": "scratch", "opener": "warp"}).encode(),
@@ -1131,7 +1142,10 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout:
+            with (
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
                     data=json.dumps({"action": "restart", "target": "scratch:old-a", "opener": "warp"}).encode(),
@@ -1603,6 +1617,7 @@ slots:
             with (
                 patch("cc_branch.webui.server.terminal.sys.argv", ["-"]),
                 patch("cc_branch.webui.server.terminal.shutil.which", return_value=None),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
                 patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "layout"),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
