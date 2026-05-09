@@ -26,7 +26,7 @@ If you change user-visible behavior, update docs in the same PR.
 
 ### Requirements
 
-- Python 3.10+
+- Python 3.11+
 - `tmux`
 - Git
 
@@ -56,8 +56,8 @@ python3 -m unittest discover tests
 ### Multi-version validation
 
 ```bash
-python3.10 -m venv .venv310
-. .venv310/bin/activate
+python3.11 -m venv .venv311
+. .venv311/bin/activate
 pip install -e .
 python -m unittest discover tests
 deactivate

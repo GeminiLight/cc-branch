@@ -6,7 +6,7 @@ CC Branch is a CLI-first workspace orchestrator for terminal AI workflows. It he
 
 - `tmux`
 - The agent CLIs you want to reference in `.cc-branch/config.yaml`
-- Python 3.10+ only when installing from PyPI or source
+- Python 3.11+ only when installing from PyPI or source
 - On Windows, a `tmux`-capable environment such as WSL, MSYS2, or Cygwin
 
 ## Install

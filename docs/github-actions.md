@@ -13,7 +13,7 @@
 
 检查内容：
 
-- Python 3.10 / 3.11 / 3.12
+- Python 3.11 / 3.12
 - Ubuntu / macOS
 - Python 单测和 CLI smoke test
 - Web UI lint / test / build

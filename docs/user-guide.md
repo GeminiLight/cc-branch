@@ -8,7 +8,7 @@
 
 - `tmux`
 - 你会在配置里实际使用到的命令行工具
-- 只有通过 PyPI 或源码安装时才需要 Python 3.10 或更高版本
+- 只有通过 PyPI 或源码安装时才需要 Python 3.11 或更高版本
 
 Windows 下请通过 WSL、MSYS2 或 Cygwin 提供可用的 `tmux`。
 

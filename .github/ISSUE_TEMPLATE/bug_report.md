@@ -27,7 +27,7 @@ What actually happened.
 ## Environment
 
 - OS: [e.g., macOS 14.0, Ubuntu 22.04]
-- Python version: [e.g., 3.10.13]
+- Python version: [e.g., 3.11.9]
 - CC Branch version: [e.g., 0.1.0]
 - tmux version: [e.g., 3.3a]
 - Agent CLIs installed: [e.g., claude, codex]

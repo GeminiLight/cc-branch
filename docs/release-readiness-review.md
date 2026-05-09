@@ -68,8 +68,8 @@ Results:
 - README and Chinese README describe the current `serve`, `init`, and `start` flows.
 - The legacy launch alias is not exposed as a compatibility command.
 - License is in a dedicated section and `LICENSE` is present.
-- CI covers Python 3.10, 3.11, 3.12 on Linux/macOS, Web UI lint/test/build, Python package build, and desktop sidecar script validation.
-- PyPI metadata includes Python 3.10, 3.11, and 3.12 classifiers and no pre-release stage classifier.
+- CI covers Python 3.11 and 3.12 on Linux/macOS, Web UI lint/test/build, Python package build, and desktop sidecar script validation.
+- PyPI metadata includes Python 3.11 and 3.12 classifiers and no pre-release stage classifier.
 - Web UI mutating endpoints are protected against untrusted browser origins.
 
 ## Recommendation

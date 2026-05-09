@@ -21,7 +21,7 @@ CC Branch (`cc-branch`, `ccb`) is a local workspace manager for developers who r
 
 ## Install
 
-Requirements: `tmux`, the Agent CLIs used by your config, and Python 3.10+ when installing through PyPI or source. Windows users need WSL, MSYS2, or Cygwin.
+Requirements: `tmux`, the Agent CLIs used by your config, and Python 3.11+ when installing through PyPI or source. Windows users need WSL, MSYS2, or Cygwin.
 
 ```bash
 pipx install cc-branch
