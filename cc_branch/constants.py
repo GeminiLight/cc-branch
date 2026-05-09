@@ -1,4 +1,6 @@
 CONFIG_DIR = ".cc-branch"
+CONFIGS_DIR = f"{CONFIG_DIR}/configs"
+STATES_DIR = f"{CONFIG_DIR}/states"
 DEFAULT_CONFIG = f"{CONFIG_DIR}/config.yaml"
 DEFAULT_STATE = f"{CONFIG_DIR}/state.yaml"
 WORKSPACE_AGENT_REGISTRY = f"{CONFIG_DIR}/agents.yaml"

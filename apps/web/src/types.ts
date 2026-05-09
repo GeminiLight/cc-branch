@@ -78,6 +78,29 @@ export interface WorkspaceStatus {
   error?: string;
 }
 
+export interface WorkspaceScope {
+  projectPath?: string;
+  configPath?: string;
+}
+
+export interface ConfigOption {
+  id: string;
+  label: string;
+  path: string;
+  state_path: string;
+  exists: boolean;
+  is_default: boolean;
+  selected: boolean;
+}
+
+export interface ConfigOptionsData {
+  project_path: string;
+  default_config_path: string;
+  selected_config_path: string;
+  state_path: string;
+  configs: ConfigOption[];
+}
+
 export interface ConfigData {
   status?: "ready" | "needs_init" | "missing";
   content: string;
@@ -139,6 +162,7 @@ export interface WorkspaceActionRequest {
   opener?: string;
   intent?: OpenIntent;
   projectPath?: string;
+  configPath?: string;
   stopRemoved?: boolean;
 }
 

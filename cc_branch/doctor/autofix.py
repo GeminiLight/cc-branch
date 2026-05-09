@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from ..constants import DEFAULT_STATE
+from ..constants import DEFAULT_STATE, STATES_DIR
 from ..models import WindowState, WorkspaceConfig, WorkspacePlan
 from ..state import load_state, save_state
 from . import checks
@@ -73,27 +73,29 @@ def _fix_gitignore_state(workspace_root: Path) -> bool:
     """Ensure the state file is listed in ``.gitignore``."""
     print("\nChecking .gitignore...")
     gitignore_path = workspace_root / ".gitignore"
-    state_filename = DEFAULT_STATE
+    state_entries = [DEFAULT_STATE, f"{STATES_DIR}/"]
 
     if gitignore_path.exists():
         content = gitignore_path.read_text()
         lines = [line.strip() for line in content.splitlines()]
-        if state_filename not in lines:
+        missing_entries = [entry for entry in state_entries if entry not in lines]
+        if missing_entries:
             try:
                 with gitignore_path.open("a") as f:
-                    f.write(f"\n# CC Branch state (machine-specific)\n{state_filename}\n")
-                print(f"  ✓ Added {state_filename} to .gitignore")
+                    f.write("\n# CC Branch state (machine-specific)\n")
+                    f.write("\n".join(missing_entries) + "\n")
+                print("  ✓ Added CC Branch state paths to .gitignore")
                 return True
             except OSError as e:
                 print(f"  ✗ Failed to update .gitignore: {e}")
                 return False
         else:
-            print(f"  ✓ {state_filename} already in .gitignore")
+            print("  ✓ CC Branch state paths already in .gitignore")
             return False
 
     try:
-        gitignore_path.write_text(f"# CC Branch state (machine-specific)\n{state_filename}\n")
-        print(f"  ✓ Created .gitignore with {state_filename}")
+        gitignore_path.write_text("# CC Branch state (machine-specific)\n" + "\n".join(state_entries) + "\n")
+        print("  ✓ Created .gitignore with CC Branch state paths")
         return True
     except OSError as e:
         print(f"  ✗ Failed to create .gitignore: {e}")

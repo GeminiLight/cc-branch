@@ -3,7 +3,15 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from cc_branch.config import init_workspace, load_workspace, resolve_config_path
+from cc_branch.config import (
+    config_options,
+    init_workspace,
+    load_workspace,
+    project_dir_for_config,
+    resolve_config_path,
+    resolve_config_selection,
+    resolve_state_path,
+)
 
 
 class ConfigTests(unittest.TestCase):
@@ -206,6 +214,36 @@ class ConfigTests(unittest.TestCase):
             root = Path(tmp)
 
             self.assertEqual(resolve_config_path(root), root / ".cc-branch/config.yaml")
+
+    def test_named_config_selection_uses_configs_directory_and_named_state(self):
+        """Bare config names should map to isolated config/state files."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            config_path = resolve_config_selection(root, "review")
+
+            self.assertEqual(config_path, root / ".cc-branch/configs/review.yaml")
+            self.assertEqual(resolve_state_path(root, config_path), root / ".cc-branch/states/review.yaml")
+            self.assertEqual(project_dir_for_config(config_path), root)
+
+    def test_config_options_list_default_and_named_configs(self):
+        """The UI needs a stable list of selectable configs for a project."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(root / ".cc-branch/config.yaml", "version: 1\nproject: default\nroot: .")
+            self._write(root / ".cc-branch/configs/review.yaml", "version: 1\nproject: review\nroot: .")
+            self._write(root / ".cc-branch/state.yaml", "version: 1")
+            self._write(root / ".cc-branch/agents.yaml", "agents: {}")
+
+            options = config_options(root, selected_config_path=root / ".cc-branch/configs/review.yaml")
+
+            paths = [option["path"] for option in options]
+            self.assertEqual(paths, [str(root / ".cc-branch/config.yaml"), str(root / ".cc-branch/configs/review.yaml")])
+            self.assertTrue(options[0]["is_default"])
+            self.assertFalse(options[1]["is_default"])
+            self.assertFalse(options[0]["selected"])
+            self.assertTrue(options[1]["selected"])
+            self.assertEqual(options[1]["state_path"], str(root / ".cc-branch/states/review.yaml"))
 
     def test_init_workspace_creates_default_config(self):
         """Test that init_workspace creates a valid default configuration."""

@@ -31,6 +31,7 @@ import Dropdown from "./ui/Dropdown";
 interface DashboardProps {
   api?: unknown;
   projectPath?: string;
+  configPath?: string;
   isActive?: boolean;
 }
 
@@ -53,8 +54,8 @@ const DEFAULT_OPENER: OpenerInfo = {
   source: "builtin",
 };
 
-function openerStorageKey(projectPath?: string): string {
-  return `cc-branch.open.tool.${projectPath || "current"}`;
+function openerStorageKey(projectPath?: string, configPath?: string): string {
+  return `cc-branch.open.tool.${projectPath || "current"}:${configPath || "default"}`;
 }
 
 function openerSupports(opener: OpenerInfo | undefined, capability: string): boolean {
@@ -382,12 +383,13 @@ function DashboardLoading() {
   );
 }
 
-export default function Dashboard({ projectPath, isActive = true }: DashboardProps) {
+export default function Dashboard({ projectPath, configPath, isActive = true }: DashboardProps) {
   const { t } = useI18n();
   const toast = useToast();
-  const { data, error, isLoading, isError, refetch, isFetching } =
-    useWorkspace(projectPath, isActive);
-  const { data: openersData } = useOpeners(projectPath, isActive);
+  const scope = { projectPath, configPath };
+  const { data, error, isLoading, isError, refetch } =
+    useWorkspace(scope, isActive);
+  const { data: openersData } = useOpeners(scope, isActive);
   const actionMutation = useWorkspaceAction();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -395,7 +397,11 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   const [lastActionMessage, setLastActionMessage] = useState<string | null>(null);
   const [selectedOpenerId, setSelectedOpenerId] = useState<string>(() => {
     if (typeof window === "undefined") return "auto-terminal";
-    return window.localStorage.getItem(openerStorageKey(projectPath)) || "auto-terminal";
+    return (
+      window.localStorage.getItem(openerStorageKey(projectPath, configPath)) ||
+      window.localStorage.getItem(`cc-branch.open.tool.${projectPath || "current"}`) ||
+      "auto-terminal"
+    );
   });
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -431,6 +437,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
         opener,
         intent,
         projectPath,
+        ...(configPath ? { configPath } : {}),
         stopRemoved,
       });
       toast.success(result.message);
@@ -440,7 +447,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [projectPath, actionMutation, toast, refetch]);
+  }, [projectPath, configPath, actionMutation, toast, refetch]);
 
   const confirmAction = useCallback(async () => {
     if (!pendingAction) return;
@@ -483,7 +490,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
     const isNoConfig =
       errMsg.includes("No such file") ||
       errMsg.includes("does not exist");
-    if (isNoConfig) return <SetupGuide projectPath={projectPath} onRefresh={refetch} />;
+    if (isNoConfig) return <SetupGuide projectPath={projectPath} configPath={configPath} onRefresh={refetch} />;
     return (
       <div className="max-w-sm mx-auto text-center py-20">
         <div className="w-10 h-10 rounded-lg danger-bg flex items-center justify-center mx-auto mb-3">
@@ -506,7 +513,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   }
 
   if (data?.status === "needs_init") {
-    return <SetupGuide projectPath={projectPath} onRefresh={refetch} />;
+    return <SetupGuide projectPath={projectPath} configPath={configPath} onRefresh={refetch} />;
   }
 
   if (data?.status === "missing" || data?.status === "invalid_config") {
@@ -548,11 +555,12 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   }
 
   const runningCount = data.slots.filter((s) => s.status === "running").length;
-  const stoppedCount = data.slots.filter((s) => s.status === "stopped").length;
   const externalCount = data.slots.filter((s) => s.status === "external").length;
+  const totalWindows = data.slots.reduce((count, slot) => count + slot.windows.length, 0);
   const hasTmuxSlots = data.slots.some((s) => s.runtime === "tmux");
   const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
   const canManageTmuxSlots = hasTmuxSlots && !tmuxRuntimeUnavailable;
+  const canRestartWorkspace = canManageTmuxSlots && runningCount > 0;
   const syncSummary = data.runtime_sync?.summary;
   const changedCount = syncSummary?.changed || 0;
   const missingCount = syncSummary?.missing || 0;
@@ -566,6 +574,24 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
     untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
     extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
   ].filter((notice): notice is string => Boolean(notice));
+  const runtimeActionCount = syncCount + extraCount;
+  const workspaceStateLabel = tmuxRuntimeUnavailable
+    ? t("workspaceStateUnavailable")
+    : runtimeSyncNotices.length > 0
+      ? t("workspaceStateNeedsAttention")
+      : runningCount > 0
+        ? t("workspaceStateRunning")
+        : t("workspaceStateStopped");
+  const workspaceStateClass = tmuxRuntimeUnavailable
+    ? "danger-bg danger"
+    : runtimeSyncNotices.length > 0
+      ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+      : runningCount > 0
+        ? "success-bg success"
+        : "bg-[var(--bg-hover)] text-tertiary";
+  const workspaceSyncLabel = runtimeActionCount > 0 || tmuxRuntimeUnavailable
+    ? t("workspaceSyncNeedsAction", { count: runtimeActionCount || 1 })
+    : t("workspaceSyncClean");
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
   const availableOpeners = openers.filter((opener) => opener.available);
@@ -587,7 +613,7 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
   const setDefaultOpener = (value: string) => {
     setSelectedOpenerId(value);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(openerStorageKey(projectPath), value);
+      window.localStorage.setItem(openerStorageKey(projectPath, configPath), value);
     }
   };
 
@@ -610,24 +636,25 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
               <FolderGit2 className="w-4 h-4 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[16px] font-semibold text-primary leading-tight truncate">
-                {data.project || data.project_name}
-              </p>
-              <p className="text-[12px] text-tertiary mt-0.5">
-                {runningCount} {t("running")} · {stoppedCount} {t("stopped")}
-                {externalCount > 0 ? ` · ${externalCount} ${t("external")}` : ""}
-              </p>
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <p className="text-[16px] font-semibold text-primary leading-tight truncate">
+                  {data.project || data.project_name}
+                </p>
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${workspaceStateClass}`}>
+                  {workspaceStateLabel}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-tertiary">
+                <span>{t("workspaceCounts", { running: runningCount, total: data.slots.length, windows: totalWindows })}</span>
+                {externalCount > 0 && <span>{externalCount} {t("external")}</span>}
+                <span className={runtimeActionCount > 0 || tmuxRuntimeUnavailable ? "text-[var(--warning)] font-medium" : "success font-medium"}>
+                  {workspaceSyncLabel}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 text-[12px] text-tertiary shrink-0 rounded-full bg-[var(--bg-card)]/70 px-3 py-1.5">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isFetching ? "bg-[var(--accent)] animate-pulse" : "bg-[var(--success)]"
-              }`}
-            />
-            {isFetching ? t("refreshing") : t("connected")}
-            <span className="text-muted">·</span>
-            <span>{lastUpdated || "--"}</span>
+            <span>{t("lastCheckedAt", { time: lastUpdated || "--" })}</span>
           </div>
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] items-start xl:items-center gap-3">
@@ -732,9 +759,15 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
               <button
                 type="button"
                 onClick={() => runAction("restart", undefined)}
-                disabled={actionMutation.isPending || !canManageTmuxSlots}
+                disabled={actionMutation.isPending || !canRestartWorkspace}
                 className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                title={tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : hasTmuxSlots ? t("restart") : t("tmuxOnlyAction")}
+                title={
+                  tmuxRuntimeUnavailable
+                    ? t("tmuxRuntimeUnavailable")
+                    : hasTmuxSlots
+                      ? runningCount > 0 ? t("restart") : t("restartNoRunning")
+                      : t("tmuxOnlyAction")
+                }
                 aria-label={t("restart")}
               >
                 <RotateCcw className="w-4 h-4" />
@@ -755,12 +788,11 @@ export default function Dashboard({ projectPath, isActive = true }: DashboardPro
               <button
                 type="button"
                 onClick={() => refetch()}
-                disabled={isFetching}
-                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
+                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
                 title={t("refresh")}
                 aria-label={t("refresh")}
               >
-                <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+                <RefreshCw className="w-4 h-4" />
               </button>
             </div>
           </div>

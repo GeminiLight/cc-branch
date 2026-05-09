@@ -18,6 +18,7 @@ import type { Profile } from "../types";
 
 interface ConfigWizardProps {
   projectPath?: string;
+  configPath?: string;
   isOpen: boolean;
   onClose: () => void;
   onCreated: () => void;
@@ -254,11 +255,12 @@ function cloneTemplate(spec: TemplateSpec): TemplateSpec {
   };
 }
 
-export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }: ConfigWizardProps) {
+export default function ConfigWizard({ projectPath, configPath, isOpen, onClose, onCreated }: ConfigWizardProps) {
   const { t } = useI18n();
   const toast = useToast();
   const { data: profiles } = useProfiles();
-  const { data: agentsData } = useAgents(projectPath, isOpen);
+  const scope = { projectPath, configPath };
+  const { data: agentsData } = useAgents(scope, isOpen);
   const saveMutation = useSaveConfig();
 
   const [step, setStep] = useState<Step>("select");
@@ -336,7 +338,7 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
 
   const handleCreate = useCallback(async () => {
     try {
-      await saveMutation.mutateAsync({ content: yamlPreview, projectPath });
+      await saveMutation.mutateAsync({ content: yamlPreview, scope });
       setStep("done");
       toast.success(t("configSaved"));
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -347,7 +349,7 @@ export default function ConfigWizard({ projectPath, isOpen, onClose, onCreated }
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [saveMutation, yamlPreview, projectPath, toast, t, onCreated, onClose]);
+  }, [saveMutation, yamlPreview, projectPath, configPath, toast, t, onCreated, onClose]);
 
   const selectProfile = useCallback((profileId: string) => {
     setSelectedProfileId(profileId);

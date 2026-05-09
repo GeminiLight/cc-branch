@@ -21,7 +21,7 @@ from ...application.config_workflows import (
 from ...application.diagnostics import get_doctor_payload
 from ...application.workspace_actions import execute_workspace_action
 from ...application.workspace_status import get_workspace_status
-from ...config import project_dir_for_config
+from ...config import config_options_payload, project_dir_for_config, resolve_config_path
 from ...openers import OpenerError
 from ...runtime.backends import get_backend
 from .terminal import _slot_exists
@@ -37,6 +37,8 @@ def api_status(handler) -> None:
             window_exists=lambda session, window: get_backend().has_window(session, window),
         )
         handler._send_json(result.payload)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -46,6 +48,21 @@ def api_config(handler) -> None:
         config_path, state_path = handler._resolve_paths()
         result = read_workspace_config(config_path, state_path)
         handler._send_json(result.payload)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_configs(handler) -> None:
+    try:
+        config_path, _state_path = handler._resolve_paths()
+        project_dir = project_dir_for_config(config_path)
+        if handler._get_project_path() and not handler._get_config_selection():
+            config_path = resolve_config_path(project_dir)
+        handler._send_json(config_options_payload(project_dir, config_path))
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -55,6 +72,8 @@ def api_doctor(handler) -> None:
         config_path, state_path = handler._resolve_paths()
         result = get_doctor_payload(config_path, state_path)
         handler._send_json(result.payload)
+    except ValueError as error:
+        handler._send_json({"status": "missing", "report": str(error), "error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"status": "invalid_config", "report": str(error), "error": str(error)})
 
@@ -70,6 +89,8 @@ def api_openers(handler) -> None:
     try:
         config_path, _state_path = handler._resolve_paths()
         handler._send_json(opener_options(config_path).payload)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -78,6 +99,8 @@ def api_agents(handler) -> None:
     try:
         config_path, _state_path = handler._resolve_paths()
         handler._send_json(agent_options(config_path).payload)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -118,6 +141,8 @@ def api_init(handler) -> None:
             bootstrap_sessions=bootstrap_sessions,
         )
         handler._send_json({"success": True, **result.payload})
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -148,6 +173,8 @@ def api_save_config(handler) -> None:
             handler._send_json({"error": result.message, "code": result.code, **result.payload}, 400)
             return
         handler._send_json({"success": True, **result.payload})
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -168,6 +195,8 @@ def api_action(handler) -> None:
             cli=_handler_cli_command(),
         )
         handler._send_action_result(result)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except OpenerError as error:
         handler._send_json({"error": str(error)}, 400)
     except Exception as error:

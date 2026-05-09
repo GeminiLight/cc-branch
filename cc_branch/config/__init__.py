@@ -14,7 +14,14 @@ from .loading import (
     load_workspace_from_text,
 )
 from .normalization import effective_agent_profiles, normalize_raw_config
-from .paths import project_dir_for_config, resolve_config_path, resolve_state_path
+from .paths import (
+    config_options,
+    config_options_payload,
+    project_dir_for_config,
+    resolve_config_path,
+    resolve_config_selection,
+    resolve_state_path,
+)
 
 
 def init_workspace(target_dir: Path, force: bool, bootstrap_sessions: bool) -> tuple[Path, Path]:
@@ -37,7 +44,10 @@ __all__ = [
     "load_workspace",
     "load_workspace_from_text",
     "normalize_raw_config",
+    "config_options",
+    "config_options_payload",
     "project_dir_for_config",
     "resolve_config_path",
+    "resolve_config_selection",
     "resolve_state_path",
 ]

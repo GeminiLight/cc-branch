@@ -33,6 +33,7 @@ import SlotsSection from "./SlotsSection";
 
 interface ConfigEditorProps {
   projectPath?: string;
+  configPath?: string;
 }
 
 type EditorMode = "form" | "yaml";
@@ -48,14 +49,15 @@ function issueTone(issues: ConfigIssue[]): IssueTone {
   return "info";
 }
 
-export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
+export default function ConfigEditor({ projectPath, configPath }: ConfigEditorProps) {
   const { t } = useI18n();
   const toast = useToast();
-  const { data, error, isLoading } = useConfig(projectPath);
+  const scope = { projectPath, configPath };
+  const { data, error, isLoading } = useConfig(scope);
   const saveMutation = useSaveConfig();
 
   const [mode, setMode] = useState<EditorMode>("form");
-  const { data: agentsData } = useAgents(projectPath, mode === "form");
+  const { data: agentsData } = useAgents(scope, mode === "form");
   const [formData, setFormData] = useState<ConfigFormData>(createDefaultConfig());
   const [yamlContent, setYamlContent] = useState("");
   const [yamlError, setYamlError] = useState<string | null>(null);
@@ -260,7 +262,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
     try {
       const result = await saveMutation.mutateAsync({
         content: contentToSave,
-        projectPath,
+        scope,
         baseMtime: data?.mtime,
         baseContentHash: data?.content_hash,
       });
@@ -290,7 +292,7 @@ export default function ConfigEditor({ projectPath }: ConfigEditorProps) {
         toast.error(e instanceof Error ? e.message : String(e));
       }
     }
-  }, [projectPath, mode, formData, yamlContent, formErrors, saveMutation, toast, t, data?.mtime, data?.content_hash]);
+  }, [projectPath, configPath, mode, formData, yamlContent, formErrors, saveMutation, toast, t, data?.mtime, data?.content_hash]);
 
   /* ── Copy ── */
   const copy = useCallback(async () => {

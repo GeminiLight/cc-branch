@@ -10,7 +10,11 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from ...application.results import ActionResult
-from ...config import resolve_config_path, resolve_state_path
+from ...config import (
+    project_dir_for_config,
+    resolve_config_selection,
+    resolve_state_path,
+)
 from . import api
 from .auth import (
     auth_cookie_header,
@@ -180,12 +184,26 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return Path(paths[0]).expanduser()
         return None
 
+    def _get_config_selection(self) -> str | None:
+        """Return selected config from query string, or None."""
+        query = self._get_query()
+        paths = query.get("config_path", [])
+        if paths and paths[0]:
+            return paths[0]
+        return None
+
     def _resolve_paths(self) -> tuple[Path, Path]:
         """Return (config_path, state_path) for the current request."""
         project_dir = self._get_project_path()
-        if project_dir:
-            config_path = resolve_config_path(project_dir)
-            return config_path, resolve_state_path(project_dir, config_path)
+        config_selection = self._get_config_selection()
+        if project_dir or config_selection:
+            base_project = project_dir or project_dir_for_config(self.config_path)
+            config_path = resolve_config_selection(
+                base_project,
+                config_selection,
+                restrict_to_project=True,
+            )
+            return config_path, resolve_state_path(project_dir_for_config(config_path), config_path)
         return self.config_path, self.state_path
 
     def do_GET(self) -> None:
@@ -208,6 +226,9 @@ class WebUIHandler(BaseHTTPRequestHandler):
         elif path == "/api/config":
             if self._require_auth():
                 self._api_config()
+        elif path == "/api/configs":
+            if self._require_auth():
+                self._api_configs()
         elif path == "/api/doctor":
             if self._require_auth():
                 self._api_doctor()
@@ -279,6 +300,9 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
     def _api_config(self) -> None:
         api.api_config(self)
+
+    def _api_configs(self) -> None:
+        api.api_configs(self)
 
     def _api_doctor(self) -> None:
         api.api_doctor(self)

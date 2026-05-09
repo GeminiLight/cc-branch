@@ -12,7 +12,7 @@ import {
 import { I18nProvider, useI18n } from "./i18n";
 import { ThemeProvider, useTheme } from "./theme/ThemeProvider";
 import { ToastProvider } from "./components/ui/Toast";
-import { useApiClient, useKeyboardShortcuts } from "./hooks";
+import { useApiClient, useConfigOptions, useKeyboardShortcuts } from "./hooks";
 import { useProjectStore, getActiveProject } from "./stores/projectStore";
 import { useUIStore } from "./stores/uiStore";
 import Sidebar from "./components/Sidebar";
@@ -26,6 +26,7 @@ import Dashboard from "./components/Dashboard";
 import ConfigEditor from "./components/ConfigEditor";
 import DoctorView from "./components/DoctorView";
 import SettingsModal from "./components/SettingsModal";
+import ConfigSelector from "./components/ConfigSelector";
 import { projectDirFromConfigPath } from "./utils/projectPath";
 
 type Tab = "dashboard" | "config" | "doctor";
@@ -57,6 +58,11 @@ function AppInner() {
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedConfigPaths, setSelectedConfigPaths] = useState<Record<string, string>>({});
+  const activeConfigPath = activeProject?.path ? selectedConfigPaths[activeProject.path] : undefined;
+  const activeScope = activeProject ? { projectPath: activeProject.path, configPath: activeConfigPath } : undefined;
+  const { data: configOptionsData } = useConfigOptions(activeScope);
+  const selectedConfigPath = configOptionsData?.selected_config_path || activeConfigPath;
 
   // Auto-inject current project on mount
   useEffect(() => {
@@ -90,6 +96,11 @@ function AppInner() {
   );
 
   const handleSetTab = useCallback((id: Tab) => setTab(id), []);
+  const handleSelectConfig = useCallback((path: string) => {
+    if (!activeProject?.path) return;
+    setSelectedConfigPaths((prev) => ({ ...prev, [activeProject.path]: path }));
+    setTab("dashboard");
+  }, [activeProject?.path]);
 
   const handleOpenSettings = useCallback(() => {
     setMobileSidebarOpen(false);
@@ -160,6 +171,13 @@ function AppInner() {
           </div>
 
           <div className="flex items-center gap-0.5 shrink-0">
+            {configOptionsData?.configs && activeProject && (
+              <ConfigSelector
+                configs={configOptionsData.configs}
+                selectedPath={selectedConfigPath}
+                onSelect={handleSelectConfig}
+              />
+            )}
             <Dropdown
               align="right"
               value={lang}
@@ -254,13 +272,13 @@ function AppInner() {
           {activeProject ? (
             <>
               <div role="tabpanel" id="panel-dashboard" aria-labelledby="tab-dashboard" hidden={tab !== "dashboard"} className={`transition-opacity duration-200 ${tab === "dashboard" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <Dashboard key={`dash-${activeProject.id}`} projectPath={activeProject.path} isActive={tab === "dashboard"} />
+                <Dashboard key={`dash-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} isActive={tab === "dashboard"} />
               </div>
               <div role="tabpanel" id="panel-config" aria-labelledby="tab-config" hidden={tab !== "config"} className={`transition-opacity duration-200 ${tab === "config" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <ConfigEditor key={`cfg-${activeProject.id}`} projectPath={activeProject.path} />
+                <ConfigEditor key={`cfg-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} />
               </div>
               <div role="tabpanel" id="panel-doctor" aria-labelledby="tab-doctor" hidden={tab !== "doctor"} className={`transition-opacity duration-200 ${tab === "doctor" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <DoctorView key={`doc-${activeProject.id}`} projectPath={activeProject.path} />
+                <DoctorView key={`doc-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} />
               </div>
             </>
           ) : (

@@ -10,12 +10,14 @@ import { useConfig, useSaveConfig, useKeyboardShortcuts } from "../hooks";
 
 interface ConfigViewProps {
   projectPath?: string;
+  configPath?: string;
 }
 
-export default function ConfigView({ projectPath }: ConfigViewProps) {
+export default function ConfigView({ projectPath, configPath }: ConfigViewProps) {
   const { t } = useI18n();
   const toast = useToast();
-  const { data, error, isLoading } = useConfig(projectPath);
+  const scope = { projectPath, configPath };
+  const { data, error, isLoading } = useConfig(scope);
   const saveMutation = useSaveConfig();
 
   const [copied, setCopied] = useState(false);
@@ -94,7 +96,7 @@ export default function ConfigView({ projectPath }: ConfigViewProps) {
   const handleSave = useCallback(async () => {
     if (!projectPath) return;
     try {
-      await saveMutation.mutateAsync({ content: editContent, projectPath });
+      await saveMutation.mutateAsync({ content: editContent, scope });
       setEditing(false);
       setHasUnsavedChanges(false);
       setYamlError(null);
@@ -105,7 +107,7 @@ export default function ConfigView({ projectPath }: ConfigViewProps) {
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [editContent, projectPath, saveMutation, toast, t]);
+  }, [editContent, projectPath, configPath, saveMutation, toast, t]);
 
   const handleCancel = useCallback(() => {
     setEditing(false);

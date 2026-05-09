@@ -7,6 +7,7 @@ import EmptyState from "./ui/EmptyState";
 
 interface DoctorViewProps {
   projectPath?: string;
+  configPath?: string;
 }
 
 interface CheckItem {
@@ -83,9 +84,9 @@ const StatusDot = memo(function StatusDot({ status }: { status: "ok" | "error" |
   return <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0 mt-0.5" />;
 });
 
-export default function DoctorView({ projectPath }: DoctorViewProps) {
+export default function DoctorView({ projectPath, configPath }: DoctorViewProps) {
   const { t } = useI18n();
-  const { data, error, isLoading, refetch, isFetching } = useDoctor(projectPath);
+  const { data, error, isLoading, refetch, isFetching } = useDoctor({ projectPath, configPath });
 
   const parsed = useMemo(() => {
     const text = reportText(data);

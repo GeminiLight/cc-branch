@@ -8,7 +8,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .config import load_workspace, resolve_config_path, resolve_state_path
+from .config import (
+    load_workspace,
+    project_dir_for_config,
+    resolve_config_path,
+    resolve_config_selection,
+    resolve_state_path,
+)
 from .models import WorkspaceConfig, WorkspacePlan, WorkspaceState
 from .planner import plan_workspace
 from .state import load_state, merge_state, save_state
@@ -30,19 +36,19 @@ class WorkspaceContext:
         # Allow the desktop wrapper (Tauri) to override paths via env vars.
         config_env = os.environ.get("CC_BRANCH_CONFIG")
         state_env = os.environ.get("CC_BRANCH_STATE")
+        selected_config = config_path or config_env
         self._config_path = (
-            Path(config_path)
-            if config_path
-            else Path(config_env)
-            if config_env
+            resolve_config_selection(cwd, selected_config)
+            if selected_config
             else resolve_config_path(cwd)
         )
+        project_dir = project_dir_for_config(self._config_path)
         self._state_path = (
             Path(state_path)
             if state_path
             else Path(state_env)
             if state_env
-            else resolve_state_path(cwd, self._config_path)
+            else resolve_state_path(project_dir, self._config_path)
         )
         self._workspace: WorkspaceConfig | None = None
         self._state: WorkspaceState | None = None

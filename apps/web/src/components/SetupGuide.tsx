@@ -10,10 +10,11 @@ import ConfigWizard from "./ConfigWizard";
 
 interface SetupGuideProps {
   projectPath?: string;
+  configPath?: string;
   onRefresh?: () => void;
 }
 
-export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) {
+export default function SetupGuide({ projectPath, configPath, onRefresh }: SetupGuideProps) {
   const { t } = useI18n();
   const [wizardOpen, setWizardOpen] = useState(false);
   const projectName = projectPath?.split(/[\\/]/).filter(Boolean).pop() || t("project");
@@ -137,6 +138,7 @@ export default function SetupGuide({ projectPath, onRefresh }: SetupGuideProps) 
 
       <ConfigWizard
         projectPath={projectPath}
+        configPath={configPath}
         isOpen={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onCreated={() => {

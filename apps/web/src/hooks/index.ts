@@ -1,6 +1,6 @@
 export { useApiClient } from "./useApiClient";
 export { useWorkspace } from "./useWorkspace";
-export { useConfig, useSaveConfig } from "./useConfig";
+export { useConfig, useConfigOptions, useSaveConfig } from "./useConfig";
 export { useDoctor } from "./useDoctor";
 export { useProfiles } from "./useProfiles";
 export { useOpeners } from "./useOpeners";

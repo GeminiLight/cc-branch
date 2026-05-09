@@ -20,24 +20,27 @@ import type {
   AgentsData,
   ConfigSaveResult,
   ConfigIssue,
+  ConfigOptionsData,
+  WorkspaceScope,
 } from "../types";
 
 export interface APIClient {
-  getStatus(projectPath?: string, signal?: AbortSignal): Promise<WorkspaceStatus>;
-  getConfig(projectPath?: string, signal?: AbortSignal): Promise<ConfigData>;
-  getDoctor(projectPath?: string, signal?: AbortSignal): Promise<DoctorReport>;
+  getStatus(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceStatus>;
+  getConfig(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigData>;
+  getConfigs(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigOptionsData>;
+  getDoctor(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<DoctorReport>;
   probeProject(projectPath: string, signal?: AbortSignal): Promise<ProjectProbe>;
-  getOpeners(projectPath?: string, signal?: AbortSignal): Promise<OpenersData>;
-  getAgents(projectPath?: string, signal?: AbortSignal): Promise<AgentsData>;
-  runAction(action: WorkspaceAction, target?: string, projectPath?: string): Promise<ActionResult>;
+  getOpeners(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<OpenersData>;
+  getAgents(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<AgentsData>;
+  runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
   runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult>;
-  stopSlot(sessionName: string, projectPath?: string): Promise<ActionResult>;
+  stopSlot(sessionName: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
   getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }>;
   getProfiles(signal?: AbortSignal): Promise<Profile[]>;
-  initWorkspace(profile: string, bootstrapSessions: boolean, projectPath?: string): Promise<InitResult>;
+  initWorkspace(profile: string, bootstrapSessions: boolean, scope?: WorkspaceScope | string): Promise<InitResult>;
   saveConfig(
     content: string,
-    projectPath?: string,
+    scope?: WorkspaceScope | string,
     baseMtime?: number | null,
     baseContentHash?: string | null
   ): Promise<ConfigSaveResult>;
@@ -59,8 +62,19 @@ export class APIRequestError extends Error {
   }
 }
 
-function qs(projectPath?: string): string {
-  return projectPath ? `?project_path=${encodeURIComponent(projectPath)}` : "";
+function normalizeScope(scope?: WorkspaceScope | string): WorkspaceScope {
+  if (!scope) return {};
+  if (typeof scope === "string") return { projectPath: scope };
+  return scope;
+}
+
+function qs(scope?: WorkspaceScope | string): string {
+  const { projectPath, configPath } = normalizeScope(scope);
+  const params = new URLSearchParams();
+  if (projectPath) params.set("project_path", projectPath);
+  if (configPath) params.set("config_path", configPath);
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 /**
@@ -73,22 +87,29 @@ export class HTTPClient implements APIClient {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
-  async getStatus(projectPath?: string, signal?: AbortSignal): Promise<WorkspaceStatus> {
-    const res = await fetch(`${this.baseUrl}/api/status${qs(projectPath)}`, { signal });
+  async getStatus(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceStatus> {
+    const res = await fetch(`${this.baseUrl}/api/status${qs(scope)}`, { signal });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as WorkspaceStatus;
   }
 
-  async getConfig(projectPath?: string, signal?: AbortSignal): Promise<ConfigData> {
-    const res = await fetch(`${this.baseUrl}/api/config${qs(projectPath)}`, { signal });
+  async getConfig(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigData> {
+    const res = await fetch(`${this.baseUrl}/api/config${qs(scope)}`, { signal });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigData;
   }
 
-  async getDoctor(projectPath?: string, signal?: AbortSignal): Promise<DoctorReport> {
-    const res = await fetch(`${this.baseUrl}/api/doctor${qs(projectPath)}`, { signal });
+  async getConfigs(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigOptionsData> {
+    const res = await fetch(`${this.baseUrl}/api/configs${qs(scope)}`, { signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ConfigOptionsData;
+  }
+
+  async getDoctor(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<DoctorReport> {
+    const res = await fetch(`${this.baseUrl}/api/doctor${qs(scope)}`, { signal });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as DoctorReport;
@@ -101,27 +122,27 @@ export class HTTPClient implements APIClient {
     return data as ProjectProbe;
   }
 
-  async getOpeners(projectPath?: string, signal?: AbortSignal): Promise<OpenersData> {
-    const res = await fetch(`${this.baseUrl}/api/openers${qs(projectPath)}`, { signal });
+  async getOpeners(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<OpenersData> {
+    const res = await fetch(`${this.baseUrl}/api/openers${qs(scope)}`, { signal });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as OpenersData;
   }
 
-  async getAgents(projectPath?: string, signal?: AbortSignal): Promise<AgentsData> {
-    const res = await fetch(`${this.baseUrl}/api/agents${qs(projectPath)}`, { signal });
+  async getAgents(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<AgentsData> {
+    const res = await fetch(`${this.baseUrl}/api/agents${qs(scope)}`, { signal });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentsData;
   }
 
-  async runAction(action: WorkspaceAction, target?: string, projectPath?: string): Promise<ActionResult> {
-    return this.runWorkspaceAction({ action, target, projectPath });
+  async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
+    return this.runWorkspaceAction({ action, target, ...normalizeScope(scope) });
   }
 
   async runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult> {
-    const { projectPath, stopRemoved, ...body } = request;
-    const res = await fetch(`${this.baseUrl}/api/action${qs(projectPath)}`, {
+    const { projectPath, configPath, stopRemoved, ...body } = request;
+    const res = await fetch(`${this.baseUrl}/api/action${qs({ projectPath, configPath })}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, stop_removed: stopRemoved }),
@@ -131,8 +152,8 @@ export class HTTPClient implements APIClient {
     return data as ActionResult;
   }
 
-  async stopSlot(sessionName: string, projectPath?: string): Promise<ActionResult> {
-    return this.runAction("stop", sessionName, projectPath);
+  async stopSlot(sessionName: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
+    return this.runAction("stop", sessionName, scope);
   }
 
   async getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }> {
@@ -149,8 +170,8 @@ export class HTTPClient implements APIClient {
     return data.profiles as Profile[];
   }
 
-  async initWorkspace(profile: string, bootstrapSessions: boolean, projectPath?: string): Promise<InitResult> {
-    const res = await fetch(`${this.baseUrl}/api/init${qs(projectPath)}`, {
+  async initWorkspace(profile: string, bootstrapSessions: boolean, scope?: WorkspaceScope | string): Promise<InitResult> {
+    const res = await fetch(`${this.baseUrl}/api/init${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profile, bootstrap_sessions: bootstrapSessions }),
@@ -162,11 +183,11 @@ export class HTTPClient implements APIClient {
 
   async saveConfig(
     content: string,
-    projectPath?: string,
+    scope?: WorkspaceScope | string,
     baseMtime?: number | null,
     baseContentHash?: string | null
   ): Promise<ConfigSaveResult> {
-    const res = await fetch(`${this.baseUrl}/api/config${qs(projectPath)}`, {
+    const res = await fetch(`${this.baseUrl}/api/config${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -195,25 +216,33 @@ export class TauriClient implements APIClient {
     return `http://127.0.0.1:${info.port}`;
   }
 
-  async getStatus(projectPath?: string): Promise<WorkspaceStatus> {
+  async getStatus(scope?: WorkspaceScope | string): Promise<WorkspaceStatus> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/status${qs(projectPath)}`);
+    const res = await fetch(`${baseUrl}/api/status${qs(scope)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as WorkspaceStatus;
   }
 
-  async getConfig(projectPath?: string): Promise<ConfigData> {
+  async getConfig(scope?: WorkspaceScope | string): Promise<ConfigData> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/config${qs(projectPath)}`);
+    const res = await fetch(`${baseUrl}/api/config${qs(scope)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigData;
   }
 
-  async getDoctor(projectPath?: string): Promise<DoctorReport> {
+  async getConfigs(scope?: WorkspaceScope | string): Promise<ConfigOptionsData> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/doctor${qs(projectPath)}`);
+    const res = await fetch(`${baseUrl}/api/configs${qs(scope)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ConfigOptionsData;
+  }
+
+  async getDoctor(scope?: WorkspaceScope | string): Promise<DoctorReport> {
+    const baseUrl = await this._baseUrl();
+    const res = await fetch(`${baseUrl}/api/doctor${qs(scope)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as DoctorReport;
@@ -227,30 +256,30 @@ export class TauriClient implements APIClient {
     return data as ProjectProbe;
   }
 
-  async getOpeners(projectPath?: string): Promise<OpenersData> {
+  async getOpeners(scope?: WorkspaceScope | string): Promise<OpenersData> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/openers${qs(projectPath)}`);
+    const res = await fetch(`${baseUrl}/api/openers${qs(scope)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as OpenersData;
   }
 
-  async getAgents(projectPath?: string): Promise<AgentsData> {
+  async getAgents(scope?: WorkspaceScope | string): Promise<AgentsData> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/agents${qs(projectPath)}`);
+    const res = await fetch(`${baseUrl}/api/agents${qs(scope)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentsData;
   }
 
-  async runAction(action: WorkspaceAction, target?: string, projectPath?: string): Promise<ActionResult> {
-    return this.runWorkspaceAction({ action, target, projectPath });
+  async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
+    return this.runWorkspaceAction({ action, target, ...normalizeScope(scope) });
   }
 
   async runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult> {
-    const { projectPath, stopRemoved, ...body } = request;
+    const { projectPath, configPath, stopRemoved, ...body } = request;
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/action${qs(projectPath)}`, {
+    const res = await fetch(`${baseUrl}/api/action${qs({ projectPath, configPath })}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, stop_removed: stopRemoved }),
@@ -260,8 +289,8 @@ export class TauriClient implements APIClient {
     return data as ActionResult;
   }
 
-  async stopSlot(sessionName: string, projectPath?: string): Promise<ActionResult> {
-    return this.runAction("stop", sessionName, projectPath);
+  async stopSlot(sessionName: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
+    return this.runAction("stop", sessionName, scope);
   }
 
   async getApiInfo(): Promise<{ port: number; config_path: string; state_path: string }> {
@@ -276,9 +305,9 @@ export class TauriClient implements APIClient {
     return data.profiles as Profile[];
   }
 
-  async initWorkspace(profile: string, bootstrapSessions: boolean, projectPath?: string): Promise<InitResult> {
+  async initWorkspace(profile: string, bootstrapSessions: boolean, scope?: WorkspaceScope | string): Promise<InitResult> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/init${qs(projectPath)}`, {
+    const res = await fetch(`${baseUrl}/api/init${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profile, bootstrap_sessions: bootstrapSessions }),
@@ -290,12 +319,12 @@ export class TauriClient implements APIClient {
 
   async saveConfig(
     content: string,
-    projectPath?: string,
+    scope?: WorkspaceScope | string,
     baseMtime?: number | null,
     baseContentHash?: string | null
   ): Promise<ConfigSaveResult> {
     const baseUrl = await this._baseUrl();
-    const res = await fetch(`${baseUrl}/api/config${qs(projectPath)}`, {
+    const res = await fetch(`${baseUrl}/api/config${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

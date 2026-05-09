@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-h", "--help", action="store_true", help="show this help message")
     parser.add_argument("--version", action="version", version=f"cc-branch {_package_version()}")
     parser.add_argument("--project", type=str, help=f"project directory containing {DEFAULT_CONFIG}")
-    parser.add_argument("--config", type=str, help=f"path to {DEFAULT_CONFIG}")
+    parser.add_argument("--config", type=str, help="config path or name under .cc-branch/configs")
     parser.add_argument("--state", type=str, help=f"path to {DEFAULT_STATE}")
     parser.add_argument(
         "--format",
@@ -209,4 +209,3 @@ def _add_session_group(
 
     command_cmd = nested.add_parser("command", help="print the launch command for a target", description="Print the launch command for a target")
     command_cmd.add_argument("key", metavar="slot[:window]", help="target such as dev:planner")
-

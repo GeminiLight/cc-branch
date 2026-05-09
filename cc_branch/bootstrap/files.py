@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..config import load_workspace
-from ..constants import DEFAULT_CONFIG, DEFAULT_STATE
+from ..constants import DEFAULT_CONFIG, DEFAULT_STATE, STATES_DIR
 from ..models import WorkspaceState
 from ..state import save_state
 from .generation import generate_starter_config, summarize_config
@@ -16,15 +16,18 @@ from .sessions import bootstrap_sessions
 def ensure_state_gitignored(target_dir: Path, state_filename: str) -> tuple[bool, bool]:
     """Ensure the local state file is ignored without clobbering existing edits."""
     gitignore_path = target_dir / ".gitignore"
-    block = f"# CC Branch state (machine-specific)\n{state_filename}\n"
+    state_entries = [state_filename, f"{STATES_DIR}/"]
+    block = "# CC Branch state (machine-specific)\n" + "\n".join(state_entries) + "\n"
 
     if gitignore_path.exists():
         content = gitignore_path.read_text(encoding="utf-8")
-        if state_filename in content:
+        missing_entries = [entry for entry in state_entries if entry not in content.splitlines()]
+        if not missing_entries:
             return False, False
         with gitignore_path.open("a", encoding="utf-8") as handle:
             prefix = "" if content.endswith("\n") or not content else "\n"
-            handle.write(f"{prefix}{block}")
+            handle.write(f"{prefix}# CC Branch state (machine-specific)\n")
+            handle.write("\n".join(missing_entries) + "\n")
         return False, True
 
     gitignore_path.write_text(block, encoding="utf-8")

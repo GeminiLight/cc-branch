@@ -45,6 +45,7 @@ ENV/
 
 # CC Branch local runtime state
 .cc-branch/state.yaml
+.cc-branch/states/
 .cc-branch/*.bak
 .cc-branch.state.yaml
 .cc-branch.state.yaml.bak

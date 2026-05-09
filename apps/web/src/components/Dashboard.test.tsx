@@ -363,6 +363,32 @@ describe('Dashboard actions', () => {
     })
   })
 
+  it('disables workspace restart when no tmux slots are running', () => {
+    mocks.workspaceResult.current = stoppedWorkspaceResult()
+
+    renderDashboard()
+
+    expect(screen.getByRole('button', { name: 'Start in background' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Restart' })).toHaveAttribute(
+      'title',
+      'No running tmux windows to restart.'
+    )
+  })
+
+  it('keeps workspace status stable during background polling', () => {
+    const result = readyWorkspaceResult()
+    result.isFetching = true
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('Running')).toBeInTheDocument()
+    expect(screen.getByText('Checked now')).toBeInTheDocument()
+    expect(screen.queryByText('Refreshing')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeDisabled()
+  })
+
   it('explains missing tmux windows as not running, not config drift', () => {
     const result = readyWorkspaceResult()
     ;(result.data as Record<string, unknown>).runtime_sync = {
@@ -377,6 +403,16 @@ describe('Dashboard actions', () => {
 
     expect(screen.getByText('2 configured tmux window(s) are not running.')).toBeInTheDocument()
     expect(screen.queryByText(/do not match the current config/)).not.toBeInTheDocument()
+  })
+
+  it('labels missing window status as not running', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data.slots[0].windows[0] as Record<string, unknown>).sync_status = 'missing'
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('not running')).toBeInTheDocument()
   })
 
   it('explains changed running windows separately from missing windows', () => {

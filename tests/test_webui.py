@@ -10,6 +10,7 @@ import time
 import unittest
 from importlib.resources import files
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -486,6 +487,78 @@ slots:
                 self.assertEqual(data["project"], "alt-project")
                 self.assertEqual(data["config_path"], str(alt_config))
                 self.assertEqual(data["state_path"], str(alt_state))
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_status_accepts_config_path_query(self):
+        """Status requests should use the selected config and matching state."""
+        review_config = self.cwd / ".cc-branch/configs/review.yaml"
+        review_config.parent.mkdir(parents=True, exist_ok=True)
+        review_config.write_text(
+            self.config_path.read_text(encoding="utf-8").replace(
+                'project: "test-project"', 'project: "review-project"'
+            ),
+            encoding="utf-8",
+        )
+        review_state = self.cwd / ".cc-branch/states/review.yaml"
+
+        server, port = self._start_test_server()
+        try:
+            project_path = quote(str(self.cwd))
+            config_path = quote(str(review_config))
+            with urlopen(
+                f"http://127.0.0.1:{port}/api/status?project_path={project_path}&config_path={config_path}",
+                timeout=2,
+            ) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+                self.assertEqual(data["project"], "review-project")
+                self.assertEqual(data["config_path"], str(review_config))
+                self.assertEqual(data["state_path"], str(review_state))
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_status_rejects_config_path_outside_project_metadata(self):
+        """Config selection must not read arbitrary files outside .cc-branch."""
+        outside_config = self.cwd / "outside.yaml"
+        outside_config.write_text("version: 1\nproject: outside\nroot: .\n", encoding="utf-8")
+
+        server, port = self._start_test_server()
+        try:
+            project_path = quote(str(self.cwd))
+            config_path = quote(str(outside_config))
+            with self.assertRaises(HTTPError) as caught:
+                urlopen(
+                    f"http://127.0.0.1:{port}/api/status?project_path={project_path}&config_path={config_path}",
+                    timeout=2,
+                )
+            self.assertEqual(caught.exception.code, 400)
+            data = json.loads(caught.exception.read().decode())
+            self.assertIn(".cc-branch", data["error"])
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_configs_lists_selectable_project_configs(self):
+        """The Web UI should be able to populate a config picker."""
+        review_config = self.cwd / ".cc-branch/configs/review.yaml"
+        review_config.parent.mkdir(parents=True, exist_ok=True)
+        review_config.write_text("version: 1\nproject: review\nroot: .\n", encoding="utf-8")
+
+        server, port = self._start_test_server()
+        try:
+            project_path = quote(str(self.cwd))
+            with urlopen(f"http://127.0.0.1:{port}/api/configs?project_path={project_path}", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertEqual(data["project_path"], str(self.cwd))
+            self.assertEqual(data["default_config_path"], str(self.config_path))
+            self.assertEqual(data["selected_config_path"], str(self.config_path))
+            self.assertEqual(
+                [item["path"] for item in data["configs"]],
+                [str(self.config_path), str(review_config)],
+            )
+            self.assertEqual(data["configs"][1]["state_path"], str(self.cwd / ".cc-branch/states/review.yaml"))
         finally:
             self._stop_test_server(server)
 
