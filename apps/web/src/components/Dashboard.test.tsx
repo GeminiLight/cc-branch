@@ -363,6 +363,37 @@ describe('Dashboard actions', () => {
     })
   })
 
+  it('explains missing tmux windows as not running, not config drift', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).runtime_sync = {
+      summary: { current: 0, changed: 0, missing: 2, extra: 0, orphaned: 0, untracked: 0, external: 0 },
+      slots: [],
+      orphaned_state: [],
+      historical_sessions: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('2 configured tmux window(s) are not running.')).toBeInTheDocument()
+    expect(screen.queryByText(/do not match the current config/)).not.toBeInTheDocument()
+  })
+
+  it('explains changed running windows separately from missing windows', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).runtime_sync = {
+      summary: { current: 0, changed: 1, missing: 2, extra: 0, orphaned: 0, untracked: 0, external: 0 },
+      slots: [],
+      orphaned_state: [],
+      historical_sessions: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('1 running tmux window(s) use an older launch command.')).toBeInTheDocument()
+  })
+
   it('opens a running slot in a terminal', async () => {
     renderDashboard()
 
