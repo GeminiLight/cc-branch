@@ -1,5 +1,8 @@
 # GitHub Actions 配置指南
 
+> **状态**: ⚠️ 已废弃。本文档的内容已被 [`docs/publishing.md`](publishing.md) 涵盖。
+> 请参考 `publishing.md` 获取完整的发布流程。
+
 本项目的自动化流程分为三类：CI、Python 包发布、桌面端发布。Homebrew tap 通过 `packaging/homebrew/` 中的 formula 模板维护。当前不发布 npm 包；`apps/web` 和 `apps/desktop` 是产品工程，不是 npm CLI 包。
 
 ## 工作流

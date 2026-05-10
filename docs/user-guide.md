@@ -504,4 +504,3 @@ cc-branch doctor
 - `docs/features.md`
 - `docs/architecture.md`
 - `docs/webui-spec.md`
-- `wiki/README.md`

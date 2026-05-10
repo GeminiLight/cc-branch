@@ -1,6 +1,10 @@
 # cc-branch Architecture
 
-> Status: this document describes the current shipped architecture, including the typed core, session tooling, and bundled Web UI backend.
+> **Status**: this document describes the current shipped architecture.
+>
+> For the ongoing application-layer refactor, see
+> [`docs/architecture-application-layer-spec.md`](architecture-application-layer-spec.md).
+> That spec is in progress and will be merged into this document after Phase 7 cleanup.
 
 ## 1. High-level overview
 

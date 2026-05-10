@@ -5,6 +5,11 @@
 In progress. The first application-layer slice has been implemented and should
 be treated as the baseline for future refactors.
 
+> **Relationship to shipped architecture**: When this refactor is complete,
+> this spec will be merged into [`docs/architecture.md`](architecture.md) (the
+> shipped architecture document). Until then, [`docs/architecture.md`](architecture.md)
+> remains the authoritative reference for current shipped behavior.
+
 Completed in the initial slice:
 
 - Structured doctor reports are produced once and rendered at the edge.
@@ -581,6 +586,10 @@ These tests should describe current behavior, not ideal behavior.
 
 - Remove dead helpers from CLI and Web UI.
 - Update `docs/architecture.md` to describe the real shipped architecture.
+  > **Note**: When Phase 7 is complete, merge this spec's content into
+  > `docs/architecture.md` and remove this spec. The authoritative shipped
+  > architecture document should always be `architecture.md`, not a separate
+  > in-progress refactor doc.
 - Add a short contributor guide section explaining where new workflow behavior
   belongs.
 

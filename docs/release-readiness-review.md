@@ -1,5 +1,9 @@
 # Release Readiness Review
 
+> **Status**: ⚠️ Archived. This was a one-time pre-release review dated 2026-04-28.
+> It is kept for historical reference only. For current release procedures,
+> see [`docs/publishing.md`](publishing.md).
+
 Date: 2026-04-28
 
 This review checks whether CC Branch is ready to publish to GitHub and to use as the source for package builds.

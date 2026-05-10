@@ -1,6 +1,13 @@
 # Multi-Project Dashboard Notes
 
-> Status: current-state implementation notes plus near-term roadmap boundary.
+> **Status**: current-state implementation notes plus near-term roadmap boundary.
+>
+> **This is NOT shipped behavior.** Do not describe anything in this document as
+> currently available to users unless it maps to an existing shipped API documented
+> in [`docs/webui-spec.md`](webui-spec.md).
+>
+> The "What is already supported" section lists backend primitives only. The
+> "What is not yet a committed shipped surface" section lists everything else.
 
 ## What is already supported
 

@@ -1,6 +1,11 @@
 # CC Branch Web UI User Flows
 
-> Status: updated for the current shipped Web UI backend and bundled frontend.
+> **Status**: ⚠️ Verify accuracy. Describes expected user flows for the shipped Web UI,
+> but the frontend implementation should be verified against [`docs/webui-spec.md`](webui-spec.md)
+> before treating all described flows as guaranteed shipped behavior.
+>
+> The authoritative reference for the shipped Web UI surface is
+> [`docs/webui-spec.md`](webui-spec.md).
 
 ## 1. Main flows
 

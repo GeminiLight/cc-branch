@@ -1,6 +1,8 @@
 # Web UI Navigation Notes
 
-> Status: current-state notes for the shipped Web UI surface.
+> **Status**: current-state notes for the shipped Web UI surface.
+>
+> The authoritative reference for the shipped Web UI is [`docs/webui-spec.md`](webui-spec.md).
 
 ## Current navigation model
 

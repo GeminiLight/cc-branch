@@ -1,6 +1,9 @@
 # CC Branch Web UI Spec
 
-> Status: this document describes the current shipped Web UI backend/frontend surface, not earlier exploratory mockups.
+> **Status**: this document describes the current shipped Web UI backend/frontend surface.
+>
+> For multi-project dashboard roadmap ideas, see [`docs/webui-dashboard2-spec.md`](webui-dashboard2-spec.md).
+> For navigation notes, see [`docs/webui-sidebar-spec.md`](webui-sidebar-spec.md).
 
 ## 1. Overview
 
@@ -59,6 +62,7 @@ This is important for desktop wrappers or multi-project frontends.
 | `GET` | `/api/agents` | Return effective agent profiles from built-in, user, workspace, and project layers |
 | `GET` | `/api/info` | Return backend info |
 | `GET` | `/api/project/probe` | Probe whether a project path is missing, needs init, invalid, or ready |
+| `GET` | `/api/projects` | Return global project index from `~/.cc-branch/app/projects.yaml` |
 
 ### Write APIs
 
@@ -67,6 +71,11 @@ This is important for desktop wrappers or multi-project frontends.
 | `POST` | `/api/init` | Initialize a workspace at the selected project path |
 | `POST` | `/api/config` | Save config contents |
 | `POST` | `/api/action` | Execute a supported workspace action |
+| `POST` | `/api/projects/add` | Add or upsert a project in the global project index |
+| `POST` | `/api/projects/remove` | Remove a project from the global project index |
+| `POST` | `/api/projects/activate` | Set the active project in the global project index |
+| `POST` | `/api/projects/current` | Inject/update the current workspace as project id `current` |
+| `POST` | `/api/projects/config` | Persist selected config path for a project |
 
 ### Query scoping
 

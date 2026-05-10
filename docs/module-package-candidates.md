@@ -1,5 +1,7 @@
 # Module-to-Package Refactor Status
 
+> **Status**: 🚧 In Progress. Tracks ongoing migration from root modules to packages.
+
 ## Decision Rule
 
 Convert a module into a package when the split improves ownership boundaries,

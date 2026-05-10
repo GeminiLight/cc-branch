@@ -1,5 +1,7 @@
 # Openers Package Refactor Spec
 
+> **Status**: 🚧 In Progress. Implementation underway, not yet shipped.
+
 ## Decision
 
 Refactor `cc_branch/openers.py` into a package named `cc_branch/openers/`.

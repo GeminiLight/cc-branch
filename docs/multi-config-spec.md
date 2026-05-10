@@ -1,6 +1,8 @@
 # Multi-Config Workspace Spec
 
-Status: implementation spec.
+> **Status**: 🚧 In Progress. Implementation underway, not yet shipped.
+>
+> Do not present content from this document as currently available to users.
 
 CC Branch supports one default workspace config and any number of named
 alternate configs inside the same project. This lets one repository expose

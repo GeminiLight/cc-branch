@@ -166,7 +166,7 @@ When behavior changes, keep these aligned:
 - `docs/features.md`
 - `docs/architecture.md`
 - `docs/webui-spec.md`
-- `wiki/README.md`
+- `docs/README.md` (documentation index)
 
 If a design note is historical, mark it as such instead of leaving it to imply current behavior.
 
