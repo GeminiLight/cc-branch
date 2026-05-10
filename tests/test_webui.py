@@ -1296,8 +1296,8 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_restart_terminal_runtime_with_vscode_uses_workspace_file(self):
-        """Editor openers should restart terminal-runtime targets via a single task workspace."""
+    def test_action_restart_terminal_runtime_with_vscode_opens_project_folder(self):
+        """Editor openers should open the project folder instead of generated task workspaces."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -1313,8 +1313,9 @@ slots:
         server, port = self._start_test_server()
         try:
             with (
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -1325,13 +1326,11 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened scratch in VS Code")
+                    self.assertEqual(data["message"], "Opened project in VS Code")
 
-                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
-                specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("scratch:main", "zsh"),
-                ])
+                open_workspace_file.assert_not_called()
+                self.assertEqual(open_with.call_args.kwargs["opener_id"], "vscode")
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
         finally:
             self._stop_test_server(server)
 
@@ -1598,15 +1597,51 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_vscode_uses_workspace_file(self):
-        """Editor tools should adapt workspace open through a generated workspace file."""
+    def test_api_agent_sessions_returns_local_options(self):
+        """The Web UI should expose discovered agent sessions for session pickers."""
+        from unittest.mock import patch
+
+        from cc_branch.application.results import ActionResult
+
+        server, port = self._start_test_server()
+        try:
+            result = ActionResult(
+                ok=True,
+                code="agent_sessions_loaded",
+                message="Agent sessions loaded",
+                payload={
+                    "sessions": [
+                        {
+                            "agent": "codex",
+                            "id": "session-123",
+                            "label": "Review dashboard",
+                            "updated_at": "2026-05-10T03:06:26Z",
+                            "source": "~/.codex/session_index.jsonl",
+                            "project_path": None,
+                        }
+                    ]
+                },
+            )
+            with patch("cc_branch.webui.server.api.agent_session_options", return_value=result) as options:
+                with urlopen(f"http://127.0.0.1:{port}/api/agent-sessions?agent=codex", timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+
+            self.assertEqual(data["sessions"][0]["id"], "session-123")
+            options.assert_called_once()
+            self.assertEqual(options.call_args.kwargs["agent"], "codex")
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_open_workspace_with_vscode_opens_project_folder(self):
+        """Editor tools should open the project folder, not a generated workspace file."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
@@ -1624,20 +1659,17 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened workspace in VS Code")
+                    self.assertEqual(data["message"], "Opened project in VS Code")
 
-                self.assertEqual(ensure_slot.call_count, 1)
-                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
-                specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev", "cc-branch attach dev"),
-                ])
-                open_with.assert_not_called()
+                ensure_slot.assert_not_called()
+                open_workspace_file.assert_not_called()
+                self.assertEqual(open_with.call_args.kwargs["opener_id"], "vscode")
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_mixed_workspace_with_vscode_collapses_tmux_slots(self):
-        """Editor workspace opens should not expand tmux windows in mixed workspaces."""
+    def test_action_open_mixed_workspace_with_vscode_opens_project_folder(self):
+        """Editor workspace opens should not generate temporary workspace files."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -1662,9 +1694,10 @@ slots:
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -1679,28 +1712,25 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
 
-                self.assertEqual(ensure_slot.call_count, 1)
-                specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev", "cc-branch attach dev"),
-                    ("scratch:hi", "zsh"),
-                ])
+                ensure_slot.assert_not_called()
+                open_workspace_file.assert_not_called()
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_vscode_uses_executable_cli_in_tasks(self):
-        """Editor workspace tasks should use a CLI path that works outside the server shell."""
+    def test_action_open_workspace_with_vscode_does_not_generate_tasks(self):
+        """Editor workspace opens should avoid generated tasks entirely."""
         from unittest.mock import patch
 
-        expected_cli = shlex.quote(str(Path(__file__).resolve().parents[1] / "bin" / "cc-branch"))
         server, port = self._start_test_server()
         try:
             with (
                 patch("cc_branch.webui.server.terminal.sys.argv", ["-"]),
                 patch("cc_branch.webui.server.terminal.shutil.which", return_value=None),
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.ensure_slot"),
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
@@ -1715,10 +1745,8 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
 
-                specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([spec.command for spec in specs], [
-                    f"{expected_cli} attach dev",
-                ])
+                open_workspace_file.assert_not_called()
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
         finally:
             self._stop_test_server(server)
 
@@ -1784,15 +1812,15 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_target_with_vscode_uses_single_workspace_file_task(self):
-        """Selected editor openers should open a single target through workspace tasks."""
+    def test_action_open_target_with_vscode_opens_project_folder(self):
+        """Selected editor openers should open the project folder instead of generated tasks."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
@@ -1811,27 +1839,23 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened dev:terminal in VS Code")
+                    self.assertEqual(data["message"], "Opened project in VS Code")
 
-                self.assertEqual(ensure_slot.call_count, 1)
-                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
-                specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev:terminal", "cc-branch attach dev:terminal"),
-                ])
-                open_with.assert_not_called()
+                ensure_slot.assert_not_called()
+                open_workspace_file.assert_not_called()
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_slot_with_vscode_attaches_slot_not_each_tmux_window(self):
-        """Editor slot opens should not expand tmux windows into multiple auto-run tasks."""
+    def test_action_open_slot_with_vscode_opens_project_folder(self):
+        """Editor slot opens should not generate task workspaces."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
@@ -1850,15 +1874,11 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened dev in VS Code")
+                    self.assertEqual(data["message"], "Opened project in VS Code")
 
-                self.assertEqual(ensure_slot.call_count, 1)
-                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
-                specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev", "cc-branch attach dev"),
-                ])
-                open_with.assert_not_called()
+                ensure_slot.assert_not_called()
+                open_workspace_file.assert_not_called()
+                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
         finally:
             self._stop_test_server(server)
 

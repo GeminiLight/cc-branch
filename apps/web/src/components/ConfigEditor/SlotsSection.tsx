@@ -11,9 +11,13 @@ import {
   ChevronUp,
   Terminal,
   Box,
+  PencilLine,
+  ChevronsUpDown,
+  Clock3,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
-import type { RuntimeAvailability } from "../../types";
+import type { AgentSessionInfo, RuntimeAvailability } from "../../types";
+import Dropdown from "../ui/Dropdown";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
   FieldLabel,
@@ -24,10 +28,122 @@ import {
   InlineError,
 } from "./FormPrimitives";
 
+function displayAgentName(agent: string | null | undefined): string {
+  return agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : "";
+}
+
+function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) => string, runtime: SlotConfig["runtime"]): string {
+  return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
+}
+
+function windowConfigSummary(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  win: WindowConfig
+): string {
+  if (win.agent) return t("windowSummaryAgent", { agent: displayAgentName(win.agent) });
+  if (win.command) return t("windowSummaryCommand", { command: win.command });
+  return t("inheritsFromSlot");
+}
+
+function slotConfigSummary(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  slot: SlotConfig
+): string {
+  if (slot.runtime === "terminal") {
+    if (slot.agent) return t("slotSummaryTerminalAgent", { agent: displayAgentName(slot.agent) });
+    return t("slotSummaryCommand", { command: slot.command || "zsh" });
+  }
+  return t("slotSummaryTmux", { count: slot.windows.length });
+}
+
+function normalizeAgentKey(agent: string | null | undefined): string {
+  const value = (agent || "").toLowerCase();
+  if (value.includes("codex")) return "codex";
+  if (value.includes("claude")) return "claude";
+  if (value.includes("gemini")) return "gemini";
+  return value;
+}
+
+function sessionDescription(session: AgentSessionInfo): string {
+  const shortId = session.id.length > 12 ? `${session.id.slice(0, 8)}...${session.id.slice(-4)}` : session.id;
+  if (!session.updated_at) return shortId;
+  const date = new Date(session.updated_at);
+  if (Number.isNaN(date.getTime())) return shortId;
+  return `${shortId} · ${date.toLocaleDateString()}`;
+}
+
+function SessionIdInput({
+  value,
+  onChange,
+  agent,
+  sessions,
+  loading,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  agent?: string | null;
+  sessions: AgentSessionInfo[];
+  loading?: boolean;
+}) {
+  const { t } = useI18n();
+  const agentKey = normalizeAgentKey(agent);
+  const matchingSessions = agentKey
+    ? sessions.filter((session) => normalizeAgentKey(session.agent) === agentKey)
+    : [];
+  const displayAgent = displayAgentName(agent);
+  const items = matchingSessions.length > 0
+    ? matchingSessions.map((session) => ({
+        value: session.id,
+        label: session.label || session.id,
+        description: sessionDescription(session),
+        icon: <Clock3 className="w-3.5 h-3.5" />,
+      }))
+    : [{
+        value: "__empty",
+        label: loading ? t("loadingSessions") : t("noSessionsFound"),
+        description: agent ? t("manualSessionAllowed") : t("selectAgentFirst"),
+        disabled: true,
+      }];
+
+  return (
+    <div className="flex items-center rounded-lg border border-default bg-[var(--bg-card)] transition-all hover:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-border)] focus-within:border-[var(--accent)]">
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={
+          displayAgent
+            ? t("sessionIdPlaceholderWithAgent", { agent: displayAgent })
+            : t("sessionIdPlaceholder")
+        }
+        className="min-w-0 flex-1 control-touch px-3 rounded-l-lg text-[13px] bg-transparent placeholder:text-muted focus:outline-none"
+      />
+      <Dropdown
+        align="right"
+        value={matchingSessions.some((session) => session.id === value) ? value : ""}
+        onChange={(nextValue) => {
+          if (nextValue !== "__empty") onChange(nextValue);
+        }}
+        items={items}
+        ariaLabel={t("sessionPicker")}
+        className="shrink-0"
+        triggerClassName="h-full block"
+        trigger={
+          <span className="control-touch min-w-9 px-2 border-l border-default text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] rounded-r-lg transition-colors flex items-center justify-center">
+            <ChevronsUpDown className="w-3.5 h-3.5" />
+          </span>
+        }
+      />
+    </div>
+  );
+}
+
 /* ── Window Card ── */
 function WindowCard({
   win,
   agents,
+  agentSessions,
+  agentSessionsLoading,
   onChange,
   onDelete,
   canMoveUp,
@@ -37,6 +153,8 @@ function WindowCard({
 }: {
   win: WindowConfig;
   agents: string[];
+  agentSessions: AgentSessionInfo[];
+  agentSessionsLoading?: boolean;
   onChange: (patch: Partial<WindowConfig>) => void;
   onDelete: () => void;
   canMoveUp: boolean;
@@ -52,28 +170,38 @@ function WindowCard({
   ];
 
   const windowName = win.name || t("unnamed");
+  const summary = windowConfigSummary(t, win);
 
   return (
-    <div className="rounded-md border border-default bg-[var(--bg-card)]">
+    <div className="rounded-md border border-default bg-[var(--bg-card)] shadow-sm">
       <div className="flex items-center gap-1 px-2.5 py-2">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors shrink-0 flex items-center justify-center"
+          className="min-h-9 flex-1 min-w-0 rounded-md px-1.5 text-left hover:surface-hover transition-colors flex items-center gap-2"
           aria-label={expanded ? t("collapseWindow", { name: windowName }) : t("expandWindow", { name: windowName })}
           title={expanded ? t("collapseWindow", { name: windowName }) : t("expandWindow", { name: windowName })}
         >
           <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
+            className={`w-3.5 h-3.5 text-tertiary shrink-0 transition-transform ${expanded ? "" : "-rotate-90"}`}
           />
+          <Box className="w-3 h-3 text-tertiary shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[12px] font-semibold text-primary truncate">
+              {windowName}
+            </span>
+            <span className="block text-[10.5px] text-tertiary truncate">
+              {summary}
+            </span>
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-secondary">
+            <PencilLine className="w-3 h-3" />
+            {expanded ? t("editing") : t("edit")}
+          </span>
         </button>
-        <Box className="w-3 h-3 text-tertiary shrink-0" />
-        <span className="text-[12px] font-medium text-primary flex-1 min-w-0 truncate">
-          {windowName}
-        </span>
         {win.agent && (
           <span className="text-[10px] text-[var(--accent)] bg-[var(--accent-bg)] px-1.5 py-0.5 rounded shrink-0">
-            {win.agent}
+            {displayAgentName(win.agent)}
           </span>
         )}
         <div className="flex items-center gap-0.5 shrink-0">
@@ -131,10 +259,12 @@ function WindowCard({
             </div>
             <div>
               <FieldLabel>{t("sessionId")}</FieldLabel>
-              <TextInput
+              <SessionIdInput
                 value={win.session_id ?? ""}
                 onChange={(v) => onChange({ session_id: v || null })}
-                placeholder={t("sessionIdPlaceholder")}
+                agent={win.agent}
+                sessions={agentSessions}
+                loading={agentSessionsLoading}
               />
             </div>
           </div>
@@ -215,6 +345,8 @@ function SlotCard({
   index,
   total,
   agents,
+  agentSessions,
+  agentSessionsLoading,
   onChange,
   onDelete,
   onMoveUp,
@@ -225,6 +357,8 @@ function SlotCard({
   index: number;
   total: number;
   agents: string[];
+  agentSessions: AgentSessionInfo[];
+  agentSessionsLoading?: boolean;
   onChange: (patch: Partial<SlotConfig>) => void;
   onDelete: () => void;
   onMoveUp: () => void;
@@ -284,6 +418,7 @@ function SlotCard({
   }
 
   const slotName = slot.name || t("unnamed");
+  const summary = slotConfigSummary(t, slot);
 
   return (
     <div className="rounded-md border border-default bg-[var(--bg-card)] shadow-sm">
@@ -291,28 +426,32 @@ function SlotCard({
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors shrink-0 flex items-center justify-center"
+          className="min-h-10 flex-1 min-w-0 rounded-md px-1.5 text-left hover:surface-hover transition-colors flex items-center gap-2"
           aria-label={expanded ? t("collapseSlot", { name: slotName }) : t("expandSlot", { name: slotName })}
           title={expanded ? t("collapseSlot", { name: slotName }) : t("expandSlot", { name: slotName })}
         >
           <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
+            className={`w-3.5 h-3.5 text-tertiary shrink-0 transition-transform ${expanded ? "" : "-rotate-90"}`}
           />
-        </button>
-        <Layers className="w-3.5 h-3.5 text-tertiary shrink-0" />
-        <div className="flex-1 min-w-0">
-          <span className="text-[13px] font-semibold text-primary">
-            {slotName}
-          </span>
-          <span className="ml-2 text-[10px] text-tertiary uppercase tracking-wide">
-            {slot.runtime}
-          </span>
-          {!isTerminal && (
-            <span className="ml-2 text-[10px] text-tertiary">
-              {t("windowCount", { count: slot.windows.length })}
+          <Layers className="w-3.5 h-3.5 text-tertiary shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="text-[13px] font-semibold text-primary truncate">
+                {slotName}
+              </span>
+              <span className="text-[10px] text-tertiary uppercase tracking-wide shrink-0">
+                {runtimeLabel(t, slot.runtime)}
+              </span>
             </span>
-          )}
-        </div>
+            <span className="block text-[10.5px] text-tertiary truncate">
+              {summary}
+            </span>
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-secondary">
+            <PencilLine className="w-3 h-3" />
+            {expanded ? t("editing") : t("edit")}
+          </span>
+        </button>
         <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button"
@@ -421,10 +560,12 @@ function SlotCard({
               </div>
               <div>
                 <FieldLabel>{t("sessionId")}</FieldLabel>
-                <TextInput
+                <SessionIdInput
                   value={slot.session_id ?? ""}
                   onChange={(v) => onChange({ session_id: v || undefined })}
-                  placeholder="uuid"
+                  agent={slot.agent}
+                  sessions={agentSessions}
+                  loading={agentSessionsLoading}
                 />
               </div>
             </div>
@@ -434,13 +575,18 @@ function SlotCard({
           {!isTerminal && (
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-secondary uppercase tracking-wide">
-                {t("windows")}
-              </p>
+              {t("windows")}
+              <span className="ml-2 font-medium text-tertiary normal-case tracking-normal">
+                {t("windowCount", { count: slot.windows.length })}
+              </span>
+            </p>
               {slot.windows.map((win, i) => (
                 <WindowCard
                   key={`${slot.name}-${i}`}
                   win={win}
                   agents={agents}
+                  agentSessions={agentSessions}
+                  agentSessionsLoading={agentSessionsLoading}
                   onChange={(p) => updateWindow(i, p)}
                   onDelete={() => deleteWindow(i)}
                   canMoveUp={i > 0}
@@ -462,6 +608,8 @@ function SlotCard({
 export default function SlotsSection({
   slots,
   agents,
+  agentSessions,
+  agentSessionsLoading,
   onChange,
   expanded,
   onToggle,
@@ -469,6 +617,8 @@ export default function SlotsSection({
 }: {
   slots: SlotConfig[];
   agents: string[];
+  agentSessions: AgentSessionInfo[];
+  agentSessionsLoading?: boolean;
   onChange: (slots: SlotConfig[]) => void;
   expanded: boolean;
   onToggle: () => void;
@@ -520,6 +670,7 @@ export default function SlotsSection({
             : [],
       },
     ]);
+    if (!expanded) onToggle();
   }
 
   function updateSlot(index: number, patch: Partial<SlotConfig>) {
@@ -603,6 +754,8 @@ export default function SlotsSection({
               index={i}
               total={slots.length}
               agents={agents}
+              agentSessions={agentSessions}
+              agentSessionsLoading={agentSessionsLoading}
               runtimeAvailability={runtimeAvailability}
               onChange={(p) => updateSlot(i, p)}
               onDelete={() => deleteSlot(i)}

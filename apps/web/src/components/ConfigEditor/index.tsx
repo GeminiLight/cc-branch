@@ -16,13 +16,16 @@ import {
   Code2,
   AlertTriangle,
   Info,
+  Layers,
+  Bot,
+  Monitor,
 } from "lucide-react";
 import { APIRequestError } from "../../api/client";
 import type { ConfigIssue } from "../../types";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
-import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
+import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents, useAgentSessions } from "../../hooks";
 import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
@@ -30,6 +33,7 @@ import ProjectSection from "./ProjectSection";
 import DisplaySection from "./DisplaySection";
 import AgentsSection from "./AgentsSection";
 import SlotsSection from "./SlotsSection";
+import Modal from "../ui/Modal";
 
 interface ConfigEditorProps {
   projectPath?: string;
@@ -58,6 +62,7 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
 
   const [mode, setMode] = useState<EditorMode>("form");
   const { data: agentsData } = useAgents(scope, mode === "form");
+  const { data: agentSessionsData, isFetching: agentSessionsLoading } = useAgentSessions(scope, mode === "form");
   const [formData, setFormData] = useState<ConfigFormData>(createDefaultConfig());
   const [yamlContent, setYamlContent] = useState("");
   const [yamlError, setYamlError] = useState<string | null>(null);
@@ -66,13 +71,14 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
   const [saveFlash, setSaveFlash] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [serverIssues, setServerIssues] = useState<ConfigIssue[] | null>(null);
+  const [pendingCommentMode, setPendingCommentMode] = useState<EditorMode | null>(null);
 
   // Section expand/collapse state
   const [expandedSections, setExpandedSections] = useState({
-    project: true,
+    project: false,
     display: false,
     agents: false,
-    slots: true,
+    slots: false,
   });
 
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -224,19 +230,13 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
   );
 
   /* ── Mode switch ── */
-  const switchMode = useCallback(
+  const applyModeSwitch = useCallback(
     (newMode: EditorMode) => {
       if (newMode === "yaml") {
-        // Form → YAML: re-serialize current form state
         const yaml = serializeConfigForm(formData);
         setYamlContent(yaml);
         setYamlError(null);
       } else {
-        if (mode === "yaml" && hasYamlComments(yamlContent)) {
-          const ok = window.confirm(t("commentsWillBeLost"));
-          if (!ok) return;
-        }
-        // YAML → Form: re-parse current yaml
         try {
           const parsed = parseConfigYaml(yamlContent);
           setFormData(parsed);
@@ -248,7 +248,19 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
       }
       setMode(newMode);
     },
-    [formData, mode, t, yamlContent]
+    [formData, t, yamlContent]
+  );
+
+  const switchMode = useCallback(
+    (newMode: EditorMode) => {
+      if (newMode === mode) return;
+      if (newMode === "form" && mode === "yaml" && hasYamlComments(yamlContent)) {
+        setPendingCommentMode(newMode);
+        return;
+      }
+      applyModeSwitch(newMode);
+    },
+    [applyModeSwitch, mode, yamlContent]
   );
 
   /* ── Save ── */
@@ -345,6 +357,26 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
       : displayedIssueTone === "warning"
         ? "border-[var(--warning)]/20 bg-[var(--warning-bg)] text-[var(--warning)]"
         : "border-default bg-[var(--bg-hover)] text-secondary";
+  const validationErrors = mode === "form" ? formErrors : yamlError ? [yamlError] : [];
+  const slotCount = formData.slots.length;
+  const terminalCount = formData.slots.filter((slot) => slot.runtime === "terminal").length;
+  const tmuxCount = slotCount - terminalCount;
+  const configuredWindowCount = formData.slots.reduce(
+    (count, slot) => count + (slot.runtime === "terminal" ? 1 : slot.windows.length),
+    0
+  );
+  const agentOverrideCount = Object.keys(formData.agents).length;
+  const modeLabel = mode === "form" ? t("formMode") : t("yamlMode");
+  const configStatusLabel = validationErrors.length > 0
+    ? t("checksIssues")
+    : hasUnsavedChanges
+      ? t("unsaved")
+      : t("configReady");
+  const configStatusClass = validationErrors.length > 0
+    ? "danger-bg danger"
+    : hasUnsavedChanges
+      ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+      : "success-bg success";
   const referencedAgents = formData.slots.flatMap((slot) => [
     slot.agent,
     ...slot.windows.map((window) => window.agent),
@@ -357,95 +389,143 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
 
   return (
     <div className="page-shell">
-      {/* Header actions */}
-      <div className="mb-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <FileCode2 className="w-4 h-4 text-tertiary" />
-            <h2 className="text-[15px] font-semibold text-primary">
-              {t("configuration")}
-            </h2>
-            {hasUnsavedChanges && (
-              <span className="rounded-md bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
-                {t("unsaved")}
-              </span>
-            )}
-          </div>
-          {data?.path && (
-            <p className="mt-1 text-[11px] text-tertiary font-mono truncate">
-              {data.path}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center bg-[var(--bg-hover)] rounded-md p-0.5">
-            <button
-              type="button"
-              onClick={() => switchMode("form")}
-              className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
-                mode === "form"
-                  ? "bg-[var(--bg-card)] text-primary shadow-sm"
-                  : "text-tertiary hover:text-secondary"
-              }`}
-            >
-              <LayoutList className="w-3.5 h-3.5" />
-              Form
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMode("yaml")}
-              className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
-                mode === "yaml"
-                  ? "bg-[var(--bg-card)] text-primary shadow-sm"
-                  : "text-tertiary hover:text-secondary"
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              YAML
-            </button>
+      <Modal
+        isOpen={pendingCommentMode !== null}
+        onClose={() => setPendingCommentMode(null)}
+        title={t("commentsWillBeLostTitle")}
+        description={t("commentsWillBeLost")}
+        icon={<AlertTriangle className="w-5 h-5 text-[var(--warning)]" />}
+        confirmText={t("confirm")}
+        onConfirm={() => {
+          if (pendingCommentMode) applyModeSwitch(pendingCommentMode);
+          setPendingCommentMode(null);
+        }}
+      />
+      {/* Summary */}
+      <div className="mb-4 surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4 shadow-sm">
+        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
+              <FileCode2 className="w-4 h-4 text-[var(--accent)]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <h2 className="text-[16px] font-semibold text-primary leading-tight">
+                  {t("configuration")}
+                </h2>
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${configStatusClass}`}>
+                  {configStatusLabel}
+                </span>
+                <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold bg-[var(--bg-card)] text-secondary">
+                  {modeLabel}
+                </span>
+              </div>
+              {data?.path && (
+                <p className="mt-1 text-[11px] text-tertiary font-mono truncate">
+                  {data.path}
+                </p>
+              )}
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={copy}
-            className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center gap-1.5"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-[var(--success)]" />
-                <span className="text-[var(--success)]">{t("copied")}</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                {t("copy")}
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center bg-[var(--bg-hover)] rounded-md p-0.5">
+              <button
+                type="button"
+                onClick={() => switchMode("form")}
+                className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
+                  mode === "form"
+                    ? "bg-[var(--bg-card)] text-primary shadow-sm"
+                    : "text-tertiary hover:text-secondary"
+                }`}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                {t("formMode")}
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("yaml")}
+                className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
+                  mode === "yaml"
+                    ? "bg-[var(--bg-card)] text-primary shadow-sm"
+                    : "text-tertiary hover:text-secondary"
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                {t("yamlMode")}
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saveMutation.isPending || !hasUnsavedChanges || (!!yamlError && mode === "yaml") || (formErrors.length > 0 && mode === "form")}
-            className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-          >
-            {saveMutation.isPending ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            {t("save")}
-          </button>
+            <button
+              type="button"
+              onClick={copy}
+              className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[var(--success)]" />
+                  <span className="text-[var(--success)]">{t("copied")}</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  {t("copy")}
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saveMutation.isPending || !hasUnsavedChanges || (!!yamlError && mode === "yaml") || (formErrors.length > 0 && mode === "form")}
+              className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {saveMutation.isPending ? (
+                <div className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              {t("save")}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Validation / save status */}
-      <div className="mb-3 rounded-md border border-default bg-[var(--bg-hover)] px-3 py-2 flex items-start gap-2">
-        <Info className="w-3.5 h-3.5 text-tertiary shrink-0 mt-0.5" />
-        <p className="text-[11px] text-secondary leading-relaxed">
-          {t("configSaveRuntimeHint")}
-        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-[var(--accent)] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("slotsTitle")}</p>
+              <p className="text-[13px] font-semibold text-primary">
+                {t("configSlotSummary", { slots: slotCount, windows: configuredWindowCount })}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
+            <Monitor className="w-4 h-4 text-[var(--accent)] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("runtime")}</p>
+              <p className="text-[13px] font-semibold text-primary">
+                {t("configRuntimeSummary", { tmux: tmuxCount, terminal: terminalCount })}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
+            <Bot className="w-4 h-4 text-[var(--accent)] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("agentOverrides")}</p>
+              <p className="text-[13px] font-semibold text-primary">
+                {t("agentOverridesDefined", { count: agentOverrideCount })}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-default bg-[var(--bg-card)]/55 px-3 py-2 flex items-start gap-2">
+          <Info className="w-3.5 h-3.5 text-tertiary shrink-0 mt-0.5" />
+          <p className="text-[11px] text-secondary leading-relaxed">
+            {t("configSaveRuntimeHint")}
+          </p>
+        </div>
       </div>
 
       {displayedIssues.length > 0 && (
@@ -461,11 +541,11 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
         </div>
       )}
 
-      {(mode === "form" ? formErrors : yamlError ? [yamlError] : []).length > 0 && (
+      {validationErrors.length > 0 && (
         <div className="mb-3 rounded-md border border-[var(--danger)]/15 bg-[var(--danger-bg)] px-3 py-2 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 text-[var(--danger)] shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            {(mode === "form" ? formErrors : [yamlError!]).map((err, i) => (
+            {validationErrors.map((err, i) => (
               <p key={i} className="text-[11px] text-[var(--danger)]">
                 {err}
               </p>
@@ -507,6 +587,8 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
           <SlotsSection
             slots={formData.slots}
             agents={effectiveAgentNames}
+            agentSessions={agentSessionsData?.sessions || []}
+            agentSessionsLoading={agentSessionsLoading}
             onChange={updateSlots}
             expanded={expandedSections.slots}
             onToggle={() => toggleSection("slots")}

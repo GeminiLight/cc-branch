@@ -22,6 +22,10 @@ vi.mock('../hooks', () => ({
   useAgents: () => ({
     data: { agents: [] },
   }),
+  useAgentSessions: () => ({
+    data: { sessions: [] },
+    isFetching: false,
+  }),
 }))
 
 function renderConfigEditor() {
@@ -139,6 +143,7 @@ describe('ConfigEditor diagnostics', () => {
   it('gives slot and window icon controls specific accessible names', () => {
     renderConfigEditor()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Expand slots section' }))
     expect(screen.getByRole('button', { name: 'Collapse slot dev' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove slot dev' })).toBeInTheDocument()
 
@@ -165,6 +170,8 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Expand slots section' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tmux (unavailable)' }))
     const tmuxOption = screen.getByRole('option', { name: 'Tmux (unavailable)' })
     expect(tmuxOption).toBeDisabled()
     expect(screen.getByRole('option', { name: 'Open terminal' })).not.toBeDisabled()

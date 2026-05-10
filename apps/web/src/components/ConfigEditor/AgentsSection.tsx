@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Bot, Plus, Trash2, ChevronDown } from "lucide-react";
+import { Bot, Plus, Trash2, ChevronDown, PencilLine, SlidersHorizontal } from "lucide-react";
 import { useI18n } from "../../i18n";
 import type { AgentConfig } from "./types";
 import {
@@ -37,6 +37,7 @@ function AgentCard({
     agent.create_mode !== "none" ||
     agent.label_template ||
     agent.rename_template;
+  const summary = agent.command ? t("agentCommandSummary", { command: agent.command }) : t("customAgent");
 
   useEffect(() => {
     setDraftName(name);
@@ -59,20 +60,23 @@ function AgentCard({
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="icon-touch sm:min-h-8 sm:min-w-8 rounded text-tertiary hover:text-primary transition-colors shrink-0 flex items-center justify-center"
+          className="min-h-10 flex-1 min-w-0 rounded-md px-1.5 text-left hover:surface-hover transition-colors flex items-center gap-2"
           aria-label={expanded ? t("collapseAgent", { name }) : t("expandAgent", { name })}
           title={expanded ? t("collapseAgent", { name }) : t("expandAgent", { name })}
         >
           <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
+            className={`w-3.5 h-3.5 text-tertiary shrink-0 transition-transform ${expanded ? "" : "-rotate-90"}`}
           />
+          <Bot className="w-3.5 h-3.5 text-tertiary shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-[13px] font-semibold text-primary truncate">{name}</span>
+            <span className="block text-[10.5px] text-tertiary truncate">{summary}</span>
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-secondary">
+            <PencilLine className="w-3 h-3" />
+            {expanded ? t("editing") : t("edit")}
+          </span>
         </button>
-        <div className="flex-1 min-w-0">
-          <span className="text-[13px] font-medium text-primary">{name}</span>
-          {agent.command && (
-            <code className="ml-2 text-[11px] text-tertiary font-mono">{agent.command}</code>
-          )}
-        </div>
         {hasDetails && !expanded && (
           <span className="text-[10px] text-tertiary bg-[var(--accent-bg)] px-1.5 py-0.5 rounded">
             {t("custom")}
@@ -91,110 +95,122 @@ function AgentCard({
 
       {expanded && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-stagger">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <FieldLabel required>{t("agentName")}</FieldLabel>
-              <TextInput
-                value={draftName}
-                onChange={setDraftName}
-                onBlur={commitName}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.currentTarget.blur();
-                  }
-                }}
-                placeholder="codex"
-                invalid={!draftName.trim()}
-              />
+          <div className="rounded-md border border-default bg-[var(--bg-hover)]/35 p-3 space-y-3">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
+              <Bot className="w-3 h-3" />
+              {t("common")}
             </div>
-            <div>
-              <FieldLabel required>{t("command")}</FieldLabel>
-              <TextInput
-                value={agent.command}
-                onChange={(v) => onChange({ command: v })}
-                placeholder="claude"
-              />
-            </div>
-            <div>
-              <FieldLabel>{t("labelTemplate")}</FieldLabel>
-              <TextInput
-                value={agent.label_template}
-                onChange={(v) => onChange({ label_template: v })}
-                placeholder="{project}/{slot}/{window}"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>{t("resumeMode")}</FieldLabel>
-              <SelectInput
-                value={agent.resume_mode}
-                onChange={(v) => onChange({ resume_mode: v as AgentConfig["resume_mode"] })}
-                options={[
-                  { value: "none", label: t("none") },
-                  { value: "flag", label: t("flagMode") },
-                  { value: "internal", label: t("internalCommand") },
-                ]}
-              />
-            </div>
-            {agent.resume_mode !== "none" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <FieldLabel>{t("resumeTemplate")}</FieldLabel>
+                <FieldLabel required>{t("agentName")}</FieldLabel>
                 <TextInput
-                  value={agent.resume_template}
-                  onChange={(v) => onChange({ resume_template: v })}
-                  placeholder="-r {session_id}"
+                  value={draftName}
+                  onChange={setDraftName}
+                  onBlur={commitName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  placeholder="codex"
+                  invalid={!draftName.trim()}
                 />
               </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>{t("createMode")}</FieldLabel>
-              <SelectInput
-                value={agent.create_mode}
-                onChange={(v) => onChange({ create_mode: v as AgentConfig["create_mode"] })}
-                options={[
-                  { value: "none", label: t("none") },
-                  { value: "generated_uuid", label: t("generatedUuid") },
-                ]}
-              />
-            </div>
-            {agent.create_mode !== "none" && (
               <div>
-                <FieldLabel>{t("createTemplate")}</FieldLabel>
+                <FieldLabel required>{t("command")}</FieldLabel>
                 <TextInput
-                  value={agent.create_template}
-                  onChange={(v) => onChange({ create_template: v })}
-                  placeholder="claude --session-id {session_id}"
+                  value={agent.command}
+                  onChange={(v) => onChange({ command: v })}
+                  placeholder="claude"
                 />
               </div>
-            )}
+              <div>
+                <FieldLabel>{t("resumeMode")}</FieldLabel>
+                <SelectInput
+                  value={agent.resume_mode}
+                  onChange={(v) => onChange({ resume_mode: v as AgentConfig["resume_mode"] })}
+                  options={[
+                    { value: "none", label: t("none") },
+                    { value: "flag", label: t("flagMode") },
+                    { value: "internal", label: t("internalCommand") },
+                  ]}
+                />
+              </div>
+              <div>
+                <FieldLabel>{t("createMode")}</FieldLabel>
+                <SelectInput
+                  value={agent.create_mode}
+                  onChange={(v) => onChange({ create_mode: v as AgentConfig["create_mode"] })}
+                  options={[
+                    { value: "none", label: t("none") },
+                    { value: "generated_uuid", label: t("generatedUuid") },
+                  ]}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>{t("labelMode")}</FieldLabel>
-              <SelectInput
-                value={agent.label_mode}
-                onChange={(v) => onChange({ label_mode: v as AgentConfig["label_mode"] })}
-                options={[
-                  { value: "metadata", label: t("metadata") },
-                  { value: "internal", label: t("internal") },
-                ]}
-              />
+          <details className="rounded-md border border-default bg-[var(--bg-card)]">
+            <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
+              <SlidersHorizontal className="w-3 h-3" />
+              {t("advanced")}
+            </summary>
+            <div className="px-3 pb-3 pt-1 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {agent.resume_mode !== "none" && (
+                  <div>
+                    <FieldLabel>{t("resumeTemplate")}</FieldLabel>
+                    <TextInput
+                      value={agent.resume_template}
+                      onChange={(v) => onChange({ resume_template: v })}
+                      placeholder="-r {session_id}"
+                    />
+                  </div>
+                )}
+                {agent.create_mode !== "none" && (
+                  <div>
+                    <FieldLabel>{t("createTemplate")}</FieldLabel>
+                    <TextInput
+                      value={agent.create_template}
+                      onChange={(v) => onChange({ create_template: v })}
+                      placeholder="claude --session-id {session_id}"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel>{t("labelTemplate")}</FieldLabel>
+                  <TextInput
+                    value={agent.label_template}
+                    onChange={(v) => onChange({ label_template: v })}
+                    placeholder="{project}/{slot}/{window}"
+                  />
+                </div>
+                <div>
+                  <FieldLabel>{t("labelMode")}</FieldLabel>
+                  <SelectInput
+                    value={agent.label_mode}
+                    onChange={(v) => onChange({ label_mode: v as AgentConfig["label_mode"] })}
+                    options={[
+                      { value: "metadata", label: t("metadata") },
+                      { value: "internal", label: t("internal") },
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel>{t("renameTemplate")}</FieldLabel>
+                  <TextInput
+                    value={agent.rename_template}
+                    onChange={(v) => onChange({ rename_template: v })}
+                    placeholder="tmux rename-window {label}"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <FieldLabel>{t("renameTemplate")}</FieldLabel>
-              <TextInput
-                value={agent.rename_template}
-                onChange={(v) => onChange({ rename_template: v })}
-                placeholder="tmux rename-window {label}"
-              />
-            </div>
-          </div>
+          </details>
         </div>
       )}
     </div>

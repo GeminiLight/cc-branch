@@ -18,6 +18,7 @@ import type {
   WorkspaceActionRequest,
   OpenersData,
   AgentsData,
+  AgentSessionsData,
   ConfigSaveResult,
   ConfigIssue,
   ConfigOptionsData,
@@ -32,6 +33,7 @@ export interface APIClient {
   probeProject(projectPath: string, signal?: AbortSignal): Promise<ProjectProbe>;
   getOpeners(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<OpenersData>;
   getAgents(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<AgentsData>;
+  getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData>;
   runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
   runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult>;
   stopSlot(sessionName: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
@@ -73,6 +75,18 @@ function qs(scope?: WorkspaceScope | string): string {
   const params = new URLSearchParams();
   if (projectPath) params.set("project_path", projectPath);
   if (configPath) params.set("config_path", configPath);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function qsWith(scope?: WorkspaceScope | string, values?: Record<string, string | undefined>): string {
+  const { projectPath, configPath } = normalizeScope(scope);
+  const params = new URLSearchParams();
+  if (projectPath) params.set("project_path", projectPath);
+  if (configPath) params.set("config_path", configPath);
+  Object.entries(values || {}).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
   const query = params.toString();
   return query ? `?${query}` : "";
 }
@@ -134,6 +148,13 @@ export class HTTPClient implements APIClient {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentsData;
+  }
+
+  async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData> {
+    const res = await fetch(`${this.baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`, { signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentSessionsData;
   }
 
   async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
@@ -270,6 +291,14 @@ export class TauriClient implements APIClient {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentsData;
+  }
+
+  async getAgentSessions(scope?: WorkspaceScope | string, agent?: string): Promise<AgentSessionsData> {
+    const baseUrl = await this._baseUrl();
+    const res = await fetch(`${baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentSessionsData;
   }
 
   async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {

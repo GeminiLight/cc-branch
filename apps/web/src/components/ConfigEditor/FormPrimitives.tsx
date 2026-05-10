@@ -4,13 +4,15 @@
 
 import { useState, useCallback, type KeyboardEvent, type ReactNode } from "react";
 import {
-  ChevronDown,
   Trash2,
   Plus,
   AlertCircle,
+  ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
+import Dropdown from "../ui/Dropdown";
 
 /* ── Label + HelpText ── */
 export function FieldLabel({
@@ -114,22 +116,32 @@ export function SelectInput({
   options: { value: string; label: string; disabled?: boolean }[];
   ariaLabel?: string;
 }) {
+  const selected = options.find((o) => o.value === value);
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={ariaLabel}
-        className="w-full control-touch pl-2.5 pr-7 rounded-md border border-default text-[13px] bg-[var(--bg-card)] appearance-none transition-colors focus:outline-none focus:border-[var(--accent)] cursor-pointer"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} disabled={o.disabled}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-tertiary pointer-events-none" />
-    </div>
+    <Dropdown
+      align="left"
+      value={value}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+      className="w-full block"
+      triggerClassName="w-full block"
+      items={options.map((option) => ({
+        label: option.label,
+        value: option.value,
+        disabled: option.disabled,
+      }))}
+      trigger={
+        <span
+          className="w-full control-touch px-3 rounded-lg border border-default text-[13px] bg-[var(--bg-card)] transition-all hover:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-border)] focus-within:border-[var(--accent)] flex items-center justify-between gap-2 text-left"
+          aria-label={ariaLabel}
+        >
+          <span className={selected ? "truncate text-primary" : "truncate text-muted"}>
+            {selected?.label || ariaLabel || "Select"}
+          </span>
+          <ChevronsUpDown className="w-3.5 h-3.5 text-tertiary shrink-0" />
+        </span>
+      }
+    />
   );
 }
 

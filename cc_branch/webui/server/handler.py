@@ -241,6 +241,8 @@ class WebUIHandler(BaseHTTPRequestHandler):
         elif path == "/api/agents":
             if self._require_auth():
                 self._api_agents()
+        elif path == "/api/agent-sessions" and self._require_auth():
+            api.api_agent_sessions(self)
         elif path == "/api/info":
             if self._require_auth():
                 self._api_info()
@@ -330,7 +332,6 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
     def _api_action(self) -> None:
         api.api_action(self)
-
 
 def start_server(
     config_path: Path,

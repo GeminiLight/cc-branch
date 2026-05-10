@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import Dashboard from './Dashboard'
 import { I18nProvider } from '../i18n'
 import { ToastProvider } from './ui/Toast'
@@ -55,6 +56,40 @@ function stoppedWorkspaceResult() {
   return result
 }
 
+function terminalWorkspaceResult() {
+  return {
+    data: {
+      status: 'ready',
+      project: 'demo',
+      config_path: '/tmp/demo/.cc-branch/config.yaml',
+      state_path: '/tmp/demo/.cc-branch/state.yaml',
+      slots: [
+        {
+          name: 'codex-ui',
+          runtime: 'terminal',
+          status: 'running',
+          session_name: 'codex-ui',
+          windows: [
+            {
+              name: 'codex-ui',
+              agent: 'codex',
+              command: 'codex',
+              session_id: 'session-ui',
+              label: 'demo/codex-ui',
+              cwd: '/tmp/demo',
+            },
+          ],
+        },
+      ],
+    },
+    error: null,
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    refetch: mocks.refetch,
+  }
+}
+
 vi.mock('../hooks', () => ({
   useWorkspace: () => mocks.workspaceResult.current,
   useOpeners: () => mocks.openersResult.current,
@@ -84,11 +119,11 @@ vi.mock('../hooks', () => ({
   useRelativeTime: () => 'now',
 }))
 
-function renderDashboard() {
+function renderDashboard(props: Partial<ComponentProps<typeof Dashboard>> = {}) {
   return render(
     <I18nProvider>
       <ToastProvider>
-        <Dashboard projectPath="/tmp/demo" />
+        <Dashboard projectPath="/tmp/demo" onEditTarget={vi.fn()} {...props} />
       </ToastProvider>
     </I18nProvider>
   )
@@ -215,12 +250,12 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('lists editor tools and adapts workspace open through workspace files', async () => {
+  it('lists editor tools and opens them as normal projects', async () => {
     renderDashboard()
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in VS Code' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open project in VS Code' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -233,7 +268,7 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('does not let the workspace opener change the project directory opener', async () => {
+  it('uses the selected opener for project directory opens', async () => {
     mocks.openersResult.current = {
       data: {
         default: 'auto-terminal',
@@ -283,14 +318,14 @@ describe('Dashboard actions', () => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: undefined,
-        opener: 'system-file-manager',
+        opener: 'warp',
         intent: 'project_folder',
         projectPath: '/tmp/demo',
       })
     })
   })
 
-  it('opens a Cursor workspace through a generated workspace file', async () => {
+  it('opens a Cursor project without presenting a generated workspace file', async () => {
     mocks.openersResult.current = {
       data: {
         default: 'auto-terminal',
@@ -318,7 +353,7 @@ describe('Dashboard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Cursor' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in Cursor' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open project in Cursor' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -387,6 +422,94 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('Checked now')).toBeInTheDocument()
     expect(screen.queryByText('Refreshing')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeDisabled()
+  })
+
+  it('shows agent windows with an existing session as bound', () => {
+    renderDashboard()
+
+    expect(screen.getByText(/Session bound/)).toBeInTheDocument()
+  })
+
+  it('shows agent windows without a session as new-session-on-start', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data.slots[0].windows[0] as Record<string, unknown>).session_id = null
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText(/New session on start/)).toBeInTheDocument()
+  })
+
+  it('does not show a session badge for command-only windows', () => {
+    const result = readyWorkspaceResult()
+    ;(result.data.slots[0].windows[0] as Record<string, unknown>).agent = null
+    ;(result.data.slots[0].windows[0] as Record<string, unknown>).session_id = null
+    result.data.slots[0].windows[0].command = 'npm test'
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.queryByText('Session bound')).not.toBeInTheDocument()
+    expect(screen.queryByText('New session on start')).not.toBeInTheDocument()
+  })
+
+  it('flattens terminal runtime slots into one task card without a repeated child window', async () => {
+    mocks.workspaceResult.current = terminalWorkspaceResult()
+
+    renderDashboard()
+
+    expect(screen.getByText('Codex · terminal task · Session bound')).toBeInTheDocument()
+    expect(screen.queryByText('1 window')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open terminal codex-ui:codex-ui' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit window codex-ui:codex-ui' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open terminal codex-ui' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'open',
+        target: 'codex-ui',
+        opener: 'auto-terminal',
+        intent: 'attach_target',
+        projectPath: '/tmp/demo',
+      })
+    })
+  })
+
+  it('expands only tmux slots and uses natural child window summaries', () => {
+    const result = readyWorkspaceResult()
+    result.data.slots[0].windows.push({
+      name: 'reviewer',
+      agent: 'codex',
+      command: 'codex',
+      session_id: '',
+      label: 'demo/dev/reviewer',
+      cwd: '/tmp/demo',
+    })
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByText('tmux session')).toBeInTheDocument()
+    expect(screen.getByText('2 windows')).toBeInTheDocument()
+    expect(screen.getAllByText('Codex · Session bound')).toHaveLength(1)
+    expect(screen.getByText('Codex · New session on start')).toBeInTheDocument()
+    expect(screen.queryByText('tmux window group')).not.toBeInTheDocument()
+  })
+
+  it('uses edit actions instead of copy buttons for slots and windows', () => {
+    const onEditTarget = vi.fn()
+
+    renderDashboard({ onEditTarget })
+
+    expect(screen.queryByRole('button', { name: 'Copy target dev' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy attach command dev:planner' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit slot dev' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit window dev:planner' }))
+
+    expect(onEditTarget).toHaveBeenCalledWith({ slotName: 'dev' })
+    expect(onEditTarget).toHaveBeenCalledWith({ slotName: 'dev', windowName: 'planner' })
   })
 
   it('explains missing tmux windows as not running, not config drift', () => {

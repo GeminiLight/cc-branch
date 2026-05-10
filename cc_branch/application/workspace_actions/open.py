@@ -98,6 +98,15 @@ class WorkspaceOpenActions:
                 message=f"Cannot open target: {target}",
                 exit_code=1,
             )
+        if self._opens_as_project_folder(opener, custom_openers):
+            self.dependencies.open_with(
+                opener_id=opener,
+                cwd=cwd,
+                cli=cli,
+                intent=OpenIntent(kind="project_folder"),
+                custom_openers=custom_openers,
+            )
+            return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
         if self.dependencies.opener_supports(opener, "workspace_file", custom_openers):
             if is_managed_runtime(slot.runtime):
                 self._ensure_tmux_slots(
@@ -146,6 +155,16 @@ class WorkspaceOpenActions:
         if not tmux_slots and not terminal_slots:
             return ActionResult(ok=False, code="no_slots", message="No slots configured", exit_code=1)
 
+        if self._opens_as_project_folder(opener, custom_openers):
+            self.dependencies.open_with(
+                opener_id=opener,
+                cwd=cwd,
+                cli=cli,
+                intent=OpenIntent(kind="project_folder"),
+                custom_openers=custom_openers,
+            )
+            return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
+
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
@@ -192,6 +211,13 @@ class WorkspaceOpenActions:
                 message=f"Opened tmux dashboard and terminal slots in {opener_name}",
             )
         return ActionResult(ok=True, code="open_applied", message=f"Opened workspace dashboard in {opener_name}")
+
+    def _opens_as_project_folder(self, opener: str, custom_openers) -> bool:
+        return (
+            self.dependencies.opener_supports(opener, "open_project", custom_openers)
+            and not self.dependencies.opener_supports(opener, "run_command", custom_openers)
+            and not self.dependencies.opener_supports(opener, "layout", custom_openers)
+        )
 
     def _ensure_tmux_slots(
         self,

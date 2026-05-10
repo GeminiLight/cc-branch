@@ -28,6 +28,7 @@ from .initialization import (
     inspect_workspace_environment,
 )
 from .options import agent_options, opener_options, profile_options
+from ..agent_sessions import agent_session_options
 from .options import agent_payload as _agent_payload
 from .read import probe_project, read_workspace_config
 from .save import save_workspace_config
@@ -46,6 +47,7 @@ from .versioning import (
 
 __all__ = [
     "agent_options",
+    "agent_session_options",
     "base_version_matches",
     "check_environment",
     "collect_config_issues",

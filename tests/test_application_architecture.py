@@ -1721,7 +1721,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual(result.code, "no_tmux_runtime")
             self.assertEqual(result.exit_code, 1)
 
-    def test_open_workspace_file_target_ensures_tmux_slot_and_persists_state(self):
+    def test_editor_open_target_opens_project_folder_without_tmux_state(self):
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -1739,10 +1739,11 @@ class WorkspaceActionsTests(unittest.TestCase):
             ]
 
             with (
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.opener_label", return_value="VS Code"),
                 patch("cc_branch.application.workspace_actions.ensure_slot", return_value=result_payload) as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
                 result = open_workspace(
                     workspace,
@@ -1756,14 +1757,12 @@ class WorkspaceActionsTests(unittest.TestCase):
                 )
 
             self.assertTrue(result.ok)
-            self.assertEqual(result.message, "Opened dev:planner in VS Code")
-            self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
-            specs = open_workspace_file.call_args.kwargs["commands"]
-            self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                ("dev:planner", "cc-branch attach dev:planner"),
-            ])
+            self.assertEqual(result.message, "Opened project in VS Code")
+            ensure_slot.assert_not_called()
+            open_workspace_file.assert_not_called()
+            self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
             updated = load_state(root / ".cc-branch/state.yaml")
-            self.assertIn("dev.planner", updated.windows)
+            self.assertNotIn("dev.planner", updated.windows)
 
     def test_open_terminal_target_uses_command_layout_without_attach_terminal(self):
         from unittest.mock import patch

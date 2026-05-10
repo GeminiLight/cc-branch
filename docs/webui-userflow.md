@@ -57,7 +57,7 @@ User selects a tool, then clicks "Open workspace"
   -> Backend adapts the workspace open to the selected tool
 ```
 
-Terminal tools run dashboard or attach commands. Warp writes a Launch Configuration under Warp's launch configuration directory and opens it through `warp://launch/...` so Warp can open one layout. VS Code and Cursor open a generated `.code-workspace`; tmux slots become one attach task per slot, while terminal-runtime slots become visible shell tasks. Those editors may ask the user to allow automatic tasks.
+Terminal tools run dashboard or attach commands. Warp writes a Launch Configuration under Warp's launch configuration directory and opens it through `warp://launch/...` so Warp can open one layout. VS Code and Cursor open the project folder directly, matching the normal editor experience.
 
 The dashboard itself is still tmux-backed, so opening the same workspace from a different terminal attaches to the same reusable sessions.
 
@@ -70,7 +70,7 @@ User clicks "Open terminal" on a slot
   -> The selected tool opens the target
 ```
 
-Terminal tools run `cc-branch attach <target>` or the terminal-runtime command. VS Code and Cursor open a generated `.code-workspace` with a single task for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
+Terminal tools run `cc-branch attach <target>` or the terminal-runtime command. VS Code and Cursor open the project folder directly instead of generating temporary editor workspaces. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
 
 ### 1.6 Open a project in the selected tool
 

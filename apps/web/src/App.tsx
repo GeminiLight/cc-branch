@@ -26,7 +26,7 @@ import Dashboard from "./components/Dashboard";
 import ConfigEditor from "./components/ConfigEditor";
 import DoctorView from "./components/DoctorView";
 import SettingsModal from "./components/SettingsModal";
-import ConfigSelector from "./components/ConfigSelector";
+import ConfigSelector, { ConfigContextNotice } from "./components/ConfigSelector";
 import { projectDirFromConfigPath } from "./utils/projectPath";
 
 type Tab = "dashboard" | "config" | "doctor";
@@ -101,6 +101,10 @@ function AppInner() {
     setSelectedConfigPaths((prev) => ({ ...prev, [activeProject.path]: path }));
     setTab("dashboard");
   }, [activeProject?.path]);
+
+  const handleEditWorkspaceTarget = useCallback(() => {
+    setTab("config");
+  }, []);
 
   const handleOpenSettings = useCallback(() => {
     setMobileSidebarOpen(false);
@@ -267,12 +271,27 @@ function AppInner() {
           </div>
         </div>
 
+        {activeProject && configOptionsData?.configs && (
+          <div className="px-4 sm:px-5 pt-3">
+            <ConfigContextNotice
+              configs={configOptionsData.configs}
+              selectedPath={selectedConfigPath}
+            />
+          </div>
+        )}
+
         {/* Content */}
         <main id="main-content" className="flex-1 px-4 sm:px-5 py-5 min-w-0 overflow-y-auto" tabIndex={-1}>
           {activeProject ? (
             <>
               <div role="tabpanel" id="panel-dashboard" aria-labelledby="tab-dashboard" hidden={tab !== "dashboard"} className={`transition-opacity duration-200 ${tab === "dashboard" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <Dashboard key={`dash-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} isActive={tab === "dashboard"} />
+                <Dashboard
+                  key={`dash-${activeProject.id}-${selectedConfigPath || "default"}`}
+                  projectPath={activeProject.path}
+                  configPath={selectedConfigPath}
+                  isActive={tab === "dashboard"}
+                  onEditTarget={handleEditWorkspaceTarget}
+                />
               </div>
               <div role="tabpanel" id="panel-config" aria-labelledby="tab-config" hidden={tab !== "config"} className={`transition-opacity duration-200 ${tab === "config" ? "opacity-100" : "opacity-0 hidden"}`}>
                 <ConfigEditor key={`cfg-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} />

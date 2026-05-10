@@ -2,6 +2,8 @@ version: 1
 project: cli-workspace
 root: .
 display:
+  mode: grid
+  columns: 2
   dashboard: true
 agents:
   claude:
@@ -32,18 +34,24 @@ agents:
     resume_template: '--session-id {session_id}'
     label_template: '{project}/{slot}/{window}'
 slots:
-  - name: dev
+  - name: codex-ui
+    runtime: terminal
+    cwd: .
+    title: UI polish
+    agent: codex
+    session_id: 019e0be6-9369-7af1-ac0e-0a9868a309c4
+  - name: codex-spec
+    runtime: terminal
+    cwd: .
+    title: Product spec
+    agent: codex
+    session_id: 019dd56d-0700-7bb3-a9c0-83eb2b033b0e
+  - name: tmux-dev
     runtime: tmux
     cwd: .
     windows:
-      - name: shell
+      - name: planner
         agent: codex
+        command: codex
+      - name: shell
         command: zsh
-      - name: window-2
-        agent: claude
-  - name: scratch
-    runtime: terminal
-    cwd: .
-    command: zsh
-    title: hi
-    agent: codex

@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CC Branch Dashboard UX Comparison</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101113;
+      --panel: #181a1f;
+      --panel-2: #202329;
+      --line: #343943;
+      --line-soft: #272b33;
+      --text: #eff1f4;
+      --muted: #9da6b2;
+      --quiet: #6f7782;
+      --green: #58c895;
+      --amber: #e0ad54;
+      --blue: #76a7ff;
+      --red: #ff766d;
+      --ink: #0f1115;
+      --paper: #ede8dc;
+      --paper-line: #d7cebe;
+      --paper-muted: #756f64;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.36);
+      --violet: #b79cff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(180deg, rgba(255,255,255,0.018) 1px, transparent 1px) 0 0 / 48px 48px,
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    .page {
+      width: min(1520px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      padding: 8px 0 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 54px);
+      line-height: 0.95;
+      letter-spacing: 0;
+      max-width: 780px;
+    }
+
+    .subtitle {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 780px;
+    }
+
+    .verdict {
+      min-width: 320px;
+      border: 1px solid rgba(88, 200, 149, 0.32);
+      background: rgba(88, 200, 149, 0.08);
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .verdict strong {
+      display: block;
+      color: var(--green);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .verdict p {
+      margin: 0;
+      font-size: 13px;
+      color: #dcefe6;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0 22px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--quiet);
+    }
+
+    .dot.green { background: var(--green); }
+    .dot.amber { background: var(--amber); }
+    .dot.blue { background: var(--blue); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .decision-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+      gap: 18px;
+      margin: 0 0 22px;
+      align-items: stretch;
+    }
+
+    .decision-panel {
+      border: 1px solid rgba(88, 200, 149, 0.52);
+      background: rgba(24, 26, 31, 0.94);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(88, 200, 149, 0.12), var(--shadow);
+    }
+
+    .decision-head {
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--line-soft);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .decision-head h2 {
+      font-size: 24px;
+    }
+
+    .decision-body {
+      padding: 14px;
+      background: #121419;
+    }
+
+    .why-panel {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.035);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .why-panel h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .why-panel p,
+    .why-panel li {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .why-panel ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+    }
+
+    .compare-table {
+      margin: 0 0 22px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.025);
+    }
+
+    .compare-row {
+      display: grid;
+      grid-template-columns: 150px repeat(4, minmax(0, 1fr));
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .compare-row:last-child { border-bottom: 0; }
+
+    .compare-cell {
+      padding: 10px 12px;
+      border-right: 1px solid var(--line-soft);
+      font-size: 12px;
+      color: var(--muted);
+      min-width: 0;
+    }
+
+    .compare-cell:last-child { border-right: 0; }
+    .compare-cell.head { color: var(--text); font-weight: 800; background: rgba(255,255,255,0.04); }
+    .compare-cell.good { color: #dff5ea; background: rgba(88, 200, 149, 0.08); }
+    .compare-cell.warn { color: #f5e5c4; background: rgba(224, 173, 84, 0.08); }
+
+    .mini-input {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .input-box {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255,255,255,0.025);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      white-space: pre-line;
+    }
+
+    .option {
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: rgba(24, 26, 31, 0.92);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .option.recommended {
+      border-color: rgba(88, 200, 149, 0.58);
+      box-shadow: 0 0 0 1px rgba(88, 200, 149, 0.18), var(--shadow);
+    }
+
+    .option-head {
+      padding: 16px 16px 13px;
+      border-bottom: 1px solid var(--line-soft);
+      min-height: 152px;
+    }
+
+    .kicker {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--quiet);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .badge {
+      text-transform: none;
+      letter-spacing: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .badge.win {
+      color: var(--green);
+      border-color: rgba(88, 200, 149, 0.42);
+      background: rgba(88, 200, 149, 0.08);
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .option-head p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .mock {
+      padding: 14px;
+      background: #121419;
+    }
+
+    .screen {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 12px;
+      color: var(--quiet);
+      font-size: 11px;
+    }
+
+    .nav-tabs span:first-child {
+      color: var(--text);
+    }
+
+    .screen-body {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+      min-height: 520px;
+      align-content: start;
+    }
+
+    .section-title {
+      margin: 2px 0 -4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      overflow: hidden;
+    }
+
+    .card.terminal {
+      border-left: 4px solid var(--blue);
+    }
+
+    .card.tmux {
+      border-left: 4px solid var(--green);
+    }
+
+    .card.mixed {
+      border-left: 4px solid var(--violet);
+    }
+
+    .card-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 11px 12px;
+    }
+
+    .name {
+      font-weight: 700;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #262a32;
+      color: var(--text);
+      border-radius: 6px;
+      min-height: 30px;
+      padding: 0 9px;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    button.primary {
+      background: var(--text);
+      color: var(--ink);
+      border-color: var(--text);
+      font-weight: 700;
+    }
+
+    button.icon {
+      width: 30px;
+      padding: 0;
+      color: var(--muted);
+    }
+
+    .children {
+      border-top: 1px solid var(--line-soft);
+      padding: 6px;
+      display: grid;
+      gap: 5px;
+      background: rgba(0,0,0,0.12);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: minmax(86px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .row:hover {
+      border-color: var(--line);
+    }
+
+    .row-main {
+      min-width: 0;
+    }
+
+    .row-name {
+      font-size: 12px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .row-meta {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .paper-note {
+      margin: 14px;
+      padding: 13px 14px;
+      border: 1px solid var(--paper-line);
+      border-radius: 7px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-serif, Georgia, "Times New Roman", serif;
+      min-height: 150px;
+    }
+
+    .paper-note strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 7px;
+    }
+
+    .paper-note ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--paper-muted);
+      font-size: 13px;
+    }
+
+    .paper-note li + li {
+      margin-top: 5px;
+    }
+
+    .detail-drawer {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #111318;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .detail-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .score {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .score div {
+      padding: 10px 12px;
+      border-right: 1px solid var(--line-soft);
+    }
+
+    .score div:last-child { border-right: 0; }
+    .score b { display: block; font-size: 16px; }
+    .score span { color: var(--muted); font-size: 10px; }
+
+    @media (max-width: 1160px) {
+      header { grid-template-columns: 1fr; }
+      .verdict { min-width: 0; }
+      .grid { grid-template-columns: 1fr; }
+      .decision-board { grid-template-columns: 1fr; }
+      .compare-row { grid-template-columns: 1fr; }
+      .compare-cell { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+      .compare-cell:last-child { border-bottom: 0; }
+      .screen-body { min-height: auto; }
+    }
+
+    @media (max-width: 640px) {
+      .page { width: min(100vw - 24px, 1520px); padding-top: 18px; }
+      .card-head { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; flex-wrap: wrap; }
+      .score { grid-template-columns: 1fr; }
+      .score div { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+      .score div:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <h1>Dashboard 信息架构对比稿</h1>
+        <p class="subtitle">
+          目标是解决一个核心混淆：普通 terminal runtime 不应该再套一层子窗口；只有 tmux session 才需要展示多个 tmux windows。页面第一眼只给用户“名字、运行方式、会话状态、Open/Edit”。
+        </p>
+      </div>
+      <aside class="verdict">
+        <strong>当前推荐：方案 A</strong>
+        <p>按 runtime 折叠：terminal 是单层 task，tmux 才展开 windows。不要用内部 tag 增加理解成本，状态只用自然语言说明。</p>
+      </aside>
+    </header>
+
+    <div class="legend" aria-label="legend">
+      <span class="pill"><span class="dot blue"></span>terminal runtime：单任务，默认不展示子窗口</span>
+      <span class="pill"><span class="dot green"></span>tmux runtime：session 下可有多个 tmux windows</span>
+      <span class="pill"><span class="dot amber"></span>agent session：Codex/Claude 自己的会话状态</span>
+    </div>
+
+    <section class="decision-board" aria-label="recommended dashboard model">
+      <article class="decision-panel">
+        <div class="decision-head">
+          <div>
+            <div class="kicker" style="margin-bottom: 6px;"><span>Option A</span><span class="badge win">Current recommendation</span></div>
+            <h2>按 runtime 折叠</h2>
+          </div>
+          <span class="pill"><span class="dot green"></span>一个列表，不分组</span>
+        </div>
+        <div class="decision-body">
+          <div class="screen">
+            <div class="topbar">
+              <span>CC Branch / demo</span>
+              <span class="nav-tabs"><span>Dashboard</span><span>Config</span><span>Doctor</span></span>
+            </div>
+            <div class="screen-body" style="min-height: 390px;">
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-ui</div>
+                    <div class="meta">Codex UI · terminal task · Session bound</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-spec</div>
+                    <div class="meta">Spec work · terminal task · Session bound</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card tmux">
+                <div class="card-head">
+                  <div>
+                    <div class="name">dev</div>
+                    <div class="meta">tmux session · demo-dev · 3 windows</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+                <div class="children">
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">planner</div><div class="row-meta">Codex · Session bound</div></div>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">reviewer</div><div class="row-meta">Codex · New session on start</div></div>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">shell</div><div class="row-meta">Command: bash</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="why-panel">
+        <h2>为什么按钮只叫 Open？</h2>
+        <p>因为这个分组会引入一个新问题：用户要先理解“为什么同样是工作单元，有些在 Tasks，有些在 Tmux Sessions”。这不是用户真正关心的。</p>
+        <ul>
+          <li>用户关心的是：我要打开哪个东西。</li>
+          <li>terminal task 没有多窗口能力，所以一层就够。</li>
+          <li>tmux 有多窗口能力，所以只有它展开子窗口。</li>
+          <li>runtime 差异用卡片形态表达，不要让按钮文案变成概念说明。</li>
+          <li>用户点击时只关心打开这个工作单元；是 terminal 还是 tmux session，应该由系统处理。</li>
+          <li>不要用内部缩写标签。它们解释了实现，却没有帮助用户完成任务。</li>
+        </ul>
+        <div class="mini-input">
+          <div class="input-box">Input config:
+terminal slot codex-ui
+terminal slot codex-spec
+tmux slot dev
+  planner
+  reviewer</div>
+          <div class="input-box">Output UI:
+codex-ui card
+codex-spec card
+dev expandable tmux card
+  planner row
+  reviewer row</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="compare-table" aria-label="difference table">
+      <div class="compare-row">
+        <div class="compare-cell head">问题</div>
+        <div class="compare-cell head">A 按 runtime 折叠</div>
+        <div class="compare-cell head">B Tasks / Tmux 分区</div>
+        <div class="compare-cell head">C 详情抽屉</div>
+        <div class="compare-cell head">D 统一列表</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell head">普通 terminal</div>
+        <div class="compare-cell good">扁平</div>
+        <div class="compare-cell good">扁平，但被放进 Tasks 区</div>
+        <div class="compare-cell good">扁平</div>
+        <div class="compare-cell good">扁平</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell head">tmux 多窗口</div>
+        <div class="compare-cell good">直接展开</div>
+        <div class="compare-cell good">在 Tmux Sessions 区展开</div>
+        <div class="compare-cell warn">藏在 Details 里</div>
+        <div class="compare-cell good">只在 tmux 卡片里展开</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell head">新增概念</div>
+        <div class="compare-cell">少</div>
+        <div class="compare-cell warn">多了 Tasks / Tmux Sessions 两个区</div>
+        <div class="compare-cell warn">多了 Details 状态</div>
+        <div class="compare-cell good">最少</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell head">我的当前判断</div>
+        <div class="compare-cell good">推荐默认</div>
+        <div class="compare-cell warn">不推荐默认</div>
+        <div class="compare-cell">适合大量条目以后</div>
+        <div class="compare-cell">可行，但和 A 太接近</div>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="dashboard architecture options">
+      <article class="option">
+        <div class="option-head">
+          <div class="kicker">
+            <span>Option A</span>
+            <span class="badge">Runtime-aware</span>
+          </div>
+          <h2>按 runtime 折叠</h2>
+          <p>配置结构仍然可见，但 terminal slot 自动扁平化；tmux slot 才展开 windows。</p>
+        </div>
+
+        <div class="mock">
+          <div class="screen">
+            <div class="topbar">
+              <span>CC Branch / demo</span>
+              <span class="nav-tabs"><span>Dashboard</span><span>Config</span><span>Doctor</span></span>
+            </div>
+            <div class="screen-body">
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-ui</div>
+                    <div class="meta">terminal task · Codex · Session bound</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-spec</div>
+                    <div class="meta">terminal task · Codex · New session on start</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card tmux">
+                <div class="card-head">
+                  <div>
+                    <div class="name">dev</div>
+                    <div class="meta">tmux session · demo-dev · 3 windows</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+                <div class="children">
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">planner</div><div class="row-meta">Codex · Session bound</div></div>
+                    <button class="icon">↗</button>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">reviewer</div><div class="row-meta">Codex · New session on start</div></div>
+                    <button class="icon">↗</button>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">shell</div><div class="row-meta">Command: bash</div></div>
+                    <button class="icon">↗</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="score">
+              <div><b>8/10</b><span>清晰度</span></div>
+              <div><b>8/10</b><span>实现成本</span></div>
+              <div><b>7/10</b><span>可扩展</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="paper-note">
+          <strong>适合什么情况</strong>
+          <ul>
+            <li>想尽量保留 YAML 的原始层级。</li>
+            <li>能接受 terminal 和 tmux 在同一列表里用不同形态展示。</li>
+            <li>比现在清楚，但页面仍然偏“配置结构视角”。</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option recommended">
+        <div class="option-head">
+          <div class="kicker">
+            <span>Option B</span>
+            <span class="badge">Not default</span>
+          </div>
+          <h2>用户任务优先</h2>
+          <p>普通 terminal 全部作为 Tasks；tmux 作为高级 session 分区。名字不会重复，心智最直。</p>
+        </div>
+
+        <div class="mock">
+          <div class="screen">
+            <div class="topbar">
+              <span>CC Branch / demo</span>
+              <span class="nav-tabs"><span>Dashboard</span><span>Config</span><span>Doctor</span></span>
+            </div>
+            <div class="screen-body">
+              <div class="section-title">Tasks</div>
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-ui</div>
+                    <div class="meta">Codex UI · terminal · Session bound</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-spec</div>
+                    <div class="meta">Spec work · terminal · Session bound</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-title">Tmux Sessions</div>
+              <div class="card tmux">
+                <div class="card-head">
+                  <div>
+                    <div class="name">dev</div>
+                    <div class="meta">demo-dev · running · 3 windows</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+                <div class="children">
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">planner</div><div class="row-meta">Codex · Session bound</div></div>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">reviewer</div><div class="row-meta">Codex · New session on start</div></div>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">shell</div><div class="row-meta">Command: bash</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="score">
+              <div><b>9/10</b><span>清晰度</span></div>
+              <div><b>7/10</b><span>实现成本</span></div>
+              <div><b>9/10</b><span>可扩展</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="paper-note">
+          <strong>为什么推荐</strong>
+          <ul>
+            <li>terminal runtime 不再重复显示两层名字。</li>
+            <li>tmux 的多 window 能力被明确放在 Tmux Sessions 里。</li>
+            <li>Dashboard 面向用户任务，Config 面向结构细节。</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option">
+        <div class="option-head">
+          <div class="kicker">
+            <span>Option C</span>
+            <span class="badge">Overview + drawer</span>
+          </div>
+          <h2>极简概览 + 详情</h2>
+          <p>首页只显示一层。tmux 子 window 默认收进详情抽屉，页面最干净。</p>
+        </div>
+
+        <div class="mock">
+          <div class="screen">
+            <div class="topbar">
+              <span>CC Branch / demo</span>
+              <span class="nav-tabs"><span>Dashboard</span><span>Config</span><span>Doctor</span></span>
+            </div>
+            <div class="screen-body">
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-ui</div>
+                    <div class="meta">Running · Codex · terminal</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card terminal">
+                <div class="card-head">
+                  <div>
+                    <div class="name">codex-spec</div>
+                    <div class="meta">Running · Codex · terminal</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card tmux">
+                <div class="card-head">
+                  <div>
+                    <div class="name">dev</div>
+                    <div class="meta">Running · tmux · 3 windows</div>
+                  </div>
+                  <div class="actions">
+                    <button class="primary">Open</button>
+                    <button>Details</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-drawer">
+                <div class="detail-head">Details: dev · tmux session demo-dev</div>
+                <div class="children">
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">planner</div><div class="row-meta">Codex · Session bound</div></div>
+                    <button class="icon">↗</button>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">reviewer</div><div class="row-meta">Codex · New session on start</div></div>
+                    <button class="icon">↗</button>
+                  </div>
+                  <div class="row">
+                    <div class="row-main"><div class="row-name">shell</div><div class="row-meta">Command: bash</div></div>
+                    <button class="icon">↗</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="score">
+              <div><b>8/10</b><span>清晰度</span></div>
+              <div><b>6/10</b><span>实现成本</span></div>
+              <div><b>8/10</b><span>可扩展</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="paper-note">
+          <strong>主要权衡</strong>
+          <ul>
+            <li>第一页最轻，但 tmux 用户要多点一次 Details。</li>
+            <li>适合以后 slot 很多的时候，不适合强调实时监控。</li>
+            <li>实现时需要设计 drawer 或展开面板状态。</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

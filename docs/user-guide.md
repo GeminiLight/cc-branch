@@ -410,9 +410,9 @@ cc-branch serve --host 0.0.0.0 --token "$CC_BRANCH_WEB_TOKEN"
 
 Web UI 中有一个工具选择器和两个主要动作：
 
-- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入 Launch Configuration 并打开一个布局；VS Code、Cursor 会打开一个临时 `.code-workspace`。在 VS Code/Cursor 中，每个 tmux slot 只会生成一个 attach task，不会把 slot 内部的每个 tmux window 都展开成独立终端；`runtime: terminal` slot 才会生成对应的可见 shell task。
+- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入 Launch Configuration 并打开一个布局；VS Code、Cursor 会像普通用户打开项目一样直接打开目录，不生成临时 `.code-workspace`。
 - “打开项目目录”使用同一个所选工具，但只有工具支持 `open_project` 时才可点击。它不会启动或 attach workspace；终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。
-- Slot 或 window 旁边的“打开终端”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 terminal-runtime 命令；VS Code、Cursor 会打开一个只包含该 target 的 `.code-workspace` task，不会隐式回退到默认终端。
+- Slot 或 window 旁边的“打开终端”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 terminal-runtime 命令；VS Code、Cursor 会直接打开项目目录。
 
 `runtime: tmux` 是可复用的；即使之前已经在另一个 Terminal、Warp 或 iTerm2 窗口打开过，再次打开也会 attach 到同一组 tmux session。`runtime: terminal` 是外部进程，不能被复用或停止；再次打开会启动新的终端进程，需要用户手动关闭窗口。
 

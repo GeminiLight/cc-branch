@@ -5,6 +5,7 @@ export { useDoctor } from "./useDoctor";
 export { useProfiles } from "./useProfiles";
 export { useOpeners } from "./useOpeners";
 export { useAgents } from "./useAgents";
+export { useAgentSessions } from "./useAgentSessions";
 export { useInitWorkspace } from "./useInit";
 export { useWorkspaceAction } from "./useWorkspaceAction";
 export { useStopSlot } from "./useStopSlot";

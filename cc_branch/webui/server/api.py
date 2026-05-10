@@ -11,6 +11,7 @@ import json
 
 from ...application.config_workflows import (
     agent_options,
+    agent_session_options,
     initialize_workspace,
     opener_options,
     probe_project,
@@ -99,6 +100,17 @@ def api_agents(handler) -> None:
     try:
         config_path, _state_path = handler._resolve_paths()
         handler._send_json(agent_options(config_path).payload)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_agent_sessions(handler) -> None:
+    try:
+        config_path, _state_path = handler._resolve_paths()
+        agent = handler._get_query().get("agent", [None])[0]
+        handler._send_json(agent_session_options(config_path, agent=agent).payload)
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
     except Exception as error:

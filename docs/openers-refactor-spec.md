@@ -49,7 +49,7 @@ cc_branch/openers/
   registry.py      `OpenerRegistry`: built-in and configured opener discovery.
   dispatcher.py    `OpenerDispatcher`: public open_* operations and opener routing.
   terminal.py      `TerminalLauncher`: system, macOS, Windows, and Linux terminals.
-  editors.py       `EditorWorkspaceOpener`: generated VS Code/Cursor workspaces.
+  editors.py       `EditorWorkspaceOpener`: generated editor workspace helper for task-based opens.
   warp.py          `WarpLauncher`: Warp launch configuration rendering and URIs.
   platform.py      Shared OS helpers: cache paths, app lookup, URI open, popen.
 ```
@@ -76,7 +76,7 @@ cc_branch/openers/
 - `auto-terminal` keeps the same platform resolution behavior.
 - Custom opener argument rendering keeps `{cwd}`, `{command}`, and `{target}`.
 - Warp still uses launch configurations for command execution and layouts.
-- VS Code and Cursor still open generated `.code-workspace` files with `-n`.
+- VS Code and Cursor open the project folder directly for normal workspace opens.
 - Editor workspace cleanup only removes stale generated files for the same
   opener and project folder.
 - Windows command quoting remains PowerShell-safe for paths and targets with

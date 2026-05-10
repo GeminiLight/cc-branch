@@ -25,7 +25,7 @@ interface ProjectStatus {
 function statusLabel(t: (key: string) => string, status: ProjectStatus["status"] | undefined): string {
   if (!status) return "…";
   if (status === "running") return t("running");
-  if (status === "external") return t("external");
+  if (status === "external") return t("openOnDemand");
   if (status === "stopped") return t("stopped");
   if (status === "no_config") return t("noConfigShort");
   return t("errorLoading");

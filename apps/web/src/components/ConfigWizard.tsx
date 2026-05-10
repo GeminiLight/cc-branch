@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ChevronsUpDown,
   Loader2,
   Minimize2,
   Monitor,
@@ -15,6 +16,7 @@ import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
 import { useAgents, useProfiles, useSaveConfig } from "../hooks";
 import type { Profile } from "../types";
+import Dropdown from "./ui/Dropdown";
 
 interface ConfigWizardProps {
   projectPath?: string;
@@ -218,16 +220,24 @@ function WorkspacePreview({
                     aria-label={t("windowName")}
                   />
                   <span className="h-1.5 rounded-full bg-[var(--accent)]/80" />
-                  <select
+                  <Dropdown
                     value={selectedAgent}
-                    onChange={(e) => onChangeAgent(slotIndex, windowIndex, e.target.value)}
-                    className="min-w-0 rounded border border-default bg-[var(--bg-card)] px-1.5 py-1 text-[10px] font-mono text-[var(--accent)] outline-none focus:border-[var(--accent-border)]"
+                    onChange={(nextAgent) => onChangeAgent(slotIndex, windowIndex, nextAgent)}
+                    align="right"
                     aria-label={t("agent")}
-                  >
-                    {options.map((agent) => (
-                      <option key={agent} value={agent}>{agent}</option>
-                    ))}
-                  </select>
+                    className="min-w-0 w-full"
+                    triggerClassName="w-full"
+                    items={options.map((agent) => ({
+                      label: agent,
+                      value: agent,
+                    }))}
+                    trigger={
+                      <span className="min-w-0 w-full rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[10px] font-mono text-[var(--accent)] transition-colors hover:border-[var(--accent-border)] flex items-center justify-between gap-1.5">
+                        <span className="truncate">{selectedAgent}</span>
+                        <ChevronsUpDown className="w-3 h-3 text-tertiary shrink-0" />
+                      </span>
+                    }
+                  />
                 </div>
                 );
               })}

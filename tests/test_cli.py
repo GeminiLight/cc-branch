@@ -307,7 +307,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             open_command.assert_not_called()
 
-    def test_open_workspace_with_vscode_uses_one_task_per_tmux_slot(self):
+    def test_open_workspace_with_vscode_opens_project_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_mixed_runtime_workspace(root)
@@ -316,21 +316,16 @@ class CLITests(unittest.TestCase):
                 patch("cc_branch.cli.Path.cwd", return_value=root),
                 patch("cc_branch.application.workspace_actions.ensure_slot", return_value=[]),
                 patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
-                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, capability, custom=None: capability == "workspace_file"),
+                patch("cc_branch.application.workspace_actions.open_with") as open_with,
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda opener, capability, custom=None: capability in {"open_project", "workspace_file"}),
                 patch("cc_branch.application.workspace_actions.opener_label", return_value="VS Code"),
             ):
                 exit_code = main(["open", "--opener", "vscode"])
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
-            specs = open_workspace_file.call_args.kwargs["commands"]
-            self.assertEqual(
-                [(spec.title, spec.command) for spec in specs],
-                [
-                    ("dev", "cc-branch attach dev"),
-                    ("scratch:shell", "zsh"),
-                ],
-            )
+            open_workspace_file.assert_not_called()
+            self.assertEqual(open_with.call_args.kwargs["opener_id"], "vscode")
+            self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
 
     def test_open_project_dir_uses_selected_opener(self):
         with tempfile.TemporaryDirectory() as tmp:

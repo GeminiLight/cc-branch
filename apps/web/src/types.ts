@@ -198,6 +198,19 @@ export interface AgentsData {
   agents: AgentProfileInfo[];
 }
 
+export interface AgentSessionInfo {
+  agent: string;
+  id: string;
+  label: string;
+  updated_at?: string | null;
+  source?: string | null;
+  project_path?: string | null;
+}
+
+export interface AgentSessionsData {
+  sessions: AgentSessionInfo[];
+}
+
 export interface ProjectProbe {
   path: string;
   path_exists: boolean;

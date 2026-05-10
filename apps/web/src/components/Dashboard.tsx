@@ -5,11 +5,11 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleStop,
-  Clipboard,
   Copy,
   FolderGit2,
   Monitor,
   OctagonAlert,
+  PencilLine,
   Play,
   RefreshCw,
   RotateCcw,
@@ -33,6 +33,7 @@ interface DashboardProps {
   projectPath?: string;
   configPath?: string;
   isActive?: boolean;
+  onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
 }
 
 type PendingAction = {
@@ -79,7 +80,16 @@ function canOfferWorkspaceOpen(opener: OpenerInfo | undefined): boolean {
 }
 
 function workspaceOpenLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
+  if (opener.kind === "editor" && openerSupports(opener, "open_project")) {
+    return t("openProjectIn", { app: opener.label });
+  }
   return t("openWorkspaceIn", { app: opener.label });
+}
+
+function workspaceOpenButtonLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
+  return opener.kind === "editor" && openerSupports(opener, "open_project")
+    ? t("openProject")
+    : t("openWorkspace");
 }
 
 function StatusBadge({ status }: { status: SlotInfo["status"] }) {
@@ -104,7 +114,7 @@ function StatusBadge({ status }: { status: SlotInfo["status"] }) {
       ) : (
         <CircleStop className="w-3 h-3" />
       )}
-      {isRunning ? t("running") : isExternal ? t("external") : t("stopped")}
+      {isRunning ? t("running") : isExternal ? t("openOnDemand") : t("stopped")}
     </span>
   );
 }
@@ -128,10 +138,97 @@ function SyncBadge({ status }: { status?: SyncStatus }) {
   );
 }
 
+function displayAgentName(agent: string): string {
+  return agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : agent;
+}
+
+function windowSummary(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  window: SlotInfo["windows"][number]
+): string {
+  if (window.agent) {
+    return `${displayAgentName(window.agent)} · ${
+      window.session_id ? t("sessionBound") : t("newSessionOnStart")
+    }`;
+  }
+  return t("commandSummary", { command: window.command || "-" });
+}
+
+function terminalTaskSummary(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  window?: SlotInfo["windows"][number]
+): string {
+  if (!window) return t("terminalTask");
+  if (window.agent) {
+    return `${displayAgentName(window.agent)} · ${t("terminalTask")} · ${
+      window.session_id ? t("sessionBound") : t("newSessionOnStart")
+    }`;
+  }
+  return `${t("terminalTask")} · ${t("commandSummary", { command: window.command || "-" })}`;
+}
+
+function windowCountLabel(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
+  return t(count === 1 ? "windowCountShortOne" : "windowCountShort", { count });
+}
+
+function detailValue(value: string | null | undefined): string {
+  return value && value.trim() ? value : "-";
+}
+
+function CopyValueButton({
+  value,
+  label,
+  onCopy,
+}: {
+  value: string;
+  label: string;
+  onCopy: (value: string, label: string) => void;
+}) {
+  const disabled = value === "-";
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(value, label)}
+      disabled={disabled}
+      className="icon-touch sm:min-h-7 sm:min-w-7 rounded text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+      aria-label={t("copyValue", { name: label })}
+      title={t("copyValue", { name: label })}
+    >
+      <Copy className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  mono = false,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  onCopy?: (value: string, label: string) => void;
+}) {
+  return (
+    <div className="min-w-0 rounded-md bg-[var(--bg-hover)]/55 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{label}</p>
+      <div className="mt-1 flex items-center gap-1.5 min-w-0">
+        <p className={`text-[12px] text-secondary truncate ${mono ? "font-mono" : ""}`} title={value}>
+          {value}
+        </p>
+        {onCopy && <CopyValueButton value={value} label={label} onCopy={onCopy} />}
+      </div>
+    </div>
+  );
+}
+
 const SlotCard = memo(function SlotCard({
   slot,
   onRunAction,
   onConfirmAction,
+  onEditTarget,
   onCopy,
   busy,
   openerId,
@@ -140,6 +237,7 @@ const SlotCard = memo(function SlotCard({
   slot: SlotInfo;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
   onConfirmAction: (action: WorkspaceAction, target: string | undefined, label: string) => void;
+  onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
   onCopy: (value: string, label: string) => void;
   busy: boolean;
   openerId: string;
@@ -149,6 +247,118 @@ const SlotCard = memo(function SlotCard({
   const { t } = useI18n();
   const slotTarget = slot.name;
   const slotRuntimeUnavailable = slot.runtime === "tmux" && tmuxRuntimeUnavailable;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  if (slot.runtime === "terminal") {
+    const primaryWindow = slot.windows[0];
+    return (
+      <div
+        className={`surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out hover:shadow-md hover:border-[var(--border-strong)] ${
+          isRunning ? "border-[var(--accent-border)] shadow-sm" : "border-default"
+        }`}
+      >
+        <div
+          className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            isRunning ? "accent-bg" : "surface-elevated"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            className="flex items-center gap-3 min-w-0 text-left rounded-md -m-1 p-1 hover:surface-hover transition-colors"
+            aria-expanded={detailsOpen}
+            aria-label={detailsOpen ? t("hideDetails") : t("showDetails")}
+          >
+            <div
+              className={`w-9 h-9 rounded-md border flex items-center justify-center shrink-0 ${
+                isRunning
+                  ? "bg-[var(--bg-card)] border-[var(--accent-border)]"
+                  : "bg-[var(--bg-card)] border-default"
+              }`}
+            >
+              <SquareTerminal
+                className={`w-4 h-4 shrink-0 ${
+                  isRunning ? "text-[var(--accent)]" : "text-tertiary"
+                }`}
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
+                  {slot.name}
+                </h3>
+                <StatusBadge status={slot.status} />
+                <SyncBadge status={slot.sync_status} />
+              </div>
+              <p
+                className="text-[11px] text-tertiary mt-0.5 truncate"
+                title={primaryWindow?.session_id || primaryWindow?.command}
+              >
+                {terminalTaskSummary(t, primaryWindow)}
+              </p>
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-tertiary shrink-0 transition-transform ${detailsOpen ? "" : "-rotate-90"}`} />
+          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
+              disabled={busy}
+              className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              aria-label={`${t("openTerminal")} ${slotTarget}`}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              {t("open")}
+            </button>
+            {onEditTarget && (
+              <button
+                type="button"
+                onClick={() => onEditTarget({ slotName: slot.name })}
+                className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center gap-1.5"
+                aria-label={t("editSlotNamed", { name: slotTarget })}
+                title={t("editSlotNamed", { name: slotTarget })}
+              >
+                <PencilLine className="w-3.5 h-3.5" />
+                {t("edit")}
+              </button>
+            )}
+          </div>
+        </div>
+        {detailsOpen && (
+          <div className="border-t border-default bg-[var(--bg-card)] px-4 py-3 animate-stagger">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)] gap-3">
+              <div className="rounded-md bg-[var(--accent-bg)]/45 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("runtimeDetails")}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <StatusBadge status={primaryWindow?.status || slot.status} />
+                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold bg-[var(--bg-card)] text-secondary">
+                    {displayAgentName(primaryWindow?.agent || "") || t("noAgent")}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] text-tertiary truncate" title={primaryWindow?.label || slot.name}>
+                  {primaryWindow?.label || slot.name}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                <div className="md:col-span-2 xl:col-span-3 rounded-md bg-[var(--bg-hover)]/55 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("command")}</p>
+                  <div className="mt-1 flex items-center gap-2 min-w-0">
+                    <code className="min-w-0 flex-1 truncate text-[12px] text-primary" title={detailValue(primaryWindow?.command)}>
+                      {detailValue(primaryWindow?.command)}
+                    </code>
+                    <CopyValueButton value={detailValue(primaryWindow?.command)} label={t("command")} onCopy={onCopy} />
+                  </div>
+                </div>
+                <DetailItem label={t("sessionId")} value={detailValue(primaryWindow?.session_id)} mono onCopy={onCopy} />
+                <DetailItem label={t("workingDirectory")} value={detailValue(primaryWindow?.cwd)} mono onCopy={onCopy} />
+                <DetailItem label={t("windowName")} value={detailValue(primaryWindow?.name)} onCopy={onCopy} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -184,10 +394,12 @@ const SlotCard = memo(function SlotCard({
               <StatusBadge status={slot.status} />
               <SyncBadge status={slot.sync_status} />
             </div>
-            <p className="text-[11px] text-tertiary font-mono mt-0.5 truncate">
-              {slot.session_name}
+            <p className="text-[11px] text-tertiary mt-0.5 truncate">
+              <span className="font-mono">{slot.session_name}</span>
               <span className="text-muted mx-1">·</span>
-              <span className="text-muted">{slot.runtime}</span>
+              <span>{t("tmuxSession")}</span>
+              <span className="text-muted mx-1">·</span>
+              <span>{windowCountLabel(t, slot.windows.length)}</span>
             </p>
           </div>
         </div>
@@ -241,15 +453,18 @@ const SlotCard = memo(function SlotCard({
               {t("open")}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onCopy(slotTarget, `${slotTarget} target`)}
-            className="icon-touch sm:min-h-9 sm:min-w-9 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
-            aria-label={`${t("copyTarget")} ${slotTarget}`}
-            title={t("copyTarget")}
-          >
-            <Clipboard className="w-4 h-4" />
-          </button>
+          {onEditTarget && (
+            <button
+              type="button"
+              onClick={() => onEditTarget({ slotName: slot.name })}
+              className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center gap-1.5"
+              aria-label={t("editSlotNamed", { name: slotTarget })}
+              title={t("editSlotNamed", { name: slotTarget })}
+            >
+              <PencilLine className="w-3.5 h-3.5" />
+              {t("edit")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -272,22 +487,12 @@ const SlotCard = memo(function SlotCard({
                   <span className="text-[13px] font-semibold text-primary">
                     {w.name}
                   </span>
-                  {w.agent && (
-                    <span className="text-[10px] px-1.5 py-px rounded-md accent-bg accent font-semibold">
-                      {w.agent}
-                    </span>
-                  )}
                   <SyncBadge status={w.sync_status} />
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  {w.label && (
-                    <p className="text-[11px] text-tertiary truncate">{w.label}</p>
-                  )}
-                  {w.session_id && (
-                    <p className="text-[10px] font-mono text-muted" title={w.session_id}>
-                      {w.session_id.slice(0, 10)}…
-                    </p>
-                  )}
+                  <p className="text-[11px] text-tertiary truncate" title={w.session_id || w.command}>
+                    {windowSummary(t, w)}
+                  </p>
                 </div>
                 <div className="hidden lg:flex items-center gap-1.5 mt-1 min-w-0 text-[10px] text-tertiary font-mono">
                   <span className="truncate max-w-[360px]" title={w.command || "-"}>
@@ -301,25 +506,27 @@ const SlotCard = memo(function SlotCard({
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 lg:justify-end">
+              {onEditTarget && (
+                <button
+                  type="button"
+                  onClick={() => onEditTarget({ slotName: slot.name, windowName: w.name })}
+                  className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center justify-center gap-1.5"
+                  aria-label={t("editWindowNamed", { name: windowTarget })}
+                  title={t("editWindowNamed", { name: windowTarget })}
+                >
+                  <PencilLine className="w-3.5 h-3.5" />
+                  <span>{t("edit")}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
                 disabled={busy || slotRuntimeUnavailable}
-                className="control-touch min-w-11 sm:min-w-0 px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="icon-touch sm:min-h-9 sm:min-w-9 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
                 aria-label={`${t("openTerminal")} ${windowTarget}`}
                 title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${t("openTerminal")} ${windowTarget}`}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t("open")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onCopy(`cc-branch attach ${windowTarget}`, `attach command for ${windowTarget}`)}
-                className="icon-touch sm:min-h-9 sm:min-w-9 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
-                aria-label={`${t("copyAttachCommand")} ${windowTarget}`}
-                title={t("copyAttachCommand")}
-              >
-                <Copy className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -383,7 +590,7 @@ function DashboardLoading() {
   );
 }
 
-export default function Dashboard({ projectPath, configPath, isActive = true }: DashboardProps) {
+export default function Dashboard({ projectPath, configPath, isActive = true, onEditTarget }: DashboardProps) {
   const { t } = useI18n();
   const toast = useToast();
   const scope = { projectPath, configPath };
@@ -460,14 +667,14 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
     try {
       await navigator.clipboard.writeText(value);
     } catch {
-      const ta = document.createElement("textarea");
-      ta.value = value;
-      document.body.appendChild(ta);
-      ta.select();
+      const textArea = document.createElement("textarea");
+      textArea.value = value;
+      document.body.appendChild(textArea);
+      textArea.select();
       document.execCommand("copy");
-      document.body.removeChild(ta);
+      document.body.removeChild(textArea);
     }
-    toast.success(`${t("copied")} ${label}`);
+    toast.success(t("copiedValue", { name: label }));
   }, [toast, t]);
 
   const [updateTime, setUpdateTime] = useState<number | null>(null);
@@ -558,6 +765,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
   const externalCount = data.slots.filter((s) => s.status === "external").length;
   const totalWindows = data.slots.reduce((count, slot) => count + slot.windows.length, 0);
   const hasTmuxSlots = data.slots.some((s) => s.runtime === "tmux");
+  const hasOnlyTerminalSlots = data.slots.every((s) => s.runtime === "terminal");
   const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
   const canManageTmuxSlots = hasTmuxSlots && !tmuxRuntimeUnavailable;
   const canRestartWorkspace = canManageTmuxSlots && runningCount > 0;
@@ -579,6 +787,8 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
     ? t("workspaceStateUnavailable")
     : runtimeSyncNotices.length > 0
       ? t("workspaceStateNeedsAttention")
+      : hasOnlyTerminalSlots
+        ? t("workspaceStateReady")
       : runningCount > 0
         ? t("workspaceStateRunning")
         : t("workspaceStateStopped");
@@ -586,11 +796,15 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
     ? "danger-bg danger"
     : runtimeSyncNotices.length > 0
       ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+      : hasOnlyTerminalSlots
+        ? "accent-bg accent"
       : runningCount > 0
         ? "success-bg success"
         : "bg-[var(--bg-hover)] text-tertiary";
   const workspaceSyncLabel = runtimeActionCount > 0 || tmuxRuntimeUnavailable
     ? t("workspaceSyncNeedsAction", { count: runtimeActionCount || 1 })
+    : hasOnlyTerminalSlots
+      ? t("workspaceSyncTerminalClean")
     : t("workspaceSyncClean");
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
@@ -601,8 +815,9 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
     || availableWorkspaceOpeners.find((opener) => opener.id === defaultOpenerId)
     || availableWorkspaceOpeners[0]
     || DEFAULT_OPENER;
-  const projectDirectoryOpener = availableOpeners.find((opener) => opener.id === "system-file-manager")
-    || selectedOpener;
+  const projectDirectoryOpener = openerSupports(selectedOpener, "open_project")
+    ? selectedOpener
+    : availableOpeners.find((opener) => opener.id === "system-file-manager") || selectedOpener;
   const openerItems = workspaceOpeners.map((opener) => ({
     label: opener.label,
     value: opener.id,
@@ -646,7 +861,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-tertiary">
                 <span>{t("workspaceCounts", { running: runningCount, total: data.slots.length, windows: totalWindows })}</span>
-                {externalCount > 0 && <span>{externalCount} {t("external")}</span>}
+                {externalCount > 0 && <span>{t("workspaceTerminalSummary", { count: externalCount })}</span>}
                 <span className={runtimeActionCount > 0 || tmuxRuntimeUnavailable ? "text-[var(--warning)] font-medium" : "success font-medium"}>
                   {workspaceSyncLabel}
                 </span>
@@ -674,7 +889,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
                 ) : (
                   <ExternalLink className="w-4 h-4 shrink-0" />
                 )}
-                <span className="truncate">{t("openWorkspace")}</span>
+                <span className="truncate">{workspaceOpenButtonLabel(t, selectedOpener)}</span>
               </button>
               <Dropdown
                 align="left"
@@ -683,9 +898,9 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
                 onChange={setDefaultOpener}
                 ariaLabel={t("selectedTool", { app: selectedOpener.label })}
                 trigger={
-                  <span className="control-touch w-[176px] min-w-0 px-3 rounded-r-md rounded-l-none border-l border-white/20 bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5">
-                    <span className="truncate text-[13px] font-semibold">{selectedOpener.label}</span>
-                    <ChevronDown className="w-3 h-3 shrink-0 opacity-80" />
+                  <span className="control-touch w-[168px] sm:w-[184px] min-w-0 px-3 rounded-r-md rounded-l-none border-l border-white/20 bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold">{selectedOpener.label}</span>
+                    <ChevronDown className="ml-auto w-3 h-3 shrink-0 opacity-80" />
                   </span>
                 }
               />
@@ -822,6 +1037,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true }: 
             slot={slot}
             onRunAction={runAction}
             onConfirmAction={requestConfirmedAction}
+            onEditTarget={onEditTarget}
             onCopy={copyToClipboard}
             busy={actionMutation.isPending}
             openerId={selectedOpener.id}

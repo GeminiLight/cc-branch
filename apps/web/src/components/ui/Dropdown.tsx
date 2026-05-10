@@ -19,6 +19,8 @@ interface DropdownProps {
   placeholder?: string;
   align?: "left" | "right";
   ariaLabel?: string;
+  className?: string;
+  triggerClassName?: string;
 }
 
 export default function Dropdown({
@@ -29,6 +31,8 @@ export default function Dropdown({
   placeholder = "Select...",
   align = "right",
   ariaLabel,
+  className,
+  triggerClassName,
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState<number>(-1);
@@ -238,6 +242,7 @@ export default function Dropdown({
             }}
             role="option"
             aria-selected={active}
+            aria-label={item.label}
             disabled={item.disabled}
             title={item.description}
             className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-[13px] transition-colors text-left rounded-md my-0.5 ${
@@ -251,7 +256,14 @@ export default function Dropdown({
             }`}
           >
             {item.icon && <span className="text-tertiary">{item.icon}</span>}
-            <span className="flex-1 min-w-0 truncate">{item.label}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block truncate">{item.label}</span>
+              {item.description && (
+                <span className="block truncate text-[10px] font-mono text-tertiary mt-0.5">
+                  {item.description}
+                </span>
+              )}
+            </span>
             {active && <Check className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />}
           </button>
         );
@@ -261,7 +273,7 @@ export default function Dropdown({
 
   return (
     <>
-      <div ref={containerRef} className="relative inline-block">
+      <div ref={containerRef} className={`relative inline-block ${className || ""}`}>
         {trigger ? (
           <button
             type="button"
@@ -269,7 +281,7 @@ export default function Dropdown({
               shouldRestoreFocusRef.current = false;
               setOpen((o) => !o);
             }}
-            className="outline-none"
+            className={`outline-none ${triggerClassName || ""}`}
             aria-label={ariaLabel}
             aria-haspopup="listbox"
             aria-expanded={open}
