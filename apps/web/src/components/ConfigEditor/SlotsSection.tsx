@@ -58,9 +58,12 @@ function slotConfigSummary(
 
 function normalizeAgentKey(agent: string | null | undefined): string {
   const value = (agent || "").toLowerCase();
+  const compact = value.replace(/[\s_-]+/g, "");
   if (value.includes("codex")) return "codex";
-  if (value.includes("claude")) return "claude";
-  if (value.includes("gemini")) return "gemini";
+  if (compact.includes("claude") || compact.includes("cloudcode") || compact.includes("anthropic")) return "claude";
+  if (compact.includes("gemini") || compact.includes("antigravity")) return "gemini";
+  if (compact.includes("cursor")) return "cursor";
+  if (compact.includes("kimi")) return "kimi";
   return value;
 }
 

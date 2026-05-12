@@ -1,10 +1,12 @@
 # Session Discovery And Binding Spec
 
-Status: product and architecture spec. Not yet implemented.
+Status: product and architecture spec. Discovery picker providers are partially
+implemented for Codex, Claude Code, Cursor, Kimi, and Gemini/Antigravity.
 
 CC Branch should let users start agent workspaces without understanding session
 IDs, while still giving advanced users a clean way to resume, pick, or bind
-existing Codex / Claude Code sessions.
+existing Codex, Claude Code, Cursor, Kimi, and Gemini-family sessions when the
+local tool exposes stable metadata.
 
 The core product rule is:
 
@@ -67,6 +69,18 @@ Reason:
 - The same team config can map to different session IDs on different machines.
 
 ## Current Agent Capabilities
+
+Provider discovery uses the most stable local metadata available and fails
+closed: missing directories, unreadable files, or changed formats produce an
+empty picker for that provider instead of blocking the workspace.
+
+| Agent | Discovery source | Project binding |
+| --- | --- | --- |
+| Codex | `~/.codex/session_index.jsonl` | Agent-maintained session index |
+| Claude Code | `~/.claude/projects/<project-slug>/sessions-index.json` and top-level project JSONL transcript summaries | Project-slug bucket |
+| Cursor | `User/globalStorage/state.vscdb` `composer.composerHeaders` | Composer workspace identifier path |
+| Kimi | `~/.kimi/sessions/<md5(project path)>/<session>/state.json` | Project path hash bucket |
+| Gemini / Antigravity | `~/.gemini/antigravity/brain/*/*.metadata.json` | Global metadata; shown only as available local metadata |
 
 ### Claude Code
 
