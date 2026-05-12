@@ -26,7 +26,7 @@ def init_workspace(target_dir: Path, force: bool, bootstrap_sessions: bool) -> t
     state_path = target_dir / DEFAULT_STATE
     config_path.parent.mkdir(parents=True, exist_ok=True)
     project = target_dir.name
-    config_body = f"""version: 1
+    config_body = f"""version: 2
 project: "{project}"
 root: "."
 
@@ -35,21 +35,23 @@ display:
   columns: 2
   dashboard: true
 
-slots:
+tabs:
   - name: "dev"
-    runtime: "tmux"
     cwd: "."
-    windows:
-      - name: "planner"
-        agent: "codex"
-      - name: "review"
-        agent: "claude"
+    panes:
+      - name: "agents"
+        runtime: "tmux"
+        windows:
+          - name: "planner"
+            agent: "codex"
+          - name: "review"
+            agent: "claude"
 
   - name: "scratch"
-    runtime: "terminal"
     cwd: "."
-    title: "scratch"
-    command: "{shell_command}"
+    panes:
+      - name: "scratch"
+        command: "{shell_command}"
 """
     config_path.write_text(config_body, encoding="utf-8")
 

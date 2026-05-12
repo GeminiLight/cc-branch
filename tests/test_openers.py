@@ -98,6 +98,25 @@ class OpenerTests(unittest.TestCase):
             "/System/Applications/Utilities/Terminal.app",
         )
 
+    def test_iterm2_is_not_advertised_for_command_start(self):
+        """iTerm2 project opens are supported, but command start is not reliable enough to expose."""
+        def fake_exists(path: Path) -> bool:
+            return str(path) == "/Applications/iTerm.app"
+
+        def fake_which(name: str) -> str | None:
+            return "/usr/bin/osascript" if name == "osascript" else None
+
+        with (
+            patch("cc_branch.openers.registry.sys.platform", "darwin"),
+            patch("cc_branch.openers.registry.shutil.which", side_effect=fake_which),
+            patch("cc_branch.openers.platform.Path.exists", fake_exists),
+        ):
+            payload = list_openers()
+
+        openers = {opener["id"]: opener for opener in payload["openers"]}
+        self.assertEqual(openers["iterm2"]["capabilities"], ["open_project"])
+        self.assertNotIn("run_command", openers["iterm2"]["capabilities"])
+
     def test_macos_project_openers_do_not_require_osascript(self):
         """Project-folder macOS openers should only require their app bundle."""
         def fake_exists(path: Path) -> bool:
@@ -118,6 +137,22 @@ class OpenerTests(unittest.TestCase):
         self.assertEqual(openers["warp"]["executable"], "/Applications/Warp.app")
         self.assertEqual(openers["warp"]["kind"], "terminal")
         self.assertIn("dashboard", openers["warp"]["capabilities"])
+        self.assertIn("layout", openers["warp"]["capabilities"])
+
+    def test_linux_warp_detection_uses_warp_terminal_binary(self):
+        """Linux builds should expose Warp when the warp-terminal binary is installed."""
+        def fake_which(name: str) -> str | None:
+            return "/usr/bin/warp-terminal" if name == "warp-terminal" else None
+
+        with (
+            patch("cc_branch.openers.registry.sys.platform", "linux"),
+            patch("cc_branch.openers.registry.shutil.which", side_effect=fake_which),
+        ):
+            payload = list_openers()
+
+        openers = {opener["id"]: opener for opener in payload["openers"]}
+        self.assertTrue(openers["warp"]["available"])
+        self.assertEqual(openers["warp"]["executable"], "/usr/bin/warp-terminal")
         self.assertIn("layout", openers["warp"]["capabilities"])
 
     def test_macos_terminal_app_opens_project_with_system_open(self):
@@ -221,6 +256,40 @@ class OpenerTests(unittest.TestCase):
         self.assertIn("O''Neil", popen_args[-1])
         self.assertIn("demo project", popen_args[-1])
 
+    def test_iterm2_waits_for_new_window_before_writing_command(self):
+        """iTerm2 needs a short delay before sending text to a new session."""
+        from cc_branch.openers.terminal import _open_iterm2
+
+        with (
+            patch("cc_branch.openers.terminal.shutil.which", return_value="/usr/bin/osascript"),
+            patch("cc_branch.openers.terminal.subprocess.run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stderr = ""
+            run.return_value.stdout = ""
+            _open_iterm2(Path("/tmp/demo"), "npm run dev")
+
+        args = run.call_args.args[0]
+        script = "\n".join(args[index + 1] for index, arg in enumerate(args) if arg == "-e")
+        self.assertEqual(args[0], "osascript")
+        self.assertIn('tell application "iTerm2"', script)
+        self.assertIn("create window with default profile", script)
+        self.assertIn("repeat 20 times", script)
+        self.assertIn("delay 0.5", script)
+        self.assertIn("current session of current window", script)
+        self.assertIn("write text", script)
+        self.assertEqual(run.call_args.kwargs["timeout"], 30)
+
+    def test_osascript_timeout_is_reported_as_opener_error(self):
+        """AppleScript timeouts should surface as user-facing opener errors."""
+        import subprocess
+
+        from cc_branch.openers.terminal import _run_osascript
+
+        with patch("cc_branch.openers.terminal.subprocess.run", side_effect=subprocess.TimeoutExpired(["osascript"], 10)):
+            with self.assertRaisesRegex(OpenerError, "AppleScript timed out"):
+                _run_osascript("tell application \"Terminal\" to activate", "Cannot open Terminal")
+
     def test_editor_opener_opens_project_folder(self):
         """VS Code opener should open the project folder without shell command injection."""
         with (
@@ -263,39 +332,37 @@ class OpenerTests(unittest.TestCase):
                     intent=OpenIntent(kind="attach_target", target="dev"),
                 )
 
-    def test_editor_workspace_file_opens_tasks_workspace(self):
-        """VS Code/Cursor workspace opens should expose cc-branch windows as tasks."""
-        import tempfile
-
+    def test_vscode_workspace_open_opens_folder_and_integrated_terminals(self):
+        """VS Code should open the real folder and automate integrated terminals on macOS."""
         from cc_branch.openers import open_workspace_file
 
-        with tempfile.TemporaryDirectory() as tmp:
-            cache_dir = Path(tmp)
-            with (
-                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
-                patch("cc_branch.openers.editors._cache_dir", return_value=cache_dir),
-                patch("cc_branch.openers.editors._popen") as popen,
-            ):
-                open_workspace_file(
-                    "vscode",
-                    cwd=Path("/tmp/demo"),
-                    commands=[
-                        OpenCommandSpec("dev:planner", Path("/tmp/demo"), "cc-branch attach dev:planner"),
-                        OpenCommandSpec("scratch:main", Path("/tmp/demo"), "zsh"),
-                    ],
-                )
+        with (
+            patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+            patch("cc_branch.openers.editors.sys.platform", "darwin"),
+            patch("cc_branch.openers.editors._popen") as popen,
+            patch("cc_branch.openers.editors.subprocess.run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            run.return_value.stderr = ""
+            open_workspace_file(
+                "vscode",
+                cwd=Path("/tmp/demo"),
+                commands=[
+                    OpenCommandSpec("dev:planner", Path("/tmp/demo"), "cc-branch attach dev:planner"),
+                    OpenCommandSpec("scratch:main", Path("/tmp/demo/subdir"), "zsh"),
+                ],
+            )
 
-            workspace_file = next((cache_dir / "editor-workspaces").glob("*.code-workspace"))
-            content = workspace_file.read_text(encoding="utf-8")
-            self.assertIn('"folders"', content)
-            self.assertIn('"runOn": "folderOpen"', content)
-            self.assertIn("cc-branch attach dev:planner", content)
-            self.assertIn("zsh", content)
-            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(workspace_file)])
+        self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(Path("/tmp/demo").resolve())])
+        script = "\n".join(run.call_args.args[0])
+        self.assertIn("Visual Studio Code", script)
+        self.assertIn('tell process "Code"', script)
+        self.assertIn("cc-branch attach dev:planner", script)
+        self.assertIn(f"cd {Path('/tmp/demo/subdir').resolve()} && zsh", script)
 
-    def test_editor_workspace_file_removes_stale_workspace_for_same_project(self):
-        """Old generated workspace files should not keep obsolete auto-run tasks around."""
-        import json
+    def test_vscode_workspace_open_does_not_create_generated_workspace_file_on_macos(self):
+        """The Explorer should show the real folder, not a generated .code-workspace wrapper."""
         import tempfile
 
         from cc_branch.openers import open_workspace_file
@@ -304,35 +371,42 @@ class OpenerTests(unittest.TestCase):
             cache_dir = Path(tmp)
             workspace_dir = cache_dir / "editor-workspaces"
             workspace_dir.mkdir()
-            stale = workspace_dir / "demo-vscode-old.code-workspace"
-            stale.write_text(
-                json.dumps({
-                    "folders": [{"path": "/tmp/demo"}],
-                    "tasks": {"version": "2.0.0", "tasks": [{"label": "cc-branch: dev:old"}]},
-                }),
-                encoding="utf-8",
-            )
-            unrelated = workspace_dir / "demo-vscode-other.code-workspace"
-            unrelated.write_text(
-                json.dumps({
-                    "folders": [{"path": "/tmp/other/demo"}],
-                    "tasks": {"version": "2.0.0", "tasks": [{"label": "cc-branch: keep"}]},
-                }),
-                encoding="utf-8",
-            )
-            malformed = workspace_dir / "demo-vscode-malformed.code-workspace"
-            malformed.write_text(
-                json.dumps({
-                    "folders": [{"path": ""}],
-                    "tasks": {"version": "2.0.0", "tasks": [{"label": "cc-branch: keep"}]},
-                }),
-                encoding="utf-8",
-            )
-
             with (
                 patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors.sys.platform", "darwin"),
                 patch("cc_branch.openers.editors._cache_dir", return_value=cache_dir),
                 patch("cc_branch.openers.editors._popen"),
+                patch("cc_branch.openers.editors.subprocess.run") as run,
+            ):
+                run.return_value.returncode = 0
+                run.return_value.stdout = ""
+                run.return_value.stderr = ""
+                open_workspace_file(
+                    "vscode",
+                    cwd=Path("/tmp/demo"),
+                    commands=[
+                        OpenCommandSpec("dev", Path("/tmp/demo"), "cc-branch attach dev"),
+                    ],
+                )
+
+            self.assertEqual(list(workspace_dir.glob("*.code-workspace")), [])
+
+    def test_vscode_workspace_open_does_not_create_generated_workspace_file_on_linux(self):
+        """Non-macOS editor opens should still use the real folder, not a generated wrapper."""
+        import tempfile
+
+        from cc_branch.openers import open_workspace_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            workspace_dir = cache_dir / "editor-workspaces"
+            workspace_dir.mkdir()
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors.sys.platform", "linux"),
+                patch("cc_branch.openers.editors._cache_dir", return_value=cache_dir),
+                patch("cc_branch.openers.editors._popen") as popen,
+                patch("cc_branch.openers.editors.subprocess.run") as run,
             ):
                 open_workspace_file(
                     "vscode",
@@ -342,46 +416,48 @@ class OpenerTests(unittest.TestCase):
                     ],
                 )
 
-            workspace_files = sorted(workspace_dir.glob("demo-vscode-*.code-workspace"))
-            self.assertFalse(stale.exists())
-            self.assertTrue(unrelated.exists())
-            self.assertTrue(malformed.exists())
-            self.assertEqual(len(workspace_files), 3)
+            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(Path("/tmp/demo").resolve())])
+            run.assert_not_called()
+            self.assertEqual(list(workspace_dir.glob("*.code-workspace")), [])
 
-    def test_cursor_workspace_file_opens_new_window(self):
-        """Cursor should receive the generated workspace file, not just the project folder."""
-        import tempfile
-
+    def test_cursor_workspace_open_opens_folder_and_integrated_terminal(self):
+        """Cursor should open the real folder and create integrated terminals."""
         from cc_branch.openers import open_workspace_file
 
-        with tempfile.TemporaryDirectory() as tmp:
-            cache_dir = Path(tmp)
-            with (
-                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/cursor"),
-                patch("cc_branch.openers.editors._cache_dir", return_value=cache_dir),
-                patch("cc_branch.openers.editors._popen") as popen,
-            ):
-                open_workspace_file(
-                    "cursor",
-                    cwd=Path("/tmp/demo"),
-                    commands=[
-                        OpenCommandSpec("dev:planner", Path("/tmp/demo"), "/repo/bin/cc-branch attach dev:planner"),
-                    ],
-                )
+        with (
+            patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/cursor"),
+            patch("cc_branch.openers.editors.sys.platform", "darwin"),
+            patch("cc_branch.openers.editors._popen") as popen,
+            patch("cc_branch.openers.editors.subprocess.run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            run.return_value.stderr = ""
+            open_workspace_file(
+                "cursor",
+                cwd=Path("/tmp/demo"),
+                commands=[
+                    OpenCommandSpec("dev:planner", Path("/tmp/demo"), "/repo/bin/cc-branch attach dev:planner"),
+                ],
+            )
 
-            workspace_file = next((cache_dir / "editor-workspaces").glob("*.code-workspace"))
-            content = workspace_file.read_text(encoding="utf-8")
-            self.assertIn('"label": "cc-branch: dev:planner"', content)
-            self.assertIn("/repo/bin/cc-branch attach dev:planner", content)
-            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/cursor", "-n", str(workspace_file)])
+        self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/cursor", "-n", str(Path("/tmp/demo").resolve())])
+        script = "\n".join(run.call_args.args[0])
+        self.assertIn("Cursor", script)
+        self.assertIn("/repo/bin/cc-branch attach dev:planner", script)
 
     def test_warp_workspace_dashboard_uses_launch_configuration_uri(self):
         """Warp should run workspace commands through a launch configuration."""
+        import tempfile
+
         with (
             patch("cc_branch.openers.dispatcher._opener_info") as opener_info,
-            patch("cc_branch.openers.warp._warp_launch_config_dir", return_value=Path("/tmp/cc-branch-test-cache")),
+            patch("cc_branch.openers.warp._warp_launch_config_dir") as launch_dir,
             patch("cc_branch.openers.warp.WarpLauncher.open_uri") as open_uri,
         ):
+            tmp = tempfile.TemporaryDirectory()
+            self.addCleanup(tmp.cleanup)
+            launch_dir.return_value = Path(tmp.name) / "launch_configurations"
             opener_info.return_value = type(
                 "Info",
                 (),
@@ -399,44 +475,10 @@ class OpenerTests(unittest.TestCase):
                 intent=OpenIntent(kind="workspace_dashboard"),
             )
 
-        uri = open_uri.call_args.args[0]
-        self.assertTrue(uri.startswith("warp://launch/"))
-        self.assertIn("cc-branch-test-cache", uri)
-        self.assertNotIn("%2Ftmp", uri)
-
-    def test_warp_launch_uri_uses_app_bundle_on_macos(self):
-        """macOS should open Warp launch URIs with the detected app bundle."""
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp:
-            app_path = Path(tmp) / "Warp.app"
-            app_path.mkdir()
-            cache_dir = Path(tmp) / "launch_configurations"
-            with (
-                patch("cc_branch.openers.dispatcher._opener_info") as opener_info,
-                patch("cc_branch.openers.warp.sys.platform", "darwin"),
-                patch("cc_branch.openers.warp._find_macos_app", return_value=app_path),
-                patch("cc_branch.openers.warp._warp_launch_config_dir", return_value=cache_dir),
-                patch("cc_branch.openers.warp._popen") as popen,
-            ):
-                opener_info.return_value = type(
-                    "Info",
-                    (),
-                    {
-                        "id": "warp",
-                        "available": True,
-                        "reason": None,
-                        "capabilities": ["run_command", "layout"],
-                    },
-                )()
-                open_command_layout(
-                    "warp",
-                    [OpenCommandSpec("dev", Path("/tmp/demo"), "npm run dev")],
-                )
-
-            args = popen.call_args.args[0]
-            self.assertEqual(args[0:3], ["open", "-a", str(app_path)])
-            self.assertTrue(args[3].startswith("warp://launch/"))
+        args = open_uri.call_args.args[0]
+        self.assertTrue(args.startswith("warp://launch/"))
+        self.assertEqual(args, "warp://launch/CC%20Branch%20Dashboard")
+        self.assertNotIn("%C2%B7", args)
 
     def test_warp_layout_writes_multiple_commands_into_one_launch_config(self):
         """Pure terminal workspaces should be one Warp layout, not many windows."""
@@ -469,13 +511,123 @@ class OpenerTests(unittest.TestCase):
 
             uri = open_uri.call_args.args[0]
             self.assertTrue(uri.startswith("warp://launch/"))
+            self.assertEqual(uri, "warp://launch/CC%20Branch%20demo")
+            self.assertNotIn("%C2%B7", uri)
             config_path = next(cache_dir.glob("*.yaml"))
             content = config_path.read_text(encoding="utf-8")
+            self.assertEqual(config_path.name, "cc-branch-demo.yaml")
+            self.assertIn('name: "CC Branch demo"', content)
             self.assertIn("panes:", content)
             self.assertEqual(content.count("split_direction:"), 2)
             self.assertIn('exec: "npm run dev"', content)
             self.assertIn('exec: "python worker.py"', content)
             self.assertIn('exec: "tail -f app.log"', content)
+
+    def test_warp_layout_uses_stable_project_name_and_removes_legacy_hash_configs(self):
+        """Repeated Warp opens should reuse a stable launch config instead of visible cache hashes."""
+        import tempfile
+        from cc_branch.openers.dispatcher import open_command_layout
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            (cache_dir / "cc-branch-demo-123456789abc.yaml").write_text("old", encoding="utf-8")
+            (cache_dir / "cc-branch-demo.yaml-123456789abc.yaml").write_text("old", encoding="utf-8")
+            with (
+                patch("cc_branch.openers.warp._warp_launch_config_dir", return_value=cache_dir),
+                patch("cc_branch.openers.dispatcher._opener_info") as opener_info,
+                patch("cc_branch.openers.warp.WarpLauncher.open_uri") as open_uri,
+            ):
+                opener_info.return_value = type(
+                    "Info",
+                    (),
+                    {
+                        "available": True,
+                        "reason": None,
+                        "capabilities": ["run_command", "layout"],
+                    },
+                )()
+                open_command_layout(
+                    "warp",
+                    [
+                        OpenCommandSpec("dev", Path("/tmp/demo"), "cc-branch attach dev"),
+                        OpenCommandSpec("scratch", Path("/tmp/demo"), "npm run dev"),
+                    ],
+                )
+
+            self.assertFalse((cache_dir / "cc-branch-demo-123456789abc.yaml").exists())
+            config_path = cache_dir / "cc-branch-demo.yaml"
+            self.assertTrue(config_path.exists())
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('name: "CC Branch demo"', content)
+            self.assertIn("panes:", content)
+            self.assertEqual(open_uri.call_args.args[0], "warp://launch/CC%20Branch%20demo")
+
+    def test_warp_launch_uri_uses_config_name(self):
+        """Warp launches execute by configuration name on the local Warp build."""
+        import tempfile
+
+        from cc_branch.openers.dispatcher import open_command_layout
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            with (
+                patch("cc_branch.openers.warp._warp_launch_config_dir", return_value=cache_dir),
+                patch("cc_branch.openers.dispatcher._opener_info") as opener_info,
+                patch("cc_branch.openers.warp.WarpLauncher.open_uri") as open_uri,
+            ):
+                opener_info.return_value = type(
+                    "Info",
+                    (),
+                    {
+                        "available": True,
+                        "reason": None,
+                        "capabilities": ["run_command", "layout"],
+                    },
+                )()
+                open_command_layout(
+                    "warp",
+                    [OpenCommandSpec("dev", Path("/tmp/demo"), "zsh")],
+                )
+
+            uri = open_uri.call_args.args[0]
+            self.assertEqual(uri, "warp://launch/CC%20Branch%20demo")
+            self.assertNotIn("%2F", uri)
+
+    def test_warp_project_open_uses_launch_config_with_cwd(self):
+        """Warp project opens should create a real shell in the project directory."""
+        with (
+            patch("cc_branch.openers.registry.shutil.which", return_value="/usr/bin/open"),
+            patch("cc_branch.openers.dispatcher._opener_info") as opener_info,
+            patch("cc_branch.openers.warp._warp_launch_config_dir") as launch_dir,
+            patch("cc_branch.openers.warp.WarpLauncher.open_uri") as open_uri,
+        ):
+            import tempfile
+
+            tmp = tempfile.TemporaryDirectory()
+            self.addCleanup(tmp.cleanup)
+            launch_dir.return_value = Path(tmp.name)
+            opener_info.return_value = type(
+                "Info",
+                (),
+                {
+                    "available": True,
+                    "reason": None,
+                    "capabilities": ["open_project", "run_command", "layout"],
+                },
+            )()
+            open_with(
+                "warp",
+                cwd=Path("/tmp/demo project"),
+                cli="cc-branch",
+                intent=OpenIntent(kind="project_folder"),
+            )
+
+        uri = open_uri.call_args.args[0]
+        self.assertEqual(uri, "warp://launch/CC%20Branch%20Project%20demo%20project")
+        config_path = Path(tmp.name) / "cc-branch-project-demo-project.yaml"
+        content = config_path.read_text(encoding="utf-8")
+        self.assertIn("demo project", content)
+        self.assertIn('exec: ":"', content)
 
     def test_unknown_opener_is_rejected(self):
         """API callers should only reference registered openers."""

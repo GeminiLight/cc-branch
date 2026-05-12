@@ -4,15 +4,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  CircleStop,
-  Copy,
+  Eye,
   FolderGit2,
   Monitor,
   OctagonAlert,
   PencilLine,
-  Play,
   RefreshCw,
-  RotateCcw,
   ExternalLink,
   SquareTerminal,
   Wand2,
@@ -27,6 +24,11 @@ import Modal from "./ui/Modal";
 import SetupGuide from "./SetupGuide";
 import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
+import claudeIconUrl from "../assets/agent-icons/claude.svg";
+import cursorIconUrl from "../assets/agent-icons/cursor.svg";
+import geminiIconUrl from "../assets/agent-icons/gemini.svg";
+import kimiIconUrl from "../assets/agent-icons/kimi.svg";
+import openaiIconUrl from "../assets/agent-icons/openai.svg";
 
 interface DashboardProps {
   api?: unknown;
@@ -80,48 +82,21 @@ function canOfferWorkspaceOpen(opener: OpenerInfo | undefined): boolean {
 }
 
 function workspaceOpenLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
-  if (opener.kind === "editor" && openerSupports(opener, "open_project")) {
-    return t("openProjectIn", { app: opener.label });
-  }
-  return t("openWorkspaceIn", { app: opener.label });
+  return t("launchWorkspaceIn", { app: opener.label });
 }
 
-function workspaceOpenButtonLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
-  return opener.kind === "editor" && openerSupports(opener, "open_project")
-    ? t("openProject")
-    : t("openWorkspace");
+function workspaceOpenButtonLabel(t: (key: string, vars?: Record<string, string | number>) => string): string {
+  return t("launch");
 }
 
-function StatusBadge({ status }: { status: SlotInfo["status"] }) {
-  const isRunning = status === "running";
-  const isExternal = status === "external";
-  const { t } = useI18n();
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
-        isRunning
-          ? "success-bg success"
-          : isExternal
-            ? "accent-bg accent"
-          : "text-tertiary bg-[var(--border-subtle)]"
-      }`}
-      title={isExternal ? t("externalTerminal") : undefined}
-    >
-      {isRunning ? (
-        <Activity className="w-3 h-3" />
-      ) : isExternal ? (
-        <Monitor className="w-3 h-3" />
-      ) : (
-        <CircleStop className="w-3 h-3" />
-      )}
-      {isRunning ? t("running") : isExternal ? t("openOnDemand") : t("stopped")}
-    </span>
-  );
+function isActionableSyncStatus(status?: SyncStatus): boolean {
+  return status === "changed" || status === "missing" || status === "untracked";
 }
 
-function SyncBadge({ status }: { status?: SyncStatus }) {
+function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: SlotInfo["status"] }) {
   const { t } = useI18n();
   if (!status || status === "current" || status === "external") return null;
+  if (status === "missing" && slotStatus && slotStatus !== "running") return null;
   const isActionable = status === "changed" || status === "missing" || status === "untracked";
   return (
     <span
@@ -142,14 +117,83 @@ function displayAgentName(agent: string): string {
   return agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : agent;
 }
 
+function paneCountLabel(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
+  return t(count === 1 ? "paneCountShortOne" : "paneCountShort", { count });
+}
+
+function tabPaneCount(slot: SlotInfo): number {
+  return slot.runtime === "tmux" ? 1 : 1;
+}
+
+function tabDisplayName(t: (key: string, vars?: Record<string, string | number>) => string, index: number): string {
+  return t("tabDisplayName", { index: index + 1 });
+}
+
+function normalizeAgentKey(agent: string | null | undefined): string {
+  const value = (agent || "").toLowerCase();
+  const compact = value.replace(/[\s_-]+/g, "");
+  if (value.includes("codex")) return "codex";
+  if (compact.includes("claude") || compact.includes("cloudcode") || compact.includes("anthropic")) return "claude";
+  if (compact.includes("gemini") || compact.includes("antigravity")) return "gemini";
+  if (compact.includes("cursor")) return "cursor";
+  if (compact.includes("kimi")) return "kimi";
+  return value;
+}
+
+function agentIdentity(agent: string | null | undefined) {
+  const key = normalizeAgentKey(agent);
+  if (key === "codex") return { label: "Codex", initials: "Cx", iconUrl: openaiIconUrl, tone: "bg-white text-zinc-950 border-zinc-200 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300" };
+  if (key === "claude") return { label: "Claude", initials: "Cl", iconUrl: claudeIconUrl, tone: "bg-[#f4eee7] text-[#8a4b25] border-[#dfcabc] dark:bg-[#2a1d17] dark:text-[#f2c6a4] dark:border-[#5f3b2a]" };
+  if (key === "gemini") return { label: "Gemini", initials: "G", iconUrl: geminiIconUrl, tone: "bg-[#eef4ff] text-[#2459c7] border-[#c8d9ff] dark:bg-[#101a2e] dark:text-[#9bbcff] dark:border-[#293d66]" };
+  if (key === "cursor") return { label: "Cursor", initials: "Cu", iconUrl: cursorIconUrl, tone: "bg-zinc-950 text-white border-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300" };
+  if (key === "kimi") return { label: "Kimi", initials: "Ki", iconUrl: kimiIconUrl, tone: "bg-[#f2efff] text-[#5d48b1] border-[#d7cff7] dark:bg-[#191329] dark:text-[#c8bbff] dark:border-[#3e3268]" };
+  if (agent) {
+    const label = displayAgentName(agent);
+    return { label, initials: label.slice(0, 2) || "A", tone: "bg-[var(--bg-elevated)] text-secondary border-default" };
+  }
+  return { label: "Shell", initials: "$", tone: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]" };
+}
+
+function AgentMark({ agent }: { agent?: string | null }) {
+  const identity = agentIdentity(agent);
+  return (
+    <span
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border text-[9px] font-bold ${identity.tone}`}
+      title={identity.label}
+      aria-label={identity.label}
+    >
+      {"iconUrl" in identity && identity.iconUrl ? (
+        <img src={identity.iconUrl} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
+      ) : (
+        identity.initials
+      )}
+    </span>
+  );
+}
+
+function PaneStatus({ status }: { status: SlotInfo["status"] }) {
+  const { t } = useI18n();
+  const isRunning = status === "running";
+  const isExternal = status === "external";
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${isRunning ? "success" : "text-tertiary"}`}>
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          isRunning ? "bg-[var(--success)]" : isExternal ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"
+        }`}
+        aria-hidden="true"
+      />
+      {isRunning ? t("running") : isExternal ? t("ready") : t("notStarted")}
+    </span>
+  );
+}
+
 function windowSummary(
   t: (key: string, vars?: Record<string, string | number>) => string,
   window: SlotInfo["windows"][number]
 ): string {
   if (window.agent) {
-    return `${displayAgentName(window.agent)} · ${
-      window.session_id ? t("sessionBound") : t("newSessionOnStart")
-    }`;
+    return window.session_id ? t("sessionBound") : t("newSessionOnStart");
   }
   return t("commandSummary", { command: window.command || "-" });
 }
@@ -160,85 +204,26 @@ function terminalTaskSummary(
 ): string {
   if (!window) return t("terminalTask");
   if (window.agent) {
-    return `${displayAgentName(window.agent)} · ${t("terminalTask")} · ${
-      window.session_id ? t("sessionBound") : t("newSessionOnStart")
-    }`;
+    return window.session_id ? t("sessionBound") : t("newSessionOnStart");
   }
-  return `${t("terminalTask")} · ${t("commandSummary", { command: window.command || "-" })}`;
-}
-
-function windowCountLabel(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
-  return t(count === 1 ? "windowCountShortOne" : "windowCountShort", { count });
-}
-
-function detailValue(value: string | null | undefined): string {
-  return value && value.trim() ? value : "-";
-}
-
-function CopyValueButton({
-  value,
-  label,
-  onCopy,
-}: {
-  value: string;
-  label: string;
-  onCopy: (value: string, label: string) => void;
-}) {
-  const disabled = value === "-";
-  const { t } = useI18n();
-  return (
-    <button
-      type="button"
-      onClick={() => onCopy(value, label)}
-      disabled={disabled}
-      className="icon-touch sm:min-h-7 sm:min-w-7 rounded text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-      aria-label={t("copyValue", { name: label })}
-      title={t("copyValue", { name: label })}
-    >
-      <Copy className="w-3.5 h-3.5" />
-    </button>
-  );
-}
-
-function DetailItem({
-  label,
-  value,
-  mono = false,
-  onCopy,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  onCopy?: (value: string, label: string) => void;
-}) {
-  return (
-    <div className="min-w-0 rounded-md bg-[var(--bg-hover)]/55 px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{label}</p>
-      <div className="mt-1 flex items-center gap-1.5 min-w-0">
-        <p className={`text-[12px] text-secondary truncate ${mono ? "font-mono" : ""}`} title={value}>
-          {value}
-        </p>
-        {onCopy && <CopyValueButton value={value} label={label} onCopy={onCopy} />}
-      </div>
-    </div>
-  );
+  return t("commandSummary", { command: window.command || "-" });
 }
 
 const SlotCard = memo(function SlotCard({
   slot,
+  index,
   onRunAction,
-  onConfirmAction,
+  onRepairTarget,
   onEditTarget,
-  onCopy,
   busy,
   openerId,
   tmuxRuntimeUnavailable,
 }: {
   slot: SlotInfo;
+  index: number;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
-  onConfirmAction: (action: WorkspaceAction, target: string | undefined, label: string) => void;
+  onRepairTarget: (target: string) => void;
   onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
-  onCopy: (value: string, label: string) => void;
   busy: boolean;
   openerId: string;
   tmuxRuntimeUnavailable: boolean;
@@ -247,291 +232,241 @@ const SlotCard = memo(function SlotCard({
   const { t } = useI18n();
   const slotTarget = slot.name;
   const slotRuntimeUnavailable = slot.runtime === "tmux" && tmuxRuntimeUnavailable;
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const primaryActionLabel = t("open");
+  const paneActionClassName = "icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50";
+  const primaryWindow = slot.windows[0];
+  const paneCount = tabPaneCount(slot);
+  const tabName = slot.name || tabDisplayName(t, index);
+  const terminalSummary = terminalTaskSummary(t, primaryWindow);
+  const internalWindowCount = slot.runtime === "tmux" ? slot.windows.length : 0;
+  const slotNeedsAction = isActionableSyncStatus(slot.sync_status) || slot.windows.some((w) => isActionableSyncStatus(w.sync_status));
+  const primaryWindowNeedsAction = isActionableSyncStatus(primaryWindow?.sync_status) || (slot.runtime === "terminal" && isActionableSyncStatus(slot.sync_status));
 
-  if (slot.runtime === "terminal") {
-    const primaryWindow = slot.windows[0];
-    return (
-      <div
-        className={`surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out hover:shadow-md hover:border-[var(--border-strong)] ${
-          isRunning ? "border-[var(--accent-border)] shadow-sm" : "border-default"
-        }`}
-      >
-        <div
-          className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            isRunning ? "accent-bg" : "surface-elevated"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setDetailsOpen((open) => !open)}
-            className="flex items-center gap-3 min-w-0 text-left rounded-md -m-1 p-1 hover:surface-hover transition-colors"
-            aria-expanded={detailsOpen}
-            aria-label={detailsOpen ? t("hideDetails") : t("showDetails")}
+  return (
+    <div
+      className={`relative grid grid-cols-1 lg:grid-cols-[154px_minmax(0,1fr)] surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out ${
+        slotNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_3px_var(--warning-bg)]" : isRunning ? "border-[var(--accent-border)]" : "border-default"
+      }`}
+    >
+      <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${isRunning ? "bg-[var(--success)]" : "bg-[var(--border-subtle)]"}`} aria-hidden="true" />
+      <div className="bg-[var(--bg-card)]/70 px-4 py-3 border-b lg:border-b-0 lg:border-r border-subtle">
+        <div className="flex lg:flex-col gap-3 min-w-0">
+          <div
+            className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 ${
+              isRunning
+                ? "bg-[var(--bg-card)] border-[var(--accent-border)]"
+                : "bg-transparent border-default"
+            }`}
           >
-            <div
-              className={`w-9 h-9 rounded-md border flex items-center justify-center shrink-0 ${
-                isRunning
-                  ? "bg-[var(--bg-card)] border-[var(--accent-border)]"
-                  : "bg-[var(--bg-card)] border-default"
-              }`}
-            >
-              <SquareTerminal
-                className={`w-4 h-4 shrink-0 ${
-                  isRunning ? "text-[var(--accent)]" : "text-tertiary"
-                }`}
-              />
+            <Monitor className={`w-4 h-4 shrink-0 ${isRunning ? "text-[var(--accent)]" : "text-tertiary"}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-tertiary">
+                {t("tabLabel")}
+              </span>
+              <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
+                {tabName}
+              </h3>
+              <SyncBadge status={slot.sync_status} slotStatus={slot.status} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
-                  {slot.name}
-                </h3>
-                <StatusBadge status={slot.status} />
-                <SyncBadge status={slot.sync_status} />
-              </div>
-              <p
-                className="text-[11px] text-tertiary mt-0.5 truncate"
-                title={primaryWindow?.session_id || primaryWindow?.command}
-              >
-                {terminalTaskSummary(t, primaryWindow)}
-              </p>
-            </div>
-            <ChevronDown className={`w-3.5 h-3.5 text-tertiary shrink-0 transition-transform ${detailsOpen ? "" : "-rotate-90"}`} />
-          </button>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
-              disabled={busy}
-              className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              aria-label={`${t("openTerminal")} ${slotTarget}`}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              {t("open")}
-            </button>
-            {onEditTarget && (
-              <button
-                type="button"
-                onClick={() => onEditTarget({ slotName: slot.name })}
-                className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center gap-1.5"
-                aria-label={t("editSlotNamed", { name: slotTarget })}
-                title={t("editSlotNamed", { name: slotTarget })}
-              >
-                <PencilLine className="w-3.5 h-3.5" />
-                {t("edit")}
-              </button>
-            )}
+            <p className="text-[11px] text-tertiary mt-0.5 truncate">
+              <span>{paneCountLabel(t, paneCount)}</span>
+              {internalWindowCount > 0 && (
+                <>
+                  <span className="text-muted mx-1">·</span>
+                  <span>{t("tmuxWindowCount", { count: internalWindowCount })}</span>
+                </>
+              )}
+            </p>
           </div>
         </div>
-        {detailsOpen && (
-          <div className="border-t border-default bg-[var(--bg-card)] px-4 py-3 animate-stagger">
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)] gap-3">
-              <div className="rounded-md bg-[var(--accent-bg)]/45 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("runtimeDetails")}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <StatusBadge status={primaryWindow?.status || slot.status} />
-                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold bg-[var(--bg-card)] text-secondary">
-                    {displayAgentName(primaryWindow?.agent || "") || t("noAgent")}
-                  </span>
+      </div>
+
+      <div className="bg-[var(--bg-card)] p-3">
+        {slot.runtime === "terminal" ? (
+          <div className={`rounded-md border bg-[var(--bg-elevated)] px-3 py-2.5 ${
+            primaryWindowNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
+          }`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                  <SquareTerminal className="w-4 h-4 shrink-0" />
                 </div>
-                <p className="mt-2 text-[11px] text-tertiary truncate" title={primaryWindow?.label || slot.name}>
-                  {primaryWindow?.label || slot.name}
-                </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <AgentMark agent={primaryWindow?.agent} />
+                    <span className="text-[13px] font-semibold text-primary">{t("terminalLabel")}</span>
+                    <PaneStatus status={primaryWindow?.status || slot.status} />
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-tertiary truncate" title={primaryWindow?.session_id || primaryWindow?.command || undefined}>
+                    {terminalSummary}
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                <div className="md:col-span-2 xl:col-span-3 rounded-md bg-[var(--bg-hover)]/55 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("command")}</p>
-                  <div className="mt-1 flex items-center gap-2 min-w-0">
-                    <code className="min-w-0 flex-1 truncate text-[12px] text-primary" title={detailValue(primaryWindow?.command)}>
-                      {detailValue(primaryWindow?.command)}
-                    </code>
-                    <CopyValueButton value={detailValue(primaryWindow?.command)} label={t("command")} onCopy={onCopy} />
+              <div className="flex items-center justify-end gap-1 shrink-0">
+                {primaryWindowNeedsAction && (
+                  <button
+                    type="button"
+                    onClick={() => onRepairTarget(slotTarget)}
+                    disabled={busy || slotRuntimeUnavailable}
+                    className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
+                    title={t("repairItem")}
+                    aria-label={t("repairItem")}
+                  >
+                    {t("repair")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
+                  disabled={busy || slotRuntimeUnavailable}
+                  className={paneActionClassName}
+                  aria-label={`${primaryActionLabel} ${slotTarget}`}
+                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : primaryActionLabel}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+                {onEditTarget && (
+                  <button
+                    type="button"
+                    onClick={() => onEditTarget({ slotName: slot.name })}
+                    className={paneActionClassName}
+                    aria-label={t("editSlotNamed", { name: slotTarget })}
+                    title={t("editSlotNamed", { name: slotTarget })}
+                  >
+                    <PencilLine className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={`rounded-md border bg-[var(--bg-elevated)] px-3 py-2.5 ${
+            slotNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                  <Monitor className="w-4 h-4 shrink-0" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[13px] font-semibold text-primary">{t("tmuxPane")}</span>
+                    <PaneStatus status={slot.status} />
+                  </div>
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-tertiary">
+                    <span>{t("tmuxSession")}</span>
+                    <span className="text-muted">·</span>
+                    <span className="truncate font-mono" title={slot.session_name}>{slot.session_name}</span>
                   </div>
                 </div>
-                <DetailItem label={t("sessionId")} value={detailValue(primaryWindow?.session_id)} mono onCopy={onCopy} />
-                <DetailItem label={t("workingDirectory")} value={detailValue(primaryWindow?.cwd)} mono onCopy={onCopy} />
-                <DetailItem label={t("windowName")} value={detailValue(primaryWindow?.name)} onCopy={onCopy} />
+              </div>
+              <div className="flex items-center justify-end gap-1">
+                {isActionableSyncStatus(slot.sync_status) && !slot.windows.some((w) => isActionableSyncStatus(w.sync_status)) && (
+                  <button
+                    type="button"
+                    onClick={() => onRepairTarget(slotTarget)}
+                    disabled={busy || slotRuntimeUnavailable}
+                    className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
+                    title={t("repairItem")}
+                    aria-label={t("repairItem")}
+                  >
+                    {t("repair")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
+                  disabled={busy || slotRuntimeUnavailable}
+                  className={paneActionClassName}
+                  aria-label={`${primaryActionLabel} ${slotTarget}`}
+                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : primaryActionLabel}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+                {onEditTarget && (
+                  <button
+                    type="button"
+                    onClick={() => onEditTarget({ slotName: slot.name })}
+                    className={paneActionClassName}
+                    aria-label={t("editSlotNamed", { name: slotTarget })}
+                    title={t("editSlotNamed", { name: slotTarget })}
+                  >
+                    <PencilLine className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-2 rounded-md border border-subtle bg-[var(--bg-card)]">
+              <div className="flex items-center justify-between gap-2 border-b border-subtle px-2.5 py-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("tmuxWindows")}</p>
+                <span className="text-[10px] text-muted">{t("tmuxWindowCount", { count: slot.windows.length })}</span>
+              </div>
+              <div className="divide-y divide-[var(--border-subtle)]">
+                {slot.windows.map((w) => {
+                  const windowTarget = `${slot.name}:${w.name}`;
+                  const windowNeedsAction = isActionableSyncStatus(w.sync_status);
+                  return (
+                    <div
+                      key={w.name}
+                      className={`flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-2.5 py-2 ${
+                        windowNeedsAction ? "bg-[var(--warning-bg)]/45 ring-1 ring-inset ring-[var(--warning)]/25" : ""
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <AgentMark agent={w.agent} />
+                          <span className="text-[12px] font-semibold text-primary truncate">{w.name}</span>
+                          <SyncBadge status={w.sync_status} slotStatus={slot.status} />
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-tertiary truncate" title={w.session_id || w.command}>
+                          {windowSummary(t, w)}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-end gap-1 shrink-0">
+                        {windowNeedsAction && (
+                          <button
+                            type="button"
+                            onClick={() => onRepairTarget(windowTarget)}
+                            disabled={busy || slotRuntimeUnavailable}
+                            className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
+                            title={t("repairItem")}
+                            aria-label={t("repairItem")}
+                          >
+                            {t("repair")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
+                          disabled={busy || slotRuntimeUnavailable}
+                          className={paneActionClassName}
+                          aria-label={`${primaryActionLabel} ${windowTarget}`}
+                          title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${primaryActionLabel} ${windowTarget}`}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                        {onEditTarget && (
+                          <button
+                            type="button"
+                            onClick={() => onEditTarget({ slotName: slot.name, windowName: w.name })}
+                            className={paneActionClassName}
+                            aria-label={t("editWindowNamed", { name: windowTarget })}
+                            title={t("editWindowNamed", { name: windowTarget })}
+                          >
+                            <PencilLine className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out hover:shadow-md hover:border-[var(--border-strong)] ${
-        isRunning ? "border-[var(--accent-border)] shadow-sm" : "border-default"
-      }`}
-    >
-      {/* Header */}
-      <div
-        className={`px-4 py-3 border-b border-default flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-          isRunning ? "accent-bg" : "surface-elevated"
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className={`w-9 h-9 rounded-md border flex items-center justify-center shrink-0 ${
-              isRunning
-                ? "bg-[var(--bg-card)] border-[var(--accent-border)]"
-                : "bg-[var(--bg-card)] border-default"
-            }`}
-          >
-            <Monitor
-              className={`w-4 h-4 shrink-0 ${
-                isRunning ? "text-[var(--accent)]" : "text-tertiary"
-              }`}
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
-                {slot.name}
-              </h3>
-              <StatusBadge status={slot.status} />
-              <SyncBadge status={slot.sync_status} />
-            </div>
-            <p className="text-[11px] text-tertiary mt-0.5 truncate">
-              <span className="font-mono">{slot.session_name}</span>
-              <span className="text-muted mx-1">·</span>
-              <span>{t("tmuxSession")}</span>
-              <span className="text-muted mx-1">·</span>
-              <span>{windowCountLabel(t, slot.windows.length)}</span>
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isRunning ? (
-            <>
-              <button
-                type="button"
-                onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
-                disabled={busy || slotRuntimeUnavailable}
-                className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
-                aria-label={`${t("openTerminal")} ${slotTarget}`}
-                title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : undefined}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                {t("open")}
-              </button>
-              <div className="flex items-center gap-1 p-0.5 rounded-md border border-default surface-card">
-                <button
-                  type="button"
-                  onClick={() => onRunAction("restart", slotTarget, openerId)}
-                  disabled={busy || slotRuntimeUnavailable}
-                  className="icon-touch sm:min-h-9 sm:min-w-9 rounded text-[11px] font-medium text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                  aria-label={`${t("restart")} ${slotTarget}`}
-                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : t("restart")}
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onConfirmAction("stop", slotTarget, slotTarget)}
-                  disabled={busy || slotRuntimeUnavailable}
-                  className="icon-touch sm:min-h-9 sm:min-w-9 rounded text-[11px] font-medium danger hover:danger-bg transition-colors flex items-center justify-center disabled:opacity-50"
-                  aria-label={`${t("stop")} ${slotTarget}`}
-                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : t("stop")}
-                >
-                  <CircleStop className="w-4 h-4" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
-              disabled={busy || slotRuntimeUnavailable}
-              className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
-              aria-label={`${t("openTerminal")} ${slotTarget}`}
-              title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : undefined}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              {t("open")}
-            </button>
-          )}
-          {onEditTarget && (
-            <button
-              type="button"
-              onClick={() => onEditTarget({ slotName: slot.name })}
-              className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center gap-1.5"
-              aria-label={t("editSlotNamed", { name: slotTarget })}
-              title={t("editSlotNamed", { name: slotTarget })}
-            >
-              <PencilLine className="w-3.5 h-3.5" />
-              {t("edit")}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Windows */}
-      <div className="p-1.5 space-y-1">
-        {slot.windows.map((w) => {
-          const windowTarget = `${slot.name}:${w.name}`;
-          return (
-          <div
-            key={w.name}
-            className="group rounded-md border border-transparent px-2.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-[var(--accent-bg)] hover:border-[var(--accent-border)] focus-within:bg-[var(--accent-bg)] focus-within:border-[var(--accent-border)] transition-[background-color,border-color,box-shadow] duration-150"
-            role="listitem"
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-md border border-default bg-[var(--bg-elevated)] text-tertiary flex items-center justify-center shrink-0 group-hover:bg-[var(--bg-card)] group-hover:border-[var(--accent-border)] group-hover:text-[var(--accent)] group-hover:shadow-sm group-focus-within:bg-[var(--bg-card)] group-focus-within:border-[var(--accent-border)] group-focus-within:text-[var(--accent)] transition-[background-color,border-color,color,box-shadow] duration-150">
-                <SquareTerminal className="w-4 h-4 shrink-0" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-semibold text-primary">
-                    {w.name}
-                  </span>
-                  <SyncBadge status={w.sync_status} />
-                </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-[11px] text-tertiary truncate" title={w.session_id || w.command}>
-                    {windowSummary(t, w)}
-                  </p>
-                </div>
-                <div className="hidden lg:flex items-center gap-1.5 mt-1 min-w-0 text-[10px] text-tertiary font-mono">
-                  <span className="truncate max-w-[360px]" title={w.command || "-"}>
-                    {w.command || "-"}
-                  </span>
-                  <span className="text-muted">·</span>
-                  <span className="truncate max-w-[360px]" title={w.cwd}>
-                    {w.cwd}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 lg:justify-end">
-              {onEditTarget && (
-                <button
-                  type="button"
-                  onClick={() => onEditTarget({ slotName: slot.name, windowName: w.name })}
-                  className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default transition-colors flex items-center justify-center gap-1.5"
-                  aria-label={t("editWindowNamed", { name: windowTarget })}
-                  title={t("editWindowNamed", { name: windowTarget })}
-                >
-                  <PencilLine className="w-3.5 h-3.5" />
-                  <span>{t("edit")}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
-                disabled={busy || slotRuntimeUnavailable}
-                className="icon-touch sm:min-h-9 sm:min-w-9 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                aria-label={`${t("openTerminal")} ${windowTarget}`}
-                title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${t("openTerminal")} ${windowTarget}`}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -611,6 +546,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     );
   });
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slotsSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -662,20 +598,6 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     setPendingAction(null);
     setModalOpen(false);
   }, [pendingAction, runAction]);
-
-  const copyToClipboard = useCallback(async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      const textArea = document.createElement("textarea");
-      textArea.value = value;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-    }
-    toast.success(t("copiedValue", { name: label }));
-  }, [toast, t]);
 
   const [updateTime, setUpdateTime] = useState<number | null>(null);
   const lastUpdated = useRelativeTime(updateTime);
@@ -762,19 +684,16 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   }
 
   const runningCount = data.slots.filter((s) => s.status === "running").length;
-  const externalCount = data.slots.filter((s) => s.status === "external").length;
-  const totalWindows = data.slots.reduce((count, slot) => count + slot.windows.length, 0);
+  const totalWindows = data.slots.reduce((count, slot) => count + tabPaneCount(slot), 0);
   const hasTmuxSlots = data.slots.some((s) => s.runtime === "tmux");
-  const hasOnlyTerminalSlots = data.slots.every((s) => s.runtime === "terminal");
   const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
-  const canManageTmuxSlots = hasTmuxSlots && !tmuxRuntimeUnavailable;
-  const canRestartWorkspace = canManageTmuxSlots && runningCount > 0;
   const syncSummary = data.runtime_sync?.summary;
   const changedCount = syncSummary?.changed || 0;
   const missingCount = syncSummary?.missing || 0;
   const untrackedCount = syncSummary?.untracked || 0;
   const extraCount = syncSummary?.extra || 0;
   const syncCount = changedCount + missingCount + untrackedCount;
+  const issueCount = Math.max(syncCount + extraCount, tmuxRuntimeUnavailable ? 1 : 0);
   const runtimeSyncNotices = [
     tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : null,
     changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
@@ -782,30 +701,6 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
     extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
   ].filter((notice): notice is string => Boolean(notice));
-  const runtimeActionCount = syncCount + extraCount;
-  const workspaceStateLabel = tmuxRuntimeUnavailable
-    ? t("workspaceStateUnavailable")
-    : runtimeSyncNotices.length > 0
-      ? t("workspaceStateNeedsAttention")
-      : hasOnlyTerminalSlots
-        ? t("workspaceStateReady")
-      : runningCount > 0
-        ? t("workspaceStateRunning")
-        : t("workspaceStateStopped");
-  const workspaceStateClass = tmuxRuntimeUnavailable
-    ? "danger-bg danger"
-    : runtimeSyncNotices.length > 0
-      ? "bg-[var(--warning-bg)] text-[var(--warning)]"
-      : hasOnlyTerminalSlots
-        ? "accent-bg accent"
-      : runningCount > 0
-        ? "success-bg success"
-        : "bg-[var(--bg-hover)] text-tertiary";
-  const workspaceSyncLabel = runtimeActionCount > 0 || tmuxRuntimeUnavailable
-    ? t("workspaceSyncNeedsAction", { count: runtimeActionCount || 1 })
-    : hasOnlyTerminalSlots
-      ? t("workspaceSyncTerminalClean")
-    : t("workspaceSyncClean");
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
   const availableOpeners = openers.filter((opener) => opener.available);
@@ -815,9 +710,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     || availableWorkspaceOpeners.find((opener) => opener.id === defaultOpenerId)
     || availableWorkspaceOpeners[0]
     || DEFAULT_OPENER;
-  const projectDirectoryOpener = openerSupports(selectedOpener, "open_project")
-    ? selectedOpener
-    : availableOpeners.find((opener) => opener.id === "system-file-manager") || selectedOpener;
+  const projectDirectoryOpener = availableOpeners.find((opener) => opener.id === "system-file-manager");
   const openerItems = workspaceOpeners.map((opener) => ({
     label: opener.label,
     value: opener.id,
@@ -836,18 +729,29 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     runAction("open", undefined, selectedOpener.id, "workspace_dashboard");
   };
 
+  const viewIssues = () => {
+    slotsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const requestRepair = (target: string) => {
+    requestConfirmedAction("sync", target, t("repairItem"), {
+      confirmText: t("repair"),
+      description: t("repairConfirmDescription", { target }),
+    });
+  };
+
   const runProjectOpen = () => {
-    if (!openerSupports(projectDirectoryOpener, "open_project")) return;
+    if (!projectDirectoryOpener || !openerSupports(projectDirectoryOpener, "open_project")) return;
     runAction("open", undefined, projectDirectoryOpener.id, "project_folder");
   };
 
   return (
-    <div className="page-shell space-y-4">
+    <div className="page-shell space-y-3">
       {/* Project summary */}
-      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3">
+        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
               <FolderGit2 className="w-4 h-4 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
@@ -855,192 +759,139 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 <p className="text-[16px] font-semibold text-primary leading-tight truncate">
                   {data.project || data.project_name}
                 </p>
-                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${workspaceStateClass}`}>
-                  {workspaceStateLabel}
-                </span>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-tertiary">
-                <span>{t("workspaceCounts", { running: runningCount, total: data.slots.length, windows: totalWindows })}</span>
-                {externalCount > 0 && <span>{t("workspaceTerminalSummary", { count: externalCount })}</span>}
-                <span className={runtimeActionCount > 0 || tmuxRuntimeUnavailable ? "text-[var(--warning)] font-medium" : "success font-medium"}>
-                  {workspaceSyncLabel}
-                </span>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 w-full max-w-[460px]">
+                <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceRunning")}</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{runningCount}/{data.slots.length}</p>
+                </div>
+                <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceNeedsAction")}</p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <p className={`text-[13px] font-semibold ${issueCount > 0 ? "text-[var(--warning)]" : "text-primary"}`}>{issueCount}</p>
+                    {issueCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={viewIssues}
+                        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)] hover:bg-[var(--warning-bg)] transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        {t("viewIssues")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceWindows")}</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{totalWindows}</p>
+                </div>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-tertiary shrink-0 rounded-full bg-[var(--bg-card)]/70 px-3 py-1.5">
-            <span>{t("lastCheckedAt", { time: lastUpdated || "--" })}</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] items-start xl:items-center gap-3">
-          {/* Primary actions */}
-          <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 min-w-0 max-w-full">
-            <div className="inline-flex max-w-full rounded-md shadow-sm">
-              <button
-                type="button"
-                onClick={runWorkspaceOpen}
-                disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
-                className="control-touch min-w-0 px-4 rounded-l-md rounded-r-none text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50"
-                title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
-                aria-label={workspaceOpenLabel(t, selectedOpener)}
-              >
-                {actionMutation.isPending ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <ExternalLink className="w-4 h-4 shrink-0" />
-                )}
-                <span className="truncate">{workspaceOpenButtonLabel(t, selectedOpener)}</span>
-              </button>
-              <Dropdown
-                align="left"
-                value={selectedOpener.id}
-                items={openerItems}
-                onChange={setDefaultOpener}
-                ariaLabel={t("selectedTool", { app: selectedOpener.label })}
-                trigger={
-                  <span className="control-touch w-[168px] sm:w-[184px] min-w-0 px-3 rounded-r-md rounded-l-none border-l border-white/20 bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center justify-between gap-2">
-                    <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold">{selectedOpener.label}</span>
-                    <ChevronDown className="ml-auto w-3 h-3 shrink-0 opacity-80" />
-                  </span>
-                }
-              />
-            </div>
-            <button
-              type="button"
-              onClick={runProjectOpen}
-              disabled={actionMutation.isPending || !openerSupports(projectDirectoryOpener, "open_project")}
-              title={openerSupports(projectDirectoryOpener, "open_project") ? t("openProjectDirectory") : t("toolCannotOpenProject", { app: projectDirectoryOpener.label })}
-              aria-label={t("openProjectDirectory")}
-              className="control-touch px-4 rounded-md text-[13px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-all flex items-center justify-center sm:justify-start gap-2 disabled:opacity-45 disabled:cursor-not-allowed"
-            >
-              {actionMutation.isPending ? (
-                <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-              ) : (
-                <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
-              )}
-              <span className="truncate">{t("openProjectDirectory")}</span>
-            </button>
-            {syncCount > 0 && (
-              <button
-                type="button"
-                onClick={() => requestConfirmedAction("sync", undefined, t("runtimeChanges"))}
-                disabled={actionMutation.isPending || !canManageTmuxSlots}
-                className="control-touch px-4 rounded-md text-[13px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 shadow-sm max-w-full"
-                title={t("syncChangesHint", { count: syncCount })}
-                aria-label={t("syncChanges")}
-              >
-                <Wand2 className="w-4 h-4 shrink-0" />
-                <span className="truncate">{t("syncChanges")}</span>
-                <span className="rounded-md bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-bold">
-                  {syncCount}
-                </span>
-              </button>
-            )}
-            {extraCount > 0 && (
-              <button
-                type="button"
-                onClick={() => requestConfirmedAction("sync", undefined, t("extraWindows"), {
-                  danger: true,
-                  stopRemoved: true,
-                  description: t("stopExtraConfirmDescription", { count: extraCount }),
-                  confirmText: t("stopExtra"),
-                })}
-                disabled={actionMutation.isPending || !canManageTmuxSlots}
-                className="control-touch px-4 rounded-md text-[13px] font-semibold danger hover:danger-bg border border-transparent transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50 max-w-full"
-                title={t("stopExtraWindowsHint", { count: extraCount })}
-                aria-label={t("stopExtraWindows")}
-              >
-                <CircleStop className="w-4 h-4 shrink-0" />
-                <span className="truncate">{t("stopExtraWindows")}</span>
-                <span className="rounded-md bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-bold">
-                  {extraCount}
-                </span>
-              </button>
-            )}
-          </div>
-          {/* Secondary actions */}
-          <div className="flex flex-wrap items-center gap-2 justify-self-stretch xl:justify-self-end xl:justify-items-end">
-            <div className="flex items-center gap-1 p-1 rounded-md bg-[var(--bg-card)]/80 shadow-sm">
-              <button
-                type="button"
-                onClick={() => runAction("launch", undefined)}
-                disabled={actionMutation.isPending || !canManageTmuxSlots}
-                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                title={tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : hasTmuxSlots ? t("startOnly") : t("tmuxOnlyAction")}
-                aria-label={t("startOnly")}
-              >
-                <Play className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => runAction("restart", undefined)}
-                disabled={actionMutation.isPending || !canRestartWorkspace}
-                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50"
-                title={
-                  tmuxRuntimeUnavailable
-                    ? t("tmuxRuntimeUnavailable")
-                    : hasTmuxSlots
-                      ? runningCount > 0 ? t("restart") : t("restartNoRunning")
-                      : t("tmuxOnlyAction")
-                }
-                aria-label={t("restart")}
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingAction({ action: "stop", label: "workspace", danger: true });
-                  setModalOpen(true);
-                }}
-                disabled={actionMutation.isPending || runningCount === 0}
-                className="icon-touch rounded danger hover:danger-bg transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                title={t("stopWorkspace")}
-                aria-label={t("stopWorkspace")}
-              >
-                <CircleStop className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="icon-touch rounded text-secondary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center"
-                title={t("refresh")}
-                aria-label={t("refresh")}
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+          <div className="w-full xl:w-auto xl:min-w-[500px] flex flex-col items-stretch sm:items-end gap-2">
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-1.5">
+              <div className="flex items-center justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={runProjectOpen}
+                  disabled={actionMutation.isPending || !projectDirectoryOpener || !openerSupports(projectDirectoryOpener, "open_project")}
+                  title={projectDirectoryOpener
+                    ? (openerSupports(projectDirectoryOpener, "open_project")
+                      ? t("openProjectDirectory")
+                      : t("toolCannotOpenProject", { app: projectDirectoryOpener.label }))
+                    : t("systemFileManagerUnavailable")}
+                  aria-label={t("openProjectDirectory")}
+                  className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  {actionMutation.isPending ? (
+                    <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  ) : (
+                    <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>{t("openDirectory")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5"
+                  title={t("lastCheckedAt", { time: lastUpdated || "--" })}
+                  aria-label={t("refreshStatus")}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{t("refreshStatus")}</span>
+                </button>
+              </div>
+              <div className="inline-flex min-w-0 rounded-md">
+                <Dropdown
+                  align="left"
+                  value={selectedOpener.id}
+                  items={openerItems}
+                  onChange={setDefaultOpener}
+                  ariaLabel={t("selectedTool", { app: selectedOpener.label })}
+                  trigger={
+                    <span className="control-touch w-[112px] sm:w-[132px] min-w-0 px-2.5 rounded-l-md rounded-r-none surface-card border border-default border-r-0 text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors flex items-center justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-left text-[12px] font-medium">{selectedOpener.label}</span>
+                      <ChevronDown className="ml-auto w-3 h-3 shrink-0 opacity-70" />
+                    </span>
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={runWorkspaceOpen}
+                  disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
+                  className="control-touch min-w-[82px] px-3 rounded-r-md rounded-l-none text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] border border-[var(--accent)] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                  title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
+                  aria-label={workspaceOpenLabel(t, selectedOpener)}
+                >
+                  {actionMutation.isPending ? (
+                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                  )}
+                  <span className="truncate">{workspaceOpenButtonLabel(t)}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
         {lastActionMessage && (
-          <div className="flex items-center gap-2 rounded-md border border-[var(--success)]/10 success-bg px-2.5 py-2">
+          <div className="flex items-center gap-2 rounded-md success-bg px-2.5 py-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-[var(--success)] shrink-0" />
             <p className="text-[11px] font-medium text-secondary">{lastActionMessage}</p>
-          </div>
-        )}
-        {runtimeSyncNotices.length > 0 && (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--warning)]/10 bg-[var(--warning-bg)] px-2.5 py-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning)] shrink-0 mt-0.5" />
-            <ul className="space-y-0.5 text-[11px] font-medium text-secondary leading-relaxed">
-              {runtimeSyncNotices.map((notice) => (
-                <li key={notice}>{notice}</li>
-              ))}
-            </ul>
           </div>
         )}
       </div>
 
       {/* Slot cards */}
+      <div ref={slotsSectionRef} className="flex items-center justify-between gap-2 px-0.5 pt-1 scroll-mt-24">
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceTabs")}</p>
+          {runtimeSyncNotices.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
+              <AlertTriangle className="w-3 h-3" />
+              {t("workspaceSyncNeedsAction", { count: issueCount })}
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] text-muted">{t("workspaceCounts", { total: data.slots.length, windows: totalWindows })}</span>
+      </div>
+      {runtimeSyncNotices.length > 0 && (
+        <div className="sr-only" aria-live="polite">
+          {runtimeSyncNotices.map((notice) => (
+            <span key={notice}>{notice}</span>
+          ))}
+        </div>
+      )}
       {data.slots.map((slot, i) => (
         <div key={slot.name} className="animate-stagger" style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}>
           <SlotCard
             slot={slot}
+            index={i}
             onRunAction={runAction}
-            onConfirmAction={requestConfirmedAction}
             onEditTarget={onEditTarget}
-            onCopy={copyToClipboard}
             busy={actionMutation.isPending}
             openerId={selectedOpener.id}
+            onRepairTarget={requestRepair}
             tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
           />
         </div>

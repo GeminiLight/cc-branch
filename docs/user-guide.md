@@ -93,7 +93,7 @@ CC Branch 只自动读取 `.cc-branch/config.yaml`。首次发版不保留旧格
 ### 顶层结构
 
 ```yaml
-version: 1
+version: 2
 project: "my-project"
 root: "."
 
@@ -102,7 +102,7 @@ display:
   columns: 2
   dashboard: true
 
-slots: []
+tabs: []
 ```
 
 ### `display`
@@ -115,12 +115,14 @@ slots: []
 
 `agents` 是可选的 agent profile 覆盖区，不是每个项目都必须维护的基础配置。
 
-内置 agent profile 默认可用：claude、codex、gemini、cursor、kimi。也就是说，普通项目可以直接在 window 里写：
+内置 agent profile 默认可用：claude、codex、gemini、cursor、kimi。也就是说，普通项目可以直接在 pane 里写：
 
 ```yaml
-windows:
-  - name: "planner"
-    agent: "codex"
+tabs:
+  - name: "coding"
+    panes:
+      - name: "planner"
+        agent: "codex"
 ```
 
 只有在需要覆盖默认启动方式，或添加自定义 agent 时，才需要写 `agents`。
@@ -410,15 +412,15 @@ cc-branch serve --host 0.0.0.0 --token "$CC_BRANCH_WEB_TOKEN"
 
 Web UI 中有一个工具选择器和两个主要动作：
 
-- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入 Launch Configuration 并打开一个布局；VS Code、Cursor 会像普通用户打开项目一样直接打开目录，不生成临时 `.code-workspace`。
+- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入稳定的 Launch Configuration 并打开一个布局；VS Code、Cursor 会正常打开项目目录，在 macOS 上还会通过本机 UI 自动化创建 integrated terminal 来运行对应命令。
 - “打开项目目录”使用同一个所选工具，但只有工具支持 `open_project` 时才可点击。它不会启动或 attach workspace；终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。
-- Slot 或 window 旁边的“打开终端”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 terminal-runtime 命令；VS Code、Cursor 会直接打开项目目录。
+- Slot 或 window 旁边的“打开终端”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 terminal-runtime 命令；在 macOS 上，VS Code、Cursor 会正常打开项目目录，并创建 integrated terminal 运行该目标命令。
 
-`runtime: tmux` 是可复用的；即使之前已经在另一个 Terminal、Warp 或 iTerm2 窗口打开过，再次打开也会 attach 到同一组 tmux session。`runtime: terminal` 是外部进程，不能被复用或停止；再次打开会启动新的终端进程，需要用户手动关闭窗口。
+`runtime: tmux` 是可复用的；即使之前已经在另一个 Terminal 或 Warp 窗口打开过，再次打开也会 attach 到同一组 tmux session。`runtime: terminal` 是外部进程，不能被复用或停止；再次打开会启动新的终端进程，需要用户手动关闭窗口。
 
-VS Code 和 Cursor 的 workspace 打开方式依赖编辑器 task 的 `runOn: folderOpen`。如果编辑器提示是否信任工作区或是否允许运行自动 task，需要用户确认一次。
+VS Code 和 Cursor 的 integrated terminal 自动打开依赖 macOS Accessibility 权限。如果系统阻止自动化，请给运行 `cc-branch` 的终端或桌面应用授予辅助功能权限后重试。
 
-Warp 通过 Launch Configuration 执行命令；当 opener 支持 layout 时，CC Branch 会把 workspace 展开成 window 级 attach 命令和 terminal command，放进一个 Warp 布局。如果只想创建 tmux 会话但不弹出终端窗口，使用“后台启动”；如果想打开可见工作空间，使用“打开工作空间”或 `cc-branch open`。
+Warp 通过 Launch Configuration 执行命令；当 opener 支持 layout 时，CC Branch 会把每个 tmux slot 作为一个 attach 入口放进布局，slot 内部的多个 tmux window 仍然由 tmux 自己管理和切换；`runtime: terminal` slot 才会作为单独 pane 展开。如果想打开可见工作空间，使用“打开工作空间”或 `cc-branch open`。
 
 ### 额外说明
 

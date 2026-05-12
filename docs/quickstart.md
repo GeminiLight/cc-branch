@@ -160,7 +160,7 @@ cc-branch serve
 - 用同一个工具选择器打开工作空间或项目目录
 - 后台启动、重启、停止 tmux 工作空间或 slot
 
-Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用 Launch Configuration 打开布局；VS Code、Cursor 像普通打开项目一样直接打开目录，不生成临时 `.code-workspace`。打开项目目录使用同一个所选工具：终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。tmux 工作空间可复用；从另一个 Terminal、Warp 或 iTerm2 再打开时会 attach 到同一组 session。传统 `runtime: terminal` 不可复用，再次打开就是新的外部进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
+Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用稳定的 Launch Configuration 打开布局；VS Code、Cursor 会正常打开项目目录，并在 macOS 上创建 integrated terminal 来运行 workspace 命令。打开项目目录始终用系统文件管理器，让用户进入普通文件夹视图。tmux 工作空间可复用；从另一个 Terminal、Warp、VS Code 或 Cursor 再打开时会 attach 到同一组 session。传统 `runtime: terminal` 不可复用，再次打开就是新的外部进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
 
 ## 8. 记住这两个文件
 

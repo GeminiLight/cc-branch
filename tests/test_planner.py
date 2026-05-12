@@ -205,21 +205,20 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(len(slot.windows), 1)
             self.assertEqual(slot.windows[0].name, "main")
 
-    def test_terminal_runtime_uses_single_window_even_if_windows_remain(self):
-        """Switching a slot to terminal should not launch every old tmux window."""
+    def test_terminal_runtime_uses_all_configured_panes(self):
+        """Terminal tabs launch every configured pane as a visible process."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
                 root / ".cc-branch/config.yaml",
                 """
-                version: 1
+                version: 2
                 project: "test"
                 root: "."
 
-                slots:
+                tabs:
                   - name: "scratch"
-                    runtime: "terminal"
-                    windows:
+                    panes:
                       - name: "one"
                         command: "echo one"
                       - name: "two"
@@ -233,9 +232,11 @@ class PlannerTests(unittest.TestCase):
 
             slot = plan.slots[0]
             self.assertEqual(slot.runtime, "terminal")
-            self.assertEqual(len(slot.windows), 1)
+            self.assertEqual(len(slot.windows), 2)
             self.assertEqual(slot.windows[0].name, "one")
             self.assertEqual(slot.windows[0].launch_command, "echo one")
+            self.assertEqual(slot.windows[1].name, "two")
+            self.assertEqual(slot.windows[1].launch_command, "echo two")
 
     def test_plan_workspace_resolves_cwd(self):
         """Test that plan_workspace resolves working directories."""

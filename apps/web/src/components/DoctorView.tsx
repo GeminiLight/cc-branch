@@ -172,7 +172,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
   return (
     <div className="page-shell space-y-4">
       {/* Summary */}
-      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4 shadow-sm">
+      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
@@ -201,21 +201,21 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
+          <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
             <XCircle className="w-4 h-4 text-[var(--danger)] shrink-0" />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksIssues")}</p>
               <p className="text-[13px] font-semibold text-primary">{countLabel(t, "issueCount", issueCount)}</p>
             </div>
           </div>
-          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
+          <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0" />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksWarnings")}</p>
               <p className="text-[13px] font-semibold text-primary">{countLabel(t, "warningCount", warningCount)}</p>
             </div>
           </div>
-          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
+          <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0" />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksPassed")}</p>
@@ -227,7 +227,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
 
       {/* Checks */}
       <div className="surface-card border border-default rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b border-default surface-elevated flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-subtle bg-[var(--bg-card)] flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <StatusDot status={overall} />
             <p className="text-[13px] font-semibold text-primary">{t("doctorChecks")}</p>
@@ -243,7 +243,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
                 ? "bg-[var(--danger-bg)]"
                 : check.status === "warn"
                   ? "bg-[var(--warning-bg)]"
-                  : "hover:surface-hover"
+              : "hover:bg-[var(--bg-hover)]/35"
             }`}
           >
             <StatusDot status={check.status} />

@@ -184,7 +184,7 @@ class TestConfigGeneration(unittest.TestCase):
             "solo-dev"
         )
 
-        self.assertIn("version: 1", config)
+        self.assertIn("version: 2", config)
         self.assertIn('project: "test-project"', config)
         self.assertNotIn("agents:", config)
         self.assertIn('agent: "codex"', config)
@@ -225,7 +225,7 @@ class TestConfigGeneration(unittest.TestCase):
             "solo-dev"
         )
 
-        self.assertIn("version: 1", config)
+        self.assertIn("version: 2", config)
         self.assertNotIn("agents:", config)
         self.assertIn("shell", config)  # Should have shell fallback
 
@@ -277,7 +277,7 @@ class TestConfigGeneration(unittest.TestCase):
         )
 
         self.assertNotIn('runtime: "tmux"', config)
-        self.assertIn('runtime: "terminal"', config)
+        self.assertIn("panes:", config)
         self.assertIn('agent: "codex"', config)
         self.assertIn('agent: "claude"', config)
 

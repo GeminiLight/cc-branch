@@ -74,6 +74,7 @@ class SlotConfig:
 
     name: str = ""
     runtime: str = "tmux"
+    layout: str = "auto"
     opener: str | None = None
     cwd: str = "."
     env: dict[str, Any] = field(default_factory=dict)
@@ -92,6 +93,7 @@ class SlotConfig:
         return cls(
             name=data.get("name", ""),
             runtime=data.get("runtime", "tmux"),
+            layout=data.get("layout", "auto"),
             opener=data.get("opener"),
             cwd=data.get("cwd", "."),
             env=dict(data.get("env") or {}),
@@ -104,11 +106,96 @@ class SlotConfig:
         )
 
 
+def _pane_runtime(data: dict[str, Any]) -> str:
+    runtime = str(data.get("runtime") or "terminal")
+    return runtime if runtime in {"terminal", "tmux"} else "terminal"
+
+
+def _pane_to_window(data: dict[str, Any]) -> WindowConfig:
+    return WindowConfig.from_dict(data)
+
+
+def _tabs_to_slots(raw_tabs: list[Any]) -> list[SlotConfig]:
+    slots: list[SlotConfig] = []
+    for raw_tab in raw_tabs:
+        if not isinstance(raw_tab, dict):
+            continue
+
+        tab_name = str(raw_tab.get("name") or "")
+        tab_layout = str(raw_tab.get("layout") or "auto")
+        tab_opener = raw_tab.get("opener")
+        tab_cwd = str(raw_tab.get("cwd") or ".")
+        tab_env = dict(raw_tab.get("env") or {})
+        panes = raw_tab.get("panes") or []
+        raw_panes = [pane for pane in panes if isinstance(pane, dict)] if isinstance(panes, list) else []
+
+        terminal_panes = [pane for pane in raw_panes if _pane_runtime(pane) == "terminal"]
+        if terminal_panes or not raw_panes:
+            slots.append(
+                SlotConfig(
+                    name=tab_name,
+                    runtime="terminal",
+                    layout=tab_layout,
+                    opener=tab_opener if isinstance(tab_opener, str) else None,
+                    cwd=tab_cwd,
+                    env=tab_env,
+                    windows=[_pane_to_window(pane) for pane in terminal_panes],
+                )
+            )
+
+        tmux_panes = [pane for pane in raw_panes if _pane_runtime(pane) == "tmux"]
+        for pane in tmux_panes:
+            pane_name = str(pane.get("name") or "tmux")
+            raw_windows = pane.get("windows") or []
+            windows = (
+                [WindowConfig.from_dict(window) for window in raw_windows if isinstance(window, dict)]
+                if isinstance(raw_windows, list)
+                else []
+            )
+            if not windows:
+                windows = [WindowConfig.from_dict({**pane, "runtime": None})]
+            slots.append(
+                SlotConfig(
+                    name=tab_name if len(tmux_panes) == 1 and not terminal_panes else f"{tab_name}-{pane_name}",
+                    runtime="tmux",
+                    layout=str(pane.get("layout") or tab_layout),
+                    opener=str(pane.get("opener") or tab_opener) if pane.get("opener") or tab_opener else None,
+                    cwd=str(pane.get("cwd") or tab_cwd),
+                    env={**tab_env, **dict(pane.get("env") or {})},
+                    windows=windows,
+                )
+            )
+    return slots
+
+
+def _slot_to_tab(slot: SlotConfig) -> dict[str, Any]:
+    tab: dict[str, Any] = {
+        "name": slot.name,
+        "layout": slot.layout,
+        "cwd": slot.cwd,
+    }
+    if slot.opener is not None:
+        tab["opener"] = slot.opener
+    if slot.env:
+        tab["env"] = slot.env
+    if slot.runtime == "tmux":
+        tab["panes"] = [
+            {
+                "name": slot.name,
+                "runtime": "tmux",
+                "windows": [_as_legacy_dict(window) for window in slot.windows],
+            }
+        ]
+    else:
+        tab["panes"] = [_as_legacy_dict(window) for window in slot.windows]
+    return tab
+
+
 @dataclass
 class WorkspaceConfig:
     """Top-level workspace configuration."""
 
-    version: int = 1
+    version: int = 2
     project: str = ""
     root: str = "."
     display: DisplayConfig = field(default_factory=DisplayConfig)
@@ -134,10 +221,14 @@ class WorkspaceConfig:
             for k, v in raw_openers.items()
             if isinstance(v, dict)
         } if raw_openers else {}
-        raw_slots = data.get("slots", [])
-        slots = [SlotConfig.from_dict(s) for s in raw_slots] if raw_slots else []
+        raw_tabs = data.get("tabs")
+        if isinstance(raw_tabs, list):
+            slots = _tabs_to_slots(raw_tabs)
+        else:
+            raw_slots = data.get("slots", [])
+            slots = [SlotConfig.from_dict(s) for s in raw_slots] if raw_slots else []
         return cls(
-            version=data.get("version", 1),
+            version=data.get("version", 2),
             project=data.get("project", ""),
             root=data.get("root", "."),
             display=DisplayConfig.from_dict(data.get("display") or {}),
@@ -149,7 +240,7 @@ class WorkspaceConfig:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a dict compatible with the legacy API."""
+        """Return a dict compatible with the public v2 config schema."""
         return {
             "version": self.version,
             "project": self.project,
@@ -158,7 +249,7 @@ class WorkspaceConfig:
             "agents": {k: _as_legacy_dict(v) for k, v in self.agents.items()},
             "openers": {k: _as_legacy_dict(v) for k, v in self.openers.items()},
             "default_opener": self.default_opener,
-            "slots": [_as_legacy_dict(s) for s in self.slots],
+            "tabs": [_slot_to_tab(s) for s in self.slots],
             "_config_path": self._config_path,
         }
 
@@ -174,4 +265,3 @@ class WorkspaceConfig:
             if slot.name == name:
                 return slot
         return None
-

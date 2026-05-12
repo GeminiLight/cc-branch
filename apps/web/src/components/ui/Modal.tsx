@@ -12,7 +12,9 @@ interface ModalProps {
   confirmText?: string;
   cancelText?: string;
   onConfirm?: () => void;
+  confirmDisabled?: boolean;
   variant?: "default" | "danger";
+  size?: "sm" | "md" | "lg";
 }
 
 export default function Modal({
@@ -25,7 +27,9 @@ export default function Modal({
   confirmText,
   cancelText,
   onConfirm,
+  confirmDisabled = false,
   variant = "default",
+  size = "sm",
 }: ModalProps) {
   const { t } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -105,6 +109,11 @@ export default function Modal({
       : "bg-[var(--accent)] text-white hover:opacity-90";
   const titleId = `modal-title-${baseId}`;
   const descId = description ? `modal-desc-${baseId}` : undefined;
+  const sizeClass = {
+    sm: "max-w-sm",
+    md: "max-w-xl",
+    lg: "max-w-3xl",
+  }[size];
 
   return (
     <div
@@ -127,7 +136,7 @@ export default function Modal({
       />
       <div
         ref={modalRef}
-        className="relative z-10 w-full max-w-sm surface-card border border-default rounded-lg animate-modal-in"
+        className={`relative z-10 w-full ${sizeClass} max-h-[calc(100dvh-2rem)] surface-card border border-default rounded-lg animate-modal-in flex flex-col overflow-hidden`}
       >
         <button
           type="button"
@@ -138,7 +147,7 @@ export default function Modal({
           <X className="w-4 h-4" />
         </button>
 
-        <div className="p-5 pb-4">
+        <div className="p-5 pb-4 shrink-0">
           {icon && (
             <div
               className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
@@ -156,10 +165,11 @@ export default function Modal({
               {description}
             </p>
           )}
-          {children && <div className="mt-3">{children}</div>}
         </div>
 
-        <div className="px-5 py-4 border-t border-default flex items-center justify-end gap-2">
+        {children && <div className="px-5 pb-4 overflow-y-auto min-h-0">{children}</div>}
+
+        <div className="px-5 py-4 border-t border-default flex items-center justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -171,7 +181,8 @@ export default function Modal({
             <button
               type="button"
               onClick={onConfirm}
-              className={`h-8 px-3 rounded text-[13px] font-medium transition-opacity ${confirmClass}`}
+              disabled={confirmDisabled}
+              className={`h-8 px-3 rounded text-[13px] font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${confirmClass}`}
             >
               {confirmText || t("confirm")}
             </button>

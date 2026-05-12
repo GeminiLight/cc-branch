@@ -645,19 +645,18 @@ class WorkspacePlannerTests(unittest.TestCase):
             open_dashboard_mock.assert_not_called()
             start_workspace_mock.assert_called_once()
 
-    def test_terminal_runtime_opens_one_process_when_windows_remain(self) -> None:
+    def test_terminal_runtime_opens_each_configured_pane(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
                 root / ".cc-branch/config.yaml",
                 """
-                version: 1
+                version: 2
                 project: demo
                 root: .
-                slots:
+                tabs:
                 - name: scratch
-                  runtime: terminal
-                  windows:
+                  panes:
                   - name: one
                     command: echo one
                   - name: two
@@ -675,8 +674,8 @@ class WorkspacePlannerTests(unittest.TestCase):
             with patch("cc_branch.runtime.execution.open_command") as open_command:
                 apply_workspace(plan, detach=True)
 
-            open_command.assert_called_once()
-            self.assertEqual(open_command.call_args.kwargs["command"], "echo one")
+            self.assertEqual(open_command.call_count, 2)
+            self.assertEqual([call.kwargs["command"] for call in open_command.call_args_list], ["echo one", "echo two"])
 
 
 if __name__ == "__main__":

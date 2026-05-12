@@ -27,22 +27,29 @@ def summarize_config(config_content: str) -> ConfigSummary:
     import yaml
 
     config_data = yaml.safe_load(config_content) or {}
-    slots = list(config_data.get("slots", []))
+    tabs = list(config_data.get("tabs", []))
+    panes = [
+        pane
+        for tab in tabs
+        if isinstance(tab, dict)
+        for pane in tab.get("panes", [])
+        if isinstance(pane, dict)
+    ]
     referenced_agents = {
         agent
-        for slot in slots
+        for pane in panes
         for agent in [
-            slot.get("agent"),
-            *(window.get("agent") for window in slot.get("windows", []) if isinstance(window, dict)),
+            pane.get("agent"),
+            *(window.get("agent") for window in pane.get("windows", []) if isinstance(window, dict)),
         ]
         if agent
     }
     return ConfigSummary(
-        slots=len(slots),
+        slots=len(tabs),
         windows=sum(
-            len(slot.get("windows", []))
-            for slot in slots
-            if slot.get("runtime", "tmux") == "tmux"
+            len(pane.get("windows", []))
+            for pane in panes
+            if pane.get("runtime", "terminal") == "tmux"
         ),
         agents=len(referenced_agents),
     )

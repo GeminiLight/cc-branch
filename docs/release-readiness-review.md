@@ -32,7 +32,7 @@ None remaining.
 - Ran Ruff import cleanup and removed stale import hygiene issues.
 - Rebuilt the Web UI bundle and verified Python packaging includes static Web UI assets in both sdist and wheel.
 - Fixed VS Code/Cursor workspace opening so tmux slots are not expanded into one auto-run editor task per tmux window.
-- Added stale generated `.code-workspace` cleanup for editor openers and regression coverage for mixed tmux + terminal workspaces.
+- Added editor opener regression coverage for mixed tmux + terminal workspaces.
 - Added `cc_branch.__version__` so the release checklist and package metadata have an explicit source version to update.
 - Updated GitHub workflows to use reproducible `npm ci` installs and pinned Node.js 20.19.0 for current frontend dependency engine requirements.
 

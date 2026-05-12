@@ -32,6 +32,7 @@ from ..agent_sessions import agent_session_options
 from .options import agent_payload as _agent_payload
 from .read import probe_project, read_workspace_config
 from .save import save_workspace_config
+from .manage import create_workspace_config, delete_workspace_config, rename_workspace_config
 from .versioning import (
     base_version_matches,
     content_hash,
@@ -52,6 +53,8 @@ __all__ = [
     "check_environment",
     "collect_config_issues",
     "content_hash",
+    "create_workspace_config",
+    "delete_workspace_config",
     "file_version_payload",
     "get_available_profiles",
     "get_doctor_report",
@@ -73,6 +76,7 @@ __all__ = [
     "profile_options",
     "project_dir_for_config",
     "read_workspace_config",
+    "rename_workspace_config",
     "render_report",
     "resolve_config_path",
     "resolve_state_path",

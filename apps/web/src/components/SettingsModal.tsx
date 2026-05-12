@@ -1,6 +1,8 @@
 import { Check, Globe, MonitorCog, Moon, Sun } from "lucide-react";
+import { useApiClient } from "../hooks";
 import { useI18n, type Lang } from "../i18n";
 import { useTheme, type Theme } from "../theme/ThemeProvider";
+import GlobalAgentsSettings from "./GlobalAgentsSettings";
 import Modal from "./ui/Modal";
 
 interface SettingsModalProps {
@@ -21,6 +23,7 @@ const languageOptions: { value: Lang; label: string }[] = [
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
+  const api = useApiClient();
 
   return (
     <Modal
@@ -29,6 +32,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       title={t("settings")}
       description={t("settingsDesc")}
       icon={<MonitorCog className="w-5 h-5 text-[var(--accent)]" />}
+      size="md"
     >
       <div className="space-y-4">
         <section>
@@ -89,6 +93,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             })}
           </div>
         </section>
+
+        <GlobalAgentsSettings api={api} />
       </div>
     </Modal>
   );

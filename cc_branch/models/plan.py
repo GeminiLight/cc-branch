@@ -55,6 +55,7 @@ class SlotPlan:
 
     name: str
     runtime: str
+    layout: str
     opener: str | None
     tmux_session: str
     cwd: str
@@ -64,6 +65,7 @@ class SlotPlan:
         return {
             "name": self.name,
             "runtime": self.runtime,
+            "layout": self.layout,
             "opener": self.opener,
             "tmux_session": self.tmux_session,
             "cwd": self.cwd,
@@ -146,6 +148,7 @@ class WorkspacePlan:
                 SlotPlan(
                     name=slot.get("name", ""),
                     runtime=slot.get("runtime", "tmux"),
+                    layout=slot.get("layout", "auto"),
                     opener=slot.get("opener"),
                     tmux_session=slot.get("tmux_session", ""),
                     cwd=slot.get("cwd", "."),
@@ -164,4 +167,3 @@ class WorkspacePlan:
             slots=slots,
             state_updates=dict(data.get("state_updates", {})),
         )
-

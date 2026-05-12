@@ -20,13 +20,13 @@ def get_profile_config(
         raise ValueError(f"Unknown profile: {profile}. Available: {', '.join(PROFILES.keys())}")
 
     template = PROFILES[profile]
-    slots_yaml = build_slots_section(
+    tabs_yaml = build_slots_section(
         template["slots"],
         set(available_agents),
         tmux_available=tmux_available,
     )
 
-    return f"""version: 1
+    return f"""version: 2
 project: "{project_name}"
 root: "."
 
@@ -35,7 +35,7 @@ display:
   columns: 2
   dashboard: true
 
-{slots_yaml}"""
+{tabs_yaml}"""
 
 
 def build_slots_section(
@@ -44,8 +44,8 @@ def build_slots_section(
     *,
     tmux_available: bool = True,
 ) -> str:
-    """Build the slots section of YAML config."""
-    lines = ["slots:"]
+    """Build the tabs section of YAML config."""
+    lines = ["tabs:"]
     shell_command = default_shell_command()
     emitted_names: set[str] = set()
 
@@ -57,7 +57,6 @@ def build_slots_section(
             if runtime == "terminal":
                 selected_agent = None
                 terminal_name = _unique_slot_name(slot_name, emitted_names)
-                title = slot.get("title", slot_name)
             else:
                 windows = slot.get("windows", [])
                 if windows:
@@ -68,23 +67,14 @@ def build_slots_section(
                             available_agents,
                         )
                         terminal_name = _unique_slot_name(window_name, emitted_names)
-                        lines.extend(
-                            _terminal_slot_lines(
-                                terminal_name,
-                                title=window_name,
-                                shell_command=shell_command,
-                                agent=selected_agent,
-                            )
-                        )
+                        lines.extend(_terminal_tab_lines(terminal_name, shell_command=shell_command, agent=selected_agent))
                     continue
                 selected_agent = None
                 terminal_name = _unique_slot_name(slot_name, emitted_names)
-                title = slot_name
 
             lines.extend(
-                _terminal_slot_lines(
+                _terminal_tab_lines(
                     terminal_name,
-                    title=title,
                     shell_command=shell_command,
                     agent=selected_agent,
                 )
@@ -93,43 +83,44 @@ def build_slots_section(
 
         emitted_names.add(slot_name)
         lines.append(f'  - name: "{slot_name}"')
-        lines.append('    runtime: "tmux"')
         lines.append('    cwd: "."')
-        lines.append("    windows:")
+        lines.append("    panes:")
+        lines.append(f'      - name: "{slot_name}"')
+        lines.append('        runtime: "tmux"')
+        lines.append("        windows:")
 
         added_windows = 0
         for window in slot.get("windows", []):
             window_name = window["name"]
             selected_agent = _first_available(window.get("preferred_agents", []), available_agents)
             if selected_agent:
-                lines.append(f'      - name: "{window_name}"')
-                lines.append(f'        agent: "{selected_agent}"')
+                lines.append(f'          - name: "{window_name}"')
+                lines.append(f'            agent: "{selected_agent}"')
                 added_windows += 1
 
         if added_windows == 0:
-            lines.append('      - name: "shell"')
-            lines.append(f'        command: "{shell_command}"')
+            lines.append('          - name: "shell"')
+            lines.append(f'            command: "{shell_command}"')
 
     return "\n".join(lines)
 
 
-def _terminal_slot_lines(
-    slot_name: str,
+def _terminal_tab_lines(
+    tab_name: str,
     *,
-    title: str,
     shell_command: str,
     agent: str | None,
 ) -> list[str]:
     lines = [
-        f'  - name: "{slot_name}"',
-        '    runtime: "terminal"',
+        f'  - name: "{tab_name}"',
         '    cwd: "."',
-        f'    title: "{title}"',
+        "    panes:",
+        f'      - name: "{tab_name}"',
     ]
     if agent:
-        lines.append(f'    agent: "{agent}"')
+        lines.append(f'        agent: "{agent}"')
     else:
-        lines.append(f'    command: "{shell_command}"')
+        lines.append(f'        command: "{shell_command}"')
     return lines
 
 

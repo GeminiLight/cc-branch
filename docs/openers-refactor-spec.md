@@ -51,7 +51,7 @@ cc_branch/openers/
   registry.py      `OpenerRegistry`: built-in and configured opener discovery.
   dispatcher.py    `OpenerDispatcher`: public open_* operations and opener routing.
   terminal.py      `TerminalLauncher`: system, macOS, Windows, and Linux terminals.
-  editors.py       `EditorWorkspaceOpener`: generated editor workspace helper for task-based opens.
+  editors.py       `EditorWorkspaceOpener`: editor folder opener with integrated-terminal automation where supported.
   warp.py          `WarpLauncher`: Warp launch configuration rendering and URIs.
   platform.py      Shared OS helpers: cache paths, app lookup, URI open, popen.
 ```

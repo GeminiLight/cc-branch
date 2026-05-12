@@ -170,6 +170,14 @@ describe('Dashboard actions', () => {
             source: 'builtin',
             reason: 'cursor CLI not found',
           },
+          {
+            id: 'warp',
+            label: 'Warp',
+            kind: 'terminal',
+            available: true,
+            capabilities: ['run_command', 'layout', 'dashboard', 'attach_target'],
+            source: 'builtin',
+          },
         ],
       },
     }
@@ -181,7 +189,7 @@ describe('Dashboard actions', () => {
   it('opens the workspace dashboard from the primary toolbar button', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in System Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Launch workspace in System Terminal' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -194,10 +202,17 @@ describe('Dashboard actions', () => {
     })
   })
 
+  it('uses the configured slot name as the dashboard tab label', () => {
+    renderDashboard()
+
+    expect(screen.getByRole('heading', { name: 'dev' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Tab 1' })).not.toBeInTheDocument()
+  })
+
   it('opens the project directory with the system file manager', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open project directory' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open directory' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -237,7 +252,7 @@ describe('Dashboard actions', () => {
     window.localStorage.setItem('cc-branch.open.tool./tmp/demo', 'warp')
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open workspace in Warp' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Launch workspace in Warp' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -250,12 +265,12 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('lists editor tools and opens them as normal projects', async () => {
+  it('lists editor tools and opens them as workspaces', async () => {
     renderDashboard()
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open project in VS Code' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Launch workspace in VS Code' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -268,7 +283,7 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('uses the selected opener for project directory opens', async () => {
+  it('always uses the system file manager for project directory opens', async () => {
     mocks.openersResult.current = {
       data: {
         default: 'auto-terminal',
@@ -312,13 +327,13 @@ describe('Dashboard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open project directory' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open directory' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         action: 'open',
         target: undefined,
-        opener: 'warp',
+        opener: 'system-file-manager',
         intent: 'project_folder',
         projectPath: '/tmp/demo',
       })
@@ -353,7 +368,7 @@ describe('Dashboard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Cursor' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open project in Cursor' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Launch workspace in Cursor' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -371,7 +386,7 @@ describe('Dashboard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'VS Code' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open terminal dev' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open dev' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -384,31 +399,41 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('can still start the workspace without opening a terminal', async () => {
+  it('keeps background lifecycle actions out of the header', () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start in background' }))
+    expect(screen.getByRole('button', { name: 'Launch workspace in System Terminal' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start in background' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop workspace' })).not.toBeInTheDocument()
+  })
+
+  it('uses the selected opener for workspace launch', async () => {
+    renderDashboard()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Launch workspace in Warp' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
-        action: 'launch',
+        action: 'open',
         target: undefined,
+        opener: 'warp',
+        intent: 'workspace_dashboard',
         projectPath: '/tmp/demo',
       })
     })
   })
 
-  it('disables workspace restart when no tmux slots are running', () => {
+  it('does not expose restart when no tmux slots are running', () => {
     mocks.workspaceResult.current = stoppedWorkspaceResult()
 
     renderDashboard()
 
-    expect(screen.getByRole('button', { name: 'Start in background' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Restart' })).toHaveAttribute(
-      'title',
-      'No running tmux windows to restart.'
-    )
+    expect(screen.getByRole('button', { name: 'Launch workspace in System Terminal' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start in background' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument()
   })
 
   it('keeps workspace status stable during background polling', () => {
@@ -418,10 +443,10 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Running')).toBeInTheDocument()
-    expect(screen.getByText('Checked now')).toBeInTheDocument()
+    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.queryByText('Checked now')).not.toBeInTheDocument()
     expect(screen.queryByText('Refreshing')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Refresh status' })).not.toBeDisabled()
   })
 
   it('shows agent windows with an existing session as bound', () => {
@@ -458,12 +483,13 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Codex · terminal task · Session bound')).toBeInTheDocument()
+    expect(screen.getByLabelText('Codex')).toBeInTheDocument()
+    expect(screen.getByText('Session bound')).toBeInTheDocument()
     expect(screen.queryByText('1 window')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Open terminal codex-ui:codex-ui' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open codex-ui:codex-ui' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit window codex-ui:codex-ui' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open terminal codex-ui' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open codex-ui' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -491,9 +517,11 @@ describe('Dashboard actions', () => {
     renderDashboard()
 
     expect(screen.getByText('tmux session')).toBeInTheDocument()
-    expect(screen.getByText('2 windows')).toBeInTheDocument()
-    expect(screen.getAllByText('Codex · Session bound')).toHaveLength(1)
-    expect(screen.getByText('Codex · New session on start')).toBeInTheDocument()
+    expect(screen.getByText('Tmux windows')).toBeInTheDocument()
+    expect(screen.getAllByText('2 windows').length).toBeGreaterThan(0)
+    expect(screen.getAllByLabelText('Codex').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Session bound')).toBeInTheDocument()
+    expect(screen.getByText('New session on start')).toBeInTheDocument()
     expect(screen.queryByText('tmux window group')).not.toBeInTheDocument()
   })
 
@@ -504,7 +532,6 @@ describe('Dashboard actions', () => {
 
     expect(screen.queryByRole('button', { name: 'Copy target dev' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Copy attach command dev:planner' })).not.toBeInTheDocument()
-
     fireEvent.click(screen.getByRole('button', { name: 'Edit slot dev' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit window dev:planner' }))
 
@@ -571,7 +598,7 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('3 extra tmux window(s) are running outside the config.')).toBeInTheDocument()
   })
 
-  it('can stop extra tmux windows through an explicit destructive sync action', async () => {
+  it('summarizes extra tmux windows without exposing a destructive header action', () => {
     const result = readyWorkspaceResult()
     ;(result.data as Record<string, unknown>).runtime_sync = {
       summary: { current: 0, changed: 0, missing: 0, extra: 2, orphaned: 0, untracked: 0, external: 0 },
@@ -582,17 +609,9 @@ describe('Dashboard actions', () => {
     mocks.workspaceResult.current = result
 
     renderDashboard()
-    fireEvent.click(screen.getByRole('button', { name: 'Stop extra windows' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Stop extra' }))
 
-    await waitFor(() => {
-      expect(mocks.mutateAsync).toHaveBeenCalledWith({
-        action: 'sync',
-        target: undefined,
-        projectPath: '/tmp/demo',
-        stopRemoved: true,
-      })
-    })
+    expect(screen.getByText('2 extra tmux window(s) are running outside the config.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop extra windows' })).not.toBeInTheDocument()
   })
 
   it('warns and disables tmux lifecycle actions when tmux is unavailable locally', () => {
@@ -612,15 +631,15 @@ describe('Dashboard actions', () => {
     renderDashboard()
 
     expect(screen.getByText('tmux is not available on this machine. Tmux slots cannot start here.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start / update' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Start in background' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Sync runtime' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start in background' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument()
   })
 
   it('opens a running slot in a terminal', async () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open terminal dev' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open dev' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -661,7 +680,7 @@ describe('Dashboard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open terminal dev:planner' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open dev:planner' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -678,7 +697,7 @@ describe('Dashboard actions', () => {
     mocks.workspaceResult.current = stoppedWorkspaceResult()
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open terminal dev' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open dev' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
@@ -691,7 +710,7 @@ describe('Dashboard actions', () => {
     })
   })
 
-  it('runs slot restart from the slot card button', async () => {
+  it('does not expose per-slot lifecycle buttons on the slot card', () => {
     mocks.openersResult.current = {
       data: {
         default: 'auto-terminal',
@@ -717,33 +736,16 @@ describe('Dashboard actions', () => {
     }
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tool: System Terminal' }))
-    fireEvent.click(screen.getByRole('option', { name: 'Warp' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Restart dev' }))
-
-    await waitFor(() => {
-      expect(mocks.mutateAsync).toHaveBeenCalledWith({
-        action: 'restart',
-        target: 'dev',
-        opener: 'warp',
-        projectPath: '/tmp/demo',
-      })
-    })
+    expect(screen.getByRole('button', { name: 'Open dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit slot dev' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Restart dev' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop dev' })).not.toBeInTheDocument()
   })
 
-  it('confirms workspace stop before running the action', async () => {
+  it('does not expose workspace stop in the dashboard header', () => {
     renderDashboard()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stop workspace' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
-
-    await waitFor(() => {
-      expect(mocks.mutateAsync).toHaveBeenCalledWith({
-        action: 'stop',
-        target: undefined,
-        projectPath: '/tmp/demo',
-      })
-    })
+    expect(screen.queryByRole('button', { name: 'Stop workspace' })).not.toBeInTheDocument()
   })
 
   it('renders web-first setup when the backend reports needs_init', () => {

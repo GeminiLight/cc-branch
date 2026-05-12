@@ -13,33 +13,33 @@
   }
 
   :root {
-    /* Surface - Light Ops Green */
-    --bg-page: #f3f6f1;
-    --bg-card: #fffefa;
-    --bg-elevated: #edf3ee;
-    --bg-hover: #e7eee8;
-    --bg-active: #d9e7df;
-    --sidebar-bg: #e9f0e9;
-    --sidebar-rail-bg: #dde8e0;
-    --chrome-bg: #fbfcf8;
+    /* Surface - clean console neutrals */
+    --bg-page: #f7f8f7;
+    --bg-card: #ffffff;
+    --bg-elevated: #f3f5f4;
+    --bg-hover: #eef2f1;
+    --bg-active: #e5ecea;
+    --sidebar-bg: #f1f5f3;
+    --sidebar-rail-bg: #e8efec;
+    --chrome-bg: rgba(255, 255, 255, 0.92);
 
-    /* Border - quiet green graphite */
-    --border-subtle: rgba(19, 36, 33, 0.06);
-    --border-default: rgba(19, 36, 33, 0.12);
-    --border-strong: rgba(19, 36, 33, 0.22);
+    /* Border - crisp graphite */
+    --border-subtle: rgba(11, 26, 25, 0.055);
+    --border-default: rgba(11, 26, 25, 0.105);
+    --border-strong: rgba(11, 26, 25, 0.18);
 
     /* Text */
-    --text-primary: #132421;
-    --text-secondary: #3f5650;
-    --text-tertiary: #64766f;
-    --text-muted: #8a9a92;
+    --text-primary: #10201e;
+    --text-secondary: #415552;
+    --text-tertiary: #71817d;
+    --text-muted: #99a6a2;
     --text-on-accent: #f7fffb;
 
     /* Accent - Signal Teal toned for light mode */
     --accent: #0f766e;
     --accent-light: #129889;
-    --accent-bg: rgba(15, 118, 110, 0.09);
-    --accent-border: rgba(15, 118, 110, 0.26);
+    --accent-bg: rgba(15, 118, 110, 0.075);
+    --accent-border: rgba(15, 118, 110, 0.22);
 
     /* Status */
     --danger: #c2413a;
@@ -50,10 +50,10 @@
     --warning-bg: rgba(244, 183, 64, 0.18);
 
     /* Code */
-    --code-bg: #edf5ef;
-    --code-border: rgba(19, 36, 33, 0.10);
-    --editor-bg: #f8fbf7;
-    --editor-border: rgba(19, 36, 33, 0.12);
+    --code-bg: #f3f7f5;
+    --code-border: rgba(11, 26, 25, 0.09);
+    --editor-bg: #fbfcfb;
+    --editor-border: rgba(11, 26, 25, 0.10);
     --editor-fg: #243a35;
 
     /* Prism (light) — GitHub-like but warmer */
@@ -101,9 +101,9 @@
     --radius-xl: 8px;
 
     /* Shadow */
-    --shadow-sm: 0 1px 1px rgba(15, 31, 28, 0.03), 0 1px 3px rgba(15, 31, 28, 0.04);
-    --shadow-md: 0 6px 18px rgba(15, 31, 28, 0.08);
-    --shadow-lg: 0 14px 36px rgba(15, 31, 28, 0.12);
+    --shadow-sm: 0 1px 1px rgba(11, 26, 25, 0.025), 0 1px 3px rgba(11, 26, 25, 0.035);
+    --shadow-md: 0 8px 24px rgba(11, 26, 25, 0.065);
+    --shadow-lg: 0 18px 48px rgba(11, 26, 25, 0.10);
 
     /* Z-index scale */
     --z-dropdown: 80;
@@ -120,14 +120,14 @@
   .dark {
     color-scheme: dark;
 
-    --bg-page: #071012;
-    --bg-card: #0c1718;
-    --bg-elevated: #102022;
-    --bg-hover: #143032;
-    --bg-active: #183f40;
-    --sidebar-bg: #0a1516;
-    --sidebar-rail-bg: #071112;
-    --chrome-bg: #091315;
+    --bg-page: #070b0c;
+    --bg-card: #0d1314;
+    --bg-elevated: #121a1b;
+    --bg-hover: #172324;
+    --bg-active: #1d2e2f;
+    --sidebar-bg: #0a1011;
+    --sidebar-rail-bg: #070c0d;
+    --chrome-bg: rgba(10, 16, 17, 0.92);
 
     --border-subtle: rgba(234, 255, 247, 0.06);
     --border-default: rgba(234, 255, 247, 0.12);
@@ -221,10 +221,11 @@
   .surface-card { background-color: var(--bg-card); }
   .chrome-surface {
     background-color: var(--chrome-bg);
+    backdrop-filter: blur(18px);
   }
   .surface-command {
     background:
-      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 94%, var(--accent) 6%), var(--bg-card));
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 96%, var(--accent) 4%) 0%, var(--bg-card) 62%);
   }
   .onboarding-hero {
     background:
@@ -249,6 +250,33 @@
   .success-bg { background-color: var(--success-bg); }
   .warning { color: var(--warning); }
   .warning-bg { background-color: var(--warning-bg); }
+
+  .workspace-matrix-surface {
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-page) 72%, var(--accent) 6%) 0%, color-mix(in oklch, var(--bg-page) 82%, var(--text-primary) 3%) 52%, var(--bg-page) 100%);
+  }
+
+  .workspace-pane-card {
+    position: relative;
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 94%, var(--accent) 3%) 0%, var(--bg-card) 56%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+
+  .workspace-pane-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent 72%);
+    opacity: 0.32;
+    pointer-events: none;
+  }
+
+  .workspace-tab-rail {
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 84%, var(--accent) 8%) 0%, color-mix(in oklch, var(--bg-card) 94%, var(--text-primary) 2%) 74%);
+  }
 
   .page-shell {
     width: 100%;

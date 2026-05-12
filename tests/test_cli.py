@@ -307,7 +307,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             open_command.assert_not_called()
 
-    def test_open_workspace_with_vscode_opens_project_folder(self):
+    def test_open_workspace_with_vscode_opens_workspace_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_mixed_runtime_workspace(root)
@@ -323,9 +323,11 @@ class CLITests(unittest.TestCase):
                 exit_code = main(["open", "--opener", "vscode"])
 
             self.assertEqual(exit_code, 0)
-            open_workspace_file.assert_not_called()
-            self.assertEqual(open_with.call_args.kwargs["opener_id"], "vscode")
-            self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+            open_with.assert_not_called()
+            open_workspace_file.assert_called_once()
+            self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+            specs = open_workspace_file.call_args.kwargs["commands"]
+            self.assertTrue(any(spec.command.startswith("cc-branch attach") for spec in specs))
 
     def test_open_project_dir_uses_selected_opener(self):
         with tempfile.TemporaryDirectory() as tmp:

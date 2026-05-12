@@ -212,6 +212,15 @@ fn show_window(window: tauri::WebviewWindow) {
     let _ = window.set_focus();
 }
 
+#[tauri::command]
+fn pick_project_directory(starting_dir: Option<String>) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new();
+    if let Some(dir) = starting_dir.as_deref().filter(|value| !value.trim().is_empty()) {
+        dialog = dialog.set_directory(dir);
+    }
+    dialog.pick_folder().map(|path| path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cwd = std::env::current_dir().unwrap_or_default();
@@ -221,7 +230,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![get_api_info, show_window,])
+        .invoke_handler(tauri::generate_handler![get_api_info, show_window, pick_project_directory])
         .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

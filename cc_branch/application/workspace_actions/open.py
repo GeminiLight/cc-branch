@@ -98,15 +98,6 @@ class WorkspaceOpenActions:
                 message=f"Cannot open target: {target}",
                 exit_code=1,
             )
-        if self._opens_as_project_folder(opener, custom_openers):
-            self.dependencies.open_with(
-                opener_id=opener,
-                cwd=cwd,
-                cli=cli,
-                intent=OpenIntent(kind="project_folder"),
-                custom_openers=custom_openers,
-            )
-            return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
         if self.dependencies.opener_supports(opener, "workspace_file", custom_openers):
             if is_managed_runtime(slot.runtime):
                 self._ensure_tmux_slots(
@@ -123,10 +114,27 @@ class WorkspaceOpenActions:
                 custom_openers=custom_openers,
             )
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
+        if self._opens_as_project_folder(opener, custom_openers):
+            self.dependencies.open_with(
+                opener_id=opener,
+                cwd=cwd,
+                cli=cli,
+                intent=OpenIntent(kind="project_folder"),
+                custom_openers=custom_openers,
+            )
+            return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
         if is_external_process_runtime(slot.runtime):
             specs = self.specs.attach_target_specs(slot, window, target, cli)
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
+
+        if not self.dependencies.opener_supports(opener, "attach_target", custom_openers):
+            return ActionResult(
+                ok=False,
+                code="unsupported_opener",
+                message=f"Opener {opener} does not support attach_target",
+                exit_code=1,
+            )
 
         self._ensure_tmux_slots(workspace, plan, state_path, [slot])
         self.dependencies.open_with(
@@ -155,20 +163,10 @@ class WorkspaceOpenActions:
         if not tmux_slots and not terminal_slots:
             return ActionResult(ok=False, code="no_slots", message="No slots configured", exit_code=1)
 
-        if self._opens_as_project_folder(opener, custom_openers):
-            self.dependencies.open_with(
-                opener_id=opener,
-                cwd=cwd,
-                cli=cli,
-                intent=OpenIntent(kind="project_folder"),
-                custom_openers=custom_openers,
-            )
-            return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
-
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_window_attach_specs(tmux_slots, cli),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, cli),
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
@@ -182,6 +180,16 @@ class WorkspaceOpenActions:
             ]
             self.dependencies.open_workspace_file(opener, cwd=cwd, commands=specs, custom_openers=custom_openers)
             return ActionResult(ok=True, code="open_applied", message=f"Opened workspace in {opener_name}")
+
+        if self._opens_as_project_folder(opener, custom_openers):
+            self.dependencies.open_with(
+                opener_id=opener,
+                cwd=cwd,
+                cli=cli,
+                intent=OpenIntent(kind="project_folder"),
+                custom_openers=custom_openers,
+            )
+            return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
 
         if not tmux_slots:
             self.dependencies.open_command_layout(

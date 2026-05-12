@@ -62,7 +62,7 @@ User selects a tool, then clicks "Open workspace"
   -> Backend adapts the workspace open to the selected tool
 ```
 
-Terminal tools run dashboard or attach commands. Warp writes a Launch Configuration under Warp's launch configuration directory and opens it through `warp://launch/...` so Warp can open one layout. VS Code and Cursor open the project folder directly, matching the normal editor experience.
+Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
 
 The dashboard itself is still tmux-backed, so opening the same workspace from a different terminal attaches to the same reusable sessions.
 
@@ -75,21 +75,20 @@ User clicks "Open terminal" on a slot
   -> The selected tool opens the target
 ```
 
-Terminal tools run `cc-branch attach <target>` or the terminal-runtime command. VS Code and Cursor open the project folder directly instead of generating temporary editor workspaces. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
+Terminal tools run `cc-branch attach <target>` or the terminal-runtime command. On macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
 
-### 1.6 Open a project in the selected tool
+### 1.6 Open a project directory
 
 ```text
-User chooses a terminal, Warp, VS Code, or Cursor from Tool
-  -> User clicks "Open project directory"
-  -> Frontend posts to /api/action with {action: "open", opener: selectedTool, intent: "project_folder"}
-  -> Backend runs the selected opener's project-open adapter
-  -> Terminal tools open an interactive shell at the project folder
-  -> Editor tools open the project folder
+User clicks "Open project directory"
+  -> Frontend posts to /api/action with {action: "open", opener: system-file-manager, intent: "project_folder"}
+  -> Backend opens the folder in the system file manager
   -> No tmux attach is implied
 ```
 
-VS Code and Cursor use their CLIs, such as `code <project-root>` or `cursor <project-root>`. Warp opens a new Warp window at the project directory through its URL scheme. Terminal.app, iTerm2, Linux terminals, and Windows terminals open a shell with the project directory as the working directory.
+Project directory open is intentionally separate from workspace open. It uses the system file manager so the user always lands in a normal folder view instead of a terminal or editor-specific project mode.
+
+Workspace open still adapts to the selected tool. Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
 
 ### 1.6.1 Terminal-runtime workspace
 

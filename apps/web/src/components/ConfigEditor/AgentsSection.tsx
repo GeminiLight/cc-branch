@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Bot, Plus, Trash2, ChevronDown, PencilLine, SlidersHorizontal } from "lucide-react";
+import { Bot, Plus, Trash2, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useI18n } from "../../i18n";
 import type { AgentConfig } from "./types";
 import {
@@ -55,12 +55,12 @@ function AgentCard({
   }
 
   return (
-    <div className="rounded-md border border-default bg-[var(--bg-card)] shadow-sm">
+    <div className="rounded-md border border-default bg-[var(--bg-card)]">
       <div className="flex items-center gap-2 px-3 py-2">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="min-h-10 flex-1 min-w-0 rounded-md px-1.5 text-left hover:surface-hover transition-colors flex items-center gap-2"
+          className="min-h-10 flex-1 min-w-0 rounded-md px-1.5 text-left hover:bg-[var(--bg-hover)]/45 transition-colors flex items-center gap-2"
           aria-label={expanded ? t("collapseAgent", { name }) : t("expandAgent", { name })}
           title={expanded ? t("collapseAgent", { name }) : t("expandAgent", { name })}
         >
@@ -71,10 +71,6 @@ function AgentCard({
           <span className="flex-1 min-w-0">
             <span className="block text-[13px] font-semibold text-primary truncate">{name}</span>
             <span className="block text-[10.5px] text-tertiary truncate">{summary}</span>
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-secondary">
-            <PencilLine className="w-3 h-3" />
-            {expanded ? t("editing") : t("edit")}
           </span>
         </button>
         {hasDetails && !expanded && (
@@ -95,7 +91,7 @@ function AgentCard({
 
       {expanded && (
         <div className="px-3 pb-3 pt-1 space-y-3 animate-stagger">
-          <div className="rounded-md border border-default bg-[var(--bg-hover)]/35 p-3 space-y-3">
+          <div className="rounded-md border border-default bg-[var(--bg-card)] p-3 space-y-3">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary">
               <Bot className="w-3 h-3" />
               {t("common")}

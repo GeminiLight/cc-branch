@@ -52,6 +52,7 @@ will replace the relevant sections of `architecture.md` once Phase 7 cleanup is 
 | `webui-sidebar-spec.md` | English | ✅ Shipped | Current navigation notes |
 | `webui-dashboard2-spec.md` | English | 🚧 Roadmap | Multi-project dashboard (roadmap boundary) |
 | `webui-userflow.md` | English | 🚧 Roadmap | User flows (verify implementation) |
+| `workspace-terminology.zh.md` | 中文 | 🚧 Roadmap | Workspace / Tab / Pane terminology for the next Web UI model |
 | `dashboard-ux-comparison.html` | English | 🚧 Roadmap | Dashboard UX comparison (output file) |
 
 **Key relationship**: `webui-spec.md` is the authoritative reference for the shipped Web UI.

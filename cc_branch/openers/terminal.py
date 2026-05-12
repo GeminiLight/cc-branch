@@ -61,24 +61,37 @@ class TerminalLauncher:
             raise OpenerError("Cannot open iTerm2: osascript is not available")
         shell_command = _shell_command(cwd, command)
         script = (
-            'tell application "iTerm"\n'
+            'tell application "iTerm2"\n'
             "activate\n"
-            "set newWindow to (create window with default profile)\n"
-            f"tell current session of newWindow to write text {json.dumps(shell_command)}\n"
+            "create window with default profile\n"
+            "repeat 20 times\n"
+            "if exists current window then exit repeat\n"
+            "delay 0.1\n"
+            "end repeat\n"
+            "delay 0.5\n"
+            f"tell current session of current window to write text {json.dumps(shell_command)}\n"
             "end tell"
         )
         self.run_osascript(script, "Cannot open iTerm2")
 
     def run_osascript(self, script: str, failure_prefix: str) -> None:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=5,
-        )
+        args = ["osascript"]
+        for line in script.splitlines():
+            if line.strip():
+                args.extend(["-e", line])
+        try:
+            result = subprocess.run(
+                args,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise OpenerError(f"{failure_prefix}: AppleScript timed out") from error
         if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip()
+            detail = result.stderr.strip()
             message = failure_prefix
             if detail:
                 message = f"{message}: {detail}"

@@ -35,6 +35,7 @@ export interface WindowConfig {
 export interface SlotConfig {
   name: string;
   runtime: "tmux" | "terminal";
+  layout?: "auto" | "horizontal" | "vertical" | "main-left" | "main-top" | "grid";
   opener?: string;
   cwd: string;
   env: Record<string, string>;
@@ -106,7 +107,7 @@ export const DEFAULT_DISPLAY: DisplayConfig = {
 
 export function createDefaultConfig(): ConfigFormData {
   return {
-    version: 1,
+    version: 2,
     project: "my-project",
     root: ".",
     display: { ...DEFAULT_DISPLAY },

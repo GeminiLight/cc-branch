@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, Plus, Settings, X } from "lucide-react";
+import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { ChevronLeft, ChevronRight, Plus, Settings, X } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import type { APIClient } from "../api/client";
-import { useProjectStore, type ProjectItem } from "../stores/projectStore";
+import type { ProjectItem } from "../stores/projectStore";
 import { useI18n } from "../i18n";
 import logoUrl from "../assets/logo/logo.svg";
 
@@ -11,6 +11,7 @@ interface SidebarProps {
   projects: ProjectItem[];
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
+  onRemoveProject: (id: string) => void;
   onAddProject: () => void;
   onOpenSettings: () => void;
   forceExpanded?: boolean;
@@ -32,6 +33,7 @@ function statusLabel(t: (key: string) => string, status: ProjectStatus["status"]
 }
 
 function statusDotClass(status: ProjectStatus["status"] | undefined): string {
+  if (!status) return "bg-[var(--text-tertiary)] opacity-50";
   if (status === "running") return "bg-[var(--success)] animate-pulse";
   if (status === "external") return "bg-[var(--accent)]";
   if (status === "stopped") return "bg-[var(--text-tertiary)]";
@@ -41,32 +43,27 @@ function statusDotClass(status: ProjectStatus["status"] | undefined): string {
 
 const SIDEBAR_COLLAPSED_KEY = "cc-branch.sidebar.collapsed";
 
-const projectPalettes = [
-  "linear-gradient(135deg, #0f766e, #134e4a)",
-  "linear-gradient(135deg, #c27803, #8a4b10)",
-  "linear-gradient(135deg, #2563eb, #164e63)",
-  "linear-gradient(135deg, #be123c, #5b21b6)",
-  "linear-gradient(135deg, #1f2937, #475569)",
-  "linear-gradient(135deg, #4d7c0f, #166534)",
-  "linear-gradient(135deg, #6d28d9, #1d4ed8)",
-];
-
-function projectInitials(name: string): string {
+function projectMonogram(name: string): string {
   const cleaned = name.trim();
   if (!cleaned) return "P";
-  const parts = cleaned
-    .split(/[^a-zA-Z0-9]+/)
-    .filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return cleaned.slice(0, 2).toUpperCase();
+  return cleaned[0].toUpperCase();
 }
 
-function paletteForProject(project: ProjectItem): string {
+function projectHue(project: ProjectItem): number {
   const key = `${project.name}:${project.path}`;
-  const sum = Array.from(key).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return projectPalettes[sum % projectPalettes.length];
+  return Array.from(key).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
+}
+
+function projectIconStyle(project: ProjectItem, active: boolean): CSSProperties {
+  const hue = projectHue(project);
+  return {
+    background: `linear-gradient(145deg, hsl(${hue} 85% 97%), hsl(${hue} 82% 90%))`,
+    borderColor: `hsl(${hue} 72% 72% / ${active ? "0.55" : "0.32"})`,
+    color: `hsl(${hue} 54% 31%)`,
+    boxShadow: active
+      ? `0 10px 22px hsl(${hue} 70% 45% / 0.18), inset 0 1px 0 rgb(255 255 255 / 0.85)`
+      : "inset 0 1px 0 rgb(255 255 255 / 0.72)",
+  };
 }
 
 function AppMark({ compact = false }: { compact?: boolean }) {
@@ -88,12 +85,12 @@ export default function Sidebar({
   projects,
   activeProjectId,
   onSelectProject,
+  onRemoveProject,
   onAddProject,
   onOpenSettings,
   forceExpanded = false,
 }: SidebarProps) {
   const { t } = useI18n();
-  const removeProject = useProjectStore((s) => s.removeProject);
   const [storedCollapsed, setStoredCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
@@ -172,14 +169,14 @@ export default function Sidebar({
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="absolute -right-3 top-[calc((var(--chrome-height)-28px)/2)] z-50 w-6 h-7 rounded-md bg-[var(--bg-card)] border border-default shadow-sm flex items-center justify-center text-tertiary hover:text-primary hover:border-[var(--border-strong)] transition-colors"
+            className="absolute -right-2.5 top-[calc((var(--chrome-height)-24px)/2)] z-50 w-5 h-6 rounded-full bg-[var(--bg-card)] border border-default shadow-sm flex items-center justify-center text-tertiary hover:text-primary hover:border-[var(--border-strong)] transition-colors"
             aria-label={collapsed ? t("expand") : t("collapse")}
             title={collapsed ? t("expand") : t("collapse")}
           >
             {collapsed ? (
-              <PanelLeftOpen className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
             ) : (
-              <PanelLeftClose className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
             )}
           </button>
         )}
@@ -201,39 +198,40 @@ export default function Sidebar({
         {projects.map((p) => {
           const active = activeProjectId === p.id;
           const st = statuses[p.id];
-          const initials = projectInitials(p.name);
+          const monogram = projectMonogram(p.name);
 
           return (
             <div
               key={p.id}
-              className={`group w-full rounded-md text-[13px] transition-all flex items-center gap-1 relative ${
+              className={`group w-full rounded-md text-[13px] transition-all relative ${
                 active
-                  ? "bg-[var(--accent-bg)] text-primary border border-[var(--accent-border)]"
-                  : "text-secondary hover:text-primary hover:bg-[var(--bg-hover)] border border-transparent"
+                  ? "bg-[var(--bg-card)] text-primary"
+                  : "text-secondary hover:text-primary hover:bg-[var(--bg-hover)]"
               }`}
               title={collapsed ? p.name : undefined}
             >
               {/* Active indicator — left border */}
               {active && !collapsed && (
-                <span className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r-full bg-[var(--accent)]" />
+                <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r-full bg-[var(--accent)]" />
               )}
 
               <button
                 type="button"
                 onClick={() => onSelectProject(p.id)}
-                className={`flex-1 min-w-0 text-left rounded-md flex items-center ${
-                  collapsed ? "justify-center px-1 py-1.5" : "gap-2.5 px-2.5 py-2.5"
+                className={`w-full min-w-0 text-left rounded-md flex items-center ${
+                  collapsed ? "justify-center px-1 py-1.5" : "gap-2.5 py-2.5 pl-2.5 pr-16"
                 }`}
                 aria-current={active ? "page" : undefined}
                 aria-label={collapsed ? p.name : undefined}
               >
                 <div
-                  className={`rounded-md border border-white/25 flex items-center justify-center shrink-0 text-white font-black tracking-tight shadow-sm ${
-                    collapsed ? "w-10 h-10 text-[12px]" : "w-8 h-8 text-[11px]"
+                  className={`relative overflow-hidden rounded-lg border flex items-center justify-center shrink-0 font-bold tracking-tight transition-transform group-hover:scale-[1.03] ${
+                    collapsed ? "w-10 h-10 text-[16px]" : "w-8 h-8 text-[13px]"
                   }`}
-                  style={{ background: paletteForProject(p) }}
+                  style={projectIconStyle(p, active)}
                 >
-                  {initials}
+                  <span className="absolute inset-x-1 top-1 h-px bg-white/80" aria-hidden="true" />
+                  <span className="relative">{monogram}</span>
                 </div>
 
                 {!collapsed && (
@@ -247,21 +245,23 @@ export default function Sidebar({
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-tertiary truncate font-mono mt-0.5 leading-tight">
+                      <p className="text-[10px] text-tertiary truncate mt-0.5 leading-tight">
                         {st
-                          ? `${st.runningCount}/${st.totalCount} ${t("slots")} / ${statusLabel(t, st.status)}`
+                          ? `${st.runningCount}/${st.totalCount} · ${statusLabel(t, st.status)}`
                           : "..."}
                       </p>
                     </div>
-
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${statusDotClass(st?.status)}`}
-                      title={statusLabel(t, st?.status)}
-                      aria-label={statusLabel(t, st?.status)}
-                    />
                   </>
                 )}
               </button>
+
+              <span
+                className={`absolute rounded-full border border-[var(--sidebar-bg)] shadow-[0_0_0_1px_rgb(255_255_255_/_0.18)] ${
+                  collapsed ? "right-2 top-2.5 w-2.5 h-2.5" : "right-2.5 top-1/2 w-2 h-2 -translate-y-1/2"
+                } ${statusDotClass(st?.status)}`}
+                title={statusLabel(t, st?.status)}
+                aria-label={statusLabel(t, st?.status)}
+              />
 
               {/* Delete button */}
               {!collapsed && p.id !== "current" && (
@@ -269,16 +269,16 @@ export default function Sidebar({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    removeProject(p.id);
+                    onRemoveProject(p.id);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.stopPropagation();
                       e.preventDefault();
-                      removeProject(p.id);
+                      onRemoveProject(p.id);
                     }
                   }}
-                  className="mr-1 icon-touch sm:min-h-8 sm:min-w-8 rounded-md flex items-center justify-center text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger hover:danger-bg transition-colors"
+                  className="absolute right-6 top-1/2 -translate-y-1/2 icon-touch sm:min-h-8 sm:min-w-8 rounded-md flex items-center justify-center text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger hover:danger-bg transition-colors"
                   aria-label={`${t("remove")} ${p.name}`}
                   tabIndex={0}
                 >

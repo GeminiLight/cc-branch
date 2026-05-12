@@ -51,27 +51,59 @@ function coerceWindowConfig(raw: unknown): WindowConfig {
   };
 }
 
-function coerceSlotConfig(raw: unknown): SlotConfig {
-  const r = raw as Record<string, unknown>;
-  const runtime = String(r?.runtime ?? "tmux");
-  const slot: SlotConfig = {
-    name: String(r?.name ?? ""),
-    runtime: runtime === "terminal" ? "terminal" : "tmux",
-    opener: r?.opener != null ? String(r.opener) : undefined,
-    cwd: String(r?.cwd ?? "."),
-    env: r?.env && typeof r.env === "object" ? Object.fromEntries(
-      Object.entries(r.env as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+function coerceTabConfig(raw: unknown): SlotConfig[] {
+  const tab = raw as Record<string, unknown>;
+  const rawLayout = String(tab?.layout ?? "auto");
+  const layout = ["auto", "horizontal", "vertical", "main-left", "main-top", "grid"].includes(rawLayout)
+    ? (rawLayout as SlotConfig["layout"])
+    : "auto";
+  const base = {
+    name: String(tab?.name ?? ""),
+    layout,
+    opener: tab?.opener != null ? String(tab.opener) : undefined,
+    cwd: String(tab?.cwd ?? "."),
+    env: tab?.env && typeof tab.env === "object" ? Object.fromEntries(
+      Object.entries(tab.env as Record<string, unknown>).map(([k, v]) => [k, String(v)])
     ) : {},
-    windows: Array.isArray(r?.windows)
-      ? r.windows.map(coerceWindowConfig)
-      : [],
   };
-  if (r?.command != null) slot.command = String(r.command);
-  if (r?.title != null) slot.title = String(r.title);
-  if (r?.agent != null) slot.agent = String(r.agent);
-  if (r?.session_id != null) slot.session_id = String(r.session_id);
-  if (r?.label != null) slot.label = String(r.label);
-  return slot;
+  const panes = Array.isArray(tab?.panes) ? tab.panes as unknown[] : [];
+  const paneRecords = panes.filter((pane): pane is Record<string, unknown> => Boolean(pane && typeof pane === "object"));
+  const terminalPanes = paneRecords.filter((pane) => String(pane.runtime ?? "terminal") !== "tmux");
+  const tmuxPanes = paneRecords.filter((pane) => String(pane.runtime ?? "terminal") === "tmux");
+  const slots: SlotConfig[] = [];
+
+  if (terminalPanes.length > 0 || paneRecords.length === 0) {
+    slots.push({
+      ...base,
+      runtime: "terminal",
+      windows: terminalPanes.map(coerceWindowConfig),
+    });
+  }
+
+  for (const pane of tmuxPanes) {
+    const rawWindows = Array.isArray(pane.windows) ? pane.windows : [];
+    slots.push({
+      ...base,
+      name: tmuxPanes.length === 1 && terminalPanes.length === 0
+        ? base.name
+        : `${base.name}-${String(pane.name ?? "tmux")}`,
+      runtime: "tmux",
+      layout: ["auto", "horizontal", "vertical", "main-left", "main-top", "grid"].includes(String(pane.layout ?? layout))
+        ? (String(pane.layout ?? layout) as SlotConfig["layout"])
+        : layout,
+      opener: pane.opener != null ? String(pane.opener) : base.opener,
+      cwd: String(pane.cwd ?? base.cwd),
+      env: {
+        ...base.env,
+        ...(pane.env && typeof pane.env === "object" ? Object.fromEntries(
+          Object.entries(pane.env as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+        ) : {}),
+      },
+      windows: rawWindows.length > 0 ? rawWindows.map(coerceWindowConfig) : [coerceWindowConfig(pane)],
+    });
+  }
+
+  return slots;
 }
 
 export function parseConfigYaml(yaml: string): ConfigFormData {
@@ -88,7 +120,7 @@ export function parseConfigYaml(yaml: string): ConfigFormData {
     }
 
     return {
-      version: Number(doc.version ?? 1),
+      version: Number(doc.version ?? 2),
       project: String(doc.project ?? "my-project"),
       root: String(doc.root ?? "."),
       display: {
@@ -99,7 +131,7 @@ export function parseConfigYaml(yaml: string): ConfigFormData {
         dashboard: Boolean((doc.display as Record<string, unknown>)?.dashboard ?? false),
       },
       agents,
-      slots: Array.isArray(doc.slots) ? doc.slots.map(coerceSlotConfig) : [],
+      slots: Array.isArray(doc.tabs) ? doc.tabs.flatMap(coerceTabConfig) : [],
     };
   } catch {
     return createDefaultConfig();
@@ -141,32 +173,41 @@ function cleanWindowConfig(win: WindowConfig): Record<string, unknown> {
   return out;
 }
 
-function cleanSlotConfig(slot: SlotConfig): Record<string, unknown> {
+function cleanPaneConfig(win: WindowConfig): Record<string, unknown> {
+  return cleanWindowConfig(win);
+}
+
+function cleanTabConfig(slot: SlotConfig): Record<string, unknown> {
   const out: Record<string, unknown> = {
     name: slot.name,
-    runtime: slot.runtime,
     cwd: slot.cwd,
   };
   if (slot.opener != null) out.opener = slot.opener;
+  if (slot.layout != null && slot.layout !== "auto") out.layout = slot.layout;
   if (Object.keys(slot.env).length > 0) out.env = slot.env;
 
-  if (slot.runtime === "terminal") {
-    if (slot.command != null) out.command = slot.command;
-    if (slot.title != null) out.title = slot.title;
-    if (slot.agent != null) out.agent = slot.agent;
-    if (slot.session_id != null) out.session_id = slot.session_id;
-    if (slot.label != null) out.label = slot.label;
+  if (slot.runtime === "tmux") {
+    out.panes = [{
+      name: slot.name || "tmux",
+      runtime: "tmux",
+      windows: slot.windows.map(cleanWindowConfig),
+    }];
+  } else if (slot.windows.length > 0) {
+    out.panes = slot.windows.map(cleanPaneConfig);
   } else {
-    if (slot.windows.length > 0) {
-      out.windows = slot.windows.map(cleanWindowConfig);
-    }
+    const pane: Record<string, unknown> = { name: slot.title || slot.name || "main" };
+    if (slot.command != null) pane.command = slot.command;
+    if (slot.agent != null) pane.agent = slot.agent;
+    if (slot.session_id != null) pane.session_id = slot.session_id;
+    if (slot.label != null) pane.label = slot.label;
+    out.panes = [pane];
   }
   return out;
 }
 
 export function serializeConfigForm(data: ConfigFormData): string {
   const out: Record<string, unknown> = {
-    version: data.version,
+    version: data.version || 2,
     project: data.project,
     root: data.root,
   };
@@ -188,7 +229,7 @@ export function serializeConfigForm(data: ConfigFormData): string {
   }
 
   if (data.slots.length > 0) {
-    out.slots = data.slots.map(cleanSlotConfig);
+    out.tabs = data.slots.map(cleanTabConfig);
   }
 
   return YAML.dump(out, {
@@ -220,7 +261,7 @@ export function validateConfigForm(
   const errors: string[] = [];
   if (!data.project.trim()) errors.push(t("projectNameRequired"));
   if (data.slots.some((s) => !s.name.trim())) errors.push(t("allSlotsMustHaveName"));
-  if (data.slots.some((s) => s.runtime === "tmux" && s.windows.some((w) => !w.name.trim()))) {
+  if (data.slots.some((s) => s.windows.some((w) => !w.name.trim()))) {
     errors.push(t("allWindowsMustHaveName"));
   }
   // Duplicate slot names

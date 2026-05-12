@@ -23,6 +23,7 @@ function renderSidebar(onOpenSettings = vi.fn()) {
           projects={[]}
           activeProjectId={null}
           onSelectProject={() => {}}
+          onRemoveProject={() => {}}
           onAddProject={() => {}}
           onOpenSettings={onOpenSettings}
         />

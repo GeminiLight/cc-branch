@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..models import OpenerSpec
 from .platform import _find_macos_app
@@ -54,13 +55,11 @@ class OpenerRegistry:
         if sys.platform == "darwin":
             openers.extend([
                 _macos_app_info("terminal-app", "Terminal.app", "Terminal"),
-                _macos_app_info("iterm2", "iTerm2", "iTerm"),
                 _macos_app_info(
-                    "warp",
-                    "Warp",
-                    "Warp",
-                    capabilities=WARP_CAPABILITIES,
-                    kind="terminal",
+                    "iterm2",
+                    "iTerm2",
+                    "iTerm",
+                    capabilities=PROJECT_CAPABILITIES,
                     require_osascript=False,
                 ),
             ])
@@ -78,6 +77,10 @@ class OpenerRegistry:
                 _command_info("wezterm", "WezTerm", "wezterm", TERMINAL_CAPABILITIES, kind="terminal"),
                 _command_info("alacritty", "Alacritty", "alacritty", TERMINAL_CAPABILITIES, kind="terminal"),
             ])
+
+        warp_info = _warp_info()
+        if warp_info is not None:
+            openers.append(warp_info)
 
         openers.extend([
             _command_info("vscode", "VS Code", "code", EDITOR_WORKSPACE_CAPABILITIES, kind="editor"),
@@ -246,6 +249,86 @@ def _system_file_manager_info() -> OpenerInfo:
         capabilities=PROJECT_CAPABILITIES,
         executable=executable,
         reason=None if executable else "xdg-open is not available",
+    )
+
+
+def _warp_info() -> OpenerInfo | None:
+    if sys.platform == "darwin":
+        executable = _find_macos_app("Warp")
+        if executable is None:
+            return OpenerInfo(
+                id="warp",
+                label="Warp",
+                kind="terminal",
+                available=False,
+                capabilities=WARP_CAPABILITIES,
+                reason="Warp not found",
+            )
+        return OpenerInfo(
+            id="warp",
+            label="Warp",
+            kind="terminal",
+            available=True,
+            capabilities=WARP_CAPABILITIES,
+            executable=str(executable),
+        )
+
+    if os.name == "nt":
+        candidates: list[Path] = []
+        for root_key in ("LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)"):
+            root = os.environ.get(root_key)
+            if not root:
+                continue
+            candidates.extend([
+                Path(root) / "Programs" / "Warp" / "warp.exe",
+                Path(root) / "Warp" / "warp.exe",
+            ])
+        for candidate in candidates:
+            if candidate.exists():
+                return OpenerInfo(
+                    id="warp",
+                    label="Warp",
+                    kind="terminal",
+                    available=True,
+                    capabilities=WARP_CAPABILITIES,
+                    executable=str(candidate),
+                )
+        executable = shutil.which("warp") or shutil.which("warp.exe")
+        if executable:
+            return OpenerInfo(
+                id="warp",
+                label="Warp",
+                kind="terminal",
+                available=True,
+                capabilities=WARP_CAPABILITIES,
+                executable=executable,
+            )
+        return OpenerInfo(
+            id="warp",
+            label="Warp",
+            kind="terminal",
+            available=False,
+            capabilities=WARP_CAPABILITIES,
+            reason="Warp not found",
+        )
+
+    executable = shutil.which("warp-terminal") or shutil.which("warp")
+    if executable:
+        return OpenerInfo(
+            id="warp",
+            label="Warp",
+            kind="terminal",
+            available=True,
+            capabilities=WARP_CAPABILITIES,
+            executable=executable,
+        )
+    return OpenerInfo(
+        id="warp",
+        label="Warp",
+        kind="terminal",
+        available=False,
+        capabilities=WARP_CAPABILITIES,
+        reason="warp-terminal is not available",
     )
 
 

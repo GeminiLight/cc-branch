@@ -34,8 +34,8 @@ describe("ConfigSelector", () => {
       </I18nProvider>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Workspace config" }));
-    fireEvent.click(screen.getByRole("option", { name: "review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Workspace profile" }));
+    fireEvent.click(screen.getByRole("option", { name: /review/ }));
 
     expect(onSelect).toHaveBeenCalledWith(configs[1].path);
   });
@@ -47,9 +47,65 @@ describe("ConfigSelector", () => {
       </I18nProvider>
     );
 
-    expect(screen.getByText("Config")).toBeInTheDocument();
+    expect(screen.getByText("Workspace")).toBeInTheDocument();
     expect(screen.getByText("review")).toBeInTheDocument();
     expect(screen.getByText("2 configs")).toBeInTheDocument();
+  });
+
+  it("exposes workspace management actions from the selector", () => {
+    const onCreate = vi.fn();
+    const onRename = vi.fn();
+    const onDelete = vi.fn();
+
+    render(
+      <I18nProvider>
+        <ConfigSelector
+          projectPath="/tmp/demo"
+          configs={configs}
+          selectedPath={configs[1].path}
+          onSelect={vi.fn()}
+          onCreate={onCreate}
+          onRename={onRename}
+          onDelete={onDelete}
+        />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace profile" }));
+
+    expect(screen.getByRole("dialog", { name: "Workspace profiles" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New workspace" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Rename workspace" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete workspace" })).toBeEnabled();
+  });
+
+  it("creates a workspace profile inline instead of opening a blocking modal", () => {
+    const onCreate = vi.fn();
+
+    render(
+      <I18nProvider>
+        <ConfigSelector
+          projectPath="/tmp/demo"
+          configs={configs}
+          selectedPath={configs[1].path}
+          onSelect={vi.fn()}
+          onCreate={onCreate}
+        />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "New workspace" }));
+
+    expect(screen.getByText("Create a named profile from the default workspace.")).toBeInTheDocument();
+    expect(screen.queryByText("Use a short name like review, ui-polish, or release-check.")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Workspace profile name" }), {
+      target: { value: "qa-check" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(onCreate).toHaveBeenCalledWith("qa-check", undefined);
   });
 
   it("summarizes the active config path and isolated state path in page context", () => {
@@ -59,7 +115,7 @@ describe("ConfigSelector", () => {
       </I18nProvider>
     );
 
-    expect(screen.getByText("Active config")).toBeInTheDocument();
+    expect(screen.getByText("Active workspace")).toBeInTheDocument();
     expect(screen.getByText("review")).toBeInTheDocument();
     expect(screen.getByText("/tmp/demo/.cc-branch/configs/review.yaml")).toBeInTheDocument();
     expect(screen.getByText("/tmp/demo/.cc-branch/states/review.yaml")).toBeInTheDocument();

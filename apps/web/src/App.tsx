@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutGrid,
   FileCode2,
   Stethoscope,
+  Bot,
   Sun,
   Moon,
   Globe,
@@ -26,14 +28,14 @@ import Dashboard from "./components/Dashboard";
 import ConfigEditor from "./components/ConfigEditor";
 import DoctorView from "./components/DoctorView";
 import SettingsModal from "./components/SettingsModal";
-import ConfigSelector, { ConfigContextNotice } from "./components/ConfigSelector";
-import { projectDirFromConfigPath } from "./utils/projectPath";
+import ConfigSelector from "./components/ConfigSelector";
 
-type Tab = "dashboard" | "config" | "doctor";
+type Tab = "dashboard" | "workspace" | "project" | "doctor";
 
 const tabs: { id: Tab; labelKey: string; icon: typeof LayoutGrid }[] = [
   { id: "dashboard", labelKey: "dashboard", icon: LayoutGrid },
-  { id: "config", labelKey: "config", icon: FileCode2 },
+  { id: "workspace", labelKey: "workspaceTab", icon: FileCode2 },
+  { id: "project", labelKey: "projectConfigTab", icon: Bot },
   { id: "doctor", labelKey: "doctor", icon: Stethoscope },
 ];
 
@@ -47,63 +49,132 @@ function AppInner() {
   const { t, lang, setLang } = useI18n();
   const { theme, toggle } = useTheme();
   const client = useApiClient();
+  const queryClient = useQueryClient();
 
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const activeProject = useProjectStore(getActiveProject);
-  const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId);
-  const injectCurrentProject = useProjectStore((s) => s.injectCurrentProject);
-  const addProject = useProjectStore((s) => s.addProject);
+  const setSnapshot = useProjectStore((s) => s.setSnapshot);
 
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedConfigPaths, setSelectedConfigPaths] = useState<Record<string, string>>({});
-  const activeConfigPath = activeProject?.path ? selectedConfigPaths[activeProject.path] : undefined;
+  const activeConfigPath = activeProject?.selected_config_path;
   const activeScope = activeProject ? { projectPath: activeProject.path, configPath: activeConfigPath } : undefined;
   const { data: configOptionsData } = useConfigOptions(activeScope);
   const selectedConfigPath = configOptionsData?.selected_config_path || activeConfigPath;
 
-  // Auto-inject current project on mount
+  // Hydrate global projects index and inject current workspace on mount.
   useEffect(() => {
+    let cancelled = false;
     client
-      .getApiInfo()
-      .then((info) => {
-        const dir = info.config_path ? projectDirFromConfigPath(info.config_path) : "";
-        if (dir) injectCurrentProject(dir);
+      .injectCurrentProject()
+      .then((data) => {
+        if (cancelled) return;
+        setSnapshot(data.projects, data.active_project_id);
       })
       .catch(() => {
-        // Silently fail; user can still manually add projects
+        // Silently fail; user can still manually add projects.
       });
-  }, [client, injectCurrentProject]);
+    return () => {
+      cancelled = true;
+    };
+  }, [client, setSnapshot]);
 
   const handleAddProject = useCallback(
-    (path: string) => {
-      const id = `proj_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+    async (path: string) => {
       const name = path.split(/[\\/]/).pop() || "project";
-      addProject({ id, name, path });
+      const data = await client.addProject(path, name);
+      setSnapshot(data.projects, data.active_project_id);
     },
-    [addProject]
+    [client, setSnapshot]
   );
 
   const handleSelectProject = useCallback(
     (id: string) => {
-      setActiveProjectId(id);
+      client
+        .activateProject(id)
+        .then((data) => setSnapshot(data.projects, data.active_project_id))
+        .catch(() => {
+          // keep current UI selection if activation fails.
+        });
       setTab("dashboard");
       setMobileSidebarOpen(false);
     },
-    [setActiveProjectId, setMobileSidebarOpen]
+    [client, setMobileSidebarOpen, setSnapshot]
+  );
+
+  const handleRemoveProject = useCallback(
+    (id: string) => {
+      client
+        .removeProject(id)
+        .then((data) => setSnapshot(data.projects, data.active_project_id))
+        .catch(() => {
+          // keep current state if backend remove fails.
+        });
+    },
+    [client, setSnapshot]
   );
 
   const handleSetTab = useCallback((id: Tab) => setTab(id), []);
-  const handleSelectConfig = useCallback((path: string) => {
-    if (!activeProject?.path) return;
-    setSelectedConfigPaths((prev) => ({ ...prev, [activeProject.path]: path }));
-    setTab("dashboard");
-  }, [activeProject?.path]);
+  const handleSelectConfig = useCallback(
+    (path: string) => {
+      if (!activeProject?.path) return;
+      client
+        .setProjectConfig(activeProject.path, path)
+        .then((data) => setSnapshot(data.projects, data.active_project_id))
+        .catch(() => {
+          // keep current config selection if update fails.
+        });
+    },
+    [activeProject?.path, client, setSnapshot]
+  );
+
+  const refreshConfigData = useCallback(
+    (projectPath: string, configPath?: string) => {
+      queryClient.invalidateQueries({ queryKey: ["workspace", "configs", projectPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "config", projectPath, configPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "status", projectPath, configPath] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", "agents", projectPath, configPath] });
+    },
+    [queryClient]
+  );
+
+  const handleCreateConfig = useCallback(
+    async (name: string, sourceConfigPath?: string) => {
+      if (!activeProject?.path) return;
+      const options = await client.createWorkspaceConfig(activeProject.path, name, sourceConfigPath || selectedConfigPath);
+      const data = await client.setProjectConfig(activeProject.path, options.selected_config_path);
+      setSnapshot(data.projects, data.active_project_id);
+      refreshConfigData(activeProject.path, options.selected_config_path);
+    },
+    [activeProject?.path, client, refreshConfigData, selectedConfigPath, setSnapshot]
+  );
+
+  const handleRenameConfig = useCallback(
+    async (configPath: string, name: string) => {
+      if (!activeProject?.path) return;
+      const options = await client.renameWorkspaceConfig(activeProject.path, configPath, name);
+      const data = await client.setProjectConfig(activeProject.path, options.selected_config_path);
+      setSnapshot(data.projects, data.active_project_id);
+      refreshConfigData(activeProject.path, options.selected_config_path);
+    },
+    [activeProject?.path, client, refreshConfigData, setSnapshot]
+  );
+
+  const handleDeleteConfig = useCallback(
+    async (configPath: string) => {
+      if (!activeProject?.path) return;
+      const options = await client.deleteWorkspaceConfig(activeProject.path, configPath);
+      const data = await client.setProjectConfig(activeProject.path, options.selected_config_path);
+      setSnapshot(data.projects, data.active_project_id);
+      refreshConfigData(activeProject.path, options.selected_config_path);
+    },
+    [activeProject?.path, client, refreshConfigData, setSnapshot]
+  );
 
   const handleEditWorkspaceTarget = useCallback(() => {
-    setTab("config");
+    setTab("workspace");
   }, []);
 
   const handleOpenSettings = useCallback(() => {
@@ -114,8 +185,9 @@ function AppInner() {
   // Global keyboard shortcuts
   useKeyboardShortcuts({
     onTab1: () => setTab("dashboard"),
-    onTab2: () => setTab("config"),
-    onTab3: () => setTab("doctor"),
+    onTab2: () => setTab("workspace"),
+    onTab3: () => setTab("project"),
+    onTab4: () => setTab("doctor"),
     onEscape: () => {
       setMobileSidebarOpen(false);
       setAddModalOpen(false);
@@ -131,6 +203,7 @@ function AppInner() {
           projects={projects}
           activeProjectId={activeProjectId}
           onSelectProject={handleSelectProject}
+          onRemoveProject={handleRemoveProject}
           onAddProject={() => setAddModalOpen(true)}
           onOpenSettings={handleOpenSettings}
         />
@@ -142,6 +215,7 @@ function AppInner() {
         projects={projects}
         activeProjectId={activeProjectId}
         onSelectProject={handleSelectProject}
+        onRemoveProject={handleRemoveProject}
         onAddProject={() => setAddModalOpen(true)}
         onOpenSettings={handleOpenSettings}
       />
@@ -177,9 +251,13 @@ function AppInner() {
           <div className="flex items-center gap-0.5 shrink-0">
             {configOptionsData?.configs && activeProject && (
               <ConfigSelector
+                projectPath={activeProject.path}
                 configs={configOptionsData.configs}
                 selectedPath={selectedConfigPath}
                 onSelect={handleSelectConfig}
+                onCreate={handleCreateConfig}
+                onRename={handleRenameConfig}
+                onDelete={handleDeleteConfig}
               />
             )}
             <Dropdown
@@ -271,15 +349,6 @@ function AppInner() {
           </div>
         </div>
 
-        {activeProject && configOptionsData?.configs && (
-          <div className="px-4 sm:px-5 pt-3">
-            <ConfigContextNotice
-              configs={configOptionsData.configs}
-              selectedPath={selectedConfigPath}
-            />
-          </div>
-        )}
-
         {/* Content */}
         <main id="main-content" className="flex-1 px-4 sm:px-5 py-5 min-w-0 overflow-y-auto" tabIndex={-1}>
           {activeProject ? (
@@ -293,8 +362,16 @@ function AppInner() {
                   onEditTarget={handleEditWorkspaceTarget}
                 />
               </div>
-              <div role="tabpanel" id="panel-config" aria-labelledby="tab-config" hidden={tab !== "config"} className={`transition-opacity duration-200 ${tab === "config" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <ConfigEditor key={`cfg-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} />
+              <div role="tabpanel" id="panel-workspace" aria-labelledby="tab-workspace" hidden={tab !== "workspace"} className={`transition-opacity duration-200 ${tab === "workspace" ? "opacity-100" : "opacity-0 hidden"}`}>
+                <ConfigEditor key={`workspace-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} view="workspace" />
+              </div>
+              <div role="tabpanel" id="panel-project" aria-labelledby="tab-project" hidden={tab !== "project"} className={`transition-opacity duration-200 ${tab === "project" ? "opacity-100" : "opacity-0 hidden"}`}>
+                <ConfigEditor
+                  key={`project-config-${activeProject.id}-${selectedConfigPath || "default"}`}
+                  projectPath={activeProject.path}
+                  configPath={selectedConfigPath}
+                  view="project"
+                />
               </div>
               <div role="tabpanel" id="panel-doctor" aria-labelledby="tab-doctor" hidden={tab !== "doctor"} className={`transition-opacity duration-200 ${tab === "doctor" ? "opacity-100" : "opacity-0 hidden"}`}>
                 <DoctorView key={`doc-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} />
@@ -329,6 +406,7 @@ function MobileSidebarOverlay({
   projects,
   activeProjectId,
   onSelectProject,
+  onRemoveProject,
   onAddProject,
   onOpenSettings,
 }: {
@@ -336,6 +414,7 @@ function MobileSidebarOverlay({
   projects: ReturnType<typeof useProjectStore.getState>["projects"];
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
+  onRemoveProject: (id: string) => void;
   onAddProject: () => void;
   onOpenSettings: () => void;
 }) {
@@ -357,6 +436,7 @@ function MobileSidebarOverlay({
           projects={projects}
           activeProjectId={activeProjectId}
           onSelectProject={onSelectProject}
+          onRemoveProject={onRemoveProject}
           onAddProject={onAddProject}
           onOpenSettings={onOpenSettings}
           forceExpanded

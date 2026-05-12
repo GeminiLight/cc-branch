@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { FolderOpen, Loader2, Plus, X, MapPin } from "lucide-react";
+import { FolderOpen, Loader2, Plus, X, MapPin, FolderSearch } from "lucide-react";
 import type { APIClient } from "../api/client";
 import { useI18n } from "../i18n";
 import { projectDirFromConfigPath } from "../utils/projectPath";
@@ -9,7 +9,7 @@ interface AddProjectModalProps {
   api: APIClient;
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (path: string) => void;
+  onAdd: (path: string) => Promise<void> | void;
 }
 
 export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProjectModalProps) {
@@ -17,6 +17,8 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
   const toast = useToast();
   const [path, setPath] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [currentDir, setCurrentDir] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<{
     path_exists: boolean;
@@ -27,14 +29,16 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
   } | null>(null);
   const latestRequest = useRef(0);
   const modalRef = useRef<HTMLDivElement>(null);
+  const canBrowseSystemDirectory = api.supportsNativeProjectDirectoryPicker();
 
-  const handleScan = useCallback(async () => {
-    if (!path.trim()) return;
+  const handleScan = useCallback(async (value?: string) => {
+    const target = (value ?? path).trim();
+    if (!target) return;
     const reqId = ++latestRequest.current;
     setScanning(true);
     setScanResult(null);
     try {
-      const data = await api.probeProject(path.trim());
+      const data = await api.probeProject(target);
       if (reqId !== latestRequest.current) return;
       setScanResult({
         path_exists: data.path_exists,
@@ -48,7 +52,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
       setScanResult({
         path_exists: false,
         config_exists: false,
-        project_name: path.trim().split(/[\\/]/).pop() || "",
+        project_name: target.split(/[\\/]/).pop() || "",
         slots: 0,
         status: "missing",
       });
@@ -60,13 +64,38 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
     }
   }, [path, api, toast]);
 
-  const handleAdd = useCallback(() => {
+  const handlePickDirectory = useCallback(async () => {
+    const reqId = ++latestRequest.current;
+    setPicking(true);
+    try {
+      const selected = await api.pickProjectDirectory(currentDir || undefined);
+      if (reqId !== latestRequest.current || !selected) return;
+      setPath(selected);
+      await handleScan(selected);
+    } catch (e: unknown) {
+      if (reqId !== latestRequest.current) return;
+      toast.error(String(e));
+    } finally {
+      if (reqId === latestRequest.current) {
+        setPicking(false);
+      }
+    }
+  }, [api, currentDir, handleScan, toast]);
+
+  const handleAdd = useCallback(async () => {
     if (!path.trim() || !scanResult?.path_exists) return;
-    onAdd(path.trim());
-    setPath("");
-    setScanResult(null);
-    onClose();
-    toast.success(t("projectAdded"));
+    setAdding(true);
+    try {
+      await onAdd(path.trim());
+      setPath("");
+      setScanResult(null);
+      onClose();
+      toast.success(t("projectAdded"));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAdding(false);
+    }
   }, [path, scanResult, onAdd, onClose, toast, t]);
 
   // Load current directory when modal opens
@@ -177,17 +206,33 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
                   onKeyDown={(e) => {
                     if (e.key !== "Enter") return;
                     if (scanResult?.path_exists) {
-                      handleAdd();
+                      void handleAdd();
                     } else {
                       handleScan();
                     }
                   }}
                 />
               </div>
+              {canBrowseSystemDirectory && (
+                <button
+                  type="button"
+                  onClick={() => { void handlePickDirectory(); }}
+                  disabled={picking || scanning || adding}
+                  className="h-8 px-2.5 rounded text-[11px] font-medium text-secondary hover:text-primary surface-hover transition-colors border border-default flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label={t("browseDirectory")}
+                  title={t("browseDirectory")}
+                >
+                  {picking ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <FolderSearch className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleScan}
-                disabled={scanning || !path.trim()}
+                onClick={() => { void handleScan(); }}
+                disabled={scanning || adding || !path.trim()}
                 className="h-8 px-3 rounded text-[11px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
                 {scanning ? (
@@ -247,11 +292,12 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
             </button>
             <button
               type="button"
-              onClick={handleAdd}
-              disabled={!scanResult?.path_exists}
+              onClick={() => { void handleAdd(); }}
+              disabled={adding || !scanResult?.path_exists}
               className="h-8 px-3 rounded text-[13px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus className="w-3.5 h-3.5" /> {t("addProject")}
+              {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              {t("addProject")}
             </button>
           </div>
         </div>

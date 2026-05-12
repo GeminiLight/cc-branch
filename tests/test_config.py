@@ -29,14 +29,14 @@ class ConfigTests(unittest.TestCase):
             self._write(
                 config_path,
                 """
-                version: 1
+                version: 2
                 project: "test-project"
                 root: "."
                 """,
             )
 
             workspace = load_workspace(config_path)
-            self.assertEqual(workspace.version, 1)
+            self.assertEqual(workspace.version, 2)
             self.assertEqual(workspace.project, "test-project")
             # root is resolved to absolute path
             self.assertTrue(workspace.root.endswith(tmp))
@@ -176,6 +176,7 @@ class ConfigTests(unittest.TestCase):
                 slots:
                   - name: "dev"
                     runtime: "tmux"
+                    layout: "main-left"
                     windows:
                       - name: "editor"
                         command: "vim"
@@ -186,6 +187,7 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(len(workspace.slots), 1)
             self.assertEqual(workspace.slots[0].name, "dev")
             self.assertEqual(workspace.slots[0].runtime, "tmux")
+            self.assertEqual(workspace.slots[0].layout, "main-left")
             self.assertEqual(len(workspace.slots[0].windows), 1)
             self.assertEqual(workspace.slots[0].windows[0].name, "editor")
 
@@ -258,7 +260,7 @@ class ConfigTests(unittest.TestCase):
 
             # Verify the config is valid
             workspace = load_workspace(config_path)
-            self.assertEqual(workspace.version, 1)
+            self.assertEqual(workspace.version, 2)
             self.assertTrue(hasattr(workspace, "project"))
             self.assertNotIn("agents:", config_path.read_text(encoding="utf-8"))
 

@@ -198,7 +198,7 @@ export function SectionHeader({
       type="button"
       onClick={onToggle}
       className={`w-full flex items-center gap-3 px-4 py-3 text-left group rounded-md transition-colors ${
-        expanded ? "bg-[var(--bg-hover)]/70" : "hover:surface-hover"
+        expanded ? "bg-[var(--bg-hover)]/45" : "hover:bg-[var(--bg-hover)]/35"
       }`}
     >
       <ChevronDown
@@ -228,7 +228,7 @@ export function CollapsibleSection({
 }) {
   if (!expanded) return null;
   return (
-    <div className="px-4 pt-1 pb-4 animate-stagger">
+    <div className="px-4 pt-2 pb-4 animate-stagger">
       {children}
     </div>
   );

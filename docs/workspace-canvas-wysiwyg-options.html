@@ -1,0 +1,1359 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workspace Canvas WYSIWYG Options</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f4f5f2;
+      --paper: #fffefa;
+      --paper-2: #eef2ec;
+      --ink: #16211e;
+      --muted: #62726c;
+      --quiet: #8a9992;
+      --line: rgba(22, 33, 30, 0.12);
+      --line-2: rgba(22, 33, 30, 0.2);
+      --teal: #0f766e;
+      --teal-2: #dcefeb;
+      --lime: #8aa33b;
+      --lime-2: #edf3d5;
+      --blue: #2f6f9f;
+      --blue-2: #e3eef6;
+      --amber: #a86f17;
+      --amber-2: #f5ead6;
+      --red: #b34a42;
+      --red-2: #f3dfdc;
+      --shadow: 0 24px 70px rgba(23, 34, 31, 0.13);
+      --mono: "SF Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+      --sans: "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--sans);
+      letter-spacing: 0;
+      background:
+        linear-gradient(90deg, rgba(22, 33, 30, 0.035) 1px, transparent 1px),
+        linear-gradient(rgba(22, 33, 30, 0.035) 1px, transparent 1px),
+        var(--page);
+      background-size: 34px 34px;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .page {
+      width: min(1540px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .hero,
+    .toc,
+    .option,
+    .decision {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.94);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      min-height: 430px;
+      padding: 26px;
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(520px, 1.1fr);
+      gap: 22px;
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    .eyebrow,
+    .badge,
+    .pill,
+    .tool {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .eyebrow { height: 29px; padding: 0 10px; }
+    .badge { height: 25px; padding: 0 9px; }
+    .badge.best {
+      color: var(--teal);
+      border-color: rgba(15, 118, 110, 0.28);
+      background: var(--teal-2);
+    }
+    .pill { min-height: 22px; padding: 0 7px; font-size: 10px; }
+    .pill.blue { color: var(--blue); background: var(--blue-2); border-color: rgba(47, 111, 159, 0.22); }
+    .pill.amber { color: var(--amber); background: var(--amber-2); border-color: rgba(168, 111, 23, 0.24); }
+    .pill.lime { color: #647a24; background: var(--lime-2); border-color: rgba(138, 163, 59, 0.28); }
+
+    h1 {
+      margin: 18px 0 12px;
+      max-width: 760px;
+      font-size: clamp(40px, 6vw, 82px);
+      line-height: 0.94;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 660px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .hero-points {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .point {
+      min-height: 84px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffefa;
+    }
+
+    .point b { display: block; margin-bottom: 6px; font-size: 12px; }
+    .point span { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    .toc {
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px;
+      margin: 16px 0;
+      backdrop-filter: blur(14px);
+      background: rgba(255, 254, 250, 0.96);
+    }
+
+    .toc a {
+      padding: 8px 11px;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .toc a:first-child {
+      color: var(--teal);
+      background: var(--teal-2);
+    }
+
+    .option {
+      margin: 16px 0;
+      overflow: hidden;
+    }
+
+    .option-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fffefa, #f6f8f3);
+    }
+
+    .title-line {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+
+    .title-line h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .sub {
+      margin: 9px 0 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .score {
+      display: grid;
+      grid-template-columns: repeat(3, 76px);
+      gap: 8px;
+      align-self: start;
+    }
+
+    .score span {
+      min-height: 54px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffefa;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .score b {
+      display: block;
+      color: var(--ink);
+      font-size: 19px;
+      line-height: 1;
+    }
+
+    .option-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 310px;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .notes {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffefa;
+      padding: 12px;
+    }
+
+    .note b { font-size: 12px; }
+    .note p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .mock {
+      min-height: 650px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper-2);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .chrome {
+      height: 36px;
+      border-bottom: 1px solid var(--line);
+      background: #e7ece7;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 12px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #b9c3bb;
+    }
+
+    .address {
+      height: 18px;
+      flex: 1;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.64);
+      border: 1px solid rgba(22, 33, 30, 0.08);
+    }
+
+    .app {
+      height: calc(100% - 36px);
+      min-height: 614px;
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      background: #f8faf6;
+    }
+
+    .rail {
+      border-right: 1px solid var(--line);
+      background: #e7eee8;
+      padding: 10px 8px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .rail-stack { display: grid; gap: 8px; align-content: start; }
+    .rail-icon {
+      height: 36px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .rail-icon.active {
+      background: #fffefa;
+      border-color: var(--line);
+      color: var(--teal);
+      box-shadow: 0 8px 20px rgba(22, 33, 30, 0.08);
+    }
+
+    .workspace {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      background: #f8faf6;
+    }
+
+    .topbar {
+      min-height: 56px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 254, 250, 0.86);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 14px;
+    }
+
+    .topbar h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .path {
+      margin-top: 2px;
+      color: var(--quiet);
+      font-family: var(--mono);
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 440px;
+    }
+
+    .tools {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .tool {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 7px;
+      background: #fffefa;
+    }
+    .tool.primary {
+      color: white;
+      background: var(--teal);
+      border-color: var(--teal);
+    }
+
+    .tabstrip {
+      min-height: 54px;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      background: #f0f4ef;
+    }
+
+    .app-tab {
+      min-width: 148px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fffefa;
+      display: grid;
+      gap: 2px;
+      box-shadow: 0 8px 18px rgba(22, 33, 30, 0.06);
+    }
+
+    .app-tab.active {
+      border-color: rgba(15, 118, 110, 0.35);
+      background: var(--teal-2);
+    }
+
+    .app-tab b {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .app-tab span {
+      color: var(--muted);
+      font-size: 10px;
+      font-family: var(--mono);
+    }
+
+    .plus-tab,
+    .add-pane {
+      border: 1px dashed var(--line-2);
+      background: rgba(255, 254, 250, 0.45);
+      color: var(--muted);
+    }
+
+    .plus-tab {
+      min-width: 138px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .canvas {
+      min-height: 504px;
+      position: relative;
+      padding: 14px;
+      background:
+        linear-gradient(90deg, rgba(22,33,30,0.045) 1px, transparent 1px),
+        linear-gradient(rgba(22,33,30,0.045) 1px, transparent 1px),
+        #f8faf6;
+      background-size: 28px 28px;
+    }
+
+    .canvas-label {
+      position: absolute;
+      left: 14px;
+      top: 12px;
+      z-index: 2;
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .pane-grid {
+      height: 100%;
+      min-height: 476px;
+      display: grid;
+      gap: 10px;
+      padding-top: 36px;
+    }
+
+    .grid-3 { grid-template-columns: 1.12fr 0.88fr; grid-template-rows: 1fr 1fr; }
+    .grid-3 .pane:first-child { grid-row: 1 / span 2; }
+    .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+    .grid-rail { grid-template-columns: 250px minmax(0, 1fr); }
+    .grid-rail .pane:first-child { min-height: 476px; }
+    .grid-stack { grid-template-rows: 1fr 1fr 1fr; }
+
+    .pane {
+      position: relative;
+      min-height: 156px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #101817;
+      color: #d8ebe5;
+      overflow: hidden;
+      box-shadow: 0 18px 38px rgba(22, 33, 30, 0.18);
+    }
+
+    .pane.light {
+      background: #fffefa;
+      color: var(--ink);
+      box-shadow: 0 12px 28px rgba(22, 33, 30, 0.1);
+    }
+
+    .pane.selected {
+      outline: 2px solid rgba(15, 118, 110, 0.55);
+      outline-offset: 2px;
+    }
+
+    .pane-head {
+      height: 36px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px;
+      background: rgba(255,255,255,0.055);
+    }
+
+    .pane.light .pane-head {
+      border-bottom-color: var(--line);
+      background: #f2f5f1;
+    }
+
+    .pane-title {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .pane-title span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #35d08f;
+      box-shadow: 0 0 0 3px rgba(53, 208, 143, 0.12);
+      flex: 0 0 auto;
+    }
+
+    .pane-actions {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .mini {
+      width: 25px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.07);
+      color: inherit;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .pane.light .mini {
+      border-color: var(--line);
+      background: #fffefa;
+    }
+
+    .term {
+      padding: 11px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.65;
+      color: #b8cbc5;
+    }
+
+    .pane.light .term { color: var(--muted); }
+    .prompt { color: #66e3cd; }
+    .muted-line { color: #718780; }
+    .pane.light .prompt { color: var(--teal); }
+
+    .add-pane {
+      min-height: 156px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .matrix-canvas {
+      min-height: 504px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      background:
+        linear-gradient(90deg, rgba(22,33,30,0.045) 1px, transparent 1px),
+        linear-gradient(rgba(22,33,30,0.045) 1px, transparent 1px),
+        #f8faf6;
+      background-size: 28px 28px;
+    }
+
+    .matrix-top {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .matrix-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .matrix-row {
+      min-height: 148px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.82);
+      box-shadow: 0 12px 28px rgba(22, 33, 30, 0.08);
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .matrix-row.selected {
+      border-color: rgba(15, 118, 110, 0.36);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12), 0 18px 40px rgba(22, 33, 30, 0.1);
+    }
+
+    .matrix-tab {
+      border-right: 1px solid var(--line);
+      background: #edf2ed;
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .matrix-tab strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .matrix-tab small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .matrix-handle {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: #fffefa;
+      color: var(--quiet);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+    }
+
+    .matrix-panes {
+      min-width: 0;
+      padding: 10px;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(160px, 1fr);
+      gap: 9px;
+      overflow-x: auto;
+      align-items: stretch;
+    }
+
+    .matrix-pane {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffefa;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(22, 33, 30, 0.07);
+    }
+
+    .matrix-pane.active {
+      border-color: rgba(15, 118, 110, 0.45);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1), 0 14px 30px rgba(22, 33, 30, 0.1);
+    }
+
+    .matrix-pane.dark {
+      background: #111a18;
+      color: #e5f2ec;
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    .matrix-pane-head {
+      min-height: 34px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 9px;
+      background: #f1f4f0;
+    }
+
+    .matrix-pane.dark .matrix-pane-head {
+      background: rgba(255,255,255,0.06);
+      border-bottom-color: rgba(255,255,255,0.1);
+    }
+
+    .matrix-pane-head b {
+      min-width: 0;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .matrix-pane-body {
+      padding: 10px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      line-height: 1.55;
+      min-height: 86px;
+    }
+
+    .matrix-pane.dark .matrix-pane-body { color: #aac1ba; }
+
+    .matrix-add {
+      min-width: 126px;
+      border: 1px dashed var(--line-2);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.48);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .matrix-new-row {
+      min-height: 70px;
+      border: 1px dashed rgba(15, 118, 110, 0.38);
+      border-radius: 8px;
+      background: rgba(220, 239, 235, 0.55);
+      color: var(--teal);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .matrix-floating {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      width: 284px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.96);
+      box-shadow: 0 18px 44px rgba(22, 33, 30, 0.13);
+      padding: 10px;
+      z-index: 5;
+    }
+
+    .matrix-floating h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+    }
+
+    .mini-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .drop-zone {
+      position: absolute;
+      inset: auto 18px 18px auto;
+      width: 210px;
+      min-height: 62px;
+      border: 1px dashed rgba(15, 118, 110, 0.45);
+      border-radius: 8px;
+      background: rgba(220, 239, 235, 0.92);
+      color: var(--teal);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 900;
+      z-index: 4;
+    }
+
+    .inspector-strip {
+      position: absolute;
+      right: 18px;
+      top: 58px;
+      width: 260px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.94);
+      box-shadow: 0 18px 44px rgba(22, 33, 30, 0.13);
+      padding: 11px;
+      z-index: 5;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      margin-top: 9px;
+    }
+
+    .field label {
+      color: var(--quiet);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .input {
+      min-height: 31px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: #fffefa;
+      display: flex;
+      align-items: center;
+      padding: 0 9px;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .palette {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      width: min(720px, calc(100% - 28px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.95);
+      box-shadow: 0 16px 36px rgba(22, 33, 30, 0.12);
+      padding: 9px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      z-index: 4;
+    }
+
+    .palette-card {
+      min-width: 142px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffefa;
+      padding: 9px;
+    }
+    .palette-card b { display: block; font-size: 12px; }
+    .palette-card span { color: var(--muted); font-size: 10px; }
+
+    .timeline {
+      display: grid;
+      gap: 11px;
+      padding: 52px 14px 14px;
+    }
+
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 116px minmax(0, 1fr);
+      gap: 11px;
+      align-items: stretch;
+    }
+
+    .stage {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffefa;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .stage span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .tiny-layout {
+      min-height: 118px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8faf6;
+      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .tiny-pane {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffefa;
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .decision {
+      margin-top: 18px;
+      padding: 20px;
+    }
+
+    .decision h2 { margin: 0 0 10px; font-size: 23px; }
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .hero,
+      .option-body {
+        grid-template-columns: 1fr;
+      }
+      .score { grid-template-columns: repeat(3, 1fr); }
+      .app { grid-template-columns: 1fr; }
+      .rail { display: none; }
+      .inspector-strip { position: static; width: auto; margin: 10px; }
+    }
+
+    @media (max-width: 720px) {
+      .page { width: min(100vw - 22px, 1540px); }
+      .hero-points,
+      .decision-grid,
+      .grid-3,
+      .grid-4,
+      .grid-rail,
+      .timeline-row,
+      .matrix-row {
+        grid-template-columns: 1fr;
+      }
+      .matrix-tab { border-right: 0; border-bottom: 1px solid var(--line); }
+      .matrix-panes { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: 1fr; }
+      .matrix-floating { position: static; width: auto; margin: 10px; }
+      .grid-3 .pane:first-child { grid-row: auto; }
+      .option-head { grid-template-columns: 1fr; }
+      h1 { font-size: 42px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Workspace Matrix direction</span>
+        <h1>配置页应该先是一张可编辑的工作空间地图。</h1>
+        <p class="lead">
+          用户配置的不是 YAML 节点，也不是列表里的 Tab。用户真正关心的是：打开 Warp、VS Code、Cursor 或 Terminal 后，会出现几排 Tab，每排里面并排几个 Pane，每个 Pane 跑什么。
+        </p>
+        <div class="hero-points">
+          <div class="point"><b>核心原则</b><span>Canvas 直接把 Tab 渲染成多排，不要求用户先切换。</span></div>
+          <div class="point"><b>推荐方向</b><span>每一排是一个 Tab，每排内部横向排列 Panes。</span></div>
+          <div class="point"><b>降低表单感</b><span>Inspector 只编辑细节，不负责主要结构调度。</span></div>
+          <div class="point"><b>映射后端</b><span>内部仍可保存为 slots/windows，UI 上显示为 Tab/Pane。</span></div>
+        </div>
+      </div>
+      <div class="mock">
+        <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+        <div class="app">
+          <aside class="rail">
+            <div class="logo">FD</div>
+            <div class="rail-stack"><div class="rail-icon">D</div><div class="rail-icon active">C</div><div class="rail-icon">S</div></div>
+            <div class="rail-icon">⚙</div>
+          </aside>
+          <section class="workspace">
+            <div class="topbar">
+              <div><h3>cli-workspace</h3><div class="path">~/code/cli-workspace</div></div>
+              <div class="tools"><span class="tool">Warp</span><span class="tool">Preview</span><span class="tool primary">Save</span></div>
+            </div>
+            <div class="matrix-canvas">
+              <div class="matrix-top">
+                <div class="matrix-title"><span class="badge best">推荐心智</span><span class="pill">Workspace Matrix</span><span class="pill blue">all tabs visible</span></div>
+                <div class="tools"><span class="tool">Auto fit</span><span class="tool">Preview App</span></div>
+              </div>
+              <div class="matrix-row selected">
+                <div class="matrix-tab"><div><strong>Coding</strong><small>Tab row · 3 panes</small></div><div></div><div class="matrix-handle">↕</div></div>
+                <div class="matrix-panes">
+                  <div class="matrix-pane dark active"><div class="matrix-pane-head"><b>Codex UI</b><span class="mini">⋯</span></div><div class="matrix-pane-body"><span class="prompt">$</span> codex resume ui<br>cwd apps/web<br>status running</div></div>
+                  <div class="matrix-pane dark"><div class="matrix-pane-head"><b>Codex Spec</b><span class="mini">⋯</span></div><div class="matrix-pane-body"><span class="prompt">$</span> codex resume spec<br>docs / tests<br>status running</div></div>
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Tmux Step</b><span class="mini">⋯</span></div><div class="matrix-pane-body">tmux session<br>planner / shell<br>one pane opens one tmux</div></div>
+                  <div class="matrix-add">+ Pane<br><span style="font-size:10px;font-weight:700">add inside Coding</span></div>
+                </div>
+              </div>
+              <div class="matrix-row">
+                <div class="matrix-tab"><div><strong>Servers</strong><small>Tab row · 2 panes</small></div><div></div><div class="matrix-handle">↕</div></div>
+                <div class="matrix-panes">
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Web Dev</b><span class="mini">⋯</span></div><div class="matrix-pane-body">npm run dev<br>port 5180</div></div>
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>API Server</b><span class="mini">⋯</span></div><div class="matrix-pane-body">cc-branch serve<br>port 5193</div></div>
+                  <div class="matrix-add">+ Pane</div>
+                </div>
+              </div>
+              <div class="matrix-row">
+                <div class="matrix-tab"><div><strong>Review</strong><small>Tab row · 1 pane</small></div><div></div><div class="matrix-handle">↕</div></div>
+                <div class="matrix-panes">
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Reviewer</b><span class="mini">⋯</span></div><div class="matrix-pane-body">codex review<br>diff + tests</div></div>
+                  <div class="matrix-add">+ Pane</div>
+                </div>
+              </div>
+              <div class="matrix-new-row">+ Tab Row · 新建一个会在终端 App 顶部出现的标签页</div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <nav class="toc">
+      <a href="#matrix">推荐：Workspace Matrix</a>
+      <a href="#a">A App Mirror Preview</a>
+      <a href="#b">B Live Terminal Shell</a>
+      <a href="#c">C Infinite Board</a>
+      <a href="#d">D Command Palette Canvas</a>
+      <a href="#e">E Timeline Builder</a>
+      <a href="#f">F Minimal Split Studio</a>
+    </nav>
+
+    <section id="matrix" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>推荐. Workspace Matrix</h2><span class="badge best">主配置页</span><span class="badge">多排 Tab 直出</span></div>
+          <p class="sub">Canvas 不再只展示一个当前 Tab，而是把所有 Tab 直接铺成多排。每一排就是一个终端 App 的 Tab，每排内部横向排列 Panes。用户一眼能看出“打开后会有几个标签页、每个标签页里面有几个分屏”。</p>
+        </div>
+        <div class="score"><span><b>10</b>全局感</span><span><b>9</b>编辑</span><span><b>8</b>落地</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock" style="position:relative">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="workspace" style="height:calc(100% - 36px)">
+            <div class="topbar">
+              <div><h3>Workspace Matrix</h3><div class="path">所有 Tab 行同时可见；点 Pane 就在右下角编辑细节</div></div>
+              <div class="tools"><span class="tool">Fit</span><span class="tool">Preview opened app</span><span class="tool primary">Save</span></div>
+            </div>
+            <div class="matrix-canvas" style="min-height:558px">
+              <div class="matrix-top">
+                <div class="matrix-title"><span class="badge best">Canvas = structure</span><span class="pill blue">row is Tab</span><span class="pill lime">card is Pane</span></div>
+                <div class="tools"><span class="tool">Group selected</span><span class="tool">Split</span></div>
+              </div>
+
+              <div class="matrix-row selected">
+                <div class="matrix-tab">
+                  <div><strong>Coding</strong><small>会打开成一个 Tab</small></div>
+                  <div class="mini-tags"><span class="pill blue">default</span><span class="pill">3 panes</span></div>
+                  <div class="matrix-handle">↕</div>
+                </div>
+                <div class="matrix-panes">
+                  <div class="matrix-pane dark active"><div class="matrix-pane-head"><b>Codex UI</b><span class="mini">⋯</span></div><div class="matrix-pane-body"><span class="prompt">$</span> codex resume ui<br>cwd apps/web<br><span class="muted-line">selected pane</span></div></div>
+                  <div class="matrix-pane dark"><div class="matrix-pane-head"><b>Codex Spec</b><span class="mini">⋯</span></div><div class="matrix-pane-body"><span class="prompt">$</span> codex resume spec<br>cwd docs<br>tests / review</div></div>
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Tmux Step</b><span class="mini">⋯</span></div><div class="matrix-pane-body">tmux attach<br>内部可有多个 window<br>外部只占一个 Pane</div></div>
+                  <div class="matrix-add">+ Pane<br><span style="font-size:10px;font-weight:700">加入 Coding</span></div>
+                </div>
+              </div>
+
+              <div class="matrix-row">
+                <div class="matrix-tab">
+                  <div><strong>Servers</strong><small>运行服务类命令</small></div>
+                  <div class="mini-tags"><span class="pill amber">background</span><span class="pill">2 panes</span></div>
+                  <div class="matrix-handle">↕</div>
+                </div>
+                <div class="matrix-panes">
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Frontend</b><span class="mini">⋯</span></div><div class="matrix-pane-body">npm run dev<br>127.0.0.1:5180</div></div>
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Backend</b><span class="mini">⋯</span></div><div class="matrix-pane-body">cc-branch serve<br>127.0.0.1:5193</div></div>
+                  <div class="matrix-add">+ Pane</div>
+                </div>
+              </div>
+
+              <div class="matrix-row">
+                <div class="matrix-tab">
+                  <div><strong>Review</strong><small>检查和收尾</small></div>
+                  <div class="mini-tags"><span class="pill">1 pane</span></div>
+                  <div class="matrix-handle">↕</div>
+                </div>
+                <div class="matrix-panes">
+                  <div class="matrix-pane"><div class="matrix-pane-head"><b>Reviewer</b><span class="mini">⋯</span></div><div class="matrix-pane-body">codex review<br>diff / tests / risks</div></div>
+                  <div class="matrix-add">+ Pane</div>
+                </div>
+              </div>
+
+              <div class="matrix-new-row">+ Tab Row · 新建一个标签页</div>
+            </div>
+          </div>
+          <div class="matrix-floating">
+            <h4>Codex UI</h4>
+            <div class="field"><label>Name</label><div class="input">Codex UI</div></div>
+            <div class="field"><label>Agent</label><div class="input">codex · resume 019-ui...</div></div>
+            <div class="field"><label>Command</label><div class="input">codex resume ui</div></div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>为什么比 App Mirror 更适合配置页</b><p>配置时用户需要全局调度，不应该每次只能看一个 Tab。Matrix 能同时看到所有 Tab 和 Pane，心智更像一张地图。</p></div>
+          <div class="note"><b>操作模型</b><p>点空白加 Tab，点行尾加 Pane，拖 Pane 到另一行就是移动，拖 Tab 行到另一行就是合并。选中 Pane 后只编辑这个 Pane 的名字、Agent、命令、目录。</p></div>
+          <div class="note"><b>和真实打开的关系</b><p>Matrix 是配置视图；点 Preview opened app 后，再切到 App Mirror，展示真实终端 App 打开后的单窗口效果。</p></div>
+          <div class="note"><b>后端映射</b><p>UI 术语用 Tab / Pane；保存时仍可写回现有 slots / windows schema，不必马上大改数据结构。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="a" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>A. App Mirror Preview</h2><span class="badge">打开预览</span><span class="badge">最所见即所得</span></div>
+          <p class="sub">画布直接模拟用户打开后的终端 App：顶部是真 Tab，内部是真 Pane 分割。它非常适合 Preview，但默认配置页如果只展示当前 Tab，会少一点全局感。</p>
+        </div>
+        <div class="score"><span><b>10</b>直觉</span><span><b>9</b>调度</span><span><b>7</b>成本</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="app">
+            <aside class="rail"><div class="logo">FD</div><div class="rail-stack"><div class="rail-icon">D</div><div class="rail-icon active">C</div><div class="rail-icon">H</div></div><div class="rail-icon">⚙</div></aside>
+            <section class="workspace">
+              <div class="topbar">
+                <div><h3>Workspace Preview</h3><div class="path">将按这个形态打开到 Warp / VS Code / Terminal</div></div>
+                <div class="tools"><span class="tool">Open with Warp</span><span class="tool">Auto layout</span><span class="tool primary">Save layout</span></div>
+              </div>
+              <div class="tabstrip">
+                <div class="app-tab active"><b>Coding</b><span>Codex UI · Spec · Tmux</span></div>
+                <div class="app-tab"><b>Servers</b><span>web · api</span></div>
+                <div class="app-tab"><b>Review</b><span>2 panes</span></div>
+                <div class="plus-tab">+ 新建 Tab</div>
+              </div>
+              <div class="canvas">
+                <div class="canvas-label"><span class="badge best">当前 Tab: Coding</span><span class="pill blue">3 panes</span><span class="pill">drag to reorder</span></div>
+                <div class="pane-grid grid-3">
+                  <div class="pane selected"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Codex UI</span></div><div class="pane-actions"><span class="mini">+</span><span class="mini">⧉</span><span class="mini">↔</span><span class="mini">×</span></div></div><div class="term"><span class="prompt">$</span> codex resume 019-ui<br>cwd: apps/web<br><span class="muted-line">UI canvas work</span></div></div>
+                  <div class="pane"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Codex Spec</span></div><div class="pane-actions"><span class="mini">+</span><span class="mini">↧</span><span class="mini">×</span></div></div><div class="term"><span class="prompt">$</span> codex resume 019-spec<br>cwd: docs<br><span class="muted-line">terminology / spec</span></div></div>
+                  <div class="pane"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Tmux Step</span></div><div class="pane-actions"><span class="mini">+</span><span class="mini">⧉</span><span class="mini">×</span></div></div><div class="term"><span class="prompt">$</span> tmux attach -t cli<br><span class="muted-line">planner · shell · tests</span></div></div>
+                  <div class="add-pane">+ 添加 Pane<br><span style="font-size:11px;font-weight:700;margin-top:4px;color:var(--quiet)">在当前 Tab 中增加一个终端区</span></div>
+                </div>
+                <div class="drop-zone">把其他 Tab 拖进来：合并成 Pane</div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>为什么推荐</b><p>用户看到的就是打开后的样子，不需要理解“列表项对应哪里”。</p></div>
+          <div class="note"><b>交互重点</b><p>Tab 是顶部标签；Pane 是画布里的终端分屏。合并 Tab = 把它变成当前 Tab 的 Pane。</p></div>
+          <div class="note"><b>落地方式</b><p>先不做真实拖拽也可以，用卡片按钮模拟：合并、移动、拆分、复制。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="b" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>B. Live Terminal Shell</h2><span class="badge">最像终端 App</span></div>
+          <p class="sub">把配置画布伪装成一个正在运行的终端壳，用户配置的不是卡片，而是“这个 App 窗口里怎么切 Tab、怎么分屏”。</p>
+        </div>
+        <div class="score"><span><b>9</b>真实</span><span><b>8</b>直觉</span><span><b>6</b>编辑</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="workspace" style="height:calc(100% - 36px)">
+            <div class="topbar" style="background:#111a18;color:#e9f5ef;border-color:rgba(255,255,255,.1)"><div><h3>Warp Preview · cli-workspace</h3><div class="path">runtime preview, not raw form</div></div><div class="tools"><span class="tool">+ Pane</span><span class="tool">+ Tab</span><span class="tool primary">Save</span></div></div>
+            <div class="tabstrip" style="background:#15211f;border-color:rgba(255,255,255,.1)"><div class="app-tab active" style="background:#20322f;color:#e9f5ef;border-color:rgba(255,255,255,.15)"><b>Coding</b><span>3 panes</span></div><div class="app-tab" style="background:#172522;color:#c6ddd6;border-color:rgba(255,255,255,.1)"><b>Servers</b><span>2 panes</span></div><div class="plus-tab" style="color:#c6ddd6;border-color:rgba(255,255,255,.2)">+ Tab</div></div>
+            <div class="canvas" style="background:#071012">
+              <div class="pane-grid grid-4">
+                <div class="pane selected"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>codex-ui</span></div><div class="pane-actions"><span class="mini">split</span><span class="mini">mv</span></div></div><div class="term"><span class="prompt">❯</span> codex resume ui<br>...editing ConfigEditor<br><span class="muted-line">press ⌘K for pane command</span></div></div>
+                <div class="pane"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>codex-spec</span></div><div class="pane-actions"><span class="mini">split</span><span class="mini">mv</span></div></div><div class="term"><span class="prompt">❯</span> codex resume spec<br>...reviewing terminology</div></div>
+                <div class="pane"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>server</span></div><div class="pane-actions"><span class="mini">pin</span><span class="mini">×</span></div></div><div class="term"><span class="prompt">❯</span> npm run dev<br>VITE ready at :5180</div></div>
+                <div class="add-pane" style="background:rgba(255,255,255,.04);color:#8da7a0;border-color:rgba(255,255,255,.18)">+ Pane</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>优点</b><p>真实感最强，用户不需要想象打开后的样子。</p></div>
+          <div class="note"><b>缺点</b><p>如果过度拟真，编辑控件容易被终端视觉吞掉。</p></div>
+          <div class="note"><b>适合</b><p>作为最终产品里的“Preview mode”。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="c" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>C. Infinite Board</h2><span class="badge">最灵活</span></div>
+          <p class="sub">把每个 Tab 当成画布上的一个大区块，用户可以把多个区块拖近、合并、拆开。适合复杂 workspace，但不如 A 直接模拟真实终端。</p>
+        </div>
+        <div class="score"><span><b>8</b>灵活</span><span><b>7</b>真实</span><span><b>8</b>复杂</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="canvas" style="min-height:614px">
+            <div class="canvas-label"><span class="badge">Board mode</span><span class="pill amber">drag groups</span></div>
+            <div style="position:absolute;left:34px;top:70px;width:430px;height:360px" class="pane light selected">
+              <div class="pane-head"><div class="pane-title"><span>Coding Tab</span></div><div class="pane-actions"><span class="mini">merge</span><span class="mini">open</span></div></div>
+              <div class="tiny-layout" style="margin:12px;min-height:286px;grid-template-columns:1fr 1fr">
+                <div class="tiny-pane">Codex UI</div><div class="tiny-pane">Codex Spec</div><div class="tiny-pane">Tmux Step</div><div class="tiny-pane" style="border-style:dashed;color:var(--quiet)">+ Pane</div>
+              </div>
+            </div>
+            <div style="position:absolute;left:520px;top:96px;width:310px;height:190px" class="pane light">
+              <div class="pane-head"><div class="pane-title"><span>Servers Tab</span></div><div class="pane-actions"><span class="mini">merge</span></div></div>
+              <div class="tiny-layout" style="margin:12px;min-height:116px;grid-template-columns:1fr 1fr"><div class="tiny-pane">Web</div><div class="tiny-pane">API</div></div>
+            </div>
+            <div style="position:absolute;left:610px;top:344px;width:280px;height:160px" class="pane light">
+              <div class="pane-head"><div class="pane-title"><span>Review Tab</span></div><div class="pane-actions"><span class="mini">merge</span></div></div>
+              <div class="tiny-layout" style="margin:12px;min-height:86px;grid-template-columns:1fr"><div class="tiny-pane">Reviewer</div></div>
+            </div>
+            <div class="drop-zone" style="left:486px;right:auto;bottom:48px;width:240px">拖 Tab 到这里合并成一个工作台</div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>优点</b><p>很适合“先有几个独立入口，再把它们重组”的场景。</p></div>
+          <div class="note"><b>缺点</b><p>不像用户实际打开的终端 App，仍然需要一点抽象理解。</p></div>
+          <div class="note"><b>建议</b><p>可以作为高级 Layout 编辑器，不作为默认首屏。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="d" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>D. Command Palette Canvas</h2><span class="badge">最少表单</span></div>
+          <p class="sub">用户主要在画布上点对象，然后用浮层命令执行动作。不是右侧长表单，而是类似 Figma / Raycast 的局部命令。</p>
+        </div>
+        <div class="score"><span><b>8</b>速度</span><span><b>8</b>高级</span><span><b>6</b>学习</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="app">
+            <aside class="rail"><div class="logo">FD</div><div class="rail-stack"><div class="rail-icon active">C</div><div class="rail-icon">A</div><div class="rail-icon">Y</div></div><div class="rail-icon">?</div></aside>
+            <section class="workspace">
+              <div class="topbar"><div><h3>Canvas Commands</h3><div class="path">select pane, choose action</div></div><div class="tools"><span class="tool">⌘K</span><span class="tool primary">Save</span></div></div>
+              <div class="tabstrip"><div class="app-tab active"><b>Coding</b><span>3 panes</span></div><div class="plus-tab">+ Tab</div></div>
+              <div class="canvas">
+                <div class="pane-grid grid-3">
+                  <div class="pane selected"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Codex UI</span></div><div class="pane-actions"><span class="mini">⌘K</span></div></div><div class="term"><span class="prompt">$</span> selected pane<br><span class="muted-line">Command menu is open</span></div></div>
+                  <div class="pane"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Spec</span></div></div><div class="term">codex resume spec</div></div>
+                  <div class="add-pane">+ Pane</div>
+                </div>
+                <div class="inspector-strip" style="top:128px;right:90px">
+                  <b style="font-size:13px">Pane actions</b>
+                  <div class="field"><div class="input">Split right</div></div>
+                  <div class="field"><div class="input">Move to Review tab</div></div>
+                  <div class="field"><div class="input">Bind Codex session</div></div>
+                  <div class="field"><div class="input">Convert tab to panes</div></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>优点</b><p>画布很干净，动作不会铺满界面。</p></div>
+          <div class="note"><b>缺点</b><p>新用户不知道有哪些操作，依赖命令面板提示。</p></div>
+          <div class="note"><b>适合</b><p>作为 A 的高级交互层，而不是独立信息架构。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="e" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>E. Timeline Builder</h2><span class="badge">适合 onboarding</span></div>
+          <p class="sub">不是默认编辑器，而是创建配置时的“从几个独立工作区合并成一个打开形态”的过程预览。</p>
+        </div>
+        <div class="score"><span><b>9</b>教学</span><span><b>5</b>日常</span><span><b>6</b>实现</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="canvas" style="min-height:614px">
+            <div class="canvas-label"><span class="badge">Create flow</span><span class="pill lime">step preview</span></div>
+            <div class="timeline">
+              <div class="timeline-row"><div class="stage">1. 选择入口<span>Codex UI / Spec / Tmux</span></div><div class="tiny-layout"><div class="tiny-pane">Codex UI</div><div class="tiny-pane">Codex Spec</div><div class="tiny-pane">Tmux Step</div></div></div>
+              <div class="timeline-row"><div class="stage">2. 合并为 Tab<span>Coding workspace</span></div><div class="tiny-layout" style="grid-template-columns:1.1fr .9fr"><div class="tiny-pane" style="grid-row:1/span 2">Codex UI</div><div class="tiny-pane">Codex Spec</div><div class="tiny-pane">Tmux Step</div></div></div>
+              <div class="timeline-row"><div class="stage">3. 打开预览<span>what user sees</span></div><div class="tiny-layout" style="background:#111a18"><div class="tiny-pane" style="background:#172522;color:#e8f5ef">UI</div><div class="tiny-pane" style="background:#172522;color:#e8f5ef">Spec</div><div class="tiny-pane" style="background:#172522;color:#e8f5ef">Tmux</div></div></div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>优点</b><p>非常适合第一次创建配置，用户知道自己每步做了什么。</p></div>
+          <div class="note"><b>缺点</b><p>日常编辑太慢，不应该替代主配置页。</p></div>
+          <div class="note"><b>建议</b><p>保留给 Create Config / Template preview。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="f" class="option">
+      <header class="option-head">
+        <div>
+          <div class="title-line"><h2>F. Minimal Split Studio</h2><span class="badge">最容易落地</span></div>
+          <p class="sub">去掉复杂侧栏和右侧详情，只保留一个真实 App 预览 + 底部轻量属性条。它比现在强很多，但不如 A 完整。</p>
+        </div>
+        <div class="score"><span><b>8</b>落地</span><span><b>7</b>直觉</span><span><b>7</b>扩展</span></div>
+      </header>
+      <div class="option-body">
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="address"></span></div>
+          <div class="workspace" style="height:calc(100% - 36px)">
+            <div class="topbar"><div><h3>Split Studio</h3><div class="path">single canvas, bottom properties</div></div><div class="tools"><span class="tool">+ Tab</span><span class="tool">+ Pane</span><span class="tool primary">Save</span></div></div>
+            <div class="tabstrip"><div class="app-tab active"><b>Coding</b><span>3 panes</span></div><div class="plus-tab">+ Tab</div></div>
+            <div class="canvas">
+              <div class="pane-grid grid-3">
+                <div class="pane selected"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Codex UI</span></div><div class="pane-actions"><span class="mini">+</span><span class="mini">×</span></div></div><div class="term">codex resume ui</div></div>
+                <div class="pane"><div class="pane-head"><div class="pane-title"><i class="status-dot"></i><span>Spec</span></div></div><div class="term">codex resume spec</div></div>
+                <div class="add-pane">+ Pane</div>
+              </div>
+              <div class="palette">
+                <div class="palette-card"><b>Name</b><span>Codex UI</span></div>
+                <div class="palette-card"><b>Agent</b><span>codex</span></div>
+                <div class="palette-card"><b>Session</b><span>019-ui...</span></div>
+                <div class="palette-card"><b>Cwd</b><span>apps/web</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div class="note"><b>优点</b><p>实现快，画布占主导，不会有很重的右侧表单。</p></div>
+          <div class="note"><b>缺点</b><p>复杂 Pane 配置会挤到底部条，需要二级弹层。</p></div>
+          <div class="note"><b>适合</b><p>如果要先快速修正当前产品观感，可以先做这个。</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="decision">
+      <h2>我的推荐</h2>
+      <p class="lead" style="max-width:960px">
+        默认配置页用 Workspace Matrix：所有 Tab 以多排形式直接显示，每排内部就是 Panes。它更适合“配置”和“调度”。App Mirror 不删除，但降级为 Preview：用户想确认打开后像不像真实终端 App 时再切过去。
+      </p>
+      <div class="decision-grid">
+        <div class="note"><b>配置页首屏</b><p>左侧/中央是 Matrix Canvas：Tab 行和 Pane 卡同时可见。不要默认藏在切换里。</p></div>
+        <div class="note"><b>主要动作</b><p>加 Tab、加 Pane、移动 Pane、合并 Tab 都在 Canvas 上完成。Inspector 只做字段编辑。</p></div>
+        <div class="note"><b>预览模式</b><p>保留 App Mirror：它负责模拟真实打开后的单窗口，不负责主要结构编辑。</p></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

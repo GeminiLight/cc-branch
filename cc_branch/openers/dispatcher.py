@@ -5,7 +5,6 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
 
 from ..models import OpenerSpec
 from .commands import (
@@ -75,7 +74,7 @@ class OpenerDispatcher:
             for spec in commands
         ]
         if opener_id == "warp":
-            self.warp.open_layout(resolved)
+            self.warp.open_layout(resolved, name=_layout_name(resolved))
             return
 
         for spec in resolved:
@@ -85,7 +84,7 @@ class OpenerDispatcher:
         opener_id = opener_id or "auto-terminal"
         info = self.available_opener(opener_id)
         if "workspace_file" not in info.capabilities:
-            raise OpenerError(f"Opener {opener_id} does not support workspace files")
+            raise OpenerError(f"Opener {opener_id} does not support editor workspace commands")
 
         cwd = cwd.expanduser().resolve()
         resolved = [
@@ -127,7 +126,7 @@ class OpenerDispatcher:
             self.open_custom(opener_id, cwd=cwd, command="")
             return
         if opener_id == "warp":
-            self.warp.open_uri(f"warp://action/new_window?path={quote(str(cwd), safe='')}")
+            self.warp.open_project(cwd)
             return
         if opener_id == "auto-terminal":
             self.terminal.open_system(cwd, _project_shell_command())
@@ -200,7 +199,7 @@ def open_workspace_file(
     commands: list[OpenCommandSpec],
     custom_openers: dict[str, OpenerSpec] | None = None,
 ) -> None:
-    """Open an editor workspace file that exposes workspace commands as tasks."""
+    """Open editor workspace commands using the best supported editor integration."""
     OpenerDispatcher(custom_openers).open_workspace_file(opener_id, cwd=cwd, commands=commands)
 
 
@@ -231,6 +230,13 @@ def _render_custom_args(args: list[str], *, cwd: Path, command: str) -> list[str
         "target": str(cwd),
     }
     return [arg.format(**context) for arg in args]
+
+
+def _layout_name(commands: list[OpenCommandSpec]) -> str:
+    if not commands:
+        return "CC Branch"
+    workspace_name = commands[0].cwd.name or "workspace"
+    return f"CC Branch {workspace_name}"
 
 
 def _open_custom(

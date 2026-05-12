@@ -134,7 +134,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
         return is_loopback_host(host)
 
     def _origin_is_allowed(self, origin: str) -> bool:
-        return origin_is_allowed(origin, host_header=self.headers.get("Host"), token=self._token)
+        return origin_is_allowed(origin, host_header=self.headers.get("Host"), token=self._token) or bool(self._token and self._check_auth())
 
     def _request_origin_allowed(self) -> bool:
         return request_origin_allowed(
@@ -147,7 +147,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if origin and not self._origin_is_allowed(origin):
             return
-        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.send_header("Access-Control-Allow-Origin", origin or self._cors_origin())
         self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -222,33 +222,39 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self._serve_static(filename)
         elif path == "/api/status":
             if self._require_auth():
-                self._api_status()
+                api.api_status(self)
         elif path == "/api/config":
             if self._require_auth():
-                self._api_config()
+                api.api_config(self)
         elif path == "/api/configs":
             if self._require_auth():
-                self._api_configs()
+                api.api_configs(self)
         elif path == "/api/doctor":
             if self._require_auth():
-                self._api_doctor()
+                api.api_doctor(self)
         elif path == "/api/profiles":
             if self._require_auth():
-                self._api_profiles()
+                api.api_profiles(self)
         elif path == "/api/openers":
             if self._require_auth():
-                self._api_openers()
+                api.api_openers(self)
         elif path == "/api/agents":
             if self._require_auth():
-                self._api_agents()
+                api.api_agents(self)
+        elif path == "/api/agents/global":
+            if self._require_auth():
+                api.api_global_agents(self)
         elif path == "/api/agent-sessions" and self._require_auth():
             api.api_agent_sessions(self)
         elif path == "/api/info":
             if self._require_auth():
-                self._api_info()
+                api.api_info(self)
         elif path == "/api/project/probe":
             if self._require_auth():
-                self._api_project_probe()
+                api.api_project_probe(self)
+        elif path == "/api/projects":
+            if self._require_auth():
+                api.api_projects(self)
         else:
             self.send_error(404)
 
@@ -273,11 +279,44 @@ class WebUIHandler(BaseHTTPRequestHandler):
     def _route_post(self, path: str) -> None:
         """Route POST requests ignoring query string."""
         if path == "/api/action":
-            self._api_action()
+            if self._require_auth():
+                api.api_action(self)
         elif path == "/api/init":
-            self._api_init()
+            if self._require_auth():
+                api.api_init(self)
         elif path == "/api/config":
-            self._api_save_config()
+            if self._require_auth():
+                api.api_save_config(self)
+        elif path == "/api/configs/create":
+            if self._require_auth():
+                api.api_configs_create(self)
+        elif path == "/api/configs/rename":
+            if self._require_auth():
+                api.api_configs_rename(self)
+        elif path == "/api/configs/delete":
+            if self._require_auth():
+                api.api_configs_delete(self)
+        elif path == "/api/agents/global":
+            if self._require_auth():
+                api.api_save_global_agents(self)
+        elif path == "/api/project/pick-directory":
+            if self._require_auth():
+                api.api_project_pick_directory(self)
+        elif path == "/api/projects/add":
+            if self._require_auth():
+                api.api_projects_add(self)
+        elif path == "/api/projects/remove":
+            if self._require_auth():
+                api.api_projects_remove(self)
+        elif path == "/api/projects/activate":
+            if self._require_auth():
+                api.api_projects_activate(self)
+        elif path == "/api/projects/current":
+            if self._require_auth():
+                api.api_projects_current(self)
+        elif path == "/api/projects/config":
+            if self._require_auth():
+                api.api_projects_config(self)
         else:
             self.send_error(404)
 
@@ -296,43 +335,6 @@ class WebUIHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self._set_cors()
         self.end_headers()
-
-    def _api_status(self) -> None:
-        api.api_status(self)
-
-    def _api_config(self) -> None:
-        api.api_config(self)
-
-    def _api_configs(self) -> None:
-        api.api_configs(self)
-
-    def _api_doctor(self) -> None:
-        api.api_doctor(self)
-
-    def _api_profiles(self) -> None:
-        api.api_profiles(self)
-
-    def _api_openers(self) -> None:
-        api.api_openers(self)
-
-    def _api_agents(self) -> None:
-        api.api_agents(self)
-
-    def _api_info(self) -> None:
-        api.api_info(self)
-
-    def _api_project_probe(self) -> None:
-        api.api_project_probe(self)
-
-    def _api_init(self) -> None:
-        api.api_init(self)
-
-    def _api_save_config(self) -> None:
-        api.api_save_config(self)
-
-    def _api_action(self) -> None:
-        api.api_action(self)
-
 def start_server(
     config_path: Path,
     state_path: Path,
@@ -342,16 +344,13 @@ def start_server(
 ) -> None:
     """Start the web UI server."""
     from functools import partial
-
     handler = partial(WebUIHandler, config_path, state_path, token=token)
     server = HTTPServer((host, port), handler)
-
     print(f"Starting cc-branch Web UI at http://{host}:{port}")
     if token:
         print("Authentication enabled (token required for Web UI and API access)")
         print(f"Open once with: http://{host}:{port}/?token={token}")
     print("Press Ctrl+C to stop")
-
     try:
         server.serve_forever()
     except KeyboardInterrupt:

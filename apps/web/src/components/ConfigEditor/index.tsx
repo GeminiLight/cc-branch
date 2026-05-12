@@ -15,7 +15,6 @@ import {
   LayoutList,
   Code2,
   AlertTriangle,
-  Info,
   Layers,
   Bot,
   Monitor,
@@ -30,7 +29,6 @@ import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
 import ProjectSection from "./ProjectSection";
-import DisplaySection from "./DisplaySection";
 import AgentsSection from "./AgentsSection";
 import SlotsSection from "./SlotsSection";
 import Modal from "../ui/Modal";
@@ -38,6 +36,7 @@ import Modal from "../ui/Modal";
 interface ConfigEditorProps {
   projectPath?: string;
   configPath?: string;
+  view?: "workspace" | "project";
 }
 
 type EditorMode = "form" | "yaml";
@@ -53,7 +52,11 @@ function issueTone(issues: ConfigIssue[]): IssueTone {
   return "info";
 }
 
-export default function ConfigEditor({ projectPath, configPath }: ConfigEditorProps) {
+export default function ConfigEditor({
+  projectPath,
+  configPath,
+  view = "workspace",
+}: ConfigEditorProps) {
   const { t } = useI18n();
   const toast = useToast();
   const scope = { projectPath, configPath };
@@ -74,12 +77,11 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
   const [pendingCommentMode, setPendingCommentMode] = useState<EditorMode | null>(null);
 
   // Section expand/collapse state
-  const [expandedSections, setExpandedSections] = useState({
-    project: false,
-    display: false,
-    agents: false,
-    slots: false,
-  });
+  const [expandedSections, setExpandedSections] = useState(() => ({
+    project: view === "project",
+    agents: view === "project",
+    slots: view === "workspace",
+  }));
 
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,20 +154,6 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
       });
     },
     [isDirty, t]
-  );
-
-  const updateDisplay = useCallback(
-    (patch: Partial<ConfigFormData["display"]>) => {
-      setFormData((prev) => {
-        const next = { ...prev, display: { ...prev.display, ...patch } };
-        const yaml = serializeConfigForm(next);
-        setYamlContent(yaml);
-        setHasUnsavedChanges(isDirty(yaml));
-        setServerIssues(null);
-        return next;
-      });
-    },
-    [isDirty]
   );
 
   const updateAgents = useCallback(
@@ -366,7 +354,6 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
     0
   );
   const agentOverrideCount = Object.keys(formData.agents).length;
-  const modeLabel = mode === "form" ? t("formMode") : t("yamlMode");
   const configStatusLabel = validationErrors.length > 0
     ? t("checksIssues")
     : hasUnsavedChanges
@@ -386,6 +373,8 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
     ...Object.keys(formData.agents),
     ...referencedAgents,
   ]));
+  const title = view === "project" ? t("projectConfig") : t("workspaceCanvas");
+  const HeaderIcon = view === "project" ? Bot : FileCode2;
 
   return (
     <div className="page-shell">
@@ -402,22 +391,19 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
         }}
       />
       {/* Summary */}
-      <div className="mb-4 surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4 shadow-sm">
+      <div className="mb-4 surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4">
         <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
-              <FileCode2 className="w-4 h-4 text-[var(--accent)]" />
+              <HeaderIcon className="w-4 h-4 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 min-w-0">
                 <h2 className="text-[16px] font-semibold text-primary leading-tight">
-                  {t("configuration")}
+                  {title}
                 </h2>
                 <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${configStatusClass}`}>
                   {configStatusLabel}
-                </span>
-                <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold bg-[var(--bg-card)] text-secondary">
-                  {modeLabel}
                 </span>
               </div>
               {data?.path && (
@@ -429,7 +415,7 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center bg-[var(--bg-hover)] rounded-md p-0.5">
+            <div className="flex items-center bg-[var(--bg-hover)]/70 rounded-md p-0.5">
               <button
                 type="button"
                 onClick={() => switchMode("form")}
@@ -490,42 +476,49 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[var(--accent)] shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("slotsTitle")}</p>
-              <p className="text-[13px] font-semibold text-primary">
-                {t("configSlotSummary", { slots: slotCount, windows: configuredWindowCount })}
-              </p>
+        {view === "workspace" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[var(--accent)] shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("slotsTitle")}</p>
+                <p className="text-[13px] font-semibold text-primary">
+                  {t("configSlotSummary", { slots: slotCount, windows: configuredWindowCount })}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-[var(--accent)] shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("runtime")}</p>
+                <p className="text-[13px] font-semibold text-primary">
+                  {t("configRuntimeSummary", { tmux: tmuxCount, terminal: terminalCount })}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
-            <Monitor className="w-4 h-4 text-[var(--accent)] shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("runtime")}</p>
-              <p className="text-[13px] font-semibold text-primary">
-                {t("configRuntimeSummary", { tmux: tmuxCount, terminal: terminalCount })}
-              </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
+              <FileCode2 className="w-4 h-4 text-[var(--accent)] shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("project")}</p>
+                <p className="text-[13px] font-semibold text-primary">
+                  {formData.project || t("unnamed")}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
+              <Bot className="w-4 h-4 text-[var(--accent)] shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("agentOverrides")}</p>
+                <p className="text-[13px] font-semibold text-primary">
+                  {t("agentOverridesDefined", { count: agentOverrideCount })}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="rounded-md bg-[var(--bg-card)]/70 px-3 py-2 flex items-center gap-2">
-            <Bot className="w-4 h-4 text-[var(--accent)] shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("agentOverrides")}</p>
-              <p className="text-[13px] font-semibold text-primary">
-                {t("agentOverridesDefined", { count: agentOverrideCount })}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-md border border-default bg-[var(--bg-card)]/55 px-3 py-2 flex items-start gap-2">
-          <Info className="w-3.5 h-3.5 text-tertiary shrink-0 mt-0.5" />
-          <p className="text-[11px] text-secondary leading-relaxed">
-            {t("configSaveRuntimeHint")}
-          </p>
-        </div>
+        )}
       </div>
 
       {displayedIssues.length > 0 && (
@@ -565,36 +558,31 @@ export default function ConfigEditor({ projectPath, configPath }: ConfigEditorPr
 
       {/* Editor body */}
       {mode === "form" ? (
-        <div className="surface-card border border-default rounded-lg p-1.5 space-y-1 shadow-sm">
-          <ProjectSection
-            data={formData}
-            onChange={updateForm}
-            expanded={expandedSections.project}
-            onToggle={() => toggleSection("project")}
-          />
-          <DisplaySection
-            data={formData.display}
-            onChange={updateDisplay}
-            expanded={expandedSections.display}
-            onToggle={() => toggleSection("display")}
-          />
-          <AgentsSection
-            agents={formData.agents}
-            onChange={updateAgents}
-            expanded={expandedSections.agents}
-            onToggle={() => toggleSection("agents")}
-          />
+        view === "workspace" ? (
           <SlotsSection
             slots={formData.slots}
             agents={effectiveAgentNames}
             agentSessions={agentSessionsData?.sessions || []}
             agentSessionsLoading={agentSessionsLoading}
             onChange={updateSlots}
-            expanded={expandedSections.slots}
-            onToggle={() => toggleSection("slots")}
             runtimeAvailability={data?.runtimes}
           />
-        </div>
+        ) : (
+          <div className="space-y-3">
+            <ProjectSection
+              data={formData}
+              onChange={updateForm}
+              expanded={expandedSections.project}
+              onToggle={() => toggleSection("project")}
+            />
+            <AgentsSection
+              agents={formData.agents}
+              onChange={updateAgents}
+              expanded={expandedSections.agents}
+              onToggle={() => toggleSection("agents")}
+            />
+          </div>
+        )
       ) : (
         <div className={`surface-card border border-default rounded-lg overflow-hidden transition-all ${saveFlash ? "save-flash-editor" : ""}`}>
           <LineEditor value={yamlContent} onChange={handleYamlChange} error={yamlError} />

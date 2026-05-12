@@ -11,6 +11,7 @@ from ...planner import plan_workspace
 from ...runtime.capabilities import is_external_process_runtime
 from ...state import load_state
 from ..results import ActionResult
+from .command_specs import command_specs
 from .dependencies import WorkspaceActionDependencies
 from .lifecycle import WorkspaceLifecycleActions
 from .open import WorkspaceOpenActions
@@ -83,6 +84,10 @@ class WorkspaceActionExecutor:
             )
 
         if action == "launch":
+            terminal_slots = self.targets.terminal_slots(plan)
+            tmux_slots = self.targets.tmux_slots(plan)
+            custom_openers = plan.openers
+            opener_name = self.dependencies.opener_label(opener_id, custom_openers)
             if public_target:
                 slot = self.targets.target_slot(plan, public_target)
                 if slot is None:
@@ -104,8 +109,21 @@ class WorkspaceActionExecutor:
                         target=public_target,
                         intent=OpenIntent(kind="attach_target", target=public_target),
                     )
+            if not tmux_slots and terminal_slots:
+                if self.dependencies.opener_supports(opener_id, "run_command", custom_openers):
+                    specs = command_specs.terminal_command_specs(terminal_slots)
+                    self.dependencies.open_command_layout(opener_id, specs, custom_openers=custom_openers)
+                    return ActionResult(ok=True, code="launch_applied", message=f"Launched terminal slots in {opener_name}")
+                return lifecycle.launch_workspace(workspace, plan, state, state_path, target=public_target)
+
             result = lifecycle.launch_workspace(workspace, plan, state, state_path, target=public_target)
-            if public_target is None and result.ok and self.targets.terminal_slots(plan):
+            if terminal_slots and self.dependencies.opener_supports(opener_id, "run_command", custom_openers):
+                specs = command_specs.terminal_command_specs(terminal_slots)
+                self.dependencies.open_command_layout(opener_id, specs, custom_openers=custom_openers)
+                if public_target is None:
+                    return replace(result, message=f"Launched tmux slots and terminal slots in {opener_name}")
+                return replace(result, message=f"Launched {public_target} and terminal slots in {opener_name}")
+            if public_target is None and result.ok and terminal_slots:
                 return replace(result, message="Launched tmux slots; terminal slots open separately")
             return result
 

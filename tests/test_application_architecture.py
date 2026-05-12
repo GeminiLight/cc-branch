@@ -1721,7 +1721,48 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual(result.code, "no_tmux_runtime")
             self.assertEqual(result.exit_code, 1)
 
-    def test_editor_open_target_opens_project_folder_without_tmux_state(self):
+    def test_execute_workspace_action_launches_terminal_only_workspace_in_selected_opener(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "demo"
+                root: "."
+
+                slots:
+                  - name: "scratch"
+                    runtime: "terminal"
+                    command: "zsh"
+                """,
+            )
+
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap == "run_command"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
+                result = execute_workspace_action(
+                    root / ".cc-branch/config.yaml",
+                    root / ".cc-branch/state.yaml",
+                    action="launch",
+                    opener="warp",
+                    cli="cc-branch",
+                )
+
+            self.assertTrue(result.ok)
+            self.assertEqual(result.code, "launch_applied")
+            self.assertEqual(result.message, "Launched terminal slots in Warp")
+            self.assertEqual(open_command_layout.call_args.args[0], "warp")
+            specs = open_command_layout.call_args.args[1]
+            self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                ("scratch:main", "zsh"),
+            ])
+
+    def test_editor_open_target_opens_workspace_file_with_tmux_state(self):
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -1757,12 +1798,16 @@ class WorkspaceActionsTests(unittest.TestCase):
                 )
 
             self.assertTrue(result.ok)
-            self.assertEqual(result.message, "Opened project in VS Code")
-            ensure_slot.assert_not_called()
-            open_workspace_file.assert_not_called()
-            self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+            self.assertEqual(result.message, "Opened dev:planner in VS Code")
+            ensure_slot.assert_called_once()
+            open_with.assert_not_called()
+            self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+            specs = open_workspace_file.call_args.kwargs["commands"]
+            self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                ("dev:planner", "cc-branch attach dev:planner"),
+            ])
             updated = load_state(root / ".cc-branch/state.yaml")
-            self.assertNotIn("dev.planner", updated.windows)
+            self.assertIn("dev.planner", updated.windows)
 
     def test_open_terminal_target_uses_command_layout_without_attach_terminal(self):
         from unittest.mock import patch
@@ -1813,7 +1858,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             ])
             open_with.assert_not_called()
 
-    def test_open_workspace_layout_opener_receives_full_window_layout(self):
+    def test_open_workspace_layout_opener_attaches_tmux_slots_once(self):
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -1859,7 +1904,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertTrue(result.ok)
             specs = open_command_layout.call_args.args[1]
             self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                ("dev:planner", "cc-branch attach dev:planner"),
+                ("dev", "cc-branch attach dev"),
                 ("scratch:main", "zsh"),
             ])
 

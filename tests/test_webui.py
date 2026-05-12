@@ -37,6 +37,33 @@ class SlotHelpersTests(unittest.TestCase):
         self.assertFalse(result)
 
 
+class DirectoryPickerTests(unittest.TestCase):
+    """Tests for native directory picker helpers."""
+
+    def test_macos_directory_picker_returns_normalized_path(self):
+        from subprocess import CompletedProcess
+        from unittest.mock import patch
+
+        from cc_branch.webui.server import directory_picker
+
+        with patch.object(directory_picker.subprocess, "run", return_value=CompletedProcess(["osascript"], 0, "/tmp/demo/\n", "")):
+            picked = directory_picker._pick_directory_macos(Path("/tmp"))
+
+        self.assertEqual(picked, "/tmp/demo")
+
+    def test_macos_directory_picker_treats_cancel_as_none(self):
+        from subprocess import CompletedProcess
+        from unittest.mock import patch
+
+        from cc_branch.webui.server import directory_picker
+
+        result = CompletedProcess(["osascript"], 1, "", "execution error: User canceled. (-128)")
+        with patch.object(directory_picker.subprocess, "run", return_value=result):
+            picked = directory_picker._pick_directory_macos(Path("/tmp"))
+
+        self.assertIsNone(picked)
+
+
 class TerminalOpenTests(unittest.TestCase):
     """Tests for local terminal launch helpers."""
 
@@ -562,6 +589,58 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_api_configs_create_rename_and_delete_named_configs(self):
+        """Workspace profile management should mutate only project-local config files."""
+        server, port = self._start_test_server()
+        try:
+            project_path = quote(str(self.cwd))
+            create = Request(
+                f"http://127.0.0.1:{port}/api/configs/create?project_path={project_path}",
+                data=json.dumps({"name": "Review Flow", "source_config_path": str(self.config_path)}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(create, timeout=2) as response:
+                created = json.loads(response.read().decode())
+
+            review_path = self.cwd / ".cc-branch/configs/review-flow.yaml"
+            self.assertTrue(review_path.exists())
+            self.assertEqual(created["selected_config_path"], str(review_path))
+
+            state_path = self.cwd / ".cc-branch/states/review-flow.yaml"
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text("windows: {}\n", encoding="utf-8")
+            rename = Request(
+                f"http://127.0.0.1:{port}/api/configs/rename?project_path={project_path}",
+                data=json.dumps({"config_path": str(review_path), "name": "Release Check"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(rename, timeout=2) as response:
+                renamed = json.loads(response.read().decode())
+
+            release_path = self.cwd / ".cc-branch/configs/release-check.yaml"
+            self.assertFalse(review_path.exists())
+            self.assertTrue(release_path.exists())
+            self.assertFalse(state_path.exists())
+            self.assertTrue((self.cwd / ".cc-branch/states/release-check.yaml").exists())
+            self.assertEqual(renamed["selected_config_path"], str(release_path))
+
+            delete = Request(
+                f"http://127.0.0.1:{port}/api/configs/delete?project_path={project_path}",
+                data=json.dumps({"config_path": str(release_path)}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(delete, timeout=2) as response:
+                deleted = json.loads(response.read().decode())
+
+            self.assertFalse(release_path.exists())
+            self.assertFalse((self.cwd / ".cc-branch/states/release-check.yaml").exists())
+            self.assertEqual(deleted["selected_config_path"], str(self.config_path))
+        finally:
+            self._stop_test_server(server)
+
     def test_api_openers_returns_registered_openers(self):
         """The Web UI should expose available local openers."""
         from unittest.mock import patch
@@ -742,6 +821,151 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_api_project_pick_directory_returns_selected_path(self):
+        """Browser UI should be able to ask the local server for a native directory picker."""
+        from unittest.mock import patch
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.webui.server.api.pick_directory", return_value="/tmp/demo") as pick_directory:
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/project/pick-directory",
+                    data=json.dumps({"starting_dir": "/tmp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+
+            self.assertEqual(data["path"], "/tmp/demo")
+            pick_directory.assert_called_once_with("/tmp")
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_global_agents_reads_and_saves_user_override(self):
+        """Settings should be able to manage the user-level agents file."""
+        from unittest.mock import patch
+
+        home_dir = self.cwd / "home-agents"
+        home_dir.mkdir()
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.agent_registry.paths.Path.home", return_value=home_dir):
+                with urlopen(f"http://127.0.0.1:{port}/api/agents/global", timeout=2) as response:
+                    data = json.loads(response.read().decode())
+                self.assertFalse(data["exists"])
+                self.assertEqual(data["path"], str(home_dir / ".cc-branch/agents.yaml"))
+                self.assertIn("codex", {agent["id"] for agent in data["agents"]})
+
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/agents/global",
+                    data=json.dumps({
+                        "content": "agents:\n  codex:\n    command: codex\n"
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    saved = json.loads(response.read().decode())
+
+                self.assertTrue(saved["success"])
+                self.assertTrue(saved["exists"])
+                self.assertIn("codex", {agent["id"] for agent in saved["agents"]})
+                self.assertTrue((home_dir / ".cc-branch/agents.yaml").exists())
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_global_agents_rejects_invalid_yaml(self):
+        """Invalid global agents YAML should not be written."""
+        from unittest.mock import patch
+
+        home_dir = self.cwd / "home-invalid-agents"
+        home_dir.mkdir()
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.agent_registry.paths.Path.home", return_value=home_dir):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/agents/global",
+                    data=json.dumps({"content": "agents: []\n"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(request, timeout=2)
+                self.assertEqual(caught.exception.code, 400)
+                self.assertFalse((home_dir / ".cc-branch/agents.yaml").exists())
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_projects_endpoints_manage_global_index(self):
+        """Global project index endpoints should persist and return project data."""
+        from unittest.mock import patch
+
+        home_dir = self.cwd / "home"
+        home_dir.mkdir()
+        review_config = self.cwd / ".cc-branch/configs/review.yaml"
+        review_config.parent.mkdir(parents=True, exist_ok=True)
+        review_config.write_text("version: 1\nproject: review\nroot: .\n", encoding="utf-8")
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.app_state.paths.Path.home", return_value=home_dir):
+                with urlopen(f"http://127.0.0.1:{port}/api/projects", timeout=2) as response:
+                    data = json.loads(response.read().decode())
+                self.assertEqual(data["projects"], [])
+                self.assertIsNone(data["active_project_id"])
+
+                add_request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/add",
+                    data=json.dumps({"path": str(self.cwd)}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(add_request, timeout=2) as response:
+                    added = json.loads(response.read().decode())
+                self.assertEqual(len(added["projects"]), 1)
+                project_id = added["projects"][0]["id"]
+
+                activate_request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/activate",
+                    data=json.dumps({"id": project_id}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(activate_request, timeout=2) as response:
+                    activated = json.loads(response.read().decode())
+                self.assertEqual(activated["active_project_id"], project_id)
+
+                current_request = Request(
+                    (
+                        f"http://127.0.0.1:{port}/api/projects/current"
+                        f"?project_path={quote(str(self.cwd))}&config_path={quote(str(review_config))}"
+                    ),
+                    data=b"",
+                    method="POST",
+                )
+                with urlopen(current_request, timeout=2) as response:
+                    current = json.loads(response.read().decode())
+                self.assertEqual(current["active_project_id"], "current")
+                self.assertEqual(current["projects"][0]["id"], "current")
+                self.assertEqual(
+                    current["projects"][0]["selected_config_path"],
+                    str(review_config.resolve(strict=False)),
+                )
+
+                remove_request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/remove",
+                    data=json.dumps({"id": "current"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(remove_request, timeout=2) as response:
+                    removed = json.loads(response.read().decode())
+                self.assertEqual(removed["projects"], [])
+        finally:
+            self._stop_test_server(server)
+
     def test_api_init_with_project_path_writes_to_project_metadata_dir(self):
         """Web setup should create .cc-branch/ under the selected project root."""
         alt_dir = self.cwd / "fresh-project"
@@ -818,8 +1042,8 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_launch_workspace_starts_only_tmux_slots(self):
-        """Background launch should not pop external terminal runtime windows."""
+    def test_action_launch_workspace_opens_terminal_slots_in_selected_opener(self):
+        """Background launch should open terminal slots in the selected opener."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -841,13 +1065,18 @@ slots:
         try:
             from cc_branch.application.results import ActionResult
 
-            with patch(
-                "cc_branch.application.workspace_actions.lifecycle.WorkspaceLifecycleActions.launch_workspace",
-                return_value=ActionResult(ok=True, code="launch_applied", message="Launched workspace"),
-            ) as launch_workspace:
+            with (
+                patch(
+                    "cc_branch.application.workspace_actions.lifecycle.WorkspaceLifecycleActions.launch_workspace",
+                    return_value=ActionResult(ok=True, code="launch_applied", message="Launched workspace"),
+                ) as launch_workspace,
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap == "run_command"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/action",
-                    data=json.dumps({"action": "launch"}).encode(),
+                    data=json.dumps({"action": "launch", "opener": "warp"}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
@@ -855,16 +1084,19 @@ slots:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
                     self.assertTrue(data["success"])
-                    self.assertEqual(data["message"], "Launched tmux slots; terminal slots open separately")
+                    self.assertEqual(data["message"], "Launched tmux slots and terminal slots in Warp")
 
                 self.assertEqual(launch_workspace.call_count, 1)
                 self.assertIsNone(launch_workspace.call_args.kwargs.get("target"))
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [("scratch:main", "zsh")])
         finally:
             self._stop_test_server(server)
 
-    def test_action_launch_all_terminal_workspace_is_rejected(self):
-        """Background launch has no useful meaning for pure terminal-runtime workspaces."""
-        from urllib.error import HTTPError
+    def test_action_launch_all_terminal_workspace_uses_selected_opener(self):
+        """Background launch should open terminal-only workspaces in the selected opener."""
+        from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
 project: "test-project"
@@ -878,18 +1110,28 @@ slots:
 
         server, port = self._start_test_server()
         try:
-            request = Request(
-                f"http://127.0.0.1:{port}/api/action",
-                data=json.dumps({"action": "launch"}).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with self.assertRaises(HTTPError) as ctx:
-                urlopen(request, timeout=2)
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap == "run_command"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({"action": "launch", "opener": "warp"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+                    self.assertTrue(data["success"])
+                    self.assertEqual(data["message"], "Launched terminal slots in Warp")
 
-            self.assertEqual(ctx.exception.code, 400)
-            data = json.loads(ctx.exception.read().decode())
-            self.assertIn("Open terminal slots directly", data["error"])
+                self.assertEqual(open_command_layout.call_args.args[0], "warp")
+                specs = open_command_layout.call_args.args[1]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("scratch:main", "zsh"),
+                ])
         finally:
             self._stop_test_server(server)
 
@@ -1052,10 +1294,10 @@ slots:
                 self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
                 self.assertEqual(open_command_layout.call_args.args[0], "warp")
                 specs = open_command_layout.call_args.args[1]
-                self.assertEqual([spec.title for spec in specs], ["dev:planner", "dev:review", "scratch:main"])
+                self.assertEqual([spec.title for spec in specs], ["dev", "scratch:main"])
                 self.assertEqual(
                     [spec.command for spec in specs],
-                    ["cc-branch attach dev:planner", "cc-branch attach dev:review", "npm run dev"],
+                    ["cc-branch attach dev", "npm run dev"],
                 )
                 open_with.assert_not_called()
         finally:
@@ -1296,8 +1538,8 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_restart_terminal_runtime_with_vscode_opens_project_folder(self):
-        """Editor openers should open the project folder instead of generated task workspaces."""
+    def test_action_restart_terminal_runtime_with_vscode_opens_workspace_file(self):
+        """Editor openers should open terminal runtime targets as editor terminal commands."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -1326,11 +1568,12 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened project in VS Code")
+                    self.assertEqual(data["message"], "Opened scratch in VS Code")
 
-                open_workspace_file.assert_not_called()
-                self.assertEqual(open_with.call_args.kwargs["opener_id"], "vscode")
-                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+                open_with.assert_not_called()
+                open_workspace_file.assert_called_once()
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [("scratch:main", "zsh")])
         finally:
             self._stop_test_server(server)
 
@@ -1633,8 +1876,8 @@ slots:
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_vscode_opens_project_folder(self):
-        """Editor tools should open the project folder, not a generated workspace file."""
+    def test_action_open_workspace_with_vscode_opens_workspace_file(self):
+        """Editor tools should open the workspace through editor terminal commands."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
@@ -1659,17 +1902,18 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened project in VS Code")
+                    self.assertEqual(data["message"], "Opened workspace in VS Code")
 
-                ensure_slot.assert_not_called()
-                open_workspace_file.assert_not_called()
-                self.assertEqual(open_with.call_args.kwargs["opener_id"], "vscode")
-                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+                ensure_slot.assert_called()
+                open_with.assert_not_called()
+                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [("dev", "cc-branch attach dev")])
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_mixed_workspace_with_vscode_opens_project_folder(self):
-        """Editor workspace opens should not generate temporary workspace files."""
+    def test_action_open_mixed_workspace_with_vscode_opens_workspace_file(self):
+        """Editor workspace opens should include tmux attach commands plus terminal commands."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -1712,14 +1956,19 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
 
-                ensure_slot.assert_not_called()
-                open_workspace_file.assert_not_called()
-                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+                ensure_slot.assert_called()
+                open_with.assert_not_called()
+                self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev", "cc-branch attach dev"),
+                    ("scratch:hi", "zsh"),
+                ])
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_vscode_does_not_generate_tasks(self):
-        """Editor workspace opens should avoid generated tasks entirely."""
+    def test_action_open_workspace_with_vscode_generates_tasks(self):
+        """Editor workspace opens should prepare commands even when the CLI path is inferred."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
@@ -1745,13 +1994,16 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
 
-                open_workspace_file.assert_not_called()
-                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+                open_with.assert_not_called()
+                open_workspace_file.assert_called_once()
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual(specs[0].title, "dev")
+                self.assertIn("attach dev", specs[0].command)
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_warp_receives_full_layout_commands(self):
-        """Warp workspace opens should receive tmux attach panes plus terminal-runtime panes."""
+    def test_action_open_workspace_with_warp_attaches_tmux_slots_once(self):
+        """Warp workspace opens should attach each tmux slot once and let tmux own its windows."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -1800,20 +2052,18 @@ slots:
                 self.assertEqual(open_command_layout.call_args.args[0], "warp")
                 specs = open_command_layout.call_args.args[1]
                 self.assertEqual([spec.title for spec in specs], [
-                    "dev:planner",
-                    "dev:review",
+                    "dev",
                     "scratch:main",
                 ])
                 self.assertEqual([spec.command for spec in specs], [
-                    f"{expected_cli} attach dev:planner",
-                    f"{expected_cli} attach dev:review",
+                    f"{expected_cli} attach dev",
                     "npm run dev",
                 ])
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_target_with_vscode_opens_project_folder(self):
-        """Selected editor openers should open the project folder instead of generated tasks."""
+    def test_action_open_target_with_vscode_opens_workspace_file(self):
+        """Selected editor openers should open a command for a target."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
@@ -1839,16 +2089,19 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened project in VS Code")
+                    self.assertEqual(data["message"], "Opened dev:terminal in VS Code")
 
-                ensure_slot.assert_not_called()
-                open_workspace_file.assert_not_called()
-                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+                ensure_slot.assert_called_once()
+                open_with.assert_not_called()
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev:terminal", "cc-branch attach dev:terminal"),
+                ])
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_slot_with_vscode_opens_project_folder(self):
-        """Editor slot opens should not generate task workspaces."""
+    def test_action_open_slot_with_vscode_opens_workspace_file(self):
+        """Editor slot opens should generate an attach task for the slot."""
         from unittest.mock import patch
 
         server, port = self._start_test_server()
@@ -1874,11 +2127,14 @@ slots:
                 with urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
-                    self.assertEqual(data["message"], "Opened project in VS Code")
+                    self.assertEqual(data["message"], "Opened dev in VS Code")
 
-                ensure_slot.assert_not_called()
-                open_workspace_file.assert_not_called()
-                self.assertEqual(open_with.call_args.kwargs["intent"].kind, "project_folder")
+                ensure_slot.assert_called_once()
+                open_with.assert_not_called()
+                specs = open_workspace_file.call_args.kwargs["commands"]
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev", "cc-branch attach dev"),
+                ])
         finally:
             self._stop_test_server(server)
 

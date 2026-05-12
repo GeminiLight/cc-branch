@@ -4,6 +4,7 @@ interface ShortcutHandlers {
   onTab1?: () => void;
   onTab2?: () => void;
   onTab3?: () => void;
+  onTab4?: () => void;
   onSave?: () => void;
   onEscape?: () => void;
 }
@@ -51,6 +52,11 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         if (e.key === "3") {
           e.preventDefault();
           h.onTab3?.();
+          return;
+        }
+        if (e.key === "4") {
+          e.preventDefault();
+          h.onTab4?.();
           return;
         }
       }

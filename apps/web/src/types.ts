@@ -185,6 +185,7 @@ export interface OpenersData {
 export interface AgentProfileInfo {
   id: string;
   command: string;
+  install_hint?: string;
   resume_mode: string;
   resume_template: string;
   create_mode: string;
@@ -211,6 +212,19 @@ export interface AgentSessionsData {
   sessions: AgentSessionInfo[];
 }
 
+export interface GlobalAgentsData {
+  path: string;
+  exists: boolean;
+  content: string;
+  mtime?: number | null;
+  content_hash?: string;
+  agents: AgentProfileInfo[];
+}
+
+export interface GlobalAgentsSaveResult extends GlobalAgentsData {
+  success: boolean;
+}
+
 export interface ProjectProbe {
   path: string;
   path_exists: boolean;
@@ -219,6 +233,20 @@ export interface ProjectProbe {
   project_name: string;
   slots: number;
   status: "missing" | "needs_init" | "invalid_config" | "ready";
+}
+
+export interface GlobalProjectItem {
+  id: string;
+  name: string;
+  path: string;
+  selected_config_path?: string;
+}
+
+export interface ProjectsIndexData {
+  version: number;
+  active_project_id: string | null;
+  projects: GlobalProjectItem[];
+  storage_path: string;
 }
 
 export interface APIError {

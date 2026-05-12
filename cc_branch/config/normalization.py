@@ -28,12 +28,13 @@ def effective_agent_profiles(raw_agents: object, cwd: Path) -> dict:
 def normalize_raw_config(data: dict, path: Path) -> dict:
     """Apply defaults and resolve paths on a raw config dict."""
     project_dir = project_dir_for_config(path)
-    data.setdefault("version", 1)
+    data.setdefault("version", 2)
     data.setdefault("project", project_dir.name)
     data.setdefault("display", {})
     raw_agents = data.get("agents", {})
     data["agents"] = effective_agent_profiles(raw_agents, project_dir)
-    data.setdefault("slots", [])
+    if "tabs" not in data and "slots" not in data:
+        data["tabs"] = []
     data["display"].setdefault("mode", "grid")
     data["display"].setdefault("columns", 2)
     data["display"].setdefault("dashboard", False)
