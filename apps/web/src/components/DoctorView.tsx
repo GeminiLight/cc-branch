@@ -69,6 +69,16 @@ function reportText(data: { report: string | DoctorReportPayload; text?: string 
   return data.text ?? "";
 }
 
+function structuredReportChecks(data: { report: string | DoctorReportPayload; text?: string } | undefined): CheckItem[] {
+  if (!data || typeof data.report === "string" || data.text) return [];
+  return data.report.issues.map((issue) => ({
+    status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
+    icon: issue.target || issue.issue_type,
+    text: issue.message,
+    fix: typeof issue.context?.hint === "string" ? issue.context.hint : undefined,
+  }));
+}
+
 function countLabel(
   t: (key: string, vars?: Record<string, string | number>) => string,
   key: string,
@@ -105,6 +115,8 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
     const text = reportText(data);
     return text ? parseReport(text) : null;
   }, [data]);
+
+  const structuredChecks = useMemo(() => structuredReportChecks(data), [data]);
 
   const productChecks = useMemo<CheckItem[]>(() => {
     const checks: CheckItem[] = [];
@@ -177,11 +189,11 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
     );
   }
 
-  const checks = [...(parsed?.checks ?? []), ...productChecks];
+  const checks = [...(parsed?.checks ?? []), ...structuredChecks, ...productChecks];
   const issueCount = checks.filter((check) => check.status === "error").length;
   const warningCount = checks.filter((check) => check.status === "warn").length;
   const passedCount = checks.filter((check) => check.status === "ok").length;
-  const overall = parsed?.overall ?? "ok";
+  const overall = issueCount > 0 ? "error" : warningCount > 0 ? "warn" : parsed?.overall ?? "ok";
   const overallLabel =
     overall === "ok"
       ? t("checksPassed")

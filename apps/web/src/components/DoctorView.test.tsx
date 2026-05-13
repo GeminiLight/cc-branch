@@ -100,4 +100,65 @@ describe('DoctorView summary', () => {
     expect(screen.queryByText("Unknown field 'layoutBackend'")).not.toBeInTheDocument()
     expect(screen.getByText("Unknown field 'stillWrong'")).toBeInTheDocument()
   })
+
+  it('lets product checks drive the overall health state', () => {
+    mocks.doctorResult.current = {
+      data: { report: 'Workspace:\n✓ config: .cc-branch/config.yaml found\n' },
+      error: null,
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }
+    mocks.configResult.current = {
+      data: {
+        issues: [
+          {
+            issue_type: 'invalid_enum',
+            severity: 'error',
+            message: 'Invalid layout backend: docker',
+            target: 'config',
+            context: {},
+            fixable: false,
+          },
+        ],
+      },
+    }
+
+    renderDoctorView()
+
+    expect(screen.getByText('Action needed before this workspace is healthy.')).toBeInTheDocument()
+    expect(screen.getAllByText('Issues found').length).toBeGreaterThan(0)
+    expect(screen.getByText('Invalid layout backend: docker')).toBeInTheDocument()
+  })
+
+  it('renders structured doctor issues when text is not provided', () => {
+    mocks.doctorResult.current = {
+      data: {
+        report: {
+          project: 'demo',
+          has_errors: true,
+          issues: [
+            {
+              issue_type: 'missing_tmux',
+              severity: 'error',
+              message: 'tmux is missing',
+              target: 'tmux',
+              context: { hint: 'Install tmux with brew install tmux' },
+              fixable: false,
+            },
+          ],
+        },
+      },
+      error: null,
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }
+
+    renderDoctorView()
+
+    expect(screen.getByText('tmux is missing')).toBeInTheDocument()
+    expect(screen.getByText('→ Install tmux with brew install tmux')).toBeInTheDocument()
+    expect(screen.getByText('1 issue')).toBeInTheDocument()
+  })
 })
