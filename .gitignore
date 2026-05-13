@@ -46,6 +46,7 @@ ENV/
 # CC Branch local runtime state
 .cc-branch/state.yaml
 .cc-branch/states/
+.cc-branch/.generated/
 .cc-branch/*.bak
 .cc-branch.state.yaml
 .cc-branch.state.yaml.bak
@@ -64,6 +65,7 @@ cc_branch/webui/static/*
 
 # Temporary files
 *.tmp
+tmp/
 image*.png
 .cache/
 logo/archive
