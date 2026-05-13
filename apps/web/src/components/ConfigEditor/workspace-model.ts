@@ -104,6 +104,28 @@ export function deleteTabMutation(slots: SlotConfig[], index: number): Workspace
   };
 }
 
+export function movePaneWithinTabMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  windowIndex: number,
+  dir: number,
+): WorkspaceMutation | null {
+  const slot = slots[slotIndex];
+  if (!slot || (slot.runtime === "terminal" && slot.windows.length === 0)) return null;
+  const targetIndex = windowIndex + dir;
+  const windows = editableWindowsForSlot(slot);
+  if (targetIndex < 0 || targetIndex >= windows.length) return null;
+  const [moved] = windows.splice(windowIndex, 1);
+  if (!moved) return null;
+  windows.splice(targetIndex, 0, moved);
+  const next = [...slots];
+  next[slotIndex] = slotWithWindows(slot, windows);
+  return {
+    slots: next,
+    selection: { slotIndex, target: "pane", windowIndex: slot.runtime === "tmux" ? null : targetIndex },
+  };
+}
+
 export function tmuxGroupWindowFromSlot(slot: SlotConfig): WindowConfig {
   return {
     ...emptyWindow(slot.name || "tmux"),

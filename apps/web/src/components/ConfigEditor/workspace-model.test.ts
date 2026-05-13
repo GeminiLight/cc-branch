@@ -9,6 +9,7 @@ import {
   isLegacyTmuxSlot,
   isTmuxGroupWindow,
   movePaneBetweenSlots,
+  movePaneWithinTabMutation,
   moveTab,
   slotToCanvasPanes,
   slotWithWindows,
@@ -278,6 +279,28 @@ describe("workspace model", () => {
     expect(mutation?.slots[0].runtime).toBe("terminal");
     expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["api", "docs", "ui"]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 2 });
+  });
+
+  it("moves panes inside one tab by direction", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" }), windowConfig({ name: "docs" })],
+      }),
+    ];
+
+    const mutation = movePaneWithinTabMutation(slots, 0, 1, -1);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["api", "ui", "docs"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 0 });
+  });
+
+  it("does not move an implicit terminal fallback pane", () => {
+    const mutation = movePaneWithinTabMutation([slotConfig({ runtime: "terminal", windows: [] })], 0, 0, 1);
+
+    expect(mutation).toBeNull();
   });
 
   it("moves panes across tabs even when their runtimes differ", () => {

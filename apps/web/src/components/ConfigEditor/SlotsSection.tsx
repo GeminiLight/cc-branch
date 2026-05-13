@@ -32,6 +32,7 @@ import {
   emptyWindow,
   isLegacyTmuxSlot,
   movePaneBetweenSlots,
+  movePaneWithinTabMutation,
   moveTab as moveTabModel,
   slotWithWindows,
   tmuxGroupWindowFromSlot,
@@ -260,16 +261,9 @@ export default function SlotsSection({
   }
 
   function movePaneAtSlot(slotIndex: number, windowIndex: number, dir: number) {
-    const slot = slots[slotIndex];
-    if (!slot || (slot.runtime === "terminal" && slot.windows.length === 0)) return;
-    const targetIndex = windowIndex + dir;
-    const windows = editableWindowsForSlot(slot);
-    if (targetIndex < 0 || targetIndex >= windows.length) return;
-    const [moved] = windows.splice(windowIndex, 1);
-    windows.splice(targetIndex, 0, moved);
-    const next = [...slots];
-    next[slotIndex] = slotWithWindows(slot, windows);
-    replaceSlots(next, { slotIndex, target: "pane", windowIndex: slot.runtime === "tmux" ? null : targetIndex });
+    const mutation = movePaneWithinTabMutation(slots, slotIndex, windowIndex, dir);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function movePaneByDrag(fromSlotIndex: number, fromPaneIndex: number, toSlotIndex: number, toPaneIndex: number) {
