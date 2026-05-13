@@ -26,6 +26,8 @@ import {
   InlineError,
 } from "./FormPrimitives";
 import {
+  addTabMutation,
+  deleteTabMutation,
   editableWindowsForSlot,
   emptyWindow,
   isLegacyTmuxSlot,
@@ -136,37 +138,14 @@ export default function SlotsSection({
   }
 
   function addTab() {
-    const names = new Set(slots.map((slot) => slot.name));
-    let name = "coding";
-    let i = 1;
-    while (names.has(name)) {
-      name = `coding-${i}`;
-      i++;
-    }
-    const nextSlot: SlotConfig = {
-      name,
-      runtime: defaultRuntime,
-      layout: "auto",
-      cwd: ".",
-      env: {},
-      ...(defaultRuntime === "terminal"
-        ? agents[0]
-          ? { agent: agents[0] }
-          : { command: "$SHELL" }
-        : {}),
-      windows: defaultRuntime === "tmux" ? [emptyWindow("builder", agents[0] ?? null)] : [],
-    };
-    replaceSlots([...slots, nextSlot], {
-      slotIndex: slots.length,
-      target: "tab",
-      windowIndex: null,
-    });
+    const mutation = addTabMutation(slots, defaultRuntime, agents);
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function deleteTab(index: number) {
-    const next = [...slots];
-    next.splice(index, 1);
-    replaceSlots(next, { slotIndex: Math.max(0, index - 1), target: "tab", windowIndex: null });
+    const mutation = deleteTabMutation(slots, index);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function moveTabByDrag(fromSlotIndex: number, toSlotIndex: number) {

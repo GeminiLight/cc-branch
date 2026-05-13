@@ -54,6 +54,56 @@ export function emptyWindow(name = "main", agent: string | null = null): WindowC
   };
 }
 
+export function uniqueTabName(slots: SlotConfig[], base = "coding"): string {
+  const names = new Set(slots.map((slot) => slot.name));
+  let name = base;
+  let i = 1;
+  while (names.has(name)) {
+    name = `${base}-${i}`;
+    i++;
+  }
+  return name;
+}
+
+export function addTabMutation(
+  slots: SlotConfig[],
+  defaultRuntime: SlotConfig["runtime"],
+  agents: string[],
+): WorkspaceMutation {
+  const name = uniqueTabName(slots);
+  const nextSlot: SlotConfig = {
+    name,
+    runtime: defaultRuntime,
+    layout: "auto",
+    cwd: ".",
+    env: {},
+    ...(defaultRuntime === "terminal"
+      ? agents[0]
+        ? { agent: agents[0] }
+        : { command: "$SHELL" }
+      : {}),
+    windows: defaultRuntime === "tmux" ? [emptyWindow("builder", agents[0] ?? null)] : [],
+  };
+  return {
+    slots: [...slots, nextSlot],
+    selection: {
+      slotIndex: slots.length,
+      target: "tab",
+      windowIndex: null,
+    },
+  };
+}
+
+export function deleteTabMutation(slots: SlotConfig[], index: number): WorkspaceMutation | null {
+  if (index < 0 || index >= slots.length) return null;
+  const next = [...slots];
+  next.splice(index, 1);
+  return {
+    slots: next,
+    selection: { slotIndex: Math.max(0, index - 1), target: "tab", windowIndex: null },
+  };
+}
+
 export function tmuxGroupWindowFromSlot(slot: SlotConfig): WindowConfig {
   return {
     ...emptyWindow(slot.name || "tmux"),

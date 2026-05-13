@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
+  addTabMutation,
   clampSelection,
   configuredPaneCount,
+  deleteTabMutation,
   editableWindowsForSlot,
   isLegacyTmuxSlot,
   isTmuxGroupWindow,
@@ -12,6 +14,7 @@ import {
   slotWithWindows,
   tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
+  uniqueTabName,
 } from "./workspace-model";
 
 function windowConfig(patch: Partial<WindowConfig> = {}): WindowConfig {
@@ -47,6 +50,73 @@ function slotConfig(patch: Partial<SlotConfig> = {}): SlotConfig {
 }
 
 describe("workspace model", () => {
+  it("generates a stable unique tab name", () => {
+    const slots = [
+      slotConfig({ name: "coding" }),
+      slotConfig({ name: "coding-1" }),
+      slotConfig({ name: "review" }),
+    ];
+
+    expect(uniqueTabName(slots)).toBe("coding-2");
+  });
+
+  it("adds a tmux tab with a default builder window", () => {
+    const mutation = addTabMutation([], "tmux", ["codex"]);
+
+    expect(mutation.slots).toEqual([
+      expect.objectContaining({
+        name: "coding",
+        runtime: "tmux",
+        layout: "auto",
+        cwd: ".",
+        env: {},
+        windows: [expect.objectContaining({ name: "builder", agent: "codex" })],
+      }),
+    ]);
+    expect(mutation.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("adds a terminal tab with the first available agent", () => {
+    const mutation = addTabMutation([slotConfig({ name: "coding" })], "terminal", ["claude"]);
+
+    expect(mutation.slots[1]).toMatchObject({
+      name: "coding-1",
+      runtime: "terminal",
+      agent: "claude",
+      windows: [],
+    });
+    expect(mutation.slots[1].command).toBeUndefined();
+    expect(mutation.selection).toEqual({ slotIndex: 1, target: "tab", windowIndex: null });
+  });
+
+  it("adds a terminal tab with a shell command when no agent exists", () => {
+    const mutation = addTabMutation([], "terminal", []);
+
+    expect(mutation.slots[0]).toMatchObject({
+      name: "coding",
+      runtime: "terminal",
+      command: "$SHELL",
+      windows: [],
+    });
+    expect(mutation.slots[0].agent).toBeUndefined();
+  });
+
+  it("deletes a tab and selects the previous tab", () => {
+    const mutation = deleteTabMutation([
+      slotConfig({ name: "first" }),
+      slotConfig({ name: "second" }),
+      slotConfig({ name: "third" }),
+    ], 1);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["first", "third"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("ignores invalid tab deletion indexes", () => {
+    expect(deleteTabMutation([slotConfig()], -1)).toBeNull();
+    expect(deleteTabMutation([slotConfig()], 1)).toBeNull();
+  });
+
   it("treats legacy tmux slots as one outer pane regardless of internal windows", () => {
     const slot = slotConfig({
       runtime: "tmux",
