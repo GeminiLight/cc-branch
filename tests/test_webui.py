@@ -1406,6 +1406,10 @@ slots:
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch(
+                    "cc_branch.application.workspace_actions.opener_supports",
+                    side_effect=lambda _opener, capability, _custom_openers=None: capability == "attach_target",
+                ),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):
@@ -1436,6 +1440,10 @@ slots:
         try:
             with (
                 patch("cc_branch.webui.server.handler._cli_command", return_value="cc-branch"),
+                patch(
+                    "cc_branch.application.workspace_actions.opener_supports",
+                    side_effect=lambda _opener, capability, _custom_openers=None: capability == "attach_target",
+                ),
                 patch("cc_branch.application.workspace_actions.ensure_slot") as ensure_slot,
                 patch("cc_branch.application.workspace_actions.open_with") as open_with,
             ):

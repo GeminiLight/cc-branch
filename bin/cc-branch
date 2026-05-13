@@ -14,7 +14,7 @@ def _python_candidates() -> list[str]:
     return [sys.executable, "python3.11", "python3.12", "python3.13", "python3"]
 
 
-def _supports_python_311(binary: str, project_root: Path) -> bool:
+def _supports_python_310(binary: str, project_root: Path) -> bool:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(project_root) + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
@@ -27,7 +27,7 @@ def _supports_python_311(binary: str, project_root: Path) -> bool:
                 (
                     "import sys; "
                     "import yaml, rich; "
-                    "raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"
+                    "raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"
                 ),
             ],
             env=env,
@@ -42,7 +42,7 @@ def _supports_python_311(binary: str, project_root: Path) -> bool:
 
 def _select_python(project_root: Path) -> str | None:
     for candidate in _python_candidates():
-        if _supports_python_311(candidate, project_root):
+        if _supports_python_310(candidate, project_root):
             return candidate
     return None
 
@@ -53,7 +53,7 @@ def main() -> int:
 
     python_bin = _select_python(project_root)
     if python_bin is None:
-        print("error: Python 3.11+ is required for cc-branch", file=sys.stderr)
+        print("error: Python 3.10+ is required for cc-branch", file=sys.stderr)
         return 1
 
     env = os.environ.copy()
