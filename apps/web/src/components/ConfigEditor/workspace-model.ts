@@ -409,7 +409,7 @@ export function slotWithWindows(slot: SlotConfig, windows: WindowConfig[], layou
 }
 
 export function canDragPane(slot: SlotConfig): boolean {
-  return isLegacyTmuxSlot(slot) || slot.windows.length > 0;
+  return isLegacyTmuxSlot(slot) || slot.runtime === "terminal" || slot.windows.length > 0;
 }
 
 export function clampSelection(selection: Selection, slots: SlotConfig[]): Selection {
@@ -494,7 +494,6 @@ export function movePaneBetweenSlots(
 
   const sourceIsLegacyTmuxGroup = isLegacyTmuxSlot(source);
   const sourceWindows = sourceIsLegacyTmuxGroup ? [] : editableWindowsForSlot(source);
-  if (!sourceIsLegacyTmuxGroup && source.windows.length === 0) return null;
 
   const moved = sourceIsLegacyTmuxGroup
     ? tmuxGroupWindowFromSlot(source)

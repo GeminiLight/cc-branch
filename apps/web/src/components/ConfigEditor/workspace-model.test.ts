@@ -550,4 +550,28 @@ describe("workspace model", () => {
     expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["existing", "only"]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
   });
+
+  it("moves an implicit terminal pane into another tab", () => {
+    const slots = [
+      slotConfig({
+        name: "shell",
+        runtime: "terminal",
+        command: "zsh",
+        windows: [],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 1, 1);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["target"]);
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["existing", "shell"]);
+    expect(mutation?.slots[0].windows[1]).toMatchObject({ command: "zsh" });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
 });

@@ -23,6 +23,7 @@
 | 审查 tmux group 计数 | `ConfigEditor/index.tsx`、`SlotsSection.tsx`、`ConfigEditor.test.tsx` | 已修复：tmux group 在外部空间按 1 个 pane 计数，内部 tmux windows 不误算。 |
 | 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
 | 审查跨标签页拖拽语义 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`SlotsSection.tsx`、`workspace-model.test.ts` | 已修复：Tab 作为容器不再限制 pane/tmux group 移动；legacy tmux tab 拖入其它 tab 时会转换为目标 tab 中的 tmux group。 |
+| 修复隐式 terminal pane 跨标签拖拽 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`ConfigEditor.test.tsx` | 已修复：没有显式 `panes/windows` 的 terminal 标签页也能作为一个真实窗格拖入其它标签页，移动后源标签页会被移除。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |
@@ -65,7 +66,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  21 passed (21)
-Tests  160 passed (160)
+Tests  162 passed (162)
 ```
 
 ```bash
@@ -133,7 +134,7 @@ ce37e5b Ignore local generated review artifacts
 
 - 所有 opener 在所有系统上都无问题。
 - VS Code / Cursor / Warp 的所有布局启动路径都在当前审计中重新端到端验证。
-- 拖拽交互已有模型层覆盖跨 tab 移动、legacy tmux group 转换、最后一个 pane 移动后删除空 tab，并补了 jsdom 集成层的同 tab pane 重排验证，但仍缺少真实浏览器级拖拽验证。
+- 拖拽交互已有模型层覆盖跨 tab 移动、legacy tmux group 转换、隐式 terminal pane 跨 tab 移动、最后一个 pane 移动后删除空 tab，并补了 jsdom 集成层的同 tab pane 重排验证和隐式 terminal pane 跨 tab 拖拽验证，但仍缺少真实浏览器级拖拽验证。
 
 ### 3. “非常非常完美”的 UI/UX 尚未达到可关闭标准
 

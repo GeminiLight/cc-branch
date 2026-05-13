@@ -646,6 +646,61 @@ describe('ConfigEditor diagnostics', () => {
     })
   })
 
+  it('moves an implicit terminal pane across tabs by dragging on the workspace matrix', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: shell',
+          '    command: zsh',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    const shellPane = screen.getByRole('button', { name: 'Edit pane shell' })
+    const uiPane = screen.getByRole('button', { name: 'Edit pane ui' })
+    uiPane.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 120,
+      bottom: 60,
+      width: 120,
+      height: 60,
+      toJSON: () => ({}),
+    })
+
+    const dataTransfer = createDataTransfer()
+    fireEvent.dragStart(shellPane, { dataTransfer })
+    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '0:0')
+    fireEvent.dragOver(uiPane, { dataTransfer, clientX: 140, clientY: 20 })
+    fireEvent.drop(uiPane, { dataTransfer, clientX: 140, clientY: 20 })
+
+    await waitFor(() => {
+      const paneLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^Edit pane /)))
+
+      expect(paneLabels).toEqual(['Edit pane shell', 'Edit pane ui'])
+      expect(screen.queryByRole('button', { name: 'Edit tab shell' })).not.toBeInTheDocument()
+    })
+  })
+
   it('reorders terminal panes inside the same tab by dragging on the workspace matrix', async () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {
