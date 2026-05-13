@@ -36,6 +36,7 @@
 | 拆分标签页新增/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：新增标签页的唯一命名、默认 terminal/tmux 初始化和删除后的选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 559 行。 |
 | 拆分同标签页窗格移动 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：同一 tab 内按方向移动 pane 的边界判断、排序和选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 553 行。 |
 | 拆分窗格新增/复制/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：pane add / duplicate / delete 的 legacy tmux 转换、隐式 terminal tab 复制/删除、显式 pane 插入/删除和无效索引保护已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 504 行。 |
+| 拆分 tmux 内部 window mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：legacy tmux tab 和显式 tmux group 内部 window 的 add / update / move / delete 已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 483 行。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -63,7 +64,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  21 passed (21)
-Tests  154 passed (154)
+Tests  159 passed (159)
 ```
 
 ```bash
@@ -117,7 +118,7 @@ ce37e5b Ignore local generated review artifacts
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器、drag/drop coordination、selection 派生状态、tab mutation 和主要 pane mutation，但仍然承担 tmux internal window mutation orchestration。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器、drag/drop coordination、selection 派生状态、tab mutation、主要 pane mutation 和 tmux internal window mutation，但仍然承担少量选择态、表单 patch 和 action wiring。
 - Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -154,6 +155,6 @@ ce37e5b Ignore local generated review artifacts
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor、detail editors、drag/drop coordination、selection derivation、tab add/delete mutations 和主要 pane mutations，下一步应继续拆 tmux internal window mutation orchestration 或补浏览器级拖拽验证。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor、detail editors、drag/drop coordination、selection derivation、tab add/delete mutations、主要 pane mutations 和 tmux internal window mutations，下一步应补浏览器级拖拽验证或继续收敛表单 patch/action wiring。
 2. 为 workspace canvas 增加端到端交互测试，覆盖真实浏览器拖拽、tmux group 移动、复杂布局保存。
 3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。

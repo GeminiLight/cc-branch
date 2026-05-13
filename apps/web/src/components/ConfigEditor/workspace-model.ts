@@ -203,6 +203,99 @@ export function deletePaneMutation(
   };
 }
 
+function updateTmuxWindowsInSlot(
+  slot: SlotConfig,
+  paneIndex: number | null,
+  updateWindows: (windows: WindowConfig[]) => WindowConfig[] | null,
+): SlotConfig | null {
+  if (isLegacyTmuxSlot(slot)) {
+    const windows = updateWindows([...slot.windows]);
+    if (!windows) return null;
+    return { ...slot, windows };
+  }
+
+  const targetPaneIndex = paneIndex ?? 0;
+  const pane = slot.windows[targetPaneIndex];
+  if (!isTmuxGroupWindow(pane)) return null;
+  const windows = updateWindows(tmuxGroupWindows(pane));
+  if (!windows) return null;
+  const panes = [...slot.windows];
+  panes[targetPaneIndex] = { ...pane, windows };
+  return { ...slot, windows: panes };
+}
+
+function updateTmuxWindowsMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  paneIndex: number | null,
+  updateWindows: (windows: WindowConfig[]) => WindowConfig[] | null,
+): SlotConfig[] | null {
+  const slot = slots[slotIndex];
+  if (!slot) return null;
+  const nextSlot = updateTmuxWindowsInSlot(slot, paneIndex, updateWindows);
+  if (!nextSlot) return null;
+  const next = [...slots];
+  next[slotIndex] = nextSlot;
+  return next;
+}
+
+export function updateTmuxWindowMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  paneIndex: number | null,
+  tmuxWindowIndex: number,
+  patch: Partial<WindowConfig>,
+): SlotConfig[] | null {
+  return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => {
+    const target = windows[tmuxWindowIndex];
+    if (!target) return null;
+    const next = [...windows];
+    next[tmuxWindowIndex] = { ...target, ...patch };
+    return next;
+  });
+}
+
+export function addTmuxWindowMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  paneIndex: number | null,
+): SlotConfig[] | null {
+  return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => [
+    ...windows,
+    emptyWindow(`window-${windows.length + 1}`),
+  ]);
+}
+
+export function moveTmuxWindowMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  paneIndex: number | null,
+  tmuxWindowIndex: number,
+  dir: number,
+): SlotConfig[] | null {
+  return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => {
+    const targetIndex = tmuxWindowIndex + dir;
+    if (targetIndex < 0 || targetIndex >= windows.length) return null;
+    const next = [...windows];
+    const [moved] = next.splice(tmuxWindowIndex, 1);
+    if (!moved) return null;
+    next.splice(targetIndex, 0, moved);
+    return next;
+  });
+}
+
+export function deleteTmuxWindowMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  paneIndex: number | null,
+  tmuxWindowIndex: number,
+): SlotConfig[] | null {
+  return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => {
+    if (windows.length <= 1 || tmuxWindowIndex < 0 || tmuxWindowIndex >= windows.length) return null;
+    return windows.filter((_, index) => index !== tmuxWindowIndex);
+  });
+}
+
 export function movePaneWithinTabMutation(
   slots: SlotConfig[],
   slotIndex: number,

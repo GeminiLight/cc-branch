@@ -28,15 +28,18 @@ import {
 import {
   addPaneMutation,
   addTabMutation,
+  addTmuxWindowMutation,
+  deleteTmuxWindowMutation,
   deleteTabMutation,
   deletePaneMutation,
   duplicatePaneMutation,
-  emptyWindow,
   isLegacyTmuxSlot,
+  moveTmuxWindowMutation,
   movePaneBetweenSlots,
   movePaneWithinTabMutation,
   moveTab as moveTabModel,
   tmuxGroupWindows,
+  updateTmuxWindowMutation,
   type PaneSplitLayout,
   type Selection,
 } from "./workspace-model";
@@ -257,51 +260,27 @@ export default function SlotsSection({
   }
 
   function updateSelectedTmuxWindow(windowIndex: number, patch: Partial<WindowConfig>) {
-    if (!selectedSlot) return;
-    if (isLegacyTmuxSlot(selectedSlot)) {
-      updateWindow(windowIndex, patch);
-      return;
-    }
-    if (!selectedWindow) return;
-    const windows = tmuxGroupWindows(selectedWindow);
-    windows[windowIndex] = { ...windows[windowIndex], ...patch };
-    updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
+    const next = updateTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, windowIndex, patch);
+    if (!next) return;
+    onChange(next);
   }
 
   function addSelectedTmuxWindow() {
-    if (!selectedSlot) return;
-    if (isLegacyTmuxSlot(selectedSlot)) {
-      const windows = [...selectedSlot.windows, emptyWindow(`window-${selectedSlot.windows.length + 1}`)];
-      updateSlot(normalizedSelection.slotIndex, { windows });
-      return;
-    }
-    if (!selectedWindow) return;
-    const windows = [...tmuxGroupWindows(selectedWindow), emptyWindow(`window-${tmuxGroupWindows(selectedWindow).length + 1}`)];
-    updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
+    const next = addTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex);
+    if (!next) return;
+    onChange(next);
   }
 
   function moveSelectedTmuxWindow(windowIndex: number, dir: number) {
-    const targetIndex = windowIndex + dir;
-    if (targetIndex < 0 || targetIndex >= selectedTmuxWindowList.length) return;
-    const windows = [...selectedTmuxWindowList];
-    const [moved] = windows.splice(windowIndex, 1);
-    if (!moved) return;
-    windows.splice(targetIndex, 0, moved);
-    if (isLegacyTmuxSlot(selectedSlot)) {
-      updateSlot(normalizedSelection.slotIndex, { windows });
-    } else if (selectedWindow) {
-      updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
-    }
+    const next = moveTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, windowIndex, dir);
+    if (!next) return;
+    onChange(next);
   }
 
   function deleteSelectedTmuxWindow(windowIndex: number) {
-    if (selectedTmuxWindowList.length <= 1) return;
-    const windows = selectedTmuxWindowList.filter((_, index) => index !== windowIndex);
-    if (isLegacyTmuxSlot(selectedSlot)) {
-      updateSlot(normalizedSelection.slotIndex, { windows });
-    } else if (selectedWindow) {
-      updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
-    }
+    const next = deleteTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, windowIndex);
+    if (!next) return;
+    onChange(next);
   }
 
   const dupNames = slots

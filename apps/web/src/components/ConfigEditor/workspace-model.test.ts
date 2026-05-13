@@ -3,14 +3,17 @@ import type { SlotConfig, WindowConfig } from "./types";
 import {
   addPaneMutation,
   addTabMutation,
+  addTmuxWindowMutation,
   clampSelection,
   configuredPaneCount,
   deletePaneMutation,
   deleteTabMutation,
+  deleteTmuxWindowMutation,
   duplicatePaneMutation,
   editableWindowsForSlot,
   isLegacyTmuxSlot,
   isTmuxGroupWindow,
+  moveTmuxWindowMutation,
   movePaneBetweenSlots,
   movePaneWithinTabMutation,
   moveTab,
@@ -18,6 +21,7 @@ import {
   slotWithWindows,
   tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
+  updateTmuxWindowMutation,
   uniqueTabName,
 } from "./workspace-model";
 
@@ -212,6 +216,78 @@ describe("workspace model", () => {
     expect(deletePaneMutation([
       slotConfig({ windows: [windowConfig({ name: "ui" })] }),
     ], 0, 4)).toBeNull();
+  });
+
+  it("updates a tmux window inside a legacy tmux tab", () => {
+    const mutation = updateTmuxWindowMutation([
+      slotConfig({
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+    ], 0, null, 1, { agent: "codex" });
+
+    expect(mutation?.[0].windows[1]).toMatchObject({ name: "backend", agent: "codex" });
+  });
+
+  it("updates a tmux window inside an explicit tmux group pane", () => {
+    const mutation = updateTmuxWindowMutation([
+      slotConfig({
+        windows: [
+          windowConfig({ name: "shell" }),
+          windowConfig({
+            name: "workers",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "api" })],
+          }),
+        ],
+      }),
+    ], 0, 1, 0, { command: "pytest" });
+
+    expect(mutation?.[0].windows[1]).toMatchObject({
+      name: "workers",
+      windows: [expect.objectContaining({ name: "api", command: "pytest" })],
+    });
+  });
+
+  it("adds a tmux window to the selected tmux group", () => {
+    const mutation = addTmuxWindowMutation([
+      slotConfig({
+        windows: [
+          windowConfig({
+            name: "workers",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "api" })],
+          }),
+        ],
+      }),
+    ], 0, 0);
+
+    expect(mutation?.[0].windows[0].windows?.map((window) => window.name)).toEqual(["api", "window-2"]);
+  });
+
+  it("moves a tmux window inside a tmux group", () => {
+    const mutation = moveTmuxWindowMutation([
+      slotConfig({
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+    ], 0, null, 0, 1);
+
+    expect(mutation?.[0].windows.map((window) => window.name)).toEqual(["backend", "frontend"]);
+  });
+
+  it("deletes a tmux window but keeps at least one window", () => {
+    const slots = [
+      slotConfig({
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+    ];
+
+    expect(deleteTmuxWindowMutation(slots, 0, null, 0)?.[0].windows.map((window) => window.name)).toEqual(["backend"]);
+    expect(deleteTmuxWindowMutation([
+      slotConfig({ runtime: "tmux", windows: [windowConfig({ name: "only" })] }),
+    ], 0, null, 0)).toBeNull();
   });
 
   it("treats legacy tmux slots as one outer pane regardless of internal windows", () => {
