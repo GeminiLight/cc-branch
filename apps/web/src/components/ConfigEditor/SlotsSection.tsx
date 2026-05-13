@@ -5,7 +5,7 @@
  * tabs/panes so users edit the workspace model, not the storage model.
  */
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -13,11 +13,8 @@ import {
   ChevronsUpDown,
   Clock3,
   Copy,
-  GripVertical,
   MoveRight,
   Plus,
-  SquareTerminal,
-  Terminal,
   Trash2,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
@@ -26,6 +23,7 @@ import { useAgentSessions } from "../../hooks";
 import Dropdown from "../ui/Dropdown";
 import AgentMark, { displayAgentName, normalizeAgentKey } from "../ui/AgentMark";
 import type { SlotConfig, WindowConfig } from "./types";
+import WorkspaceCanvas from "./WorkspaceCanvas";
 import {
   FieldLabel,
   TextInput,
@@ -36,7 +34,6 @@ import {
 import {
   canDragPane,
   clampSelection,
-  configuredPaneCount,
   editableWindowsForSlot,
   emptyWindow,
   isLegacyTmuxSlot,
@@ -44,14 +41,13 @@ import {
   movePaneBetweenSlots,
   moveTab as moveTabModel,
   normalizedLayout,
-  slotToCanvasPanes,
-  slotToPanes,
   slotWithWindows,
   tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
   type Selection,
   type TabLayout,
 } from "./workspace-model";
+import { countText, paneCount } from "./workspace-display";
 
 type PaneDragState = { slotIndex: number; paneIndex: number } | null;
 type TabDragState = { slotIndex: number } | null;
@@ -60,56 +56,12 @@ function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) =
   return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
 }
 
-function countText(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  singularKey: string,
-  pluralKey: string,
-  count: number,
-): string {
-  return t(count === 1 ? singularKey : pluralKey, { count });
-}
-
 function sessionDescription(session: AgentSessionInfo): string {
   const shortId = session.id.length > 12 ? `${session.id.slice(0, 8)}...${session.id.slice(-4)}` : session.id;
   if (!session.updated_at) return shortId;
   const date = new Date(session.updated_at);
   if (Number.isNaN(date.getTime())) return shortId;
   return `${shortId} · ${date.toLocaleDateString()}`;
-}
-
-function paneCount(slot: SlotConfig): number {
-  return configuredPaneCount(slot);
-}
-
-function paneCountText(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
-  return t(count === 1 ? "windowCountShortOne" : "windowCountShort", { count });
-}
-
-function tabSummary(t: (key: string, vars?: Record<string, string | number>) => string, slot: SlotConfig): string {
-  if (isLegacyTmuxSlot(slot)) {
-    return countText(t, "tmuxWindowGroupSummary_one", "tmuxWindowGroupSummary", slot.windows.length);
-  }
-  const panes = slotToCanvasPanes(slot);
-  if (panes.length > 1) return paneCountText(t, panes.length);
-  if (slot.windows.length === 1) {
-    const window = slot.windows[0];
-    return isTmuxGroupWindow(window)
-      ? countText(t, "tmuxWindowGroupSummary_one", "tmuxWindowGroupSummary", tmuxGroupWindows(window).length)
-      : paneSummary(t, window);
-  }
-  if (slot.agent) return t("tabSummaryTerminalAgent", { agent: displayAgentName(slot.agent) });
-  return t("tabSummaryCommand", { command: slot.command || "$SHELL" });
-}
-
-function paneSummary(t: (key: string, vars?: Record<string, string | number>) => string, win: WindowConfig): string {
-  if (win.agent) return t("paneSummaryAgent", { agent: displayAgentName(win.agent) });
-  if (win.command) return t("paneSummaryCommand", { command: win.command });
-  return t("paneSummaryInherited");
-}
-
-function terminalPaneSummary(t: (key: string, vars?: Record<string, string | number>) => string, slot: SlotConfig): string {
-  if (slot.agent) return t("paneSummaryAgent", { agent: displayAgentName(slot.agent) });
-  return t("paneSummaryCommand", { command: slot.command || "$SHELL" });
 }
 
 function LayoutGlyph({ layout }: { layout: TabLayout }) {
@@ -166,42 +118,6 @@ function LayoutGlyph({ layout }: { layout: TabLayout }) {
     </span>
   );
 }
-
-function paneGridStyle(slot: SlotConfig, paneLength: number): CSSProperties {
-  const count = Math.max(paneLength, 1);
-  const layout = normalizedLayout(slot, count);
-  if (count === 1) return { gridTemplateColumns: "minmax(0, 1fr)" };
-  if (layout === "vertical") {
-    return { gridTemplateRows: `repeat(${count}, minmax(72px, 1fr))` };
-  }
-  if (layout === "main-left") {
-    return {
-      gridTemplateColumns: "minmax(150px, 1.18fr) minmax(116px, 0.82fr)",
-      gridTemplateRows: `repeat(${Math.max(count - 1, 1)}, minmax(70px, 1fr))`,
-    };
-  }
-  if (layout === "main-top") {
-    return {
-      gridTemplateColumns: `repeat(${Math.max(count - 1, 1)}, minmax(112px, 1fr))`,
-      gridTemplateRows: "minmax(82px, 1.04fr) minmax(68px, 0.96fr)",
-    };
-  }
-  if (layout === "grid") {
-    const columns = count <= 4 ? 2 : 3;
-    return { gridTemplateColumns: `repeat(${columns}, minmax(112px, 1fr))` };
-  }
-  return { gridTemplateColumns: `repeat(${count}, minmax(112px, 1fr))` };
-}
-
-function paneCellStyle(slot: SlotConfig, paneLength: number, index: number): CSSProperties {
-  const count = Math.max(paneLength, 1);
-  const layout = normalizedLayout(slot, count);
-  if (index !== 0 || count <= 1) return {};
-  if (layout === "main-left") return { gridRow: `1 / span ${Math.max(count - 1, 1)}` };
-  if (layout === "main-top") return { gridColumn: `1 / span ${Math.max(count - 1, 1)}` };
-  return {};
-}
-
 
 function sessionIntent(value: string): "auto" | "fresh" | "resume" {
   if (!value || value === "auto") return "auto";
@@ -728,7 +644,7 @@ export default function SlotsSection({
       normalizedSelection.slotIndex,
       normalizedSelection.windowIndex ?? 0,
       targetIndex,
-      configuredPaneCount(target),
+      paneCount(target),
     );
     if (!mutation) return;
     replaceSlots(mutation.slots, mutation.selection);
@@ -836,6 +752,31 @@ export default function SlotsSection({
     deletePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? 0);
   }
 
+  function clearPaneDrag() {
+    paneDragRef.current = null;
+    setPaneDrag(null);
+  }
+
+  const canvasProps = {
+    slots,
+    selection: normalizedSelection,
+    tabDrag,
+    paneDrag,
+    onAddTab: addTab,
+    onDeleteTab: deleteTab,
+    onAddPane: addPaneToSlot,
+    onSelect: setSelection,
+    onTabDragStart: handleTabDragStart,
+    onTabDragOver: handleTabDragOver,
+    onTabDrop: handleTabDrop,
+    onTabDragEnd: () => setTabDrag(null),
+    onPaneDragStart: handlePaneDragStart,
+    onPaneDragOver: handlePaneDragOver,
+    onPaneDrop: handlePaneDrop,
+    onPaneAppendDrop: handlePaneAppendDrop,
+    onPaneDragEnd: clearPaneDrag,
+  };
+
   return (
     <section className="space-y-3 animate-stagger">
           {dupNames.length > 0 && (
@@ -849,282 +790,10 @@ export default function SlotsSection({
           )}
 
           {slots.length === 0 ? (
-            <div className="text-center py-8 border border-dashed border-default rounded-lg bg-[var(--bg-card)]">
-              <Terminal className="w-5 h-5 text-tertiary mx-auto mb-1.5" />
-              <p className="text-[12px] text-secondary">{t("noTabsYet")}</p>
-              <p className="text-[11px] text-tertiary mt-0.5">
-                {t("addTabHint")}
-              </p>
-            </div>
+            <WorkspaceCanvas {...canvasProps} />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3 items-start">
-              <div className="min-w-0 overflow-hidden rounded-lg border border-default bg-[var(--bg-elevated)]">
-                <div className="px-3 py-2.5 border-b border-subtle flex items-center justify-between gap-3 bg-[var(--bg-card)]">
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-primary">{t("matrixCanvas")}</p>
-                    <p className="text-[11px] text-tertiary truncate">
-                      {t("configSlotSummary", {
-                        slots: slots.length,
-                        windows: slots.reduce((count, slot) => count + paneCount(slot), 0),
-                      })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addTab}
-                    className="control-touch px-3 rounded-md text-[12px] font-medium surface-card border border-default hover:border-[var(--border-strong)] text-secondary hover:text-primary transition-colors flex items-center gap-1.5 shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    {t("addTab")}
-                  </button>
-                </div>
-                <div className="workspace-matrix-surface relative p-3 min-h-[300px]">
-                  <div
-                    className="absolute inset-0 opacity-[0.10] pointer-events-none"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)",
-                      backgroundSize: "28px 28px",
-                    }}
-                  />
-                  <div className="relative space-y-2.5">
-                    {slots.map((slot, slotIndex) => {
-                      const selectedTab = slotIndex === normalizedSelection.slotIndex;
-                      const slotName = slot.name || t("unnamed");
-                      const panes = slotToPanes(slot);
-                      const canvasPanes = slotToCanvasPanes(slot);
-                      return (
-                        <section
-                          key={`${slot.name}-${slotIndex}`}
-                          draggable
-                          onDragStart={(event) => handleTabDragStart(event, slotIndex)}
-                          onDragOver={handleTabDragOver}
-                          onDrop={(event) => handleTabDrop(event, slotIndex)}
-                          onDragEnd={() => setTabDrag(null)}
-                          className={`group/tab rounded-lg border bg-[var(--bg-card)] transition-all overflow-hidden shadow-sm ${
-                            selectedTab
-                              ? "border-[var(--accent-border)] shadow-[inset_3px_0_0_var(--accent)]"
-                              : "border-default hover:border-[var(--border-strong)]"
-                          } ${
-                            tabDrag?.slotIndex === slotIndex ? "opacity-55" : ""
-                          }`}
-                        >
-                          <div className="grid grid-cols-1 lg:grid-cols-[124px_minmax(0,1fr)]">
-                            <button
-                              type="button"
-                              onClick={() => setSelection({ slotIndex, target: "tab", windowIndex: null })}
-                              className={`workspace-tab-rail relative text-left p-2.5 border-b lg:border-b-0 lg:border-r border-subtle transition-colors ${
-                                selectedTab && normalizedSelection.target === "tab"
-                                  ? "bg-[var(--accent-bg)]/55"
-                                  : selectedTab
-                                  ? "bg-[var(--accent-bg)]/25"
-                                  : "hover:bg-[var(--bg-hover)]/55"
-                              }`}
-                              aria-label={t("editSlotNamed", { name: slotName })}
-                            >
-                              <span className="flex items-start justify-between gap-2">
-                                <span className="min-w-0">
-                                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("tab")}</span>
-                                  <span className="mt-0.5 block truncate text-[13px] font-semibold text-primary">{slotName}</span>
-                                </span>
-                                <span
-                                  className="mt-0.5 inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted"
-                                  title={t("dragTab")}
-                                  aria-hidden="true"
-                                >
-                                  <GripVertical className="h-3.5 w-3.5" />
-                                </span>
-                              </span>
-                              <span className="block mt-0.5 text-[10px] text-tertiary truncate">{tabSummary(t, slot)}</span>
-                              {selectedTab && normalizedSelection.target === "tab" && (
-                                <span
-                                  className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-[var(--accent)]"
-                                  aria-hidden="true"
-                                />
-                              )}
-                            </button>
-
-                            <div className="min-w-0 p-2.5">
-                              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="text-[11px] font-medium text-tertiary truncate">
-                                    {isLegacyTmuxSlot(slot)
-                                      ? countText(t, "tmuxGroupCount_one", "tmuxGroupCount", 1)
-                                      : paneCountText(t, paneCount(slot))}
-                                  </span>
-                                  {isLegacyTmuxSlot(slot) && (
-                                    <span className="text-[11px] text-tertiary truncate">
-                                      · {countText(t, "tmuxWindowCount_one", "tmuxWindowCount", panes.length)}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0 opacity-70 transition-opacity group-hover/tab:opacity-100 focus-within:opacity-100">
-                                  <button
-                                    type="button"
-                                    onClick={() => addPaneToSlot(slotIndex, slotToPanes(slot).length - 1)}
-                                    className="icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover flex items-center justify-center"
-                                    aria-label={t("addPane")}
-                                    title={t("addPane")}
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteTab(slotIndex)}
-                                    className="icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
-                                    aria-label={t("removeSlotNamed", { name: slotName })}
-                                    title={t("removeSlotNamed", { name: slotName })}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <div
-                                  className="grid gap-2 min-h-[74px]"
-                                  style={paneGridStyle(slot, canvasPanes.length)}
-                                  onDragOver={(event) => handlePaneDragOver(event, slotIndex)}
-                                  onDrop={(event) => handlePaneAppendDrop(event, slotIndex)}
-                                >
-                                  {canvasPanes.map((pane, paneIndex) => {
-                                    const selectedPane =
-                                      selectedTab &&
-                                      normalizedSelection.target === "pane" &&
-                                      (slot.runtime === "tmux"
-                                        ? normalizedSelection.windowIndex === null
-                                        : slot.runtime === "terminal" && slot.windows.length === 0
-                                        ? normalizedSelection.windowIndex === null
-                                        : normalizedSelection.windowIndex === paneIndex);
-                                    const paneName = pane.name || t("unnamed");
-                                    const cwdLabel = pane.cwd || slot.cwd || "";
-                                    const paneAgent = pane.agent ?? null;
-                                    const paneIsDraggable = canDragPane(slot);
-                                    return (
-                                      <div
-                                        role="button"
-                                        tabIndex={0}
-                                        key={`${pane.name}-${paneIndex}`}
-                                        onClick={() => setSelection({
-                                          slotIndex,
-                                          target: "pane",
-                                          windowIndex: pane.windowIndex,
-                                        })}
-                                        draggable={paneIsDraggable}
-                                        onDragStart={(event) => handlePaneDragStart(event, slotIndex, paneIndex)}
-                                        onDragOver={(event) => handlePaneDragOver(event, slotIndex)}
-                                        onDrop={(event) => handlePaneDrop(event, slotIndex, paneIndex)}
-                                        onDragEnd={() => {
-                                          paneDragRef.current = null;
-                                          setPaneDrag(null);
-                                        }}
-                                        onKeyDown={(event) => {
-                                          if (event.key === "Enter" || event.key === " ") {
-                                            event.preventDefault();
-                                            setSelection({
-                                              slotIndex,
-                                              target: "pane",
-                                              windowIndex: pane.windowIndex,
-                                            });
-                                          }
-                                        }}
-                                        className={`workspace-pane-card group/pane relative min-h-[68px] overflow-hidden rounded-md border p-2.5 text-left transition-all ${
-                                          selectedPane
-                                            ? "border-[var(--accent-border)] bg-[var(--accent-bg)] shadow-[0_0_0_3px_var(--accent-bg),0_10px_24px_rgba(15,23,42,0.08)]"
-                                            : pane.kind === "tmux-group"
-                                            ? "border-[var(--accent-border)] bg-[var(--accent-bg)]/35 hover:border-[var(--accent)]"
-                                            : "border-default bg-[var(--bg-card)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]/45"
-                                        } ${
-                                          paneDrag?.slotIndex === slotIndex && paneDrag.paneIndex === paneIndex
-                                            ? "opacity-55"
-                                            : ""
-                                        }`}
-                                        style={paneCellStyle(slot, canvasPanes.length, paneIndex)}
-                                        aria-label={t("editWindowNamed", { name: paneName })}
-                                      >
-                                      {selectedPane && (
-                                        <span
-                                          className="pointer-events-none absolute inset-y-2 left-2 w-0.5 rounded-full bg-[var(--accent)]"
-                                          aria-hidden="true"
-                                        />
-                                      )}
-                                      <span className="relative flex items-start justify-between gap-2 pl-1.5">
-                                        <span className="flex min-w-0 items-start gap-2">
-                                          <AgentMark agent={paneAgent} />
-                                          <span className="min-w-0">
-                                            <span className="block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                                              {pane.kind === "tmux-group" ? t("tmuxWindowStack") : t("pane")}
-                                            </span>
-                                            <span className="block mt-0.5 text-[13px] font-semibold text-primary truncate">{paneName}</span>
-                                          </span>
-                                        </span>
-                                        <span className="flex shrink-0 items-center gap-1.5">
-                                          {!paneIsDraggable ? (
-                                            <SquareTerminal className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden="true" />
-                                          ) : (
-                                          <span
-                                            className="inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted cursor-grab active:cursor-grabbing"
-                                            title={t("dragPane")}
-                                          >
-                                            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
-                                          </span>
-                                          )}
-                                        </span>
-                                      </span>
-                                      <span className="relative mt-2 block pl-1.5 text-[12px] text-secondary truncate">
-                                        {pane.kind === "tmux-group"
-                                          ? countText(
-                                              t,
-                                              "tmuxWindowGroupSummary_one",
-                                              "tmuxWindowGroupSummary",
-                                              isLegacyTmuxSlot(slot)
-                                                ? panes.length
-                                                : tmuxGroupWindows(slot.windows[pane.windowIndex ?? paneIndex]).length
-                                            )
-                                          : slot.runtime === "terminal" && slot.windows.length === 0 ? terminalPaneSummary(t, slot) : paneSummary(t, panes[pane.windowIndex ?? paneIndex])}
-                                      </span>
-                                      {pane.kind === "tmux-group" && (
-                                        <span className="relative mt-2 flex flex-wrap gap-1 pl-1.5">
-                                          {(isLegacyTmuxSlot(slot)
-                                            ? panes
-                                            : tmuxGroupWindows(slot.windows[pane.windowIndex ?? paneIndex])
-                                          ).map((window, windowIndex) => (
-                                            <span
-                                              key={`${window.name}-${windowIndex}-chip`}
-                                              className="inline-flex min-w-0 items-center gap-1 rounded-md border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-secondary"
-                                            >
-                                              <AgentMark agent={window.agent} compact />
-                                              <span className="truncate max-w-[120px]">{window.name || t("unnamed")}</span>
-                                            </span>
-                                          ))}
-                                        </span>
-                                      )}
-                                      {cwdLabel && cwdLabel !== "." && (
-                                        <span className="relative mt-0.5 block pl-1.5 text-[10px] text-tertiary font-mono truncate">
-                                          {cwdLabel}
-                                        </span>
-                                      )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </section>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={addTab}
-                      className="w-full min-h-11 rounded-md border border-dashed border-[var(--accent-border)] bg-[var(--accent-bg)]/45 p-2 text-center text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-bg)] transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5 inline-block mr-1.5 align-[-2px]" />
-                      {t("addTab")}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <WorkspaceCanvas {...canvasProps} />
 
               {selectedSlot && (
                 <aside className="rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden xl:sticky xl:top-3">

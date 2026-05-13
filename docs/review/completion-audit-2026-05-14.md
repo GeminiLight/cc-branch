@@ -24,6 +24,7 @@
 | 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
 | 审查跨标签页拖拽语义 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`SlotsSection.tsx`、`workspace-model.test.ts` | 已修复：Tab 作为容器不再限制 pane/tmux group 移动；legacy tmux tab 拖入其它 tab 时会转换为目标 tab 中的 tmux group。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
+| 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -105,7 +106,7 @@ ce37e5b Ignore local generated review artifacts
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑和 agent icon 显示逻辑，但仍然承担较多职责：布局渲染、拖拽事件、inspector 编辑、tmux group 编辑、session 选择。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑和 canvas rendering，但仍然承担较多职责：拖拽事件、inspector 编辑、tmux group 编辑、session 选择。
 - Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -142,6 +143,6 @@ ce37e5b Ignore local generated review artifacts
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model 和 pane movement，下一步应拆 canvas rendering、inspector editing。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement 和 canvas rendering，下一步应拆 inspector editing。
 2. 为 workspace canvas 增加端到端交互测试，覆盖真实浏览器拖拽、tmux group 移动、复杂布局保存。
 3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。
