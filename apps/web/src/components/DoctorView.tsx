@@ -1,8 +1,8 @@
 import { useMemo, memo } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, XCircle } from "lucide-react";
 import { useI18n } from "../i18n";
-import { useDoctor } from "../hooks";
-import type { DoctorReportPayload } from "../types";
+import { useConfig, useDoctor, useWorkspace } from "../hooks";
+import type { DoctorReportPayload, WorkspaceStatus } from "../types";
 import EmptyState from "./ui/EmptyState";
 
 interface DoctorViewProps {
@@ -76,6 +76,15 @@ function countLabel(
   return t(count === 1 ? key : `${key}_plural`, { count });
 }
 
+function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): { changed: number; untracked: number; extra: number } {
+  const summary = workspaceData?.runtime_sync?.summary;
+  return {
+    changed: summary?.changed || 0,
+    untracked: summary?.untracked || 0,
+    extra: summary?.extra || 0,
+  };
+}
+
 const StatusDot = memo(function StatusDot({ status }: { status: "ok" | "error" | "warn" }) {
   if (status === "ok")
     return <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />;
@@ -86,12 +95,41 @@ const StatusDot = memo(function StatusDot({ status }: { status: "ok" | "error" |
 
 export default function DoctorView({ projectPath, configPath }: DoctorViewProps) {
   const { t } = useI18n();
-  const { data, error, isLoading, refetch, isFetching } = useDoctor({ projectPath, configPath });
+  const scope = { projectPath, configPath };
+  const { data, error, isLoading, refetch, isFetching } = useDoctor(scope);
+  const { data: configData } = useConfig(scope);
+  const { data: workspaceData } = useWorkspace(scope, false);
 
   const parsed = useMemo(() => {
     const text = reportText(data);
     return text ? parseReport(text) : null;
   }, [data]);
+
+  const productChecks = useMemo<CheckItem[]>(() => {
+    const checks: CheckItem[] = [];
+    const configIssues = configData?.issues ?? [];
+    for (const issue of configIssues) {
+      checks.push({
+        status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
+        icon: t("configuration"),
+        text: issue.message,
+      });
+    }
+
+    if (workspaceData?.status === "invalid_config") {
+      checks.push({
+        status: "error",
+        icon: t("workspaceProfileShort"),
+        text: workspaceData.error || t("errorLoading"),
+      });
+    }
+
+    const { changed, untracked, extra } = actionableRuntimeDrift(workspaceData);
+    if (changed > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeChangedPending", { count: changed }) });
+    if (untracked > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeUntracked", { count: untracked }) });
+    if (extra > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeExtraPanes", { count: extra }) });
+    return checks;
+  }, [configData?.issues, t, workspaceData]);
 
   if (isLoading) {
     return (
@@ -138,7 +176,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
     );
   }
 
-  const checks = parsed?.checks ?? [];
+  const checks = [...(parsed?.checks ?? []), ...productChecks];
   const issueCount = checks.filter((check) => check.status === "error").length;
   const warningCount = checks.filter((check) => check.status === "warn").length;
   const passedCount = checks.filter((check) => check.status === "ok").length;

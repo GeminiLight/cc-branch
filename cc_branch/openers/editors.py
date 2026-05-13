@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shlex
-import subprocess
-import sys
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,9 +18,9 @@ class EditorWorkspaceOpener:
 
     def open(self, opener_id: str, info: OpenerInfo, cwd: Path, commands: list[OpenCommandSpec]) -> None:
         if opener_id in {"vscode", "cursor"}:
+            if commands:
+                self.prepare_project_tasks(cwd, commands)
             self.open_project_folder(opener_id, info, cwd)
-            if commands and sys.platform == "darwin":
-                self.open_integrated_terminals_macos(opener_id, cwd, commands)
             return
 
         workspace_file = self.workspace_file_path(opener_id, cwd, commands)
@@ -38,65 +36,6 @@ class EditorWorkspaceOpener:
             _popen([executable, "-n", str(cwd)])
             return
         _popen([executable, str(cwd)])
-
-    def open_integrated_terminals_macos(self, opener_id: str, cwd: Path, commands: list[OpenCommandSpec]) -> None:
-        app_info = {
-            "vscode": ("Visual Studio Code", "Code"),
-            "cursor": ("Cursor", "Cursor"),
-        }.get(opener_id)
-        if not app_info:
-            raise OpenerError(f"Opener {opener_id} cannot create integrated terminals")
-        app_name, process_name = app_info
-
-        rendered_commands = [self._terminal_command(cwd, spec) for spec in commands]
-        script = self._macos_terminal_script(app_name, process_name, rendered_commands)
-        try:
-            result = subprocess.run(
-                ["osascript", *[arg for line in script.splitlines() for arg in ("-e", line)]],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-                timeout=max(20, len(rendered_commands) * 8),
-            )
-        except subprocess.TimeoutExpired as error:
-            raise OpenerError(f"{app_name} terminal automation timed out") from error
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout).strip()
-            raise OpenerError(
-                f"Opened project in {app_name}, but could not create integrated terminals. "
-                "Grant Accessibility permission to the terminal or app running cc-branch, then try again."
-                + (f" Details: {detail}" if detail else "")
-            )
-
-    def _terminal_command(self, workspace_cwd: Path, spec: OpenCommandSpec) -> str:
-        if spec.cwd == workspace_cwd:
-            return spec.command
-        return f"cd {shlex.quote(str(spec.cwd))} && {spec.command}"
-
-    def _macos_terminal_script(self, app_name: str, process_name: str, commands: list[str]) -> str:
-        command_list = ", ".join(json.dumps(command) for command in commands)
-        return f"""
-set commandList to {{{command_list}}}
-set previousClipboard to the clipboard
-tell application {json.dumps(app_name)} to activate
-delay 1.4
-tell application "System Events"
-  tell process {json.dumps(process_name)}
-    set frontmost to true
-    delay 0.2
-    repeat with commandText in commandList
-      key code 50 using {{control down, shift down}}
-      delay 0.5
-      set the clipboard to commandText as text
-      keystroke "v" using {{command down}}
-      key code 36
-      delay 0.4
-    end repeat
-  end tell
-end tell
-set the clipboard to previousClipboard
-"""
 
     def workspace_file_path(self, opener_id: str, cwd: Path, commands: list[OpenCommandSpec]) -> Path:
         digest_source = f"{opener_id}\0{cwd}\0" + "\n".join(
@@ -127,6 +66,13 @@ set the clipboard to previousClipboard
                 continue
 
     def workspace_json(self, cwd: Path, commands: list[OpenCommandSpec]) -> str:
+        payload = {
+            "folders": [{"path": str(cwd)}],
+            "tasks": self.tasks_payload(commands),
+        }
+        return json.dumps(payload, indent=2) + "\n"
+
+    def tasks_payload(self, commands: list[OpenCommandSpec]) -> dict:
         tasks = []
         for spec in commands:
             tasks.append(
@@ -145,14 +91,54 @@ set the clipboard to previousClipboard
                     "runOptions": {"runOn": "folderOpen"},
                 }
             )
-        payload = {
-            "folders": [{"path": str(cwd)}],
-            "tasks": {
-                "version": "2.0.0",
-                "tasks": tasks,
-            },
+        return {
+            "version": "2.0.0",
+            "tasks": tasks,
         }
-        return json.dumps(payload, indent=2) + "\n"
+
+    def project_tasks_json(self, commands: list[OpenCommandSpec]) -> str:
+        return json.dumps(self.tasks_payload(commands), indent=2) + "\n"
+
+    def prepare_project_tasks(self, cwd: Path, commands: list[OpenCommandSpec]) -> None:
+        sidecar = self.project_tasks_path(cwd)
+        sidecar.parent.mkdir(parents=True, exist_ok=True)
+        self.ensure_generated_gitignore(sidecar.parent)
+        sidecar.write_text(self.project_tasks_json(commands), encoding="utf-8")
+
+        bridge = cwd / ".vscode" / "tasks.json"
+        if bridge.exists() or bridge.is_symlink():
+            if not self.is_cc_branch_tasks_bridge(bridge, sidecar):
+                return
+            bridge.unlink()
+        bridge.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            relative_target = os.path.relpath(sidecar, bridge.parent)
+            bridge.symlink_to(relative_target)
+        except OSError:
+            bridge.write_text(sidecar.read_text(encoding="utf-8"), encoding="utf-8")
+
+    def project_tasks_path(self, cwd: Path) -> Path:
+        return cwd / ".cc-branch" / ".generated" / "vscode-tasks.json"
+
+    def ensure_generated_gitignore(self, directory: Path) -> None:
+        gitignore = directory / ".gitignore"
+        if not gitignore.exists():
+            gitignore.write_text("*\n!.gitignore\n", encoding="utf-8")
+
+    def is_cc_branch_tasks_bridge(self, bridge: Path, sidecar: Path) -> bool:
+        if bridge.is_symlink():
+            try:
+                return bridge.resolve() == sidecar.resolve()
+            except OSError:
+                return False
+        try:
+            payload = json.loads(bridge.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        tasks = payload.get("tasks")
+        if not isinstance(tasks, list) or not tasks:
+            return False
+        return all(isinstance(task, dict) and str(task.get("label", "")).startswith("cc-branch: ") for task in tasks)
 
     def open_workspace_file(self, opener_id: str, info: OpenerInfo, workspace_file: Path) -> None:
         executable = info.executable

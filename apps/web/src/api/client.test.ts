@@ -9,7 +9,7 @@ describe("HTTPClient workspace scope", () => {
   it("sends project and config path query parameters together", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ config_path: "/tmp/demo/.cc-branch/configs/review.yaml", state_path: "/tmp/demo/.cc-branch/states/review.yaml", slots: [] }),
+      text: async () => JSON.stringify({ config_path: "/tmp/demo/.cc-branch/configs/review.yaml", state_path: "/tmp/demo/.cc-branch/states/review.yaml", slots: [] }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -22,6 +22,51 @@ describe("HTTPClient workspace scope", () => {
       "/api/status?project_path=%2Ftmp%2Fdemo&config_path=%2Ftmp%2Fdemo%2F.cc-branch%2Fconfigs%2Freview.yaml",
       { signal: undefined }
     );
+  });
+
+  it("reports HTTP errors when the API returns an empty body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: async () => "",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new HTTPClient().getStatus()).rejects.toThrow("HTTP 502");
+  });
+
+  it("normalizes missing workspace arrays from older status payloads", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({
+        status: "ready",
+        project: "demo",
+        config_path: "/tmp/demo/.cc-branch/config.yaml",
+        state_path: "/tmp/demo/.cc-branch/state.yaml",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const status = await new HTTPClient().getStatus("/tmp/demo");
+
+    expect(status.slots).toEqual([]);
+  });
+
+  it("normalizes missing window arrays on status slots", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({
+        status: "ready",
+        config_path: "/tmp/demo/.cc-branch/config.yaml",
+        state_path: "/tmp/demo/.cc-branch/state.yaml",
+        slots: [{ name: "dev", runtime: "tmux", status: "running", session_name: "demo-dev" }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const status = await new HTTPClient().getStatus("/tmp/demo");
+
+    expect(status.slots[0].windows).toEqual([]);
   });
 
   it("loads global projects index from backend", async () => {

@@ -11,7 +11,7 @@ from .definitions import PROFILES
 def get_profile_config(
     project_name: str,
     available_agents: list[str],
-    profile: str = "solo-dev",
+    profile: str = "development",
     *,
     tmux_available: bool = True,
 ) -> str:
@@ -20,8 +20,8 @@ def get_profile_config(
         raise ValueError(f"Unknown profile: {profile}. Available: {', '.join(PROFILES.keys())}")
 
     template = PROFILES[profile]
-    tabs_yaml = build_slots_section(
-        template["slots"],
+    tabs_yaml = build_tabs_section(
+        template["tabs"],
         set(available_agents),
         tmux_available=tmux_available,
     )
@@ -29,6 +29,7 @@ def get_profile_config(
     return f"""version: 2
 project: "{project_name}"
 root: "."
+openWith: "auto-terminal"
 
 display:
   mode: "grid"
@@ -38,8 +39,8 @@ display:
 {tabs_yaml}"""
 
 
-def build_slots_section(
-    slots_template: list[dict[str, Any]],
+def build_tabs_section(
+    tabs_template: list[dict[str, Any]],
     available_agents: set[str],
     *,
     tmux_available: bool = True,
@@ -49,28 +50,28 @@ def build_slots_section(
     shell_command = default_shell_command()
     emitted_names: set[str] = set()
 
-    for slot in slots_template:
-        slot_name = slot["name"]
-        runtime = slot.get("runtime", "tmux")
+    for tab in tabs_template:
+        tab_name = tab["name"]
+        layout_backend = tab.get("layoutBackend") or tab.get("runtime", "tmux")
 
-        if runtime == "terminal" or not tmux_available:
-            if runtime == "terminal":
+        if layout_backend in {"direct", "terminal"} or not tmux_available:
+            if layout_backend in {"direct", "terminal"}:
                 selected_agent = None
-                terminal_name = _unique_slot_name(slot_name, emitted_names)
+                terminal_name = _unique_tab_name(tab_name, emitted_names)
             else:
-                windows = slot.get("windows", [])
-                if windows:
-                    for window in windows:
-                        window_name = window["name"]
+                panes = tab.get("panes") or tab.get("windows", [])
+                if panes:
+                    for pane in panes:
+                        pane_name = pane["name"]
                         selected_agent = _first_available(
-                            window.get("preferred_agents", []),
+                            pane.get("preferred_agents", []),
                             available_agents,
                         )
-                        terminal_name = _unique_slot_name(window_name, emitted_names)
+                        terminal_name = _unique_tab_name(pane_name, emitted_names)
                         lines.extend(_terminal_tab_lines(terminal_name, shell_command=shell_command, agent=selected_agent))
                     continue
                 selected_agent = None
-                terminal_name = _unique_slot_name(slot_name, emitted_names)
+                terminal_name = _unique_tab_name(tab_name, emitted_names)
 
             lines.extend(
                 _terminal_tab_lines(
@@ -81,28 +82,37 @@ def build_slots_section(
             )
             continue
 
-        emitted_names.add(slot_name)
-        lines.append(f'  - name: "{slot_name}"')
+        emitted_names.add(tab_name)
+        lines.append(f'  - name: "{tab_name}"')
+        lines.append('    layoutBackend: "tmux"')
         lines.append('    cwd: "."')
         lines.append("    panes:")
-        lines.append(f'      - name: "{slot_name}"')
-        lines.append('        runtime: "tmux"')
-        lines.append("        windows:")
 
-        added_windows = 0
-        for window in slot.get("windows", []):
-            window_name = window["name"]
-            selected_agent = _first_available(window.get("preferred_agents", []), available_agents)
+        panes = tab.get("panes") or tab.get("windows", [])
+        for pane in panes:
+            pane_name = pane["name"]
+            selected_agent = _first_available(pane.get("preferred_agents", []), available_agents)
+            lines.append(f'      - name: "{pane_name}"')
             if selected_agent:
-                lines.append(f'          - name: "{window_name}"')
-                lines.append(f'            agent: "{selected_agent}"')
-                added_windows += 1
+                lines.append(f'        agent: "{selected_agent}"')
+            else:
+                lines.append(f'        command: "{shell_command}"')
 
-        if added_windows == 0:
-            lines.append('          - name: "shell"')
-            lines.append(f'            command: "{shell_command}"')
+        if not panes:
+            lines.append('      - name: "shell"')
+            lines.append(f'        command: "{shell_command}"')
 
     return "\n".join(lines)
+
+
+def build_slots_section(
+    slots_template: list[dict[str, Any]],
+    available_agents: set[str],
+    *,
+    tmux_available: bool = True,
+) -> str:
+    """Compatibility alias for older internal callers."""
+    return build_tabs_section(slots_template, available_agents, tmux_available=tmux_available)
 
 
 def _terminal_tab_lines(
@@ -124,7 +134,7 @@ def _terminal_tab_lines(
     return lines
 
 
-def _unique_slot_name(name: str, used: set[str]) -> str:
+def _unique_tab_name(name: str, used: set[str]) -> str:
     candidate = name
     index = 2
     while candidate in used:

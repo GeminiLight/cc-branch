@@ -331,7 +331,7 @@ def api_init(handler) -> None:
 
     try:
         data = _read_json_body(handler)
-        profile = data.get("profile", "solo-dev")
+        profile = data.get("profile", "development")
         bootstrap_sessions = data.get("bootstrap_sessions", True)
         config_path, _state_path = handler._resolve_paths()
 

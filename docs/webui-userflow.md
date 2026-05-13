@@ -54,7 +54,7 @@ User opens Doctor view
   -> User sees missing commands, unknown agents, invalid env keys, etc.
 ```
 
-### 1.5 Open a workspace or slot
+### 1.5 Open a workspace or tab
 
 ```text
 User selects a tool, then clicks "Open workspace"
@@ -66,16 +66,16 @@ Terminal tools run dashboard or attach commands. Warp writes a stable Launch Con
 
 The dashboard itself is still tmux-backed, so opening the same workspace from a different terminal attaches to the same reusable sessions.
 
-For a slot-level button:
+For a tab-level button:
 
 ```text
-User clicks "Open terminal" on a slot
+User clicks "Open" on a tab
   -> Frontend posts to /api/action with {action: "open", target: "dev", opener: selectedTool, intent: "attach_target"}
-  -> Backend ensures the tmux slot exists
+  -> Backend ensures the tmux-backed tab exists
   -> The selected tool opens the target
 ```
 
-Terminal tools run `cc-branch attach <target>` or the terminal-runtime command. On macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
+Terminal tools run `cc-branch attach <target>` or the direct-layout command. On macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
 
 ### 1.6 Open a project directory
 
@@ -90,28 +90,28 @@ Project directory open is intentionally separate from workspace open. It uses th
 
 Workspace open still adapts to the selected tool. Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
 
-### 1.6.1 Terminal-runtime workspace
+### 1.6.1 Direct-layout workspace
 
 ```text
-User opens a workspace that has only runtime: terminal slots
+User opens a workspace that has only direct-layout tabs
   -> Frontend still posts {action: "open", intent: "workspace_dashboard"}
-  -> Backend sees there are no tmux slots
-  -> Backend runs the terminal slot commands through the selected terminal opener
+  -> Backend sees there are no tmux-backed tabs
+  -> Backend runs the direct-layout pane commands through the selected opener
 ```
 
-Terminal-runtime slots are not reusable. Every open starts a new external terminal process. Warp is the exception only in presentation: CC Branch can group multiple terminal slot commands into one Warp Launch Configuration layout, but those processes still are not tmux sessions and cannot be stopped or reattached by CC Branch.
+Direct-layout panes are not reusable. Every open starts a new external terminal process. Warp is the exception only in presentation: CC Branch can group multiple direct pane commands into one Warp Launch Configuration layout, but those processes still are not tmux sessions and cannot be stopped or reattached by CC Branch.
 
 ### 1.7 Start without opening a terminal
 
 ```text
 User clicks "Start in background"
   -> Frontend posts to /api/action with {action: "launch"}
-  -> Backend creates tmux sessions/windows with detach=true
-  -> No visible terminal window is opened
+  -> Backend creates tmux sessions/panes with detach=true
+  -> No visible terminal pane is opened
   -> Frontend refreshes /api/status
 ```
 
-### 1.8 Stop a running slot
+### 1.8 Stop a running tab
 
 ```text
 User triggers a stop action

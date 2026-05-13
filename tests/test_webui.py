@@ -270,6 +270,7 @@ slots:
             with (
                 patch("cc_branch.webui.server._slot_exists", return_value=False),
                 patch("cc_branch.runtime.sync._tmux_has_session", return_value=False),
+                patch("cc_branch.runtime.sync._list_window_names", return_value=set()),
                 urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response,
             ):
                 self.assertEqual(response.status, 200)
@@ -316,6 +317,7 @@ slots:
                 patch("cc_branch.runtime.backends.TmuxBackend.available", return_value=False),
                 patch("cc_branch.webui.server._slot_exists", return_value=False),
                 patch("cc_branch.runtime.sync._tmux_has_session", return_value=False),
+                patch("cc_branch.runtime.sync._list_window_names", return_value=set()),
                 urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as response,
             ):
                 self.assertEqual(response.status, 200)
@@ -743,6 +745,48 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_api_save_config_accepts_canonical_workspace_fields(self):
+        """The Web UI save endpoint should accept the public v2 schema."""
+        server, port = self._start_test_server()
+        content = "\n".join(
+            [
+                "version: 2",
+                'project: "test-project"',
+                'root: "."',
+                'openWith: "auto-terminal"',
+                'layoutBackend: "tmux"',
+                "defaults:",
+                '  shell: "system-default"',
+                "tabs:",
+                '  - name: "dev"',
+                "    panes:",
+                '      - name: "main"',
+                '        command: "zsh"',
+                "",
+            ]
+        )
+        try:
+            request = Request(
+                f"http://127.0.0.1:{port}/api/config",
+                data=json.dumps({"content": content}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(request, timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                saved = json.loads(response.read().decode())
+
+            self.assertTrue(saved["success"])
+            self.assertEqual(saved["issues"], [])
+            self.assertEqual(self.config_path.read_text(encoding="utf-8"), content)
+
+            with urlopen(f"http://127.0.0.1:{port}/api/config", timeout=2) as response:
+                loaded = json.loads(response.read().decode())
+
+            self.assertEqual(loaded["issues"], [])
+        finally:
+            self._stop_test_server(server)
+
     def test_api_doctor_returns_report(self):
         """Test /api/doctor returns doctor report."""
         server, port = self._start_test_server()
@@ -976,7 +1020,7 @@ slots:
             project_path = quote(str(alt_dir))
             request = Request(
                 f"http://127.0.0.1:{port}/api/init?project_path={project_path}",
-                data=json.dumps({"profile": "minimal", "bootstrap_sessions": False}).encode(),
+                data=json.dumps({"profile": "development", "bootstrap_sessions": False}).encode(),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
@@ -1294,10 +1338,10 @@ slots:
                 self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
                 self.assertEqual(open_command_layout.call_args.args[0], "warp")
                 specs = open_command_layout.call_args.args[1]
-                self.assertEqual([spec.title for spec in specs], ["dev", "scratch:main"])
+                self.assertEqual([spec.title for spec in specs], ["dev:planner", "dev:review", "scratch:main"])
                 self.assertEqual(
                     [spec.command for spec in specs],
-                    ["cc-branch attach dev", "npm run dev"],
+                    ["cc-branch attach dev:planner", "cc-branch attach dev:review", "npm run dev"],
                 )
                 open_with.assert_not_called()
         finally:
@@ -1876,6 +1920,34 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_api_agent_sessions_uses_selected_config_scope(self):
+        """Session picker discovery should follow the active project/config scope."""
+        from unittest.mock import patch
+
+        from cc_branch.application.results import ActionResult
+
+        review_config = self.cwd / ".cc-branch/configs/review.yaml"
+        review_config.parent.mkdir(parents=True)
+        review_config.write_text("version: 1\nproject: review\nroot: .\nslots: []\n")
+        result = ActionResult(
+            ok=True,
+            code="agent_sessions_loaded",
+            message="Agent sessions loaded",
+            payload={"sessions": []},
+        )
+        server, port = self._start_test_server()
+        try:
+            query = f"project_path={quote(str(self.cwd))}&config_path={quote(str(review_config))}&agent=codex"
+            with patch("cc_branch.webui.server.api.agent_session_options", return_value=result) as options:
+                with urlopen(f"http://127.0.0.1:{port}/api/agent-sessions?{query}", timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+
+            options.assert_called_once()
+            self.assertEqual(options.call_args.args[0], review_config)
+            self.assertEqual(options.call_args.kwargs["agent"], "codex")
+        finally:
+            self._stop_test_server(server)
+
     def test_action_open_workspace_with_vscode_opens_workspace_file(self):
         """Editor tools should open the workspace through editor terminal commands."""
         from unittest.mock import patch
@@ -1908,7 +1980,10 @@ slots:
                 open_with.assert_not_called()
                 self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
                 specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual([(spec.title, spec.command) for spec in specs], [("dev", "cc-branch attach dev")])
+                self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                    ("dev:coder", "cc-branch attach dev:coder"),
+                    ("dev:terminal", "cc-branch attach dev:terminal"),
+                ])
         finally:
             self._stop_test_server(server)
 
@@ -1961,7 +2036,8 @@ slots:
                 self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
                 specs = open_workspace_file.call_args.kwargs["commands"]
                 self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev", "cc-branch attach dev"),
+                    ("dev:shell", "cc-branch attach dev:shell"),
+                    ("dev:window-2", "cc-branch attach dev:window-2"),
                     ("scratch:hi", "zsh"),
                 ])
         finally:
@@ -1997,13 +2073,13 @@ slots:
                 open_with.assert_not_called()
                 open_workspace_file.assert_called_once()
                 specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual(specs[0].title, "dev")
-                self.assertIn("attach dev", specs[0].command)
+                self.assertEqual(specs[0].title, "dev:coder")
+                self.assertIn("attach dev:coder", specs[0].command)
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_warp_attaches_tmux_slots_once(self):
-        """Warp workspace opens should attach each tmux slot once and let tmux own its windows."""
+    def test_action_open_workspace_with_warp_expands_tmux_windows_for_layout(self):
+        """Warp workspace opens should render tmux windows as separate layout panes."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -2052,11 +2128,13 @@ slots:
                 self.assertEqual(open_command_layout.call_args.args[0], "warp")
                 specs = open_command_layout.call_args.args[1]
                 self.assertEqual([spec.title for spec in specs], [
-                    "dev",
+                    "dev:planner",
+                    "dev:review",
                     "scratch:main",
                 ])
                 self.assertEqual([spec.command for spec in specs], [
-                    f"{expected_cli} attach dev",
+                    f"{expected_cli} attach dev:planner",
+                    f"{expected_cli} attach dev:review",
                     "npm run dev",
                 ])
         finally:
@@ -2133,7 +2211,8 @@ slots:
                 open_with.assert_not_called()
                 specs = open_workspace_file.call_args.kwargs["commands"]
                 self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev", "cc-branch attach dev"),
+                    ("dev:coder", "cc-branch attach dev:coder"),
+                    ("dev:terminal", "cc-branch attach dev:terminal"),
                 ])
         finally:
             self._stop_test_server(server)
@@ -2178,6 +2257,7 @@ slots:
                 self.assertEqual(response.status, 200)
                 content_type = response.headers.get("Content-Type", "")
                 self.assertIn("text/html", content_type)
+                self.assertEqual(response.headers.get("Cache-Control"), "no-store")
 
                 body = response.read().decode()
                 self.assertIn("CC Branch", body)
@@ -2195,7 +2275,23 @@ slots:
             with urlopen(f"http://127.0.0.1:{port}/favicon.png", timeout=2) as response:
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.headers.get("Content-Type"), "image/png")
+                self.assertEqual(response.headers.get("Cache-Control"), "no-cache")
                 self.assertEqual(response.read(), expected)
+        finally:
+            self._stop_test_server(server)
+
+    def test_hashed_static_assets_are_immutable(self):
+        """Hashed Vite assets can be cached without keeping stale index.html."""
+        asset_dir = files("cc_branch.webui.static") / "assets"
+        asset_name = next(path.name for path in asset_dir.iterdir() if path.name.endswith(".js"))
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/assets/{asset_name}", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                self.assertEqual(
+                    response.headers.get("Cache-Control"),
+                    "public, max-age=31536000, immutable",
+                )
         finally:
             self._stop_test_server(server)
 

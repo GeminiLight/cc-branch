@@ -8,15 +8,15 @@
 
 - 至少一个你会在配置中用到的命令行工具
 - 只有通过 PyPI 或源码安装时才需要 Python 3.10+
-- 只有使用 `runtime: tmux` 时才需要 `tmux`
+- 只有使用 `layoutBackend: tmux` 时才需要 `tmux`
 
-没有 `tmux` 也可以使用 `runtime: terminal`，只是不支持 tmux 的复用、后台生命周期和 dashboard 能力。
+没有 `tmux` 也可以使用默认的 `layoutBackend: direct`。这种方式会启动普通终端或编辑器里的本地进程，不支持 tmux 的复用、后台生命周期和 tmux 级 attach。
 
 如果想先检查环境，可以运行：
 
 ```bash
 python3 --version
-tmux -V          # 只在你要使用 runtime: tmux 时需要
+tmux -V          # 只在你要使用 layoutBackend: tmux 时需要
 codex --version   # 或 claude / gemini / cursor 等
 ```
 
@@ -56,16 +56,16 @@ cc-branch init
 
 - 检查环境
 - 探测本机可用的命令行工具
-- 根据默认的 `solo-dev` 模板生成起步配置
+- 根据默认的 `development` 模板生成起步配置
 - 创建 `.cc-branch/state.yaml`
 - 自动把本地状态文件加入 `.gitignore`
 
-只有在你想选择其他模板时，才需要使用 `--profile ai-pair` 或 `--profile minimal`。
+如果主要做产品/设计工作，可以使用 `--profile design`；如果只需要一个窗格，可以使用 `--profile minimal`。
 
 内置模板：
 
-- `solo-dev`
-- `ai-pair`
+- `development`
+- `design`
 - `minimal`
 
 ## 4. 先看启动结果
@@ -77,8 +77,8 @@ cc-branch plan
 重点确认：
 
 - tmux 会话名字是不是你想要的
-- 每个窗口会执行什么命令
-- `session_id` 是复用还是新生成
+- 每个标签页和窗格会执行什么命令
+- agent session 是自动复用、每次新建，还是显式恢复某个 ID
 - 目录、label 和附加命令是否合理
 
 ## 5. 启动
@@ -87,7 +87,7 @@ cc-branch plan
 cc-branch start
 ```
 
-`start` 会创建 tmux 会话和窗口，并进入第一个 slot。需要看到总览面板时，显式运行：
+`start` 会按配置创建可复用 tmux 会话或直接启动本地命令，并进入第一个可 attach 的标签页。需要看到总览面板时，显式运行：
 
 ```bash
 cc-branch dashboard
@@ -99,7 +99,7 @@ cc-branch dashboard
 cc-branch start --dashboard
 ```
 
-如果你只想创建可复用的 tmux session，不进入工作台，也不打开 `runtime: terminal` 外部窗口：
+如果你只想创建可复用的 tmux session，不进入工作台，也不打开 direct 布局的外部进程：
 
 ```bash
 cc-branch start --detach --prepare
@@ -158,9 +158,9 @@ cc-branch serve
 - 查看诊断结果
 - 用模板初始化工作空间
 - 用同一个工具选择器打开工作空间或项目目录
-- 后台启动、重启、停止 tmux 工作空间或 slot
+- 后台启动、重启、停止 tmux 工作空间或标签页
 
-Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用稳定的 Launch Configuration 打开布局；VS Code、Cursor 会正常打开项目目录，并在 macOS 上创建 integrated terminal 来运行 workspace 命令。打开项目目录始终用系统文件管理器，让用户进入普通文件夹视图。tmux 工作空间可复用；从另一个 Terminal、Warp、VS Code 或 Cursor 再打开时会 attach 到同一组 session。传统 `runtime: terminal` 不可复用，再次打开就是新的外部进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
+Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用稳定的 Launch Configuration 打开布局；VS Code、Cursor 会正常打开项目目录，并在 macOS 上创建 integrated terminal 来运行 workspace 命令。打开项目目录始终用系统文件管理器，让用户进入普通文件夹视图。`layoutBackend: tmux` 的标签页可复用；从另一个 Terminal、Warp、VS Code 或 Cursor 再打开时会 attach 到同一组 session。`layoutBackend: direct` 的窗格是外部进程，再次打开就是新的本地进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
 
 ## 8. 记住这两个文件
 

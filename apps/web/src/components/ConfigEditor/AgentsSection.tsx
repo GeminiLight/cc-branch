@@ -180,7 +180,7 @@ function AgentCard({
                   <TextInput
                     value={agent.label_template}
                     onChange={(v) => onChange({ label_template: v })}
-                    placeholder="{project}/{slot}/{window}"
+                    placeholder="{project}/{tab}/{pane}"
                   />
                 </div>
                 <div>
@@ -253,7 +253,7 @@ export default function AgentsSection({
         resume_template: "",
         create_mode: "generated_uuid",
         create_template: `${name} --session-id {{session_id}}`,
-        label_template: "{project}/{slot}/{window}",
+        label_template: "{project}/{tab}/{pane}",
         label_mode: "metadata",
         rename_template: "",
       },

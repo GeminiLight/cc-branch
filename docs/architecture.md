@@ -375,8 +375,8 @@ Responsibilities:
 
 Built-in profiles:
 
-- `solo-dev`
-- `ai-pair`
+- `development`
+- `design`
 - `minimal`
 
 ## 15. Current design constraints

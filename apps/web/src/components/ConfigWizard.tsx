@@ -2,12 +2,13 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import {
   CheckCircle2,
   ChevronsUpDown,
+  Code2,
+  Feather,
+  Layers3,
   Loader2,
   Minimize2,
-  Monitor,
   Save,
-  User,
-  Users,
+  TerminalSquare,
   Wand2,
   X,
   Zap,
@@ -28,89 +29,97 @@ interface ConfigWizardProps {
 
 type Step = "select" | "done";
 
-interface PreviewWindow {
+interface PreviewPane {
   name: string;
   preferredAgents: string[];
   agent?: string;
 }
 
-interface PreviewSlot {
+interface PreviewTab {
   name: string;
-  runtime: "tmux" | "terminal";
-  windows: PreviewWindow[];
+  layoutBackend: "tmux" | "direct";
+  panes: PreviewPane[];
 }
 
 interface TemplateSpec {
   id: string;
-  slots: PreviewSlot[];
+  tabs: PreviewTab[];
 }
 
 const profileIcons: Record<string, React.ReactNode> = {
-  "solo-dev": <User className="w-4 h-4" />,
-  "ai-pair": <Users className="w-4 h-4" />,
+  development: <Code2 className="w-4 h-4" />,
+  design: <Feather className="w-4 h-4" />,
   minimal: <Minimize2 className="w-4 h-4" />,
 };
 
 const profileLabelKeys: Record<string, string> = {
-  "solo-dev": "profileSoloDevName",
-  "ai-pair": "profileAiPairName",
+  development: "profileDevelopmentName",
+  design: "profileDesignName",
   minimal: "profileMinimalName",
 };
 
 const profileDescriptionKeys: Record<string, string> = {
-  "solo-dev": "profileSoloDevDesc",
-  "ai-pair": "profileAiPairDesc",
+  development: "profileDevelopmentDesc",
+  design: "profileDesignDesc",
   minimal: "profileMinimalDesc",
 };
 
 const templateSpecs: Record<string, TemplateSpec> = {
-  "solo-dev": {
-    id: "solo-dev",
-    slots: [
+  development: {
+    id: "development",
+    tabs: [
       {
-        name: "dev",
-        runtime: "tmux",
-        windows: [
-          { name: "planner", preferredAgents: ["codex", "claude", "gemini"] },
-          { name: "builder", preferredAgents: ["codex", "claude", "gemini"] },
-          { name: "tester", preferredAgents: ["codex", "claude", "gemini"] },
-          { name: "reviewer", preferredAgents: ["claude", "codex", "gemini"] },
+        name: "development",
+        layoutBackend: "tmux",
+        panes: [
+          { name: "frontend", preferredAgents: ["codex", "claude", "gemini"] },
+          { name: "backend", preferredAgents: ["codex", "gemini", "claude"] },
+          { name: "algorithm", preferredAgents: ["gemini", "codex", "claude"] },
+          { name: "docs", preferredAgents: ["claude", "gemini", "codex"] },
         ],
       },
     ],
   },
-  "ai-pair": {
-    id: "ai-pair",
-    slots: [
+  design: {
+    id: "design",
+    tabs: [
       {
-        name: "coder",
-        runtime: "tmux",
-        windows: [{ name: "implement", preferredAgents: ["codex", "claude", "gemini"] }],
+        name: "product",
+        layoutBackend: "tmux",
+        panes: [
+          { name: "discussion", preferredAgents: ["claude", "gemini", "codex"] },
+          { name: "implementation", preferredAgents: ["codex", "claude", "gemini"] },
+        ],
       },
       {
-        name: "reviewer",
-        runtime: "tmux",
-        windows: [{ name: "review", preferredAgents: ["claude", "codex", "gemini"] }],
+        name: "design",
+        layoutBackend: "tmux",
+        panes: [
+          { name: "directions", preferredAgents: ["claude", "gemini", "codex"] },
+          { name: "review", preferredAgents: ["claude", "codex", "gemini"] },
+        ],
       },
-      { name: "scratch", runtime: "terminal", windows: [] },
     ],
   },
   minimal: {
     id: "minimal",
-    slots: [
+    tabs: [
       {
         name: "main",
-        runtime: "tmux",
-        windows: [{ name: "agent", preferredAgents: ["claude", "codex", "gemini"] }],
+        layoutBackend: "tmux",
+        panes: [
+          { name: "agent", preferredAgents: ["codex", "claude", "gemini"] },
+        ],
       },
-      { name: "scratch", runtime: "terminal", windows: [] },
     ],
   },
 };
 
+const profileOrder = ["development", "design", "minimal"] as const;
+const defaultProfileId = "development";
 const fallbackProfiles: Profile[] = [
-  { id: "solo-dev", description: "" },
-  { id: "ai-pair", description: "" },
+  { id: "development", description: "" },
+  { id: "design", description: "" },
   { id: "minimal", description: "" },
 ];
 
@@ -118,43 +127,46 @@ function projectNameFromPath(projectPath?: string): string {
   return projectPath?.split(/[\\/]/).filter(Boolean).pop() || "workspace";
 }
 
-function agentForWindow(win: PreviewWindow, availableAgents: string[]): string {
-  return win.preferredAgents.find((agent) => availableAgents.includes(agent)) || win.preferredAgents[0] || "shell";
+function agentForPane(pane: PreviewPane, availableAgents: string[]): string {
+  return pane.preferredAgents.find((agent) => availableAgents.includes(agent)) || pane.preferredAgents[0] || "shell";
 }
 
-function selectedAgentForWindow(win: PreviewWindow, availableAgents: string[]): string {
-  return win.agent || agentForWindow(win, availableAgents);
+function selectedAgentForPane(pane: PreviewPane, availableAgents: string[]): string {
+  return pane.agent || agentForPane(pane, availableAgents);
 }
 
 function yamlForTemplate(spec: TemplateSpec, projectName: string, availableAgents: string[]): string {
   const lines = [
-    "version: 1",
+    "version: 2",
     `project: "${projectName}"`,
     'root: "."',
+    'openWith: "auto-terminal"',
     "",
     "display:",
     '  mode: "grid"',
     "  columns: 2",
     "  dashboard: true",
     "",
-    "slots:",
+    "tabs:",
   ];
 
-  for (const slot of spec.slots) {
-    lines.push(`  - name: "${slot.name}"`);
-    lines.push(`    runtime: "${slot.runtime}"`);
+  for (const tab of spec.tabs) {
+    lines.push(`  - name: "${tab.name}"`);
+    if (tab.layoutBackend === "tmux") {
+      lines.push('    layoutBackend: "tmux"');
+    }
     lines.push('    cwd: "."');
+    lines.push("    panes:");
 
-    if (slot.runtime === "terminal") {
-      lines.push('    title: "scratch"');
-      lines.push('    command: "$SHELL"');
+    if (tab.layoutBackend === "direct") {
+      lines.push(`      - name: "${tab.name}"`);
+      lines.push('        command: "$SHELL"');
       continue;
     }
 
-    lines.push("    windows:");
-    for (const win of slot.windows) {
-      lines.push(`      - name: "${win.name}"`);
-      lines.push(`        agent: "${selectedAgentForWindow(win, availableAgents)}"`);
+    for (const pane of tab.panes) {
+      lines.push(`      - name: "${pane.name}"`);
+      lines.push(`        agent: "${selectedAgentForPane(pane, availableAgents)}"`);
     }
   }
 
@@ -164,103 +176,126 @@ function yamlForTemplate(spec: TemplateSpec, projectName: string, availableAgent
 function WorkspacePreview({
   spec,
   availableAgents,
-  onRenameSlot,
-  onRenameWindow,
+  onRenameTab,
+  onRenamePane,
   onChangeAgent,
 }: {
   spec: TemplateSpec;
   availableAgents: string[];
-  onRenameSlot: (slotIndex: number, name: string) => void;
-  onRenameWindow: (slotIndex: number, windowIndex: number, name: string) => void;
-  onChangeAgent: (slotIndex: number, windowIndex: number, agent: string) => void;
+  onRenameTab: (tabIndex: number, name: string) => void;
+  onRenamePane: (tabIndex: number, paneIndex: number, name: string) => void;
+  onChangeAgent: (tabIndex: number, paneIndex: number, agent: string) => void;
 }) {
   const { t } = useI18n();
   const agentOptions = availableAgents.length > 0 ? availableAgents : ["codex", "claude", "gemini"];
   return (
-    <div className="space-y-2">
-      {spec.slots.map((slot, slotIndex) => (
-        <div key={slotIndex} className="rounded-md border border-default bg-[var(--bg-card)] p-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Monitor className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+    <div className="space-y-3">
+      {spec.tabs.map((tab, tabIndex) => {
+        const panes = tab.layoutBackend === "direct"
+          ? [{ name: tab.name, preferredAgents: ["shell"], agent: "shell" }]
+          : tab.panes;
+        return (
+        <section key={tabIndex} className="rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden">
+          <div className="grid grid-cols-[86px_minmax(0,1fr)_auto] items-center gap-3 border-b border-default bg-[var(--bg-elevated)] px-3 py-2.5">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase text-tertiary">
+              {tab.layoutBackend === "tmux" ? (
+                <Layers3 className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+              ) : (
+                <TerminalSquare className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+              )}
+              {t("tab")}
+            </span>
+            <div className="min-w-0">
               <input
-                value={slot.name}
-                onChange={(e) => onRenameSlot(slotIndex, e.target.value)}
-                className="min-w-0 flex-1 cursor-text rounded border border-default bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[12px] font-semibold text-primary outline-none transition-colors hover:border-[var(--accent-border)] focus:border-[var(--accent-border)] focus:bg-[var(--bg-card)]"
+                value={tab.name}
+                onChange={(e) => onRenameTab(tabIndex, e.target.value)}
+                className="w-full min-w-0 cursor-text rounded border border-default bg-[var(--bg-card)] px-2 py-1 font-mono text-[12px] font-semibold text-primary outline-none transition-colors hover:border-[var(--accent-border)] focus:border-[var(--accent-border)]"
                 aria-label={t("slotName")}
               />
             </div>
-            {slot.runtime === "terminal" && (
-              <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-mono text-tertiary">
-                terminal
-              </span>
-            )}
+            <span className="rounded border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
+              {tab.layoutBackend === "tmux" ? t("templateTmuxRuntime") : t("terminalRuntime")}
+            </span>
           </div>
 
-          {slot.runtime === "terminal" ? (
-            <div className="mt-2 rounded border border-dashed border-default px-2 py-1.5 text-[11px] text-secondary">
-              scratch shell
-            </div>
-          ) : (
-            <div className="mt-2 grid gap-1.5">
-              {slot.windows.map((win, windowIndex) => {
-                const selectedAgent = selectedAgentForWindow(win, availableAgents);
+          <div className="p-3 space-y-2">
+            {panes.map((pane, paneIndex) => {
+                const selectedAgent = selectedAgentForPane(pane, availableAgents);
                 const options = agentOptions.includes(selectedAgent)
                   ? agentOptions
                   : [selectedAgent, ...agentOptions];
                 return (
                 <div
-                  key={windowIndex}
-                  className="grid grid-cols-[minmax(86px,0.9fr)_minmax(0,1fr)_minmax(92px,auto)] items-center gap-2 rounded border border-default bg-[var(--bg-elevated)] px-2 py-1.5"
+                  key={paneIndex}
+                  className="grid grid-cols-[64px_minmax(120px,0.9fr)_minmax(0,1fr)_minmax(104px,auto)] items-center gap-2 rounded-md border border-default bg-[var(--bg-elevated)] px-2 py-1.5"
                 >
+                  <span className="text-[10px] font-semibold uppercase text-tertiary">{t("pane")}</span>
                   <input
-                    value={win.name}
-                    onChange={(e) => onRenameWindow(slotIndex, windowIndex, e.target.value)}
-                    className="min-w-0 cursor-text rounded border border-default bg-[var(--bg-card)] px-2 py-1 font-mono text-[11px] text-primary outline-none transition-colors hover:border-[var(--accent-border)] focus:border-[var(--accent-border)] focus:bg-[var(--bg-elevated)]"
+                    value={pane.name}
+                    onChange={(e) => {
+                      if (tab.layoutBackend === "direct") {
+                        onRenameTab(tabIndex, e.target.value);
+                        return;
+                      }
+                      onRenamePane(tabIndex, paneIndex, e.target.value);
+                    }}
+                    className="min-w-0 cursor-text rounded border border-default bg-[var(--bg-card)] px-2 py-1 font-mono text-[11px] text-primary outline-none transition-colors hover:border-[var(--accent-border)] focus:border-[var(--accent-border)]"
                     aria-label={t("windowName")}
                   />
-                  <span className="h-1.5 rounded-full bg-[var(--accent)]/80" />
-                  <Dropdown
-                    value={selectedAgent}
-                    onChange={(nextAgent) => onChangeAgent(slotIndex, windowIndex, nextAgent)}
-                    align="right"
-                    aria-label={t("agent")}
-                    className="min-w-0 w-full"
-                    triggerClassName="w-full"
-                    items={options.map((agent) => ({
-                      label: agent,
-                      value: agent,
-                    }))}
-                    trigger={
-                      <span className="min-w-0 w-full rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[10px] font-mono text-[var(--accent)] transition-colors hover:border-[var(--accent-border)] flex items-center justify-between gap-1.5">
-                        <span className="truncate">{selectedAgent}</span>
-                        <ChevronsUpDown className="w-3 h-3 text-tertiary shrink-0" />
-                      </span>
-                    }
-                  />
+                  <span className="h-1 rounded-full bg-[var(--accent)]/75" aria-hidden="true" />
+                  {tab.layoutBackend === "direct" ? (
+                    <span className="min-w-0 w-full rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[10px] font-mono text-tertiary">
+                      shell
+                    </span>
+                  ) : (
+                    <Dropdown
+                      value={selectedAgent}
+                      onChange={(nextAgent) => onChangeAgent(tabIndex, paneIndex, nextAgent)}
+                      align="right"
+                      aria-label={t("agent")}
+                      className="min-w-0 w-full"
+                      triggerClassName="w-full"
+                      items={options.map((agent) => ({
+                        label: agent,
+                        value: agent,
+                      }))}
+                      trigger={
+                        <span className="min-w-0 w-full rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[10px] font-mono text-[var(--accent)] transition-colors hover:border-[var(--accent-border)] flex items-center justify-between gap-1.5">
+                          <span className="truncate">{selectedAgent}</span>
+                          <ChevronsUpDown className="w-3 h-3 text-tertiary shrink-0" />
+                        </span>
+                      }
+                    />
+                  )}
                 </div>
                 );
               })}
-            </div>
-          )}
-        </div>
-      ))}
+          </div>
+        </section>
+        );
+      })}
     </div>
   );
 }
 
-function templateSummary(spec: TemplateSpec): string {
-  return spec.slots
-    .flatMap((slot) => slot.runtime === "terminal" ? [slot.name] : slot.windows.map((win) => win.name))
-    .join(" / ");
+function templateStats(spec: TemplateSpec): { tabs: number; panes: number; tmuxTabs: number; directTabs: number } {
+  return spec.tabs.reduce(
+    (stats, tab) => ({
+      tabs: stats.tabs + 1,
+      panes: stats.panes + (tab.layoutBackend === "direct" ? 1 : Math.max(tab.panes.length, 1)),
+      tmuxTabs: stats.tmuxTabs + (tab.layoutBackend === "tmux" ? 1 : 0),
+      directTabs: stats.directTabs + (tab.layoutBackend === "direct" ? 1 : 0),
+    }),
+    { tabs: 0, panes: 0, tmuxTabs: 0, directTabs: 0 }
+  );
 }
 
 function cloneTemplate(spec: TemplateSpec): TemplateSpec {
   return {
     id: spec.id,
-    slots: spec.slots.map((slot) => ({
-      ...slot,
-      windows: slot.windows.map((win) => ({ ...win, preferredAgents: [...win.preferredAgents] })),
+    tabs: spec.tabs.map((tab) => ({
+      ...tab,
+      panes: tab.panes.map((pane) => ({ ...pane, preferredAgents: [...pane.preferredAgents] })),
     })),
   };
 }
@@ -269,18 +304,21 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
   const { t } = useI18n();
   const toast = useToast();
   const { data: profiles } = useProfiles();
-  const scope = { projectPath, configPath };
+  const scope = useMemo(() => ({ projectPath, configPath }), [projectPath, configPath]);
   const { data: agentsData } = useAgents(scope, isOpen);
   const saveMutation = useSaveConfig();
 
   const [step, setStep] = useState<Step>("select");
-  const [selectedProfileId, setSelectedProfileId] = useState("solo-dev");
-  const [draftSpec, setDraftSpec] = useState<TemplateSpec>(() => cloneTemplate(templateSpecs["solo-dev"]));
+  const [selectedProfileId, setSelectedProfileId] = useState(defaultProfileId);
+  const [draftSpec, setDraftSpec] = useState<TemplateSpec>(() => cloneTemplate(templateSpecs[defaultProfileId]));
   const modalRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleId = useId();
 
-  const visibleProfiles = profiles?.length ? profiles : fallbackProfiles;
+  const visibleProfiles = useMemo(() => {
+    const byId = new Map((profiles?.length ? profiles : fallbackProfiles).map((profile) => [profile.id, profile]));
+    return profileOrder.map((id) => byId.get(id) || { id, description: "" });
+  }, [profiles]);
   const availableAgents = useMemo(
     () => agentsData?.agents.map((agent) => agent.id) || ["codex", "claude", "gemini"],
     [agentsData]
@@ -295,17 +333,17 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
   useEffect(() => {
     if (!isOpen) return;
     if (!visibleProfiles.some((profile) => profile.id === selectedProfileId)) {
-      const nextId = visibleProfiles[0]?.id || "solo-dev";
+      const nextId = visibleProfiles[0]?.id || defaultProfileId;
       setSelectedProfileId(nextId);
-      setDraftSpec(cloneTemplate(templateSpecs[nextId] || templateSpecs["solo-dev"]));
+      setDraftSpec(cloneTemplate(templateSpecs[nextId] || templateSpecs[defaultProfileId]));
     }
   }, [isOpen, selectedProfileId, visibleProfiles]);
 
   useEffect(() => {
     if (isOpen) return;
     setStep("select");
-    setSelectedProfileId("solo-dev");
-    setDraftSpec(cloneTemplate(templateSpecs["solo-dev"]));
+    setSelectedProfileId(defaultProfileId);
+    setDraftSpec(cloneTemplate(templateSpecs[defaultProfileId]));
   }, [isOpen]);
 
   useEffect(() => {
@@ -359,49 +397,49 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [saveMutation, yamlPreview, projectPath, configPath, toast, t, onCreated, onClose]);
+  }, [saveMutation, yamlPreview, scope, toast, t, onCreated, onClose]);
 
   const selectProfile = useCallback((profileId: string) => {
     setSelectedProfileId(profileId);
-    setDraftSpec(cloneTemplate(templateSpecs[profileId] || templateSpecs["solo-dev"]));
+    setDraftSpec(cloneTemplate(templateSpecs[profileId] || templateSpecs[defaultProfileId]));
   }, []);
 
-  const updateSlotName = useCallback((slotIndex: number, name: string) => {
+  const updateTabName = useCallback((tabIndex: number, name: string) => {
     setDraftSpec((prev) => ({
       ...prev,
-      slots: prev.slots.map((slot, index) => index === slotIndex ? { ...slot, name } : slot),
+      tabs: prev.tabs.map((tab, index) => index === tabIndex ? { ...tab, name } : tab),
     }));
   }, []);
 
-  const updateWindowName = useCallback((slotIndex: number, windowIndex: number, name: string) => {
+  const updatePaneName = useCallback((tabIndex: number, paneIndex: number, name: string) => {
     setDraftSpec((prev) => ({
       ...prev,
-      slots: prev.slots.map((slot, index) => index === slotIndex
+      tabs: prev.tabs.map((tab, index) => index === tabIndex
         ? {
-            ...slot,
-            windows: slot.windows.map((win, winIndex) => winIndex === windowIndex ? { ...win, name } : win),
+            ...tab,
+            panes: tab.panes.map((pane, currentPaneIndex) => currentPaneIndex === paneIndex ? { ...pane, name } : pane),
           }
-        : slot
+        : tab
       ),
     }));
   }, []);
 
-  const updateWindowAgent = useCallback((slotIndex: number, windowIndex: number, agent: string) => {
+  const updatePaneAgent = useCallback((tabIndex: number, paneIndex: number, agent: string) => {
     setDraftSpec((prev) => ({
       ...prev,
-      slots: prev.slots.map((slot, index) => index === slotIndex
+      tabs: prev.tabs.map((tab, index) => index === tabIndex
         ? {
-            ...slot,
-            windows: slot.windows.map((win, winIndex) => winIndex === windowIndex ? { ...win, agent } : win),
+            ...tab,
+            panes: tab.panes.map((pane, currentPaneIndex) => currentPaneIndex === paneIndex ? { ...pane, agent } : pane),
           }
-        : slot
+        : tab
       ),
     }));
   }, []);
 
   if (!isOpen) return null;
 
-  const stepTitle = step === "select" ? t("createConfig") : t("done");
+  const stepTitle = step === "select" ? t("createWorkspace") : t("done");
 
   return (
     <div
@@ -422,11 +460,16 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
         aria-hidden="true"
         tabIndex={-1}
       />
-      <div ref={modalRef} className="relative z-10 w-[min(1024px,calc(100vw-2rem))] h-[min(620px,92dvh)] surface-card border border-default rounded-lg animate-modal-in overflow-hidden flex flex-col">
+      <div ref={modalRef} className="relative z-10 w-[min(1060px,calc(100vw-2rem))] h-[min(700px,92dvh)] surface-card border border-default rounded-lg animate-modal-in overflow-hidden flex flex-col">
         <div className="px-4 sm:px-5 py-3 border-b border-default flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <Wand2 className="w-4 h-4 text-[var(--accent)]" />
-            <h3 id={titleId} className="text-sm font-semibold text-primary">{stepTitle}</h3>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--accent-border)] bg-[var(--accent-bg)]">
+              <Wand2 className="w-4 h-4 text-[var(--accent)]" />
+            </span>
+            <div className="min-w-0">
+              <h3 id={titleId} className="text-sm font-semibold text-primary">{stepTitle}</h3>
+              <p className="mt-0.5 truncate text-[11px] text-tertiary">{t("createWorkspaceDesc", { project: projectName })}</p>
+            </div>
           </div>
           <button
             type="button"
@@ -440,22 +483,24 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {step === "select" && (
-            <div className="grid min-h-full lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="border-b lg:border-b-0 lg:border-r border-default p-3 sm:p-4">
-                <p className="text-[12px] font-medium text-secondary">{t("chooseTemplate")}</p>
-                <div className="mt-3 space-y-1.5">
+            <div className="grid min-h-full min-w-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="min-w-0 overflow-hidden border-b lg:border-b-0 lg:border-r border-default bg-[var(--bg-elevated)]/45 p-3 sm:p-4">
+                <p className="text-[12px] font-semibold text-primary">{t("chooseTemplate")}</p>
+                <p className="mt-1 text-[11px] leading-5 text-secondary">{t("chooseTemplateDesc")}</p>
+                <div className="mt-3 grid gap-2">
                   {visibleProfiles.map((profile) => {
                     const selected = selectedProfileId === profile.id;
                     const spec = templateSpecs[profile.id];
+                    const stats = spec ? templateStats(spec) : null;
                     return (
                       <button
                         type="button"
                         key={profile.id}
                         onClick={() => selectProfile(profile.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-md border transition-colors flex items-center gap-3 ${
+                        className={`w-full min-w-0 overflow-hidden text-left px-3 py-2.5 rounded-md border transition-colors flex items-start gap-3 ${
                           selected
                             ? "border-[var(--accent-border)] bg-[var(--accent-bg)]"
-                            : "border-default hover:surface-hover"
+                            : "border-default bg-[var(--bg-card)] hover:surface-hover"
                         }`}
                       >
                         <div className="w-8 h-8 rounded bg-[var(--bg-card)] border border-default flex items-center justify-center shrink-0 text-[var(--accent)]">
@@ -465,13 +510,18 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
                           <p className="text-[13px] font-semibold text-primary">
                             {t(profileLabelKeys[profile.id] || profile.id)}
                           </p>
-                          <p className="text-[11px] text-secondary truncate">
+                          <p className="mt-0.5 text-[11px] leading-4 text-secondary">
                             {profileDescriptionKeys[profile.id] ? t(profileDescriptionKeys[profile.id]) : profile.description}
                           </p>
                           {spec && (
-                            <p className="mt-1 font-mono text-[10px] text-tertiary truncate">
-                              {templateSummary(spec)}
-                            </p>
+                            <span className="mt-2 flex flex-wrap items-center gap-1.5">
+                              <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
+                                {t("templateTabsPanes", { tabs: stats?.tabs || 0, panes: stats?.panes || 0 })}
+                              </span>
+                              <span className="rounded border border-default bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
+                                {stats?.directTabs ? t("templateMixedRuntime") : t("templateTmuxRuntime")}
+                              </span>
+                            </span>
                           )}
                         </div>
                         {selected && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent)]" />}
@@ -486,31 +536,33 @@ export default function ConfigWizard({ projectPath, configPath, isOpen, onClose,
                 </div>
               </div>
 
-              <div className="flex min-h-full flex-col p-3 sm:p-4">
+              <div className="flex min-h-full min-w-0 flex-col p-3 sm:p-4">
+                <div className="mb-3 rounded-lg border border-default bg-[var(--bg-card)] px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase text-tertiary">{t("workspace")}</p>
+                  <p className="mt-1 text-[14px] font-semibold text-primary truncate">{projectName}</p>
+                </div>
+
                 <div className="min-h-0 flex-1">
                   <section className="rounded-lg border border-default bg-[var(--bg-elevated)] p-3">
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <h4 className="text-[12px] font-semibold text-primary">{t("livePreview")}</h4>
-                      <span className="text-[10px] font-mono text-tertiary">
-                        {t("slotCount", { count: selectedSpec.slots.length })}
-                      </span>
+                      <div>
+                        <h4 className="text-[12px] font-semibold text-primary">{t("livePreview")}</h4>
+                        <p className="mt-0.5 text-[11px] text-tertiary">{t("livePreviewDesc")}</p>
+                      </div>
                     </div>
                     <WorkspacePreview
                       spec={selectedSpec}
                       availableAgents={availableAgents}
-                      onRenameSlot={updateSlotName}
-                      onRenameWindow={updateWindowName}
-                      onChangeAgent={updateWindowAgent}
+                      onRenameTab={updateTabName}
+                      onRenamePane={updatePaneName}
+                      onChangeAgent={updatePaneAgent}
                     />
                   </section>
                 </div>
 
                 <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border border-default bg-[var(--bg-card)] px-3 py-2.5">
-                  <div className="min-w-0">
+                  <div className="min-w-0 grid gap-1">
                     <p className="text-[11px] font-semibold text-primary">{t("templateCreateHint")}</p>
-                    <p className="text-[10px] text-tertiary truncate" title={projectPath}>
-                      {projectPath || t("current")}
-                    </p>
                   </div>
                   <div className="flex items-center justify-end gap-2 shrink-0">
                     <button

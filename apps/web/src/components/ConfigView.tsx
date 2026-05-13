@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Prism from "prismjs";
 import "prismjs/components/prism-yaml";
 import YAML from "js-yaml";
@@ -16,7 +16,7 @@ interface ConfigViewProps {
 export default function ConfigView({ projectPath, configPath }: ConfigViewProps) {
   const { t } = useI18n();
   const toast = useToast();
-  const scope = { projectPath, configPath };
+  const scope = useMemo(() => ({ projectPath, configPath }), [projectPath, configPath]);
   const { data, error, isLoading } = useConfig(scope);
   const saveMutation = useSaveConfig();
 
@@ -107,7 +107,7 @@ export default function ConfigView({ projectPath, configPath }: ConfigViewProps)
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [editContent, projectPath, configPath, saveMutation, toast, t]);
+  }, [editContent, projectPath, scope, saveMutation, toast, t]);
 
   const handleCancel = useCallback(() => {
     setEditing(false);

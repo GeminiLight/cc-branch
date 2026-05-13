@@ -76,7 +76,7 @@ class WorkspaceCommandSpecs:
                     command=f"{cli} attach {target}",
                 )
             ]
-        return self.tmux_slot_attach_specs([slot], cli)
+        return self.tmux_window_attach_specs([slot], cli)
 
 
 command_specs = WorkspaceCommandSpecs()

@@ -5,7 +5,7 @@
  * while keeping full YAML access for power users.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import YAML from "js-yaml";
 import {
   FileCode2,
@@ -24,7 +24,7 @@ import type { ConfigIssue } from "../../types";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
-import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents, useAgentSessions } from "../../hooks";
+import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
 import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
@@ -42,8 +42,22 @@ interface ConfigEditorProps {
 type EditorMode = "form" | "yaml";
 type IssueTone = "danger" | "warning" | "info";
 
+const PUBLIC_SCHEMA_FIELDS = new Set(["openWith", "layoutBackend", "defaults", "tabs"]);
+
 function hasYamlComments(value: string): boolean {
   return value.split("\n").some((line) => line.trimStart().startsWith("#"));
+}
+
+function isStaleCanonicalSchemaIssue(issue: ConfigIssue): boolean {
+  return (
+    issue.issue_type === "unknown_field" &&
+    typeof issue.context?.field === "string" &&
+    PUBLIC_SCHEMA_FIELDS.has(issue.context.field)
+  );
+}
+
+function visibleConfigIssues(issues: ConfigIssue[]): ConfigIssue[] {
+  return issues.filter((issue) => !isStaleCanonicalSchemaIssue(issue));
 }
 
 function issueTone(issues: ConfigIssue[]): IssueTone {
@@ -59,13 +73,12 @@ export default function ConfigEditor({
 }: ConfigEditorProps) {
   const { t } = useI18n();
   const toast = useToast();
-  const scope = { projectPath, configPath };
+  const scope = useMemo(() => ({ projectPath, configPath }), [projectPath, configPath]);
   const { data, error, isLoading } = useConfig(scope);
   const saveMutation = useSaveConfig();
 
   const [mode, setMode] = useState<EditorMode>("form");
   const { data: agentsData } = useAgents(scope, mode === "form");
-  const { data: agentSessionsData, isFetching: agentSessionsLoading } = useAgentSessions(scope, mode === "form");
   const [formData, setFormData] = useState<ConfigFormData>(createDefaultConfig());
   const [yamlContent, setYamlContent] = useState("");
   const [yamlError, setYamlError] = useState<string | null>(null);
@@ -292,7 +305,7 @@ export default function ConfigEditor({
         toast.error(e instanceof Error ? e.message : String(e));
       }
     }
-  }, [projectPath, configPath, mode, formData, yamlContent, formErrors, saveMutation, toast, t, data?.mtime, data?.content_hash]);
+  }, [projectPath, scope, mode, formData, yamlContent, formErrors, saveMutation, toast, t, data?.mtime, data?.content_hash]);
 
   /* ── Copy ── */
   const copy = useCallback(async () => {
@@ -337,7 +350,7 @@ export default function ConfigEditor({
     );
   }
 
-  const displayedIssues = serverIssues ?? (!hasUnsavedChanges ? data?.issues ?? [] : []);
+  const displayedIssues = visibleConfigIssues(serverIssues ?? (!hasUnsavedChanges ? data?.issues ?? [] : []));
   const displayedIssueTone = issueTone(displayedIssues);
   const displayedIssueClass =
     displayedIssueTone === "danger"
@@ -350,7 +363,7 @@ export default function ConfigEditor({
   const terminalCount = formData.slots.filter((slot) => slot.runtime === "terminal").length;
   const tmuxCount = slotCount - terminalCount;
   const configuredWindowCount = formData.slots.reduce(
-    (count, slot) => count + (slot.runtime === "terminal" ? 1 : slot.windows.length),
+    (count, slot) => count + Math.max(slot.windows.length, 1),
     0
   );
   const agentOverrideCount = Object.keys(formData.agents).length;
@@ -562,8 +575,7 @@ export default function ConfigEditor({
           <SlotsSection
             slots={formData.slots}
             agents={effectiveAgentNames}
-            agentSessions={agentSessionsData?.sessions || []}
-            agentSessionsLoading={agentSessionsLoading}
+            scope={scope}
             onChange={updateSlots}
             runtimeAvailability={data?.runtimes}
           />

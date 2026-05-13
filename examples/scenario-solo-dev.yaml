@@ -3,18 +3,19 @@
 # Use case: You're working on a web application and want to:
 # - Have Claude Code review your code
 # - Have Codex help with implementation
-# - Run your dev server in a separate window
+# - Run your dev server in a separate pane
 # - Keep a scratch terminal for quick commands
 #
 # Workflow:
-# 1. Start coding in the "coder" window
-# 2. Ask for review in the "reviewer" window
-# 3. Check your app in the "server" window
-# 4. Run quick commands in the "scratch" slot
+# 1. Start coding in the "coder" pane
+# 2. Ask for review in the "reviewer" pane
+# 3. Check your app in the "server" pane
+# 4. Run quick commands in the "scratch" tab
 
-version: 1
+version: 2
 project: "my-web-app"
 root: "."
+openWith: auto-terminal
 
 display:
   mode: "grid"
@@ -27,7 +28,7 @@ agents:
     command: "codex"
     resume_mode: "flag"
     resume_template: "resume {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   # Claude for code review
   claude:
@@ -36,35 +37,36 @@ agents:
     create_template: "claude --session-id {session_id}"
     resume_mode: "flag"
     resume_template: "-r {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
-slots:
-  # Main development slot with multiple agents
+tabs:
+  # Main development tab with multiple agents
   - name: "dev"
-    runtime: "tmux"
+    layoutBackend: "tmux"
     cwd: "."
-    windows:
-      # Window 1: Codex for coding
+    panes:
+      # Pane 1: Codex for coding
       - name: "coder"
         agent: "codex"
         env:
           EDITOR: "vim"
 
-      # Window 2: Claude for review
+      # Pane 2: Claude for review
       - name: "reviewer"
         agent: "claude"
 
-      # Window 3: Dev server (no agent, just a command)
+      # Pane 3: Dev server (no agent, just a command)
       - name: "server"
         command: "npm run dev"
         # Note: This will run the dev server
-        # You can attach to this window to see logs
+        # You can attach to this pane to see logs
 
   # Scratch terminal for quick commands
   - name: "scratch"
-    runtime: "terminal"
     cwd: "."
-    command: "zsh"
+    panes:
+      - name: "scratch"
+        command: "zsh"
 
 # How to use:
 # 1. cp examples/scenario-solo-dev.yaml .cc-branch/config.yaml

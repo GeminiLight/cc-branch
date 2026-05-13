@@ -107,17 +107,32 @@ function qsWith(scope?: WorkspaceScope | string, values?: Record<string, string 
   return query ? `?${query}` : "";
 }
 
-async function readJsonResponse(res: Response): Promise<Record<string, unknown>> {
+// API endpoints return different payload shapes; callers cast after checking HTTP status.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type JsonResponse = Record<string, any>;
+
+async function readJsonResponse(res: Response): Promise<JsonResponse> {
   if (typeof res.text !== "function" && typeof res.json === "function") {
-    return await res.json() as Record<string, unknown>;
+    return await res.json() as JsonResponse;
   }
   const text = await res.text();
   if (!text.trim()) return {};
   try {
-    return JSON.parse(text) as Record<string, unknown>;
+    return JSON.parse(text) as JsonResponse;
   } catch {
     throw new Error(`Invalid JSON response from API (${res.status})`);
   }
+}
+
+function normalizeWorkspaceStatus(data: JsonResponse): WorkspaceStatus {
+  const slots = Array.isArray(data.slots)
+    ? data.slots.map((slot: JsonResponse) => ({
+        ...slot,
+        windows: Array.isArray(slot?.windows) ? slot.windows : [],
+        extra_windows: Array.isArray(slot?.extra_windows) ? slot.extra_windows : [],
+      }))
+    : [];
+  return { ...data, slots } as WorkspaceStatus;
 }
 
 /**
@@ -132,35 +147,35 @@ export class HTTPClient implements APIClient {
 
   async getStatus(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceStatus> {
     const res = await fetch(`${this.baseUrl}/api/status${qs(scope)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data as WorkspaceStatus;
+    return normalizeWorkspaceStatus(data);
   }
 
   async getConfig(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigData> {
     const res = await fetch(`${this.baseUrl}/api/config${qs(scope)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigData;
   }
 
   async getConfigs(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigOptionsData> {
     const res = await fetch(`${this.baseUrl}/api/configs${qs(scope)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
 
   async getDoctor(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<DoctorReport> {
     const res = await fetch(`${this.baseUrl}/api/doctor${qs(scope)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as DoctorReport;
   }
 
   async probeProject(projectPath: string, signal?: AbortSignal): Promise<ProjectProbe> {
     const res = await fetch(`${this.baseUrl}/api/project/probe${qs(projectPath)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectProbe;
   }
@@ -182,21 +197,21 @@ export class HTTPClient implements APIClient {
 
   async getOpeners(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<OpenersData> {
     const res = await fetch(`${this.baseUrl}/api/openers${qs(scope)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as OpenersData;
   }
 
   async getAgents(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<AgentsData> {
     const res = await fetch(`${this.baseUrl}/api/agents${qs(scope)}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentsData;
   }
 
   async getGlobalAgents(signal?: AbortSignal): Promise<GlobalAgentsData> {
     const res = await fetch(`${this.baseUrl}/api/agents/global`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as GlobalAgentsData;
   }
@@ -211,14 +226,14 @@ export class HTTPClient implements APIClient {
         base_content_hash: baseContentHash,
       }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new APIRequestError(res.status, data);
     return data as GlobalAgentsSaveResult;
   }
 
   async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData> {
     const res = await fetch(`${this.baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentSessionsData;
   }
@@ -234,7 +249,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, stop_removed: stopRemoved }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ActionResult;
   }
@@ -245,14 +260,14 @@ export class HTTPClient implements APIClient {
 
   async getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }> {
     const res = await fetch(`${this.baseUrl}/api/info`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as { port: number; config_path: string; state_path: string };
   }
 
   async getProjectsIndex(signal?: AbortSignal): Promise<ProjectsIndexData> {
     const res = await fetch(`${this.baseUrl}/api/projects`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -274,7 +289,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -285,7 +300,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -296,7 +311,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -307,7 +322,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_path: projectPath, config_path: configPath }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -318,7 +333,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, source_config_path: sourceConfigPath }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
@@ -329,7 +344,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ config_path: configPath, name }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
@@ -340,14 +355,14 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ config_path: configPath }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
 
   async getProfiles(signal?: AbortSignal): Promise<Profile[]> {
     const res = await fetch(`${this.baseUrl}/api/profiles`, { signal });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data.profiles as Profile[];
   }
@@ -358,7 +373,7 @@ export class HTTPClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profile, bootstrap_sessions: bootstrapSessions }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as InitResult;
   }
@@ -378,7 +393,7 @@ export class HTTPClient implements APIClient {
         base_content_hash: baseContentHash,
       }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new APIRequestError(res.status, data);
     return data as ConfigSaveResult;
   }
@@ -401,15 +416,15 @@ export class TauriClient implements APIClient {
   async getStatus(scope?: WorkspaceScope | string): Promise<WorkspaceStatus> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/status${qs(scope)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data as WorkspaceStatus;
+    return normalizeWorkspaceStatus(data);
   }
 
   async getConfig(scope?: WorkspaceScope | string): Promise<ConfigData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/config${qs(scope)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigData;
   }
@@ -417,7 +432,7 @@ export class TauriClient implements APIClient {
   async getConfigs(scope?: WorkspaceScope | string): Promise<ConfigOptionsData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/configs${qs(scope)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
@@ -425,7 +440,7 @@ export class TauriClient implements APIClient {
   async getDoctor(scope?: WorkspaceScope | string): Promise<DoctorReport> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/doctor${qs(scope)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as DoctorReport;
   }
@@ -433,7 +448,7 @@ export class TauriClient implements APIClient {
   async probeProject(projectPath: string): Promise<ProjectProbe> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/project/probe${qs(projectPath)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectProbe;
   }
@@ -450,7 +465,7 @@ export class TauriClient implements APIClient {
   async getOpeners(scope?: WorkspaceScope | string): Promise<OpenersData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/openers${qs(scope)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as OpenersData;
   }
@@ -458,7 +473,7 @@ export class TauriClient implements APIClient {
   async getAgents(scope?: WorkspaceScope | string): Promise<AgentsData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/agents${qs(scope)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentsData;
   }
@@ -466,7 +481,7 @@ export class TauriClient implements APIClient {
   async getGlobalAgents(): Promise<GlobalAgentsData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/agents/global`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as GlobalAgentsData;
   }
@@ -482,7 +497,7 @@ export class TauriClient implements APIClient {
         base_content_hash: baseContentHash,
       }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new APIRequestError(res.status, data);
     return data as GlobalAgentsSaveResult;
   }
@@ -490,7 +505,7 @@ export class TauriClient implements APIClient {
   async getAgentSessions(scope?: WorkspaceScope | string, agent?: string): Promise<AgentSessionsData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentSessionsData;
   }
@@ -507,7 +522,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, stop_removed: stopRemoved }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ActionResult;
   }
@@ -523,7 +538,7 @@ export class TauriClient implements APIClient {
   async getProjectsIndex(): Promise<ProjectsIndexData> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/projects`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -535,7 +550,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, name }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -547,7 +562,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -559,7 +574,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -571,7 +586,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -583,7 +598,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_path: projectPath, config_path: configPath }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ProjectsIndexData;
   }
@@ -595,7 +610,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, source_config_path: sourceConfigPath }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
@@ -607,7 +622,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ config_path: configPath, name }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
@@ -619,7 +634,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ config_path: configPath }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ConfigOptionsData;
   }
@@ -627,7 +642,7 @@ export class TauriClient implements APIClient {
   async getProfiles(): Promise<Profile[]> {
     const baseUrl = await this._baseUrl();
     const res = await fetch(`${baseUrl}/api/profiles`);
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data.profiles as Profile[];
   }
@@ -639,7 +654,7 @@ export class TauriClient implements APIClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profile, bootstrap_sessions: bootstrapSessions }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as InitResult;
   }
@@ -660,7 +675,7 @@ export class TauriClient implements APIClient {
         base_content_hash: baseContentHash,
       }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) throw new APIRequestError(res.status, data);
     return data as ConfigSaveResult;
   }

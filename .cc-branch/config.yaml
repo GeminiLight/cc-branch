@@ -1,6 +1,7 @@
 version: 2
 project: cli-workspace
 root: .
+openWith: auto-terminal
 display:
   dashboard: true
 agents:
@@ -10,42 +11,40 @@ agents:
     resume_template: '-r {session_id}'
     create_mode: generated_uuid
     create_template: claude --session-id {session_id}
-    label_template: '{project}/{slot}/{window}'
+    label_template: '{project}/{tab}/{pane}'
   codex:
     command: codex
     resume_mode: flag
     resume_template: resume {session_id}
-    label_template: '{project}/{slot}/{window}'
+    label_template: '{project}/{tab}/{pane}'
   gemini:
     command: gemini
     resume_mode: flag
     resume_template: '--session {session_id}'
-    label_template: '{project}/{slot}/{window}'
+    label_template: '{project}/{tab}/{pane}'
   cursor:
     command: cursor
     resume_mode: flag
     resume_template: '--resume {session_id}'
-    label_template: '{project}/{slot}/{window}'
+    label_template: '{project}/{tab}/{pane}'
   kimi:
     command: kimi
     resume_mode: flag
     resume_template: '--session-id {session_id}'
-    label_template: '{project}/{slot}/{window}'
+    label_template: '{project}/{tab}/{pane}'
 tabs:
   - name: codex-spec
     cwd: .
     panes:
-      - name: Product spec
+      - name: dev-backend
         agent: codex
         cwd: .
-        session_id: 019dd56d-0700-7bb3-a9c0-83eb2b033b0e
-      - name: pane-2
+        session: 019dd56d-0700-7bb3-a9c0-83eb2b033b0e
+      - name: pane-3
         agent: claude
   - name: tmux-dev
+    layoutBackend: tmux
     cwd: .
     panes:
-      - name: tmux-dev
-        runtime: tmux
-        windows:
-          - name: shell
-            command: zsh
+      - name: shell
+        command: zsh

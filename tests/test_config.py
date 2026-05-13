@@ -123,7 +123,7 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(workspace.agents["codex"].command, "codex --sandbox read-only")
             self.assertEqual(workspace.agents["codex"].resume_mode, "flag")
             self.assertEqual(workspace.agents["codex"].resume_template, "resume {session_id}")
-            self.assertEqual(workspace.agents["codex"].label_template, "{project}/{slot}/{window}")
+            self.assertEqual(workspace.agents["codex"].label_template, "{project}/{tab}/{pane}")
 
     def test_load_workspace_reads_workspace_local_agent_registry(self):
         """Workspace-local registry files should add agents without bloating .cc-branch/config.yaml."""
@@ -190,6 +190,141 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(workspace.slots[0].layout, "main-left")
             self.assertEqual(len(workspace.slots[0].windows), 1)
             self.assertEqual(workspace.slots[0].windows[0].name, "editor")
+
+    def test_load_workspace_parses_agent_session_intent(self):
+        """Agent-backed panes should use one session field for intent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        runtime: "tmux"
+                        agent: "codex"
+                        session: "fresh"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                            session: "fresh"
+                """,
+            )
+
+            workspace = load_workspace(config_path)
+
+            slot = workspace.slots[0]
+            self.assertEqual(slot.session, "fresh")
+            self.assertEqual(slot.windows[0].session, "fresh")
+
+    def test_load_workspace_parses_canonical_workspace_terms(self):
+        """Public config should use openWith, layoutBackend, defaults, tabs, and panes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                openWith: "cursor"
+                layoutBackend: "tmux"
+                defaults:
+                  shell: "system-default"
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        agent: "codex"
+                        session: "auto"
+                      - name: "server"
+                        command: "pnpm dev"
+                        shell: "zsh"
+                """,
+            )
+
+            workspace = load_workspace(config_path)
+
+            self.assertEqual(workspace.default_opener, "cursor")
+            self.assertEqual(workspace.layout_backend, "tmux")
+            self.assertEqual(workspace.defaults.shell, "system-default")
+            self.assertEqual(len(workspace.slots), 1)
+            self.assertEqual(workspace.slots[0].name, "dev")
+            self.assertEqual(workspace.slots[0].runtime, "tmux")
+            self.assertEqual([window.name for window in workspace.slots[0].windows], ["planner", "server"])
+            self.assertIsNone(workspace.slots[0].windows[0].shell)
+            self.assertEqual(workspace.slots[0].windows[1].shell, "zsh")
+
+    def test_workspace_to_dict_serializes_canonical_terms(self):
+        """Normalized configs should serialize with canonical public terminology."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                openWith: "warp"
+                layoutBackend: "tmux"
+                defaults:
+                  shell: "system-default"
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        agent: "codex"
+                      - name: "server"
+                        command: "pnpm dev"
+                        shell: "zsh"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            self.assertEqual(serialized["openWith"], "warp")
+            self.assertEqual(serialized["layoutBackend"], "tmux")
+            self.assertEqual(serialized["defaults"], {"shell": "system-default"})
+            self.assertNotIn("default_opener", serialized)
+            self.assertNotIn("slots", serialized)
+            self.assertEqual([pane["name"] for pane in serialized["tabs"][0]["panes"]], ["planner", "server"])
+            self.assertNotIn("runtime", serialized["tabs"][0]["panes"][0])
+            self.assertNotIn("windows", serialized["tabs"][0]["panes"][0])
+            self.assertEqual(serialized["tabs"][0]["panes"][1]["shell"], "zsh")
+
+    def test_load_workspace_migrates_legacy_session_id_to_session_intent(self):
+        """Legacy session_id in config should load as explicit session intent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        agent: "codex"
+                        session_id: "legacy-session"
+                """,
+            )
+
+            workspace = load_workspace(config_path)
+
+            self.assertEqual(workspace.slots[0].windows[0].session, "legacy-session")
 
     def test_load_workspace_raises_on_missing_file(self):
         """Test that load_workspace raises FileNotFoundError for missing config."""

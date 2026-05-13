@@ -20,7 +20,7 @@ const DEFAULT_AGENT: GlobalAgentConfig = {
   resume_template: "",
   create_mode: "none",
   create_template: "",
-  label_template: "{project}/{slot}/{window}",
+  label_template: "{project}/{tab}/{pane}",
   label_mode: "metadata",
   rename_template: "",
 };
@@ -41,7 +41,7 @@ function coerceAgent(raw: unknown, name: string): GlobalAgentConfig {
       ? (createMode as GlobalAgentConfig["create_mode"])
       : "none",
     create_template: String(r.create_template ?? ""),
-    label_template: String(r.label_template ?? "{project}/{slot}/{window}"),
+    label_template: String(r.label_template ?? "{project}/{tab}/{pane}"),
     label_mode: ["metadata", "internal"].includes(labelMode)
       ? (labelMode as GlobalAgentConfig["label_mode"])
       : "metadata",
@@ -219,7 +219,7 @@ function AgentCard({
               </div>
               <div>
                 <FieldLabel>{t("labelTemplate")}</FieldLabel>
-                <TextInput value={agent.label_template} onChange={(value) => onPatch({ label_template: value })} placeholder="{project}/{slot}/{window}" />
+                <TextInput value={agent.label_template} onChange={(value) => onPatch({ label_template: value })} placeholder="{project}/{tab}/{pane}" />
               </div>
               <div>
                 <FieldLabel>{t("labelMode")}</FieldLabel>

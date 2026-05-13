@@ -32,13 +32,15 @@ def plan_workspace(
             window_plan = _build_window_plan(workspace, slot, window, state, bootstrap_missing)
             planned_slot.windows.append(window_plan)
             if window_plan.resolved_session_id or window_plan.resolved_label:
-                state_updates[window_plan.key] = {
-                    "session_id": window_plan.resolved_session_id,
+                update = {
                     "label": window_plan.resolved_label,
                     "agent": window_plan.agent,
                     "slot": slot.name,
                     "window": window.name,
                 }
+                if window_plan.resolved_session_id is not None:
+                    update["session_id"] = window_plan.resolved_session_id
+                state_updates[window_plan.key] = update
 
         plan_slots.append(planned_slot)
 
@@ -57,7 +59,8 @@ def format_plan(plan: WorkspacePlan) -> str:
     lines = [f"workspace {plan.project} plan"]
     for slot in plan.slots:
         target = slot.tmux_session if is_managed_runtime(slot.runtime) else (slot.opener or "terminal")
-        lines.append(f"- slot {slot.name} [{slot.runtime}] -> {target}")
+        backend = "tmux" if is_managed_runtime(slot.runtime) else "direct"
+        lines.append(f"- tab {slot.name} [{backend}] -> {target}")
         for window in slot.windows:
             extra = []
             if window.resolved_session_id:
@@ -66,8 +69,12 @@ def format_plan(plan: WorkspacePlan) -> str:
                 extra.append(f"label={window.resolved_label}")
             if window.bootstrapped:
                 extra.append("bootstrapped")
+            if window.agent and window.session_mode == "auto" and not window.resolved_session_id:
+                extra.append("session=auto")
+            if window.agent and window.session_mode == "fresh":
+                extra.append("session=fresh")
             suffix = f" ({', '.join(extra)})" if extra else ""
-            lines.append(f"  - {window.name}: {window.launch_command}{suffix}")
+            lines.append(f"  - pane {window.name}: {window.launch_command}{suffix}")
             for command in window.post_launch_commands:
                 lines.append(f"    -> post: {command}")
     return "\n".join(lines)

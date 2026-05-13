@@ -454,18 +454,26 @@ windows:
     label: "..."
 ```
 
-Proposed additive fields:
+Implemented additive fields:
 
 ```yaml
 windows:
   dev.planner:
     session_id: "..."
     label: "demo/dev/planner"
-    session_source: "discovered"
-    session_agent: "codex"
-    session_bound_at: "2026-05-10T12:00:00Z"
-    session_confidence: "high"
+    session_binding_status: "bound"
+    session_binding_source: "~/.codex/sessions/...jsonl"
+    session_binding_updated_at: "2026-05-10T12:00:00Z"
 ```
+
+`session_binding_status` is one of:
+
+- `bound`: a concrete agent session is saved and will be resumed.
+- `will_create`: the window is `session: auto`, has no binding yet, and will start a new session.
+- `pending_capture`: CC Branch launched the agent but could not confidently discover the real session ID yet.
+- `ambiguous`: multiple plausible new sessions were found and the user should choose one.
+- `fresh`: the window intentionally starts a clean session each time.
+- `none`: the pane is command-only or has no session concept.
 
 Optional binding history:
 
@@ -479,8 +487,7 @@ session_bindings:
         reason: "start_new"
 ```
 
-Implementation should start with additive window fields only. Binding history
-can be added later if needed.
+Binding history can be added later if users need explicit rollback or audit trails.
 
 ## Web UI Design
 

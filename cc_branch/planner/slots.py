@@ -23,6 +23,7 @@ def _slot_windows(slot: SlotConfig) -> list[WindowConfig]:
                 agent=slot.agent,
                 cwd=None,
                 env={},
+                session=slot.session,
                 session_id=slot.session_id,
                 label=slot.label,
             )

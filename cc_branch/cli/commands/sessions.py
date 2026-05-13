@@ -45,6 +45,7 @@ def _run_session_list(args: argparse.Namespace, workspace, plan, state) -> int:
     table.add_column("Window", style="white")
     table.add_column("Agent", style="white")
     table.add_column("Status", style="white")
+    table.add_column("Session", style="white")
     for session in sessions:
         color = status_color(session.status)
         table.add_row(
@@ -53,6 +54,7 @@ def _run_session_list(args: argparse.Namespace, workspace, plan, state) -> int:
             session.window,
             session.agent or "[dim]-[/dim]",
             f"[{color}]{session.status}[/{color}]",
+            _session_display(session.session_id, session.session_binding_status),
         )
     cli.console.print(table)
     return 0
@@ -69,10 +71,14 @@ def _run_session_inspect(args: argparse.Namespace, workspace, plan, state) -> in
         print(json.dumps(info.__dict__, indent=2))
         return 0
     cli.console.print(f"[bold]Session:[/bold] {info.key}")
-    cli.console.print(f"  Slot: {info.slot}")
-    cli.console.print(f"  Window: {info.window}")
+    cli.console.print(f"  Tab: {info.slot}")
+    cli.console.print(f"  Pane: {info.window}")
     cli.console.print(f"  Agent: {info.agent or '[dim]none[/dim]'}")
     cli.console.print(f"  Session ID: {info.session_id or '[dim]none[/dim]'}")
+    cli.console.print(f"  Session intent: {info.session_intent}")
+    cli.console.print(f"  Session binding: {_binding_display(info.session_binding_status)}")
+    if info.session_binding_source:
+        cli.console.print(f"  Binding source: {info.session_binding_source}")
     cli.console.print(f"  Label: {info.label or '[dim]none[/dim]'}")
     color = status_color(info.status)
     cli.console.print(f"  Status: [{color}]{info.status}[/{color}]")
@@ -114,3 +120,22 @@ def _run_session_command(args: argparse.Namespace, workspace, plan, state) -> in
     cli.console.print(f"[dim]Launch command for {args.key}:[/dim]")
     cli.console.print(command)
     return 0
+
+
+def _session_display(session_id: str | None, binding_status: str) -> str:
+    if binding_status == "fresh":
+        return _binding_display(binding_status)
+    if session_id:
+        return f"bound {session_id[:8]}"
+    return _binding_display(binding_status)
+
+
+def _binding_display(status: str) -> str:
+    return {
+        "bound": "bound",
+        "will_create": "will create",
+        "pending_capture": "detecting",
+        "ambiguous": "needs choice",
+        "fresh": "fresh",
+        "none": "-",
+    }.get(status, status or "-")

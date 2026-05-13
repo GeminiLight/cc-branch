@@ -41,6 +41,9 @@ def yaml_to_state(data: dict[str, Any]) -> WorkspaceState:
                 applied_at=entry.get("applied_at"),
                 managed_runtime=entry.get("managed_runtime"),
                 tmux_session=entry.get("tmux_session"),
+                session_binding_status=entry.get("session_binding_status"),
+                session_binding_source=entry.get("session_binding_source"),
+                session_binding_updated_at=entry.get("session_binding_updated_at"),
             )
     raw_slots = data.get("slots", {})
     if isinstance(raw_slots, dict):

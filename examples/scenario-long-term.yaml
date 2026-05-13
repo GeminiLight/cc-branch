@@ -17,9 +17,10 @@
 # 4. Testing: Use tester agent to write tests
 # 5. Documentation: Use docs agent to document
 
-version: 1
+version: 2
 project: "long-term-refactor"
 root: "."
+openWith: auto-terminal
 
 display:
   mode: "grid"
@@ -32,7 +33,7 @@ agents:
     command: "codex"
     resume_mode: "flag"
     resume_template: "resume {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   # Claude for implementation
   claude:
@@ -41,28 +42,28 @@ agents:
     create_template: "claude --session-id {session_id}"
     resume_mode: "flag"
     resume_template: "-r {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   # Gemini for code review
   gemini:
     command: "gemini"
     resume_mode: "flag"
     resume_template: "--resume {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   # Cursor for testing
   cursor:
     command: "cursor"
     resume_mode: "flag"
     resume_template: "--session {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
-slots:
-  # Planning and architecture slot
+tabs:
+  # Planning and architecture tab
   - name: "planning"
-    runtime: "tmux"
+    layoutBackend: "tmux"
     cwd: "."
-    windows:
+    panes:
       - name: "architect"
         agent: "codex"
         # This agent maintains context about the overall architecture
@@ -71,13 +72,13 @@ slots:
         command: "vim docs/architecture.md"
         # Keep architecture notes in sync
 
-  # Implementation slot
+  # Implementation tab
   - name: "implementation"
-    runtime: "tmux"
+    layoutBackend: "tmux"
     cwd: "."
     env:
       PYTHONPATH: "./src"
-    windows:
+    panes:
       - name: "coder"
         agent: "claude"
         # Main coding agent with persistent context
@@ -90,11 +91,11 @@ slots:
         command: "zsh"
         # Manual git operations
 
-  # Testing and validation slot
+  # Testing and validation tab
   - name: "testing"
-    runtime: "tmux"
+    layoutBackend: "tmux"
     cwd: "."
-    windows:
+    panes:
       - name: "tester"
         agent: "cursor"
         # Agent focused on writing tests
@@ -107,11 +108,11 @@ slots:
         command: "zsh"
         # Check coverage reports
 
-  # Monitoring slot
+  # Monitoring tab
   - name: "monitor"
-    runtime: "tmux"
+    layoutBackend: "tmux"
     cwd: "."
-    windows:
+    panes:
       - name: "logs"
         command: "tail -f logs/*.log"
 
@@ -140,9 +141,9 @@ slots:
 # Tips:
 # - Session IDs are stable across restarts
 # - Each agent maintains its own conversation history
-# - Use labels to organize sessions: {project}/{slot}/{window}
+# - Use labels to organize sessions: {project}/{tab}/{pane}
 # - Run `cc-branch doctor` to check session health
-# - Use `cc-branch restart <slot>` to refresh a specific slot
+# - Use `cc-branch restart <tab>` to refresh a specific tab
 #
 # Maintenance:
 # - Backup .cc-branch/state.yaml to preserve session IDs

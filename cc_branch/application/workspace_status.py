@@ -30,6 +30,20 @@ def _default_window_exists(session: str, window: str) -> bool:
     return tmux_has_window(session, window)
 
 
+def _session_binding_status(window, state_entry) -> str:
+    if not window.agent:
+        return "none"
+    if window.session_mode == "fresh":
+        return "fresh"
+    if window.resolved_session_id:
+        return "bound"
+    if state_entry and state_entry.session_binding_status:
+        return state_entry.session_binding_status
+    if window.session_mode == "auto":
+        return "will_create"
+    return "none"
+
+
 def workspace_setup_payload(
     status: str,
     config_path: Path,
@@ -70,30 +84,44 @@ def build_workspace_status(
 
     slots: list[dict] = []
     for slot in plan.slots:
-        slot_running = is_managed_runtime(slot.runtime) and session_exists(slot.tmux_session)
+        slot_sync = sync_slots.get(slot.name)
+        if sync_report is not None and slot_sync is not None:
+            slot_running = is_managed_runtime(slot.runtime) and (
+                any(window.runtime_status == "present" for window in slot_sync.windows)
+                or bool(slot_sync.extra_windows)
+            )
+        else:
+            slot_running = is_managed_runtime(slot.runtime) and session_exists(slot.tmux_session)
         slot_status = "running" if slot_running else "stopped"
         if is_external_process_runtime(slot.runtime):
             slot_status = "external"
 
-        slot_sync = sync_slots.get(slot.name)
         window_sync = {w.name: w for w in slot_sync.windows} if slot_sync else {}
         windows: list[dict] = []
         for window in slot.windows:
-            window_running = (
-                slot_running
-                and is_managed_runtime(slot.runtime)
-                and window_exists(slot.tmux_session, window.name)
-            )
+            state_entry = state.get_window(window.key) if state is not None else None
+            sync = window_sync.get(window.name)
+            if sync_report is not None and sync is not None:
+                window_running = is_managed_runtime(slot.runtime) and sync.runtime_status == "present"
+            else:
+                window_running = (
+                    slot_running
+                    and is_managed_runtime(slot.runtime)
+                    and window_exists(slot.tmux_session, window.name)
+                )
             window_status = "running" if window_running else "stopped"
             if is_external_process_runtime(slot.runtime):
                 window_status = "external"
-            sync = window_sync.get(window.name)
             windows.append(
                 {
                     "name": window.name,
                     "agent": window.agent,
                     "command": window.launch_command,
                     "session_id": window.resolved_session_id,
+                    "session_intent": window.session_mode,
+                    "session_binding_status": _session_binding_status(window, state_entry),
+                    "session_binding_source": state_entry.session_binding_source if state_entry else None,
+                    "session_binding_updated_at": state_entry.session_binding_updated_at if state_entry else None,
                     "label": window.resolved_label,
                     "cwd": window.cwd,
                     "status": window_status,
@@ -106,6 +134,7 @@ def build_workspace_status(
             {
                 "name": slot.name,
                 "runtime": slot.runtime,
+                "layout": slot.layout,
                 "session_name": slot.tmux_session,
                 "status": slot_status,
                 "windows": windows,

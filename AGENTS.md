@@ -4,7 +4,7 @@ Multi-agent workspace orchestrator for terminal workflows.
 
 ## What It Does
 
-Turns `.cc-branch/config.yaml` config into running tmux workspaces with persistent agent sessions.
+Turns `.cc-branch/config.yaml` config into direct or tmux-backed workspaces with persistent agent sessions.
 
 ## Cross-Platform Support
 
@@ -16,8 +16,11 @@ Turns `.cc-branch/config.yaml` config into running tmux workspaces with persiste
 
 ## Core Concepts
 
-- **Slots**: Top-level workspaces (map to tmux sessions)
-- **Windows**: Execution units within slots (can bind agents or run commands)
+- **Workspace**: One project-level orchestration config.
+- **Tabs**: Top-level working contexts. A tmux-backed tab maps to one tmux session.
+- **Panes**: Execution units inside tabs. A pane can bind an agent or run a command.
+- **layoutBackend**: How a tab is executed: `direct` for normal terminal/editor launches, `tmux` for reusable tmux sessions.
+- **openWith**: Default local app used to open the workspace.
 - **Agents**: Reusable definitions for AI CLI tools (Claude Code, Codex, etc.)
 - **State**: `.cc-branch/state.yaml` stores runtime metadata (session IDs, labels)
 

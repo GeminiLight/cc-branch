@@ -38,6 +38,18 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
                 ]),
                 encoding="utf-8",
             )
+            transcript_path = home / ".codex" / "sessions" / "2026" / "05" / "10" / "rollout-2026-05-10T03-06-26-019e0fd9-0000-7000-9000-aaaaaaaaaaaa.jsonl"
+            transcript_path.parent.mkdir(parents=True)
+            transcript_path.write_text(
+                json.dumps({
+                    "type": "session_meta",
+                    "payload": {
+                        "id": "019e0fd9-0000-7000-9000-aaaaaaaaaaaa",
+                        "cwd": str(project),
+                    },
+                }) + "\n",
+                encoding="utf-8",
+            )
 
             result = agent_session_options(config_path, agent="codex", home=home)
 
@@ -47,6 +59,127 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         self.assertEqual(sessions[0]["agent"], "codex")
         self.assertEqual(sessions[0]["label"], "Dashboard polish")
         self.assertEqual(sessions[0]["id"], "019e0fd9-0000-7000-9000-aaaaaaaaaaaa")
+        self.assertEqual(sessions[0]["project_path"], str(project))
+
+    def test_codex_session_index_is_filtered_to_project_cwd(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+            index_path = home / ".codex" / "session_index.jsonl"
+            index_path.parent.mkdir(parents=True)
+            index_path.write_text(
+                "\n".join([
+                    json.dumps({
+                        "id": "codex-current-project",
+                        "thread_name": "Current project",
+                        "updated_at": "2026-05-10T03:06:26Z",
+                    }),
+                    json.dumps({
+                        "id": "codex-other-project",
+                        "thread_name": "Other project",
+                        "updated_at": "2026-05-10T03:07:26Z",
+                    }),
+                    json.dumps({
+                        "id": "codex-unknown-project",
+                        "thread_name": "Unknown project",
+                        "updated_at": "2026-05-10T03:08:26Z",
+                    }),
+                ]),
+                encoding="utf-8",
+            )
+            sessions_dir = home / ".codex" / "sessions" / "2026" / "05" / "10"
+            sessions_dir.mkdir(parents=True)
+            (sessions_dir / "rollout-current-codex-current-project.jsonl").write_text(
+                json.dumps({"type": "session_meta", "payload": {"id": "codex-current-project", "cwd": str(project)}}) + "\n",
+                encoding="utf-8",
+            )
+            (sessions_dir / "rollout-other-codex-other-project.jsonl").write_text(
+                json.dumps({"type": "session_meta", "payload": {"id": "codex-other-project", "cwd": str(other_project)}}) + "\n",
+                encoding="utf-8",
+            )
+
+            result = agent_session_options(config_path, agent="codex", home=home)
+
+        sessions = result.payload["sessions"]
+        self.assertEqual([session["id"] for session in sessions], ["codex-current-project"])
+
+    def test_codex_transcripts_are_exposed_without_session_index_entries(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            home = root / "home"
+            config_path = self._write_config(project)
+            transcript_path = home / ".codex" / "sessions" / "2026" / "05" / "13" / "rollout-current.jsonl"
+            transcript_path.parent.mkdir(parents=True)
+            transcript_path.write_text(
+                "\n".join([
+                    json.dumps({
+                        "timestamp": "2026-05-13T01:00:00Z",
+                        "type": "session_meta",
+                        "payload": {
+                            "id": "codex-transcript-only",
+                            "cwd": str(project),
+                        },
+                    }),
+                    json.dumps({
+                        "timestamp": "2026-05-13T02:00:00Z",
+                        "type": "event_msg",
+                        "payload": {"message": "later"},
+                    }),
+                ]),
+                encoding="utf-8",
+            )
+
+            result = agent_session_options(config_path, agent="codex", home=home)
+
+        sessions = result.payload["sessions"]
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0]["id"], "codex-transcript-only")
+        self.assertEqual(sessions[0]["label"], "codex-transcript-only")
+        self.assertEqual(sessions[0]["updated_at"], "2026-05-13T02:00:00Z")
+        self.assertEqual(sessions[0]["source"], str(transcript_path))
+
+    def test_codex_transcript_timestamp_wins_over_stale_index_timestamp(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            home = root / "home"
+            config_path = self._write_config(project)
+            index_path = home / ".codex" / "session_index.jsonl"
+            index_path.parent.mkdir(parents=True)
+            index_path.write_text(
+                json.dumps({
+                    "id": "codex-stale-index",
+                    "thread_name": "Indexed label",
+                    "updated_at": "2026-05-10T01:00:00Z",
+                }),
+                encoding="utf-8",
+            )
+            transcript_path = home / ".codex" / "sessions" / "2026" / "05" / "13" / "rollout-current.jsonl"
+            transcript_path.parent.mkdir(parents=True)
+            transcript_path.write_text(
+                "\n".join([
+                    json.dumps({
+                        "timestamp": "2026-05-13T01:00:00Z",
+                        "type": "session_meta",
+                        "payload": {
+                            "id": "codex-stale-index",
+                            "cwd": str(project),
+                        },
+                    }),
+                    json.dumps({"timestamp": "2026-05-13T03:00:00Z", "type": "event_msg"}),
+                ]),
+                encoding="utf-8",
+            )
+
+            result = agent_session_options(config_path, agent="codex", home=home)
+
+        sessions = result.payload["sessions"]
+        self.assertEqual(sessions[0]["label"], "Indexed label")
+        self.assertEqual(sessions[0]["updated_at"], "2026-05-13T03:00:00Z")
 
     def test_claude_project_session_index_uses_summary_as_label(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -138,6 +271,7 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
                     "artifactType": "ARTIFACT_TYPE_TASK",
                     "summary": "Implement install flow",
                     "updatedAt": "2026-05-11T10:00:00Z",
+                    "projectPath": str(project),
                 }),
                 encoding="utf-8",
             )
@@ -150,6 +284,33 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         self.assertEqual(sessions[0]["agent"], "gemini")
         self.assertEqual(sessions[0]["id"], "gemini-session-1")
         self.assertEqual(sessions[0]["label"], "Antigravity: Implement install flow")
+        self.assertEqual(sessions[0]["project_path"], str(project))
+
+    def test_gemini_antigravity_metadata_is_filtered_to_project(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+
+            current = home / ".gemini" / "antigravity" / "brain" / "gemini-current" / "task.md.metadata.json"
+            other = home / ".gemini" / "antigravity" / "brain" / "gemini-other" / "task.md.metadata.json"
+            unknown = home / ".gemini" / "antigravity" / "brain" / "gemini-unknown" / "task.md.metadata.json"
+            for path, project_path in [(current, project), (other, other_project), (unknown, None)]:
+                path.parent.mkdir(parents=True)
+                data = {
+                    "summary": path.parent.name,
+                    "updatedAt": "2026-05-11T10:00:00Z",
+                }
+                if project_path is not None:
+                    data["projectPath"] = str(project_path)
+                path.write_text(json.dumps(data), encoding="utf-8")
+
+            result = agent_session_options(config_path, agent="gemini", home=home)
+
+        sessions = result.payload["sessions"]
+        self.assertEqual([session["id"] for session in sessions], ["gemini-current"])
 
     def test_cursor_composer_headers_are_filtered_to_project(self):
         with tempfile.TemporaryDirectory() as tmpdir:

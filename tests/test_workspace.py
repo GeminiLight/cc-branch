@@ -376,7 +376,7 @@ class WorkspacePlannerTests(unittest.TestCase):
             attach_slot(plan, "dev:review")
 
         run_mock.assert_called_once_with(
-            ["tmux", "attach-session", "-t", "demo-dev:review"],
+            ["tmux", "attach-session", "-t", "=demo-dev:=review"],
             check=True,
         )
 
@@ -475,7 +475,7 @@ class WorkspacePlannerTests(unittest.TestCase):
 
         kill_dashboard_mock.assert_called_once_with(workspace)
         run_mock.assert_called_once_with(
-            ["tmux", "kill-window", "-t", "demo-dev:review"],
+            ["tmux", "kill-window", "-t", "=demo-dev:=review"],
             check=True,
         )
 
@@ -505,7 +505,7 @@ class WorkspacePlannerTests(unittest.TestCase):
 
         kill_dashboard_mock.assert_called_once_with(workspace)
         run_mock.assert_called_once_with(
-            ["tmux", "kill-session", "-t", "demo-dev"],
+            ["tmux", "kill-session", "-t", "=demo-dev"],
             check=True,
         )
         ensure_slot_mock.assert_called_once_with(plan.slots[0], created_action="recreated")
@@ -540,7 +540,7 @@ class WorkspacePlannerTests(unittest.TestCase):
             open_dashboard(workspace, plan)
 
         self.assertIn(
-            (("tmux", "select-layout", "-t", "demo-dashboard:grid", "even-vertical"), {"check": True}),
+            (("tmux", "select-layout", "-t", "=demo-dashboard:=grid", "even-vertical"), {"check": True}),
             [((tuple(call.args[0])), call.kwargs) for call in run_mock.call_args_list],
         )
 
@@ -573,7 +573,7 @@ class WorkspacePlannerTests(unittest.TestCase):
             run_calls,
         )
         self.assertIn(
-            ("tmux", "split-window", "-t", "demo-dashboard:grid", "shell", "-c", "attach demo-review"),
+            ("tmux", "split-window", "-t", "=demo-dashboard:=grid", "shell", "-c", "attach demo-review"),
             run_calls,
         )
 

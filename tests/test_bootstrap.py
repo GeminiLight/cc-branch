@@ -149,13 +149,11 @@ class TestProfileTemplates(unittest.TestCase):
         """Test getting list of available profiles."""
         profiles = get_available_profiles()
         self.assertIsInstance(profiles, list)
-        self.assertIn("solo-dev", profiles)
-        self.assertIn("ai-pair", profiles)
-        self.assertIn("minimal", profiles)
+        self.assertEqual(profiles, ["development", "design", "minimal"])
 
     def test_get_profile_description(self):
         """Test getting profile description."""
-        desc = get_profile_description("solo-dev")
+        desc = get_profile_description("development")
         self.assertIsInstance(desc, str)
         self.assertGreater(len(desc), 0)
 
@@ -168,9 +166,9 @@ class TestProfileTemplates(unittest.TestCase):
         """Test that all profiles have required structure."""
         for _name, profile in PROFILES.items():
             self.assertIn("description", profile)
-            self.assertIn("slots", profile)
-            self.assertIsInstance(profile["slots"], list)
-            self.assertGreater(len(profile["slots"]), 0)
+            self.assertIn("tabs", profile)
+            self.assertIsInstance(profile["tabs"], list)
+            self.assertGreater(len(profile["tabs"]), 0)
 
 
 class TestConfigGeneration(unittest.TestCase):
@@ -181,7 +179,7 @@ class TestConfigGeneration(unittest.TestCase):
         config = generate_starter_config(
             "test-project",
             ["codex", "claude", "gemini"],
-            "solo-dev"
+            "development"
         )
 
         self.assertIn("version: 2", config)
@@ -189,81 +187,92 @@ class TestConfigGeneration(unittest.TestCase):
         self.assertNotIn("agents:", config)
         self.assertIn('agent: "codex"', config)
         self.assertIn('agent: "claude"', config)
-        self.assertIn("planner", config)
-        self.assertIn("builder", config)
-        self.assertIn("review", config)
+        self.assertIn('agent: "gemini"', config)
+        self.assertIn("development", config)
+        self.assertIn("frontend", config)
+        self.assertIn("backend", config)
+        self.assertIn("algorithm", config)
+        self.assertIn("docs", config)
 
     def test_summarize_config_counts_referenced_agents_without_agent_definitions(self):
         """Init summaries should count used agents, not only explicit overrides."""
         config = generate_starter_config(
             "test-project",
             ["codex", "claude", "gemini"],
-            "solo-dev"
+            "development"
         )
 
         summary = summarize_config(config)
 
-        self.assertEqual(summary.agents, 2)
+        self.assertEqual(summary.agents, 3)
 
     def test_generate_config_with_one_agent(self):
         """Test config generation when only one agent is available."""
         config = generate_starter_config(
             "test-project",
             ["claude"],
-            "solo-dev"
+            "development"
         )
 
         self.assertNotIn("agents:", config)
         self.assertIn('agent: "claude"', config)
-        self.assertIn("planner", config)  # Should still have windows
+        self.assertIn("frontend", config)  # Should still have panes
 
     def test_generate_config_with_no_agents(self):
         """Test config generation when no agents are available."""
         config = generate_starter_config(
             "test-project",
             [],
-            "solo-dev"
+            "development"
         )
 
         self.assertIn("version: 2", config)
         self.assertNotIn("agents:", config)
-        self.assertIn("shell", config)  # Should have shell fallback
+        self.assertIn("frontend", config)
+        self.assertIn("backend", config)
+        self.assertIn("algorithm", config)
+        self.assertIn("docs", config)
+        self.assertIn("command:", config)  # Should have shell fallback
 
     def test_generate_config_unknown_profile(self):
         """Test config generation with unknown profile raises error."""
         with self.assertRaises(ValueError):
             generate_starter_config("test-project", ["claude"], "nonexistent")
 
+    def test_generate_config_design_profile(self):
+        """Test config generation with design profile."""
+        config = generate_starter_config(
+            "test-project",
+            ["codex", "claude"],
+            "design"
+        )
+
+        self.assertNotIn("agents:", config)
+        self.assertIn('agent: "codex"', config)
+        self.assertIn('agent: "claude"', config)
+        self.assertIn("product", config)
+        self.assertIn("discussion", config)
+        self.assertIn("implementation", config)
+        self.assertIn("design", config)
+        self.assertIn("directions", config)
+        self.assertIn("review", config)
+
     def test_generate_config_minimal_profile(self):
         """Test config generation with minimal profile."""
         config = generate_starter_config(
             "test-project",
-            ["claude"],
+            ["gemini", "codex", "claude"],
             "minimal"
         )
 
-        self.assertNotIn("agents:", config)
-        self.assertIn('agent: "claude"', config)
         self.assertIn("main", config)
         self.assertIn("agent", config)
-
-    def test_generate_config_ai_pair_profile(self):
-        """Test config generation with ai-pair profile."""
-        config = generate_starter_config(
-            "test-project",
-            ["codex", "claude"],
-            "ai-pair"
-        )
-
-        self.assertIn("coder", config)
-        self.assertIn("reviewer", config)
-        self.assertIn("implement", config)
-        self.assertIn("review", config)
+        self.assertIn('agent: "codex"', config)
 
     def test_generate_config_uses_platform_default_shell(self):
         """Generated shell slots should use the platform-aware default shell."""
         with patch("cc_branch.profiles.default_shell_command", return_value="pwsh"):
-            config = generate_starter_config("test-project", [], "solo-dev")
+            config = generate_starter_config("test-project", [], "development")
 
         self.assertIn('command: "pwsh"', config)
 
@@ -272,7 +281,7 @@ class TestConfigGeneration(unittest.TestCase):
         config = generate_starter_config(
             "test-project",
             ["codex", "claude"],
-            "solo-dev",
+            "development",
             tmux_available=False,
         )
 

@@ -77,7 +77,7 @@ class WarpLauncher:
         depth: int,
         focus_first: bool,
     ) -> list[str]:
-        """Render panes as nested binary splits, matching Warp's documented examples."""
+        """Render panes as a balanced split tree, matching Warp's documented examples."""
         if not commands:
             return []
         if len(commands) == 1:
@@ -89,19 +89,50 @@ class WarpLauncher:
             ]
 
         split_direction = "horizontal" if depth % 2 == 0 else "vertical"
+        midpoint = (len(commands) + 1) // 2
+        first_group = commands[:midpoint]
+        second_group = commands[midpoint:]
+        lines = self.group_lines(
+            first_group,
+            indent=indent,
+            depth=depth,
+            split_direction=split_direction,
+            focus_first=focus_first,
+        )
+        lines.extend(
+            self.group_lines(
+                second_group,
+                indent=indent,
+                depth=depth,
+                split_direction=split_direction,
+                focus_first=False,
+            )
+        )
+        return lines
+
+    def group_lines(
+        self,
+        commands: list[OpenCommandSpec],
+        *,
+        indent: int,
+        depth: int,
+        split_direction: str,
+        focus_first: bool,
+    ) -> list[str]:
+        if len(commands) == 1:
+            return self.leaf_lines(commands[0], indent=indent, focused=focus_first)
         spaces = " " * indent
         child = " " * (indent + 2)
-        lines = self.leaf_lines(commands[0], indent=indent, focused=focus_first)
-        lines.extend([
+        lines = [
             f"{spaces}- split_direction: {split_direction}",
             f"{child}panes:",
-        ])
+        ]
         lines.extend(
             self.pane_lines(
-                commands[1:],
+                commands,
                 indent=indent + 4,
                 depth=depth + 1,
-                focus_first=False,
+                focus_first=focus_first,
             )
         )
         return lines

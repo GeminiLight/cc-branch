@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import ConfigEditor from './ConfigEditor'
 import { I18nProvider } from '../i18n'
 import { ToastProvider } from './ui/Toast'
@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     current: null as unknown,
   },
   saveConfig: vi.fn(),
+  useAgentSessions: vi.fn(),
 }))
 
 vi.mock('../hooks', () => ({
@@ -22,10 +23,7 @@ vi.mock('../hooks', () => ({
   useAgents: () => ({
     data: { agents: [] },
   }),
-  useAgentSessions: () => ({
-    data: { sessions: [] },
-    isFetching: false,
-  }),
+  useAgentSessions: (...args: unknown[]) => mocks.useAgentSessions(...args),
 }))
 
 function renderConfigEditor() {
@@ -38,10 +36,25 @@ function renderConfigEditor() {
   )
 }
 
+function createDataTransfer() {
+  const store = new Map<string, string>()
+  return {
+    effectAllowed: '',
+    dropEffect: '',
+    setData: vi.fn((type: string, value: string) => store.set(type, value)),
+    getData: vi.fn((type: string) => store.get(type) || ''),
+  }
+}
+
 describe('ConfigEditor diagnostics', () => {
   beforeEach(() => {
     mocks.saveConfig.mockReset()
     mocks.saveConfig.mockResolvedValue({ issues: [] })
+    mocks.useAgentSessions.mockReset()
+    mocks.useAgentSessions.mockReturnValue({
+      data: { sessions: [] },
+      isFetching: false,
+    })
     mocks.configResult.current = {
       data: {
         status: 'ready',
@@ -95,6 +108,76 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByText('Invalid runtime: docker')).toBeInTheDocument()
   })
 
+  it('suppresses stale unknown-field warnings for canonical v2 fields', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        issues: [
+          {
+            issue_type: 'unknown_field',
+            severity: 'warning',
+            message: "Unknown field 'openWith'",
+            target: 'config',
+            context: { field: 'openWith' },
+            fixable: false,
+          },
+          {
+            issue_type: 'unknown_field',
+            severity: 'warning',
+            message: "Unknown field 'layoutBackend'",
+            target: 'tab:dev',
+            context: { field: 'layoutBackend' },
+            fixable: false,
+          },
+          {
+            issue_type: 'unknown_field',
+            severity: 'warning',
+            message: "Unknown field 'stillWrong'",
+            target: 'config',
+            context: { field: 'stillWrong' },
+            fixable: false,
+          },
+        ],
+      },
+    }
+
+    renderConfigEditor()
+
+    expect(screen.queryByText("Unknown field 'openWith'")).not.toBeInTheDocument()
+    expect(screen.queryByText("Unknown field 'layoutBackend'")).not.toBeInTheDocument()
+    expect(screen.getByText("Unknown field 'stillWrong'")).toBeInTheDocument()
+  })
+
+  it('clears stale backend issues as soon as the YAML draft changes', () => {
+    renderConfigEditor()
+
+    expect(screen.getByText("Unknown field 'unknown'")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'YAML' }))
+    fireEvent.change(screen.getByLabelText('Configuration editor'), {
+      target: {
+        value: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'openWith: auto-terminal',
+          'layoutBackend: tmux',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: main',
+          '        command: zsh',
+          '',
+        ].join('\n'),
+      },
+    })
+
+    expect(screen.queryByText("Unknown field 'unknown'")).not.toBeInTheDocument()
+    expect(screen.queryByText('Invalid runtime: docker')).not.toBeInTheDocument()
+  })
+
   it('does not duplicate generated YAML inside form mode', () => {
     renderConfigEditor()
 
@@ -130,7 +213,7 @@ describe('ConfigEditor diagnostics', () => {
     }
 
     renderConfigEditor()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand window scratch' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane scratch' }))
 
     expect(screen.getByText('Shell command')).toBeInTheDocument()
     expect(screen.queryByText(/^Command$/)).not.toBeInTheDocument()
@@ -158,10 +241,10 @@ describe('ConfigEditor diagnostics', () => {
     }
 
     renderConfigEditor()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand window coder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane coder' }))
 
     expect(screen.queryByText('Shell command')).not.toBeInTheDocument()
-    expect(screen.getByText('Session ID')).toBeInTheDocument()
+    expect(screen.getByText('Agent session')).toBeInTheDocument()
   })
 
   it('surfaces config validation issues returned by a failed save', async () => {
@@ -208,14 +291,14 @@ describe('ConfigEditor diagnostics', () => {
   it('gives slot and window icon controls specific accessible names', () => {
     renderConfigEditor()
 
-    expect(screen.getByRole('button', { name: 'Collapse slot dev' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove slot dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Collapse tab dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove tab dev' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand window main' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane dev' }))
 
-    expect(screen.getByRole('button', { name: 'Move window main up' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Move window main down' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove window main' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand pane main' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Move pane main up' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove pane main' })).not.toBeInTheDocument()
   })
 
   it('adds another pane to a terminal tab without converting it to tmux', async () => {
@@ -254,7 +337,7 @@ describe('ConfigEditor diagnostics', () => {
     expect(payload.content).not.toContain('runtime: tmux')
   })
 
-  it('reorders tmux panes by dragging on the workspace matrix', () => {
+  it('renders tmux windows as one draggable group on the workspace matrix', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {
       ...currentResult,
@@ -283,36 +366,73 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const main = screen.getByRole('button', { name: 'Expand window main' })
-    const review = screen.getByRole('button', { name: 'Expand window review' })
-    review.getBoundingClientRect = () => ({
-      x: -100,
-      y: 0,
-      left: -100,
-      top: 0,
-      right: 20,
-      bottom: 60,
-      width: 120,
-      height: 60,
-      toJSON: () => ({}),
-    })
+    const group = screen.getByRole('button', { name: 'Expand pane dev' })
 
-    const dataTransfer = {
-      effectAllowed: '',
-      dropEffect: '',
-      setData: vi.fn(),
-      getData: vi.fn(),
-    }
-    fireEvent.dragStart(main, { dataTransfer })
-    fireEvent.dragOver(review, { dataTransfer, clientX: 90, clientY: 20 })
-    fireEvent.drop(review, { dataTransfer, clientX: 90, clientY: 20 })
+    expect(group).toBeInTheDocument()
+    expect(group).toHaveAttribute('draggable', 'true')
+    expect(screen.getByText('Tmux group')).toBeInTheDocument()
+    expect(screen.getAllByText('3 tmux windows')).not.toHaveLength(0)
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.getByText('worker')).toBeInTheDocument()
+    expect(screen.getByText('review')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand pane main' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand pane worker' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand pane review' })).not.toBeInTheDocument()
 
-    expect(
-      screen.getAllByRole('button', { name: /Expand window/ }).map((button) => button.getAttribute('aria-label'))
-    ).toEqual(['Expand window worker', 'Expand window main', 'Expand window review'])
+    fireEvent.click(group)
+
+    expect(screen.getByRole('heading', { name: 'Selected pane' })).toBeInTheDocument()
+    expect(screen.getByDisplayValue('main')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('worker')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByDisplayValue('worker'), { target: { value: 'builder' } })
+
+    expect(screen.getByDisplayValue('builder')).toBeInTheDocument()
   })
 
-  it('moves tmux windows across tabs by dragging on the workspace matrix', () => {
+  it('loads agent sessions only after resume mode is requested', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'agents:',
+          '  codex:',
+          '    command: codex',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: coder',
+          '        agent: codex',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane coder' }))
+
+    expect(mocks.useAgentSessions).toHaveBeenLastCalledWith(
+      { projectPath: '/tmp/demo', configPath: undefined },
+      false,
+      'codex',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
+
+    expect(mocks.useAgentSessions).toHaveBeenLastCalledWith(
+      { projectPath: '/tmp/demo', configPath: undefined },
+      true,
+      'codex',
+    )
+  })
+
+  it('moves a tmux window group across tabs by dragging on the workspace matrix', async () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {
       ...currentResult,
@@ -346,9 +466,9 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const main = screen.getByRole('button', { name: 'Expand window main' })
-    const audit = screen.getByRole('button', { name: 'Expand window audit' })
-    audit.getBoundingClientRect = () => ({
+    const devGroup = screen.getByRole('button', { name: 'Expand pane dev' })
+    const reviewGroup = screen.getByRole('button', { name: 'Expand pane review' })
+    devGroup.getBoundingClientRect = () => ({
       x: 0,
       y: 0,
       left: 0,
@@ -360,19 +480,276 @@ describe('ConfigEditor diagnostics', () => {
       toJSON: () => ({}),
     })
 
-    const dataTransfer = {
-      effectAllowed: '',
-      dropEffect: '',
-      setData: vi.fn(),
-      getData: vi.fn(),
-    }
-    fireEvent.dragStart(main, { dataTransfer })
-    fireEvent.dragOver(audit, { dataTransfer, clientX: 90, clientY: 20 })
-    fireEvent.drop(audit, { dataTransfer, clientX: 90, clientY: 20 })
+    const dataTransfer = createDataTransfer()
+    fireEvent.dragStart(reviewGroup, { dataTransfer })
+    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '1:0')
+    fireEvent.dragOver(devGroup, { dataTransfer, clientX: 20, clientY: 20 })
+    fireEvent.drop(devGroup, { dataTransfer, clientX: 20, clientY: 20 })
 
-    expect(
-      screen.getAllByRole('button', { name: /Expand window/ }).map((button) => button.getAttribute('aria-label'))
-    ).toEqual(['Expand window worker', 'Expand window main', 'Expand window audit'])
+    await waitFor(() => {
+      const tabLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) tab /)))
+
+      expect(tabLabels).toEqual(['Collapse tab dev'])
+    })
+    expect(screen.getByRole('button', { name: 'Expand pane review' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand pane dev' })).toBeInTheDocument()
+  })
+
+  it('moves a selected tmux group from the inspector', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: dev',
+          '        runtime: tmux',
+          '        windows:',
+          '          - name: main',
+          '            command: zsh',
+          '  - name: review',
+          '    panes:',
+          '      - name: review',
+          '        runtime: tmux',
+          '        windows:',
+          '          - name: audit',
+          '            command: npm run lint',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
+    fireEvent.click(screen.getByRole('option', { name: /dev/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+
+    await waitFor(() => {
+      const tabLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) tab /)))
+
+      expect(tabLabels).toEqual(['Collapse tab dev'])
+    })
+    expect(screen.getByRole('button', { name: 'Expand pane dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand pane review' })).toBeInTheDocument()
+  })
+
+  it('moves a legacy tmux tab group from the inspector', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '  - name: review',
+          '    layoutBackend: tmux',
+          '    panes:',
+          '      - name: audit',
+          '        command: npm run lint',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
+    fireEvent.click(screen.getByRole('option', { name: /dev/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Collapse tab dev' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Expand tab review' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: 'Expand pane ui' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand pane review' })).toBeInTheDocument()
+  })
+
+  it('moves terminal panes across tabs by dragging on the workspace matrix', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '      - name: spec',
+          '        command: npm test',
+          '  - name: ops',
+          '    panes:',
+          '      - name: shell',
+          '        command: zsh',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    const uiPane = screen.getByRole('button', { name: 'Expand pane ui' })
+    const shellPane = screen.getByRole('button', { name: 'Expand pane shell' })
+    uiPane.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 120,
+      bottom: 60,
+      width: 120,
+      height: 60,
+      toJSON: () => ({}),
+    })
+
+    const dataTransfer = createDataTransfer()
+    fireEvent.dragStart(shellPane, { dataTransfer })
+    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '1:0')
+    fireEvent.dragOver(uiPane, { dataTransfer, clientX: 20, clientY: 20 })
+    fireEvent.drop(uiPane, { dataTransfer, clientX: 20, clientY: 20 })
+
+    await waitFor(() => {
+      const paneLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^Expand pane /)))
+
+      expect(paneLabels).toEqual(['Expand pane shell', 'Expand pane ui', 'Expand pane spec'])
+    })
+  })
+
+  it('moves a selected pane to another compatible tab from the inspector', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '      - name: spec',
+          '        command: npm test',
+          '  - name: ops',
+          '    panes:',
+          '      - name: shell',
+          '        command: zsh',
+          '  - name: review',
+          '    panes:',
+          '      - name: lint',
+          '        command: npm run lint',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane spec' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
+
+    expect(screen.queryByRole('option', { name: /dev/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: /review/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+
+    await waitFor(() => {
+      const paneLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^Expand pane /)))
+
+      expect(paneLabels).toEqual([
+        'Expand pane ui',
+        'Expand pane shell',
+        'Expand pane lint',
+        'Expand pane spec',
+      ])
+    })
+  })
+
+  it('moves a terminal pane into a tab that already contains a tmux group', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: codex-spec',
+          '    panes:',
+          '      - name: dev-backend',
+          '        agent: codex',
+          '      - name: spec',
+          '        agent: claude',
+          '  - name: tmux-dev',
+          '    layoutBackend: tmux',
+          '    panes:',
+          '      - name: shell',
+          '        command: zsh',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pane spec' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
+
+    expect(screen.queryByText('Add another tab first.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: /tmux-dev/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+
+    await waitFor(() => {
+      const tmuxTab = screen.getByRole('button', { name: 'Collapse tab tmux-dev' }).closest('section')!
+      expect(within(tmuxTab).getByRole('button', { name: 'Expand pane tmux-dev' })).toBeInTheDocument()
+      expect(within(tmuxTab).getByRole('button', { name: 'Expand pane spec' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(mocks.saveConfig).toHaveBeenCalled())
+    const payload = mocks.saveConfig.mock.calls[0][0]
+    expect(payload.content).toContain('name: tmux-dev')
+    expect(payload.content).toContain('layoutBackend: tmux')
+    expect(payload.content).toContain('windows:')
+    expect(payload.content).toContain('name: spec')
+    expect(payload.content).not.toContain('runtime:')
   })
 
   it('reorders tabs by dragging rows on the workspace matrix', () => {
@@ -405,8 +782,8 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const devRow = screen.getByRole('button', { name: 'Collapse slot dev' }).closest('section')!
-    const reviewRow = screen.getByRole('button', { name: 'Expand slot review' }).closest('section')!
+    const devRow = screen.getByRole('button', { name: 'Collapse tab dev' }).closest('section')!
+    const reviewRow = screen.getByRole('button', { name: 'Expand tab review' }).closest('section')!
     reviewRow.getBoundingClientRect = () => ({
       x: 0,
       y: 0,
@@ -419,12 +796,7 @@ describe('ConfigEditor diagnostics', () => {
       toJSON: () => ({}),
     })
 
-    const dataTransfer = {
-      effectAllowed: '',
-      dropEffect: '',
-      setData: vi.fn(),
-      getData: vi.fn(),
-    }
+    const dataTransfer = createDataTransfer()
     fireEvent.dragStart(devRow, { dataTransfer })
     fireEvent.dragOver(reviewRow, { dataTransfer, clientX: 20, clientY: 80 })
     fireEvent.drop(reviewRow, { dataTransfer, clientX: 20, clientY: 80 })
@@ -432,18 +804,19 @@ describe('ConfigEditor diagnostics', () => {
     const tabLabels = screen
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))
-      .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) slot /)))
+      .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) tab /)))
 
-    expect(tabLabels).toEqual(['Expand slot spec', 'Collapse slot dev', 'Expand slot review'])
+    expect(tabLabels).toEqual(['Expand tab spec', 'Collapse tab dev', 'Expand tab review'])
   })
 
-  it('disables tmux as a runtime choice when tmux is unavailable locally', () => {
+  it('keeps tab details runtime agnostic', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     const currentData = currentResult.data
     mocks.configResult.current = {
       ...currentResult,
       data: {
         ...currentData,
+        issues: [],
         runtimes: {
           tmux: { available: false, reason: 'tmux was not found on PATH' },
           terminal: { available: true },
@@ -453,9 +826,12 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tmux (unavailable)' }))
-    const tmuxOption = screen.getByRole('option', { name: 'Tmux (unavailable)' })
-    expect(tmuxOption).toBeDisabled()
-    expect(screen.getByRole('option', { name: 'Open terminal' })).not.toBeDisabled()
+    const inspector = within(screen.getByRole('complementary'))
+    expect(inspector.getByRole('heading', { name: 'Selected tab' })).toBeInTheDocument()
+    expect(inspector.getByText('Group')).toBeInTheDocument()
+    expect(inspector.queryByText('Runtime')).not.toBeInTheDocument()
+    expect(inspector.queryByText('Working directory')).not.toBeInTheDocument()
+    expect(inspector.queryByText('Environment variables')).not.toBeInTheDocument()
+    expect(inspector.queryByText('Tmux (unavailable)')).not.toBeInTheDocument()
   })
 })

@@ -178,8 +178,12 @@
     @apply antialiased;
     background-color: var(--bg-page);
     color: var(--text-primary);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    transition: background-color 200ms ease, color 200ms ease;
+    font-kerning: normal;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   button:not(:disabled),

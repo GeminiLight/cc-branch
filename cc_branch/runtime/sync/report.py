@@ -22,9 +22,7 @@ def build_runtime_sync_report(
 
     for slot in plan.slots:
         present_windows = (
-            sync._list_window_names(slot.tmux_session)
-            if is_managed_runtime(slot.runtime) and sync._tmux_has_session(slot.tmux_session)
-            else set()
+            sync._list_window_names(slot.tmux_session) if is_managed_runtime(slot.runtime) else set()
         )
         window_reports: list[WindowSyncStatus] = []
 

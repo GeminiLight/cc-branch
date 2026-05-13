@@ -6,7 +6,7 @@ CC Branch is a CLI-first workspace orchestrator for terminal AI workflows. It he
 
 - The agent CLIs you want to reference in `.cc-branch/config.yaml`
 - Python 3.10+ only when installing from PyPI or source
-- `tmux` only if you want reusable `runtime: tmux` slots
+- `tmux` only if you want reusable `layoutBackend: tmux` tabs
 
 ## Install
 
@@ -64,14 +64,14 @@ cc-branch init
 
 During `init`, CC Branch typically:
 
-- checks which runtimes are available
+- checks which layout backends are available
 - detects supported agent CLIs on `PATH`
-- generates a starter config from the default `solo-dev` profile
+- generates a starter config from the default `development` profile
 - writes `.cc-branch/state.yaml`
 - bootstraps `session_id` values when needed
 - updates `.gitignore` for local state
 
-Use `--profile ai-pair` or `--profile minimal` only when you want a non-default template.
+Use `--profile design` for product/design work or `--profile minimal` for a single-pane workspace.
 
 ### 2. Know the two files it creates
 
@@ -86,8 +86,8 @@ cc-branch plan
 
 This is the moment to confirm:
 
-- which runtime targets will be created
-- which commands each window will run
+- which tabs and panes will be created
+- which commands each pane will run
 - which `session_id` values will be reused or created
 - which labels and post-launch commands will be applied
 
@@ -97,7 +97,7 @@ This is the moment to confirm:
 cc-branch start
 ```
 
-`start` creates the configured tmux sessions and attaches to the first slot. Use `cc-branch start --detach` only when you want reusable tmux sessions created without attaching or opening terminal-runtime slots.
+`start` creates the configured tmux sessions or direct local processes and attaches to the first reusable tab. Use `cc-branch start --detach` only when you want reusable tmux sessions created without attaching or opening direct-layout processes.
 
 Use `cc-branch dashboard` or `cc-branch start --dashboard` when you want the tiled dashboard. `start` itself does not silently switch into dashboard mode based on config.
 
@@ -129,7 +129,7 @@ By default, it starts on `http://127.0.0.1:8080`.
 
 You can also run `cc-branch serve` before `cc-branch init`; the Web UI will show a setup flow and create the config after you choose a starter profile.
 
-In the Web UI, choose one tool and then use either "Open workspace" or "Open project directory". Workspace open adapts to the tool: Terminal runs dashboard or attach commands, Warp uses stable Launch Configurations for layouts, and VS Code/Cursor open the real project folder. On macOS, VS Code/Cursor also create integrated terminals for the workspace commands. Project directory open always uses the system file manager so the user lands in a normal folder view. Tmux workspaces are reusable, so opening from another Terminal, Warp, VS Code, or Cursor window attaches to the same sessions. Plain `runtime: terminal` slots are external processes and are not reusable. "Start in background" creates tmux sessions and opens terminal-runtime slots when the selected opener supports command execution.
+In the Web UI, choose one tool and then use either "Open workspace" or "Open project directory". Workspace open adapts to the tool: Terminal runs dashboard or attach commands, Warp uses stable Launch Configurations for layouts, and VS Code/Cursor open the real project folder. On macOS, VS Code/Cursor also create integrated terminals for the workspace commands. Project directory open always uses the system file manager so the user lands in a normal folder view. Tmux-backed tabs are reusable, so opening from another Terminal, Warp, VS Code, or Cursor window attaches to the same sessions. Direct-layout panes are external processes and are not reusable. "Start in background" creates tmux sessions and opens direct-layout panes when the selected opener supports command execution.
 
 If you bind it to a non-loopback host, use `--token` or `CC_BRANCH_WEB_TOKEN`.
 When a token is configured, open the printed `/?token=...` URL once to establish the browser cookie.
@@ -138,9 +138,9 @@ When a token is configured, open the printed `/?token=...` URL once to establish
 
 | Profile | Best for |
 | --- | --- |
-| `solo-dev` | One developer with planner, builder, review, and scratch windows |
-| `ai-pair` | A coder and reviewer workflow |
-| `minimal` | A very small setup with one main agent window |
+| `development` | One development tab with frontend, backend, algorithm, and docs panes |
+| `design` | Product discussion and implementation, plus a separate design tab |
+| `minimal` | One tab with one agent pane |
 
 Starter profiles keep `.cc-branch/config.yaml` focused on workspace structure. Built-in agent profiles are available automatically, so generated configs reference `agent: codex` or `agent: claude` without copying the full agent definition into every project.
 

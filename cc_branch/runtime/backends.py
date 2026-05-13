@@ -11,6 +11,18 @@ import subprocess
 from typing import Protocol
 
 
+def _exact_tmux_target(target: str) -> str:
+    """Force tmux to match session/window names exactly instead of by prefix."""
+    if target.startswith("="):
+        return target
+    if ":" not in target:
+        return f"={target}"
+    session, window = target.split(":", 1)
+    if window.startswith("="):
+        return f"={session}:{window}"
+    return f"={session}:={window}"
+
+
 class Backend(Protocol):
     """Abstract interface for managed session/window operations."""
 
@@ -69,7 +81,7 @@ class TmuxBackend:
     def has_session(self, name: str) -> bool:
         try:
             result = subprocess.run(
-                ["tmux", "has-session", "-t", name],
+                ["tmux", "has-session", "-t", _exact_tmux_target(name)],
                 capture_output=True,
                 check=False,
                 timeout=2,
@@ -84,7 +96,7 @@ class TmuxBackend:
     def list_windows(self, session: str) -> set[str]:
         try:
             result = subprocess.run(
-                ["tmux", "list-windows", "-t", session, "-F", "#{window_name}"],
+                ["tmux", "list-windows", "-t", _exact_tmux_target(session), "-F", "#{window_name}"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -98,7 +110,7 @@ class TmuxBackend:
 
     def send_keys(self, target: str, keys: str) -> None:
         subprocess.run(
-            ["tmux", "send-keys", "-t", target, keys, "Enter"],
+            ["tmux", "send-keys", "-t", _exact_tmux_target(target), keys, "Enter"],
             check=True,
         )
 
@@ -119,28 +131,28 @@ class TmuxBackend:
         subprocess.run(cmd, check=True)
 
     def create_window(self, session: str, name: str, cwd: str | None = None) -> None:
-        cmd = ["tmux", "new-window", "-d", "-t", session, "-n", name]
+        cmd = ["tmux", "new-window", "-d", "-t", _exact_tmux_target(session), "-n", name]
         if cwd:
             cmd.extend(["-c", cwd])
         subprocess.run(cmd, check=True)
 
     def kill_session(self, name: str) -> None:
-        subprocess.run(["tmux", "kill-session", "-t", name], check=True)
+        subprocess.run(["tmux", "kill-session", "-t", _exact_tmux_target(name)], check=True)
 
     def kill_window(self, target: str) -> None:
-        subprocess.run(["tmux", "kill-window", "-t", target], check=True)
+        subprocess.run(["tmux", "kill-window", "-t", _exact_tmux_target(target)], check=True)
 
     def attach_session(self, target: str) -> None:
-        subprocess.run(["tmux", "attach-session", "-t", target], check=True)
+        subprocess.run(["tmux", "attach-session", "-t", _exact_tmux_target(target)], check=True)
 
     def split_window(self, target: str, command: list[str]) -> None:
-        cmd = ["tmux", "split-window", "-t", target]
+        cmd = ["tmux", "split-window", "-t", _exact_tmux_target(target)]
         cmd.extend(command)
         subprocess.run(cmd, check=True)
 
     def select_layout(self, target: str, layout: str) -> None:
         subprocess.run(
-            ["tmux", "select-layout", "-t", target, layout],
+            ["tmux", "select-layout", "-t", _exact_tmux_target(target), layout],
             check=True,
         )
 

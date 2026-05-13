@@ -3,48 +3,48 @@
 from __future__ import annotations
 
 PROFILES = {
-    "solo-dev": {
-        "description": "Four-agent coding workspace with planning, building, testing, and review",
-        "slots": [
+    "development": {
+        "description": "Development workspace with one tab for frontend, backend, algorithm, and docs panes",
+        "tabs": [
             {
-                "name": "dev",
-                "windows": [
-                    {"name": "planner", "preferred_agents": ["codex", "claude", "gemini"]},
-                    {"name": "builder", "preferred_agents": ["codex", "claude", "gemini"]},
-                    {"name": "tester", "preferred_agents": ["codex", "claude", "gemini"]},
-                    {"name": "reviewer", "preferred_agents": ["claude", "codex", "gemini"]},
+                "name": "development",
+                "panes": [
+                    {"name": "frontend", "preferred_agents": ["codex", "claude", "gemini"]},
+                    {"name": "backend", "preferred_agents": ["codex", "gemini", "claude"]},
+                    {"name": "algorithm", "preferred_agents": ["gemini", "codex", "claude"]},
+                    {"name": "docs", "preferred_agents": ["claude", "gemini", "codex"]},
                 ],
             },
         ],
     },
-    "ai-pair": {
-        "description": "Adversarial AI coding workflow with separate implementation and critique",
-        "slots": [
+    "design": {
+        "description": "Design workspace with product discussion, product implementation, and design direction tabs",
+        "tabs": [
             {
-                "name": "coder",
-                "windows": [
-                    {"name": "implement", "preferred_agents": ["codex", "claude", "gemini"]},
+                "name": "product",
+                "panes": [
+                    {"name": "discussion", "preferred_agents": ["claude", "gemini", "codex"]},
+                    {"name": "implementation", "preferred_agents": ["codex", "claude", "gemini"]},
                 ],
             },
             {
-                "name": "reviewer",
-                "windows": [
+                "name": "design",
+                "panes": [
+                    {"name": "directions", "preferred_agents": ["claude", "gemini", "codex"]},
                     {"name": "review", "preferred_agents": ["claude", "codex", "gemini"]},
                 ],
             },
-            {"name": "scratch", "runtime": "terminal"},
         ],
     },
     "minimal": {
-        "description": "Minimal workspace with single agent window and scratch",
-        "slots": [
+        "description": "Minimal workspace with one tab and one agent pane",
+        "tabs": [
             {
                 "name": "main",
-                "windows": [
-                    {"name": "agent", "preferred_agents": ["claude", "codex", "gemini"]},
+                "panes": [
+                    {"name": "agent", "preferred_agents": ["codex", "claude", "gemini"]},
                 ],
             },
-            {"name": "scratch", "runtime": "terminal"},
         ],
     },
 }

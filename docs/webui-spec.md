@@ -100,7 +100,7 @@ Accepts JSON such as:
 
 ```json
 {
-  "profile": "solo-dev",
+  "profile": "development",
   "bootstrap_sessions": true
 }
 ```
@@ -128,7 +128,7 @@ Writes the config file to disk.
 
 When the selected project directory exists but has no config:
 
-- `/api/status` returns `status: "needs_init"` and empty `slots`
+- `/api/status` returns `status: "needs_init"` and an empty tab list. The current JSON field remains `slots` until the API response is renamed.
 - `/api/config` returns `status: "needs_init"`, empty `content`, and the target config path
 - `/api/doctor` returns `status: "needs_init"` and setup guidance
 
@@ -141,7 +141,7 @@ Supported actions:
 ```json
 {
   "action": "open | launch | restart | stop | sync",
-  "target": "project-slot-name",
+  "target": "project-tab-name",
   "opener": "auto-terminal",
   "intent": "workspace_dashboard | attach_target | project_folder"
 }
@@ -153,26 +153,26 @@ Action semantics:
 
 - `open` opens through a local opener. Without `opener`, it uses `auto-terminal`. Without `intent`, workspace opens infer `workspace_dashboard` and target opens infer `attach_target`.
 - `workspace_dashboard` runs `cc-branch dashboard` in a command-capable terminal opener.
-- `attach_target` opens the target through the selected opener. Terminal openers run `cc-branch attach <target>` or the terminal-runtime command. On macOS, VS Code and Cursor open the real project folder and create integrated terminals for the selected target via local UI automation.
+- `attach_target` opens the target through the selected opener. Terminal openers run `cc-branch attach <target>` or the direct-layout command. On macOS, VS Code and Cursor open the real project folder and create integrated terminals for the selected target via local UI automation.
 - `project_folder` opens the project directory without attaching tmux. The Web UI routes this to the system file manager so the user lands in a normal folder view.
-- `launch` starts tmux sessions and, when the selected opener can run commands, opens terminal-runtime slots in that opener.
+- `launch` starts tmux sessions and, when the selected opener can run commands, opens direct-layout panes in that opener.
 - `restart` recreates the workspace or target in the background.
 - `stop` stops the workspace or target.
-- `sync` restarts changed, missing, or untracked tmux windows so the running workspace matches the saved config.
+- `sync` restarts changed, missing, or untracked tmux panes so the running workspace matches the saved config.
 
 GUI semantics:
 
 - The GUI has one tool selector and two primary buttons: "Open workspace" and "Open project directory".
 - "Open workspace" adapts to the selected tool. Terminal openers run dashboard or attach commands. Warp uses a stable Launch Configuration and can open one arranged layout. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
 - "Open project directory" always uses the system file manager. It is enabled only when the file manager opener is available.
-- Slot-level "Open terminal" buttons use the same selected tool as the workspace and project actions. Terminal openers run commands directly; on macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target.
+- Tab/pane-level "Open" buttons use the same selected tool as the workspace and project actions. Terminal openers run commands directly; on macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target.
 
 Runtime behavior:
 
-- `runtime: tmux` is reusable. Opening the same workspace from Terminal, Warp, or another supported terminal attaches to the existing tmux sessions.
-- `runtime: terminal` is external and not reusable. Opening it starts a new visible process; stopping it means closing that terminal window manually.
-- If a workspace has only `runtime: terminal` slots, `open` uses the selected terminal opener to run those commands directly instead of opening a tmux dashboard.
-- Warp supports command execution through Launch Configurations. CC Branch attaches each tmux slot once and lets tmux own its internal windows; terminal-runtime slots are added as separate Warp panes. For pure terminal-runtime workspaces, CC Branch writes one stable launch configuration per project-like layout so Warp can open a single arranged layout instead of many unrelated windows.
+- `layoutBackend: tmux` is reusable. Opening the same workspace from Terminal, Warp, or another supported terminal attaches to the existing tmux sessions.
+- `layoutBackend: direct` is external and not reusable. Opening it starts a new visible process; stopping it means closing that terminal pane manually.
+- If a workspace has only direct-layout tabs, `open` uses the selected terminal opener to run those commands directly instead of opening a tmux dashboard.
+- Warp supports command execution through Launch Configurations. CC Branch attaches each tmux-backed tab once and lets tmux own its internal panes; direct-layout panes are added as separate Warp panes. For pure direct-layout workspaces, CC Branch writes one stable launch configuration per project-like layout so Warp can open a single arranged layout instead of many unrelated panes.
 - VS Code and Cursor workspace opens do not create temporary `.code-workspace` files. They open the real project folder. On macOS, local UI automation also creates integrated terminals. macOS may require Accessibility permission for the terminal or app running `cc-branch`.
 
 ### `GET /api/openers`
@@ -227,7 +227,7 @@ Returns effective agent profiles for the selected project. These profiles are av
       "resume_template": "resume {session_id}",
       "create_mode": "none",
       "create_template": "",
-      "label_template": "{project}/{slot}/{window}",
+      "label_template": "{project}/{tab}/{pane}",
       "label_mode": "metadata",
       "rename_template": ""
     }

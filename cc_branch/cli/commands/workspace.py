@@ -19,7 +19,7 @@ def status_dict(workspace, plan, state=None) -> dict:
 
 def run_attach(parser, ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, state) -> int:
     if args.slot is None:
-        parser.error("attach requires a <slot>")
+        parser.error("attach requires a <tab>")
         return 2
     import cc_branch.cli as cli
 

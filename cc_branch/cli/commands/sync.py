@@ -31,7 +31,7 @@ def run_sync(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, s
             if not getattr(args, "yes", False):
                 cli.console.print("[dim]Run with --yes to sync these changes.[/dim]")
         else:
-            cli.console.print("[dim]No changed, missing, or untracked tmux windows need sync.[/dim]")
+            cli.console.print("[dim]No changed, missing, or untracked tmux panes need sync.[/dim]")
         return 0
 
     result = cli.sync_workspace(
@@ -47,5 +47,5 @@ def run_sync(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, s
     if result.changed_targets or stopped_extra:
         cli.console.print(f"[green]✓[/green] {result.message}.")
     else:
-        cli.console.print("[dim]No changed, missing, or untracked tmux windows need sync.[/dim]")
+        cli.console.print("[dim]No changed, missing, or untracked tmux panes need sync.[/dim]")
     return 0

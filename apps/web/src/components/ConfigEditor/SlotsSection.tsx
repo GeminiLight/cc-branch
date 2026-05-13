@@ -5,20 +5,24 @@
  * tabs/panes so users edit the workspace model, not the storage model.
  */
 
-import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
-  ChevronUp,
   ChevronsUpDown,
   Clock3,
-  PanelsTopLeft,
+  Copy,
+  GripVertical,
+  MoveRight,
   Plus,
   SquareTerminal,
   Terminal,
   Trash2,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
-import type { AgentSessionInfo, RuntimeAvailability } from "../../types";
+import type { AgentSessionInfo, RuntimeAvailability, WorkspaceScope } from "../../types";
+import { useAgentSessions } from "../../hooks";
 import claudeIconUrl from "../../assets/agent-icons/claude.svg";
 import cursorIconUrl from "../../assets/agent-icons/cursor.svg";
 import geminiIconUrl from "../../assets/agent-icons/gemini.svg";
@@ -43,6 +47,13 @@ type Selection = {
 type TabLayout = NonNullable<SlotConfig["layout"]>;
 type PaneDragState = { slotIndex: number; paneIndex: number } | null;
 type TabDragState = { slotIndex: number } | null;
+type CanvasPane = {
+  name: string;
+  agent: string | null;
+  cwd: string | null;
+  windowIndex: number | null;
+  kind: "terminal" | "tmux-group";
+};
 
 function displayAgentName(agent: string | null | undefined): string {
   return agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : "";
@@ -52,10 +63,13 @@ function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) =
   return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
 }
 
-function RuntimeIcon({ runtime, className = "w-3.5 h-3.5" }: { runtime: SlotConfig["runtime"]; className?: string }) {
-  return runtime === "terminal"
-    ? <SquareTerminal className={className} aria-hidden="true" />
-    : <PanelsTopLeft className={className} aria-hidden="true" />;
+function countText(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  singularKey: string,
+  pluralKey: string,
+  count: number,
+): string {
+  return t(count === 1 ? singularKey : pluralKey, { count });
 }
 
 function normalizeAgentKey(agent: string | null | undefined): string {
@@ -120,6 +134,7 @@ function emptyWindow(name = "main", agent: string | null = null): WindowConfig {
     command: null,
     cwd: null,
     env: {},
+    session: null,
     session_id: null,
     label: null,
     label_template: null,
@@ -132,18 +147,52 @@ function emptyWindow(name = "main", agent: string | null = null): WindowConfig {
   };
 }
 
+function isTmuxGroupWindow(window: WindowConfig | null | undefined): boolean {
+  return Boolean(window && (window.layoutBackend === "tmux" || window.windows));
+}
+
+function isLegacyTmuxSlot(slot: SlotConfig | null | undefined): boolean {
+  return Boolean(slot && slot.runtime === "tmux" && !slot.windows.some(isTmuxGroupWindow));
+}
+
+function tmuxGroupWindowFromSlot(slot: SlotConfig): WindowConfig {
+  return {
+    ...emptyWindow(slot.name || "tmux"),
+    layoutBackend: "tmux",
+    cwd: slot.cwd || null,
+    env: { ...slot.env },
+    windows: slot.windows.length > 0 ? slot.windows : [emptyWindow("main")],
+  };
+}
+
+function tmuxGroupWindows(window: WindowConfig | null | undefined): WindowConfig[] {
+  if (!window) return [emptyWindow("main")];
+  if (window.windows && window.windows.length > 0) return window.windows;
+  return [emptyWindow(window.name || "main", window.agent ?? null)];
+}
+
 function paneCount(slot: SlotConfig): number {
-  return slot.runtime === "terminal" ? Math.max(slot.windows.length, 1) : Math.max(slot.windows.length, 0);
+  return slotToCanvasPanes(slot).length;
+}
+
+function paneCountText(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
+  return t(count === 1 ? "windowCountShortOne" : "windowCountShort", { count });
 }
 
 function tabSummary(t: (key: string, vars?: Record<string, string | number>) => string, slot: SlotConfig): string {
-  if (slot.runtime === "terminal") {
-    if (slot.windows.length > 1) return t("tabSummaryPanes", { count: slot.windows.length });
-    if (slot.windows.length === 1) return paneSummary(t, slot.windows[0]);
-    if (slot.agent) return t("tabSummaryTerminalAgent", { agent: displayAgentName(slot.agent) });
-    return t("tabSummaryCommand", { command: slot.command || "$SHELL" });
+  if (isLegacyTmuxSlot(slot)) {
+    return countText(t, "tmuxWindowGroupSummary_one", "tmuxWindowGroupSummary", slot.windows.length);
   }
-  return t("tabSummaryPanes", { count: slot.windows.length });
+  const panes = slotToCanvasPanes(slot);
+  if (panes.length > 1) return paneCountText(t, panes.length);
+  if (slot.windows.length === 1) {
+    const window = slot.windows[0];
+    return isTmuxGroupWindow(window)
+      ? countText(t, "tmuxWindowGroupSummary_one", "tmuxWindowGroupSummary", tmuxGroupWindows(window).length)
+      : paneSummary(t, window);
+  }
+  if (slot.agent) return t("tabSummaryTerminalAgent", { agent: displayAgentName(slot.agent) });
+  return t("tabSummaryCommand", { command: slot.command || "$SHELL" });
 }
 
 function paneSummary(t: (key: string, vars?: Record<string, string | number>) => string, win: WindowConfig): string {
@@ -162,6 +211,7 @@ function terminalSlotToWindow(slot: SlotConfig): WindowConfig {
     command: slot.agent ? null : slot.command ?? "$SHELL",
     cwd: slot.cwd || null,
     env: { ...slot.env },
+    session: slot.session ?? null,
     session_id: slot.session_id ?? null,
     label: slot.label ?? null,
   };
@@ -178,16 +228,6 @@ function normalizedLayout(slot: SlotConfig, paneLength: number): TabLayout {
   if (paneLength <= 2) return "horizontal";
   if (paneLength === 3) return "main-left";
   return "grid";
-}
-
-function layoutLabel(t: (key: string, vars?: Record<string, string | number>) => string, layout: SlotConfig["layout"]): string {
-  const key = layout || "auto";
-  if (key === "horizontal") return t("layoutHorizontal");
-  if (key === "vertical") return t("layoutVertical");
-  if (key === "main-left") return t("layoutMainLeft");
-  if (key === "main-top") return t("layoutMainTop");
-  if (key === "grid") return t("layoutGrid");
-  return t("layoutAuto");
 }
 
 function LayoutGlyph({ layout }: { layout: TabLayout }) {
@@ -281,10 +321,33 @@ function paneCellStyle(slot: SlotConfig, panes: WindowConfig[], index: number): 
 }
 
 function slotToPanes(slot: SlotConfig): WindowConfig[] {
-  if (slot.runtime === "tmux") {
+  if (isLegacyTmuxSlot(slot)) {
     return slot.windows.length > 0 ? slot.windows : [emptyWindow("main")];
   }
   return slot.windows.length > 0 ? slot.windows : [terminalSlotToWindow(slot)];
+}
+
+function slotToCanvasPanes(slot: SlotConfig): CanvasPane[] {
+  if (isLegacyTmuxSlot(slot)) {
+    const agent = slot.windows.find((window) => window.agent)?.agent ?? null;
+    return [{
+      name: slot.name || "tmux",
+      agent,
+      cwd: slot.cwd || null,
+      windowIndex: null,
+      kind: "tmux-group",
+    }];
+  }
+  const panes = slotToPanes(slot);
+  return panes.map((pane, index) => ({
+    name: slot.windows.length === 0 ? terminalPaneName(slot) : pane.name,
+    agent: isTmuxGroupWindow(pane)
+      ? tmuxGroupWindows(pane).find((window) => window.agent)?.agent ?? null
+      : slot.windows.length === 0 ? slot.agent ?? null : pane.agent ?? null,
+    cwd: pane.cwd || slot.cwd || null,
+    windowIndex: slot.windows.length === 0 ? null : index,
+    kind: isTmuxGroupWindow(pane) ? "tmux-group" : "terminal",
+  }));
 }
 
 function editableWindowsForSlot(slot: SlotConfig): WindowConfig[] {
@@ -294,17 +357,20 @@ function editableWindowsForSlot(slot: SlotConfig): WindowConfig[] {
 }
 
 function slotWithWindows(slot: SlotConfig, windows: WindowConfig[], layout?: TabLayout): SlotConfig {
+  const hasTmuxGroup = windows.some(isTmuxGroupWindow);
   const next: SlotConfig = {
     ...slot,
+    runtime: hasTmuxGroup ? "terminal" : slot.runtime,
     windows,
     ...(layout ? { layout } : {}),
   };
-  if (slot.runtime === "terminal") {
+  if (next.runtime === "terminal") {
     return {
       ...next,
       command: undefined,
       title: undefined,
       agent: undefined,
+      session: undefined,
       session_id: undefined,
       label: undefined,
     };
@@ -313,7 +379,7 @@ function slotWithWindows(slot: SlotConfig, windows: WindowConfig[], layout?: Tab
 }
 
 function canDragPane(slot: SlotConfig): boolean {
-  return slot.runtime === "tmux" || slot.windows.length > 0;
+  return isLegacyTmuxSlot(slot) || slot.windows.length > 0;
 }
 
 function clampSelection(selection: Selection, slots: SlotConfig[]): Selection {
@@ -321,6 +387,9 @@ function clampSelection(selection: Selection, slots: SlotConfig[]): Selection {
   const slotIndex = Math.min(Math.max(selection.slotIndex, 0), slots.length - 1);
   const slot = slots[slotIndex];
   if (selection.target === "tab") return { slotIndex, target: "tab", windowIndex: null };
+  if (isLegacyTmuxSlot(slot)) {
+    return { slotIndex, target: "pane", windowIndex: null };
+  }
   if (slot.runtime === "terminal" && slot.windows.length === 0) {
     return { slotIndex, target: "pane", windowIndex: null };
   }
@@ -332,21 +401,30 @@ function clampSelection(selection: Selection, slots: SlotConfig[]): Selection {
   };
 }
 
-function SessionIdInput({
+function sessionIntent(value: string): "auto" | "fresh" | "resume" {
+  if (!value || value === "auto") return "auto";
+  if (value === "fresh") return "fresh";
+  return "resume";
+}
+
+function SessionInput({
   value,
   onChange,
   agent,
-  sessions,
-  loading,
+  scope,
 }: {
   value: string;
   onChange: (value: string) => void;
   agent?: string | null;
-  sessions: AgentSessionInfo[];
-  loading?: boolean;
+  scope?: WorkspaceScope;
 }) {
   const { t } = useI18n();
   const agentKey = normalizeAgentKey(agent);
+  const [forcedIntent, setForcedIntent] = useState<"resume" | null>(null);
+  const inferredIntent = sessionIntent(value);
+  const intent = forcedIntent ?? inferredIntent;
+  const { data, isFetching: loading } = useAgentSessions(scope, Boolean(agentKey) && intent === "resume", agentKey);
+  const sessions = data?.sessions || [];
   const matchingSessions = agentKey
     ? sessions.filter((session) => normalizeAgentKey(session.agent) === agentKey)
     : [];
@@ -364,36 +442,80 @@ function SessionIdInput({
         description: agent ? t("manualSessionAllowed") : t("selectAgentFirst"),
         disabled: true,
       }];
+  const sessionTextValue = intent === "resume" && (value === "auto" || value === "fresh") ? "" : value;
+
+  useEffect(() => {
+    if (inferredIntent !== "resume") setForcedIntent(null);
+  }, [inferredIntent]);
+
+  function switchIntent(next: "auto" | "fresh" | "resume") {
+    if (next === "auto") {
+      setForcedIntent(null);
+      onChange("auto");
+    } else if (next === "fresh") {
+      setForcedIntent(null);
+      onChange("fresh");
+    } else {
+      setForcedIntent("resume");
+      if (matchingSessions[0]?.id) onChange(matchingSessions[0].id);
+    }
+  }
 
   return (
-    <div className="flex items-center rounded-lg border border-default bg-[var(--bg-card)] transition-all hover:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-border)] focus-within:border-[var(--accent)]">
-      <input
-        type="text"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={
-          displayAgent
-            ? t("sessionIdPlaceholderWithAgent", { agent: displayAgent })
-            : t("sessionIdPlaceholder")
-        }
-        className="min-w-0 flex-1 control-touch px-3 rounded-l-lg text-[13px] bg-transparent placeholder:text-muted focus:outline-none"
-      />
-      <Dropdown
-        align="right"
-        value={matchingSessions.some((session) => session.id === value) ? value : ""}
-        onChange={(nextValue) => {
-          if (nextValue !== "__empty") onChange(nextValue);
-        }}
-        items={items}
-        ariaLabel={t("sessionPicker")}
-        className="shrink-0"
-        triggerClassName="h-full block"
-        trigger={
-          <span className="control-touch min-w-9 px-2 border-l border-default text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] rounded-r-lg transition-colors flex items-center justify-center">
-            <ChevronsUpDown className="w-3.5 h-3.5" />
-          </span>
-        }
-      />
+    <div className="rounded-lg border border-default bg-[var(--bg-card)] p-1.5">
+      <div className="grid grid-cols-3 gap-1">
+        {(["auto", "fresh", "resume"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => switchIntent(option)}
+            className={`min-h-8 rounded-md px-2 text-[11px] font-semibold transition-colors ${
+              intent === option
+                ? "bg-[var(--accent-bg)] text-[var(--accent)]"
+                : "text-tertiary hover:bg-[var(--bg-hover)] hover:text-primary"
+            }`}
+            aria-pressed={intent === option}
+          >
+            {option === "auto" ? t("sessionAuto") : option === "fresh" ? t("sessionFresh") : t("sessionResume")}
+          </button>
+        ))}
+      </div>
+
+      {intent === "resume" ? (
+        <div className="mt-1.5 flex items-center rounded-md border border-default bg-[var(--bg-card)] transition-all hover:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-border)] focus-within:border-[var(--accent)]">
+          <input
+            type="text"
+            value={sessionTextValue}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={
+              displayAgent
+                ? t("sessionIdPlaceholderWithAgent", { agent: displayAgent })
+                : t("sessionIdPlaceholder")
+            }
+            className="min-w-0 flex-1 h-8 px-2.5 rounded-l-md text-[12px] bg-transparent placeholder:text-muted focus:outline-none"
+          />
+          <Dropdown
+            align="right"
+            value={matchingSessions.some((session) => session.id === value) ? value : ""}
+            onChange={(nextValue) => {
+              if (nextValue !== "__empty") onChange(nextValue);
+            }}
+            items={items}
+            ariaLabel={t("sessionPicker")}
+            className="shrink-0"
+            triggerClassName="h-full block"
+            trigger={
+              <span className="h-8 min-w-8 px-2 border-l border-default text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] rounded-r-md transition-colors flex items-center justify-center">
+                <ChevronsUpDown className="w-3.5 h-3.5" />
+              </span>
+            }
+          />
+        </div>
+      ) : (
+        <p className="px-1.5 pt-1.5 text-[10px] leading-snug text-tertiary">
+          {intent === "auto" ? t("sessionAutoHint") : t("sessionFreshHint")}
+        </p>
+      )}
     </div>
   );
 }
@@ -455,38 +577,37 @@ function LayoutPicker({
 export default function SlotsSection({
   slots,
   agents,
-  agentSessions,
-  agentSessionsLoading,
+  scope,
   onChange,
   runtimeAvailability,
 }: {
   slots: SlotConfig[];
   agents: string[];
-  agentSessions: AgentSessionInfo[];
-  agentSessionsLoading?: boolean;
+  scope?: WorkspaceScope;
   onChange: (slots: SlotConfig[]) => void;
   runtimeAvailability?: RuntimeAvailability;
 }) {
   const { t } = useI18n();
   const defaultRuntime = runtimeAvailability?.tmux?.available === false ? "terminal" : "tmux";
-  const tmuxUnavailable = runtimeAvailability?.tmux?.available === false;
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
   const [moveTarget, setMoveTarget] = useState("0");
   const [paneDrag, setPaneDrag] = useState<PaneDragState>(null);
   const [tabDrag, setTabDrag] = useState<TabDragState>(null);
+  const paneDragRef = useRef<PaneDragState>(null);
 
   const normalizedSelection = useMemo(() => clampSelection(selection, slots), [selection, slots]);
   const selectedSlot = slots[normalizedSelection.slotIndex];
   const selectedWindow =
-    normalizedSelection.target === "pane" && selectedSlot?.windows.length
+    normalizedSelection.target === "pane" && !isLegacyTmuxSlot(selectedSlot) && selectedSlot?.windows.length
       ? selectedSlot.windows[normalizedSelection.windowIndex ?? 0]
       : null;
   const selectedTerminalPane =
     normalizedSelection.target === "pane" &&
     selectedSlot?.runtime === "terminal" &&
     selectedSlot.windows.length === 0;
-  const selectedTerminalWindow = selectedSlot?.runtime === "terminal" ? selectedWindow : null;
-  const editingPane = Boolean(selectedWindow || selectedTerminalPane);
+  const selectedTerminalWindow = selectedSlot?.runtime === "terminal" && !isTmuxGroupWindow(selectedWindow) ? selectedWindow : null;
+  const selectedTmuxGroup = normalizedSelection.target === "pane" && (isLegacyTmuxSlot(selectedSlot) || isTmuxGroupWindow(selectedWindow));
+  const editingPane = Boolean(selectedWindow || selectedTerminalPane || selectedTmuxGroup);
 
   useEffect(() => {
     const next = clampSelection(selection, slots);
@@ -498,16 +619,6 @@ export default function SlotsSection({
       setSelection(next);
     }
   }, [selection, slots]);
-
-  useEffect(() => {
-    if (slots.length > 1) {
-      const selectedRuntime = slots[normalizedSelection.slotIndex]?.runtime;
-      const runtimeFallback = slots.findIndex((slot, index) => index !== normalizedSelection.slotIndex && slot.runtime === selectedRuntime);
-      setMoveTarget(String(runtimeFallback >= 0 ? runtimeFallback : normalizedSelection.slotIndex));
-    } else {
-      setMoveTarget("0");
-    }
-  }, [normalizedSelection.slotIndex, slots]);
 
   const agentOptions = [
     { value: "", label: t("noneOption") },
@@ -522,11 +633,35 @@ export default function SlotsSection({
     { value: "grid", label: t("layoutGrid") },
   ];
 
-  const tabOptions = slots.map((slot, index) => ({
-    value: String(index),
-    label: `${slot.name || t("unnamed")} ${slot.runtime === "tmux" ? "" : `(${t("runtimeTerminal")})`}`,
-    disabled: slot.runtime !== selectedSlot?.runtime || index === normalizedSelection.slotIndex,
-  }));
+  const moveTargetOptions = useMemo(() => {
+    if (!selectedSlot || normalizedSelection.target !== "pane") return [];
+    return slots
+      .map((slot, index) => ({ slot, index }))
+      .filter(({ index }) => index !== normalizedSelection.slotIndex)
+      .map(({ slot, index }) => ({
+        value: String(index),
+        label: `${slot.name || t("unnamed")} · ${t("tabSummaryPanes", { count: paneCount(slot) })}`,
+      }));
+  }, [normalizedSelection.slotIndex, normalizedSelection.target, selectedSlot, slots, t]);
+
+  useEffect(() => {
+    if (moveTargetOptions.length === 0) {
+      if (moveTarget !== "") setMoveTarget("");
+      return;
+    }
+    if (!moveTargetOptions.some((option) => option.value === moveTarget)) {
+      setMoveTarget(moveTargetOptions[0].value);
+    }
+  }, [moveTarget, moveTargetOptions]);
+
+  const selectedMoveTargetIndex = moveTarget === "" ? -1 : Number(moveTarget);
+  const selectedMovablePane = normalizedSelection.target === "pane" && Boolean(selectedWindow || selectedTmuxGroup);
+  const canMovePaneToSelectedTab = Boolean(
+    selectedMovablePane &&
+    selectedMoveTargetIndex >= 0 &&
+    selectedMoveTargetIndex !== normalizedSelection.slotIndex
+  );
+
   function updateSlot(index: number, patch: Partial<SlotConfig>) {
     const next = [...slots];
     next[index] = { ...next[index], ...patch };
@@ -572,17 +707,6 @@ export default function SlotsSection({
     replaceSlots(next, { slotIndex: Math.max(0, index - 1), target: "tab", windowIndex: null });
   }
 
-  function moveTab(index: number, dir: number) {
-    const next = [...slots];
-    const [moved] = next.splice(index, 1);
-    next.splice(index + dir, 0, moved);
-    replaceSlots(next, {
-      slotIndex: index + dir,
-      target: normalizedSelection.target,
-      windowIndex: normalizedSelection.windowIndex,
-    });
-  }
-
   function moveTabByDrag(fromSlotIndex: number, toSlotIndex: number) {
     if (fromSlotIndex < 0 || fromSlotIndex >= slots.length) return;
     const next = [...slots];
@@ -600,6 +724,14 @@ export default function SlotsSection({
       target: normalizedSelection.target,
       windowIndex: normalizedSelection.windowIndex,
     });
+  }
+
+  function moveTab(index: number, dir: number) {
+    if (dir < 0) {
+      moveTabByDrag(index, index - 1);
+      return;
+    }
+    moveTabByDrag(index, index + 2);
   }
 
   function handleTabDragStart(event: DragEvent<HTMLElement>, slotIndex: number) {
@@ -624,45 +756,6 @@ export default function SlotsSection({
     setTabDrag(null);
   }
 
-  function setRuntime(runtime: SlotConfig["runtime"]) {
-    if (!selectedSlot) return;
-    if (runtime === selectedSlot.runtime) return;
-    if (runtime === "tmux") {
-      updateSlot(normalizedSelection.slotIndex, {
-        runtime,
-        windows: [
-          emptyWindow(
-            selectedSlot.title || selectedSlot.name || "main",
-            selectedSlot.agent ?? null
-          ),
-        ].map((win) => ({
-          ...win,
-          command: selectedSlot.command ?? null,
-          session_id: selectedSlot.session_id ?? null,
-          label: selectedSlot.label ?? null,
-        })),
-        command: undefined,
-        title: undefined,
-        agent: undefined,
-        session_id: undefined,
-        label: undefined,
-      });
-      setSelection({ slotIndex: normalizedSelection.slotIndex, target: "tab", windowIndex: null });
-    } else {
-      const first = selectedSlot.windows[normalizedSelection.windowIndex ?? 0] || selectedSlot.windows[0];
-      updateSlot(normalizedSelection.slotIndex, {
-        runtime,
-        windows: [],
-        title: first?.name || selectedSlot.name,
-        agent: first?.agent ?? undefined,
-        command: first?.agent ? undefined : first?.command ?? "$SHELL",
-        session_id: first?.session_id ?? undefined,
-        label: first?.label ?? undefined,
-      });
-      setSelection({ slotIndex: normalizedSelection.slotIndex, target: "tab", windowIndex: null });
-    }
-  }
-
   function updateWindow(index: number, patch: Partial<WindowConfig>) {
     if (!selectedSlot || selectedSlot.windows.length === 0) return;
     const windows = [...selectedSlot.windows];
@@ -678,18 +771,19 @@ export default function SlotsSection({
   function addPaneToSlot(slotIndex: number, afterIndex?: number, layout?: Extract<TabLayout, "horizontal" | "vertical">) {
     const slot = slots[slotIndex];
     if (!slot) return;
+    if (isLegacyTmuxSlot(slot)) {
+      const panes = [tmuxGroupWindowFromSlot(slot), emptyWindow("pane-2", agents[0] ?? null)];
+      const next = [...slots];
+      next[slotIndex] = slotWithWindows(slot, panes, layout || slot.layout || "auto");
+      replaceSlots(next, { slotIndex, target: "pane", windowIndex: 1 });
+      return;
+    }
     const windows = editableWindowsForSlot(slot);
     const insertAt = afterIndex == null ? windows.length : Math.min(afterIndex + 1, windows.length);
     windows.splice(insertAt, 0, emptyWindow(`pane-${windows.length + 1}`, agents[0] ?? null));
     const next = [...slots];
     next[slotIndex] = slotWithWindows(slot, windows, layout || slot.layout || "auto");
-    replaceSlots(next, { slotIndex, target: "pane", windowIndex: insertAt });
-  }
-
-  function setSlotLayout(index: number, layout: TabLayout) {
-    const slot = slots[index];
-    if (!slot) return;
-    updateSlot(index, { layout });
+    replaceSlots(next, { slotIndex, target: "pane", windowIndex: slot.runtime === "tmux" ? null : insertAt });
   }
 
   function duplicatePane() {
@@ -744,7 +838,11 @@ export default function SlotsSection({
     }
     const next = [...slots];
     next[slotIndex] = slotWithWindows(slot, windows);
-    replaceSlots(next, { slotIndex, target: "pane", windowIndex: Math.max(0, targetIndex - 1) });
+    replaceSlots(next, {
+      slotIndex,
+      target: "pane",
+      windowIndex: slot.runtime === "tmux" ? null : Math.max(0, targetIndex - 1),
+    });
   }
 
   function movePane(dir: number) {
@@ -765,14 +863,19 @@ export default function SlotsSection({
     windows.splice(targetIndex, 0, moved);
     const next = [...slots];
     next[slotIndex] = slotWithWindows(slot, windows);
-    replaceSlots(next, { slotIndex, target: "pane", windowIndex: targetIndex });
+    replaceSlots(next, { slotIndex, target: "pane", windowIndex: slot.runtime === "tmux" ? null : targetIndex });
   }
 
   function movePaneByDrag(fromSlotIndex: number, fromPaneIndex: number, toSlotIndex: number, toPaneIndex: number) {
     const source = slots[fromSlotIndex];
     const target = slots[toSlotIndex];
-    if (!source || !target || source.runtime !== target.runtime) return;
-    if (source.runtime === "terminal" && source.windows.length === 0) return;
+    if (!source || !target) return;
+    if (isLegacyTmuxSlot(source)) {
+      if (fromSlotIndex === toSlotIndex) return;
+      moveTabByDrag(fromSlotIndex, toSlotIndex + (toPaneIndex > 0 ? 1 : 0));
+      return;
+    }
+    if (source.windows.length === 0) return;
     if (fromSlotIndex === toSlotIndex && fromPaneIndex === toPaneIndex) return;
 
     const next = [...slots];
@@ -791,7 +894,7 @@ export default function SlotsSection({
       return;
     }
 
-    const targetWindows = editableWindowsForSlot(target);
+    const targetWindows = isLegacyTmuxSlot(target) ? [tmuxGroupWindowFromSlot(target)] : editableWindowsForSlot(target);
     const insertIndex = Math.min(Math.max(toPaneIndex, 0), targetWindows.length);
     targetWindows.splice(insertIndex, 0, moved);
     if (sourceWindows.length === 0) {
@@ -810,15 +913,25 @@ export default function SlotsSection({
     const slot = slots[slotIndex];
     if (!slot || !canDragPane(slot)) return;
     event.stopPropagation();
-    setPaneDrag({ slotIndex, paneIndex });
+    const nextDrag = { slotIndex, paneIndex };
+    paneDragRef.current = nextDrag;
+    setPaneDrag(nextDrag);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", `${slotIndex}:${paneIndex}`);
   }
 
+  function paneDragFromEvent(event: DragEvent<HTMLElement>): PaneDragState {
+    const payload = event.dataTransfer.getData("text/plain");
+    const match = payload.match(/^(\d+):(\d+)$/);
+    if (!match) return null;
+    return { slotIndex: Number(match[1]), paneIndex: Number(match[2]) };
+  }
+
   function handlePaneDragOver(event: DragEvent<HTMLElement>, slotIndex: number) {
     const target = slots[slotIndex];
-    const source = paneDrag ? slots[paneDrag.slotIndex] : null;
-    if (!paneDrag || !target || !source || target.runtime !== source.runtime) return;
+    const currentDrag = paneDragRef.current ?? paneDrag ?? paneDragFromEvent(event);
+    const source = currentDrag ? slots[currentDrag.slotIndex] : null;
+    if (!currentDrag || !target || !source) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }
@@ -826,16 +939,18 @@ export default function SlotsSection({
   function handlePaneDrop(event: DragEvent<HTMLElement>, slotIndex: number, paneIndex: number) {
     event.preventDefault();
     event.stopPropagation();
-    if (!paneDrag) return;
+    const currentDrag = paneDragRef.current ?? paneDrag ?? paneDragFromEvent(event);
+    if (!currentDrag) return;
     const target = slots[slotIndex];
     const rect = event.currentTarget.getBoundingClientRect();
-    const layout = target ? normalizedLayout(target, slotToPanes(target).length) : "horizontal";
+    const layout = target ? normalizedLayout(target, paneCount(target)) : "horizontal";
     const verticalDrop = layout === "vertical" || layout === "main-top";
     const after =
       verticalDrop
         ? event.clientY > rect.top + rect.height / 2
         : event.clientX > rect.left + rect.width / 2;
-    movePaneByDrag(paneDrag.slotIndex, paneDrag.paneIndex, slotIndex, paneIndex + (after ? 1 : 0));
+    movePaneByDrag(currentDrag.slotIndex, currentDrag.paneIndex, slotIndex, paneIndex + (after ? 1 : 0));
+    paneDragRef.current = null;
     setPaneDrag(null);
   }
 
@@ -843,32 +958,103 @@ export default function SlotsSection({
     event.preventDefault();
     event.stopPropagation();
     const target = slots[slotIndex];
-    const source = paneDrag ? slots[paneDrag.slotIndex] : null;
-    if (!paneDrag || !target || !source || target.runtime !== source.runtime) return;
-    movePaneByDrag(paneDrag.slotIndex, paneDrag.paneIndex, slotIndex, slotToPanes(target).length);
+    const currentDrag = paneDragRef.current ?? paneDrag ?? paneDragFromEvent(event);
+    const source = currentDrag ? slots[currentDrag.slotIndex] : null;
+    if (!currentDrag || !target || !source) return;
+    movePaneByDrag(currentDrag.slotIndex, currentDrag.paneIndex, slotIndex, paneCount(target));
+    paneDragRef.current = null;
     setPaneDrag(null);
   }
 
   function movePaneToTab() {
-    if (!selectedSlot || !selectedWindow) return;
-    const targetIndex = Number(moveTarget);
+    if (!selectedSlot || !selectedMovablePane) return;
+    const targetIndex = selectedMoveTargetIndex;
     const target = slots[targetIndex];
-    if (!target || target.runtime !== selectedSlot.runtime || targetIndex === normalizedSelection.slotIndex) return;
+    if (!target || targetIndex === normalizedSelection.slotIndex) return;
     const next = [...slots];
-    const sourceWindows = editableWindowsForSlot(selectedSlot);
-    const [moved] = sourceWindows.splice(normalizedSelection.windowIndex ?? 0, 1);
+    const sourceIndex = normalizedSelection.slotIndex;
+    const sourceIsLegacyTmuxGroup = isLegacyTmuxSlot(selectedSlot);
+    const sourceWindows = sourceIsLegacyTmuxGroup ? [] : editableWindowsForSlot(selectedSlot);
+    const moved = sourceIsLegacyTmuxGroup
+      ? tmuxGroupWindowFromSlot(selectedSlot)
+      : sourceWindows.splice(normalizedSelection.windowIndex ?? 0, 1)[0];
     if (!moved) return;
-    const targetWindows = editableWindowsForSlot(target);
-    if (sourceWindows.length === 0) {
-      next.splice(normalizedSelection.slotIndex, 1);
-      const adjustedTargetIndex = normalizedSelection.slotIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    const targetWindows = isLegacyTmuxSlot(target) ? [tmuxGroupWindowFromSlot(target)] : editableWindowsForSlot(target);
+    if (sourceIsLegacyTmuxGroup || sourceWindows.length === 0) {
+      next.splice(sourceIndex, 1);
+      const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
       next[adjustedTargetIndex] = slotWithWindows(target, [...targetWindows, moved]);
       replaceSlots(next, { slotIndex: adjustedTargetIndex, target: "pane", windowIndex: targetWindows.length });
       return;
     }
-    next[normalizedSelection.slotIndex] = slotWithWindows(selectedSlot, sourceWindows);
+    next[sourceIndex] = slotWithWindows(selectedSlot, sourceWindows);
     next[targetIndex] = slotWithWindows(target, [...targetWindows, moved]);
     replaceSlots(next, { slotIndex: targetIndex, target: "pane", windowIndex: targetWindows.length });
+  }
+
+  const selectedTmuxWindowList = selectedTmuxGroup
+    ? isLegacyTmuxSlot(selectedSlot)
+      ? selectedSlot.windows
+      : selectedWindow
+      ? tmuxGroupWindows(selectedWindow)
+      : []
+    : [];
+
+  function updateSelectedTmuxGroupName(value: string) {
+    if (!selectedSlot) return;
+    if (isLegacyTmuxSlot(selectedSlot)) {
+      updateSlot(normalizedSelection.slotIndex, { name: value });
+      return;
+    }
+    if (selectedWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { name: value });
+  }
+
+  function updateSelectedTmuxWindow(windowIndex: number, patch: Partial<WindowConfig>) {
+    if (!selectedSlot) return;
+    if (isLegacyTmuxSlot(selectedSlot)) {
+      updateWindow(windowIndex, patch);
+      return;
+    }
+    if (!selectedWindow) return;
+    const windows = tmuxGroupWindows(selectedWindow);
+    windows[windowIndex] = { ...windows[windowIndex], ...patch };
+    updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
+  }
+
+  function addSelectedTmuxWindow() {
+    if (!selectedSlot) return;
+    if (isLegacyTmuxSlot(selectedSlot)) {
+      const windows = [...selectedSlot.windows, emptyWindow(`window-${selectedSlot.windows.length + 1}`)];
+      updateSlot(normalizedSelection.slotIndex, { windows });
+      return;
+    }
+    if (!selectedWindow) return;
+    const windows = [...tmuxGroupWindows(selectedWindow), emptyWindow(`window-${tmuxGroupWindows(selectedWindow).length + 1}`)];
+    updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
+  }
+
+  function moveSelectedTmuxWindow(windowIndex: number, dir: number) {
+    const targetIndex = windowIndex + dir;
+    if (targetIndex < 0 || targetIndex >= selectedTmuxWindowList.length) return;
+    const windows = [...selectedTmuxWindowList];
+    const [moved] = windows.splice(windowIndex, 1);
+    if (!moved) return;
+    windows.splice(targetIndex, 0, moved);
+    if (isLegacyTmuxSlot(selectedSlot)) {
+      updateSlot(normalizedSelection.slotIndex, { windows });
+    } else if (selectedWindow) {
+      updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
+    }
+  }
+
+  function deleteSelectedTmuxWindow(windowIndex: number) {
+    if (selectedTmuxWindowList.length <= 1) return;
+    const windows = selectedTmuxWindowList.filter((_, index) => index !== windowIndex);
+    if (isLegacyTmuxSlot(selectedSlot)) {
+      updateSlot(normalizedSelection.slotIndex, { windows });
+    } else if (selectedWindow) {
+      updateWindow(normalizedSelection.windowIndex ?? 0, { windows });
+    }
   }
 
   const dupNames = slots
@@ -884,6 +1070,29 @@ export default function SlotsSection({
     selectedSlot.windows.length > 0 &&
     (normalizedSelection.windowIndex ?? 0) < selectedSlot.windows.length - 1
   );
+  const selectedTmuxGroupIsLegacy = Boolean(selectedTmuxGroup && isLegacyTmuxSlot(selectedSlot));
+  const canMoveSelectedGroupUp = selectedTmuxGroupIsLegacy
+    ? normalizedSelection.slotIndex > 0
+    : Boolean(selectedTmuxGroup && (normalizedSelection.windowIndex ?? 0) > 0);
+  const canMoveSelectedGroupDown = selectedTmuxGroupIsLegacy
+    ? normalizedSelection.slotIndex < slots.length - 1
+    : Boolean(selectedSlot && selectedTmuxGroup && (normalizedSelection.windowIndex ?? 0) < selectedSlot.windows.length - 1);
+
+  function moveSelectedTmuxGroup(dir: number) {
+    if (selectedTmuxGroupIsLegacy) {
+      moveTab(normalizedSelection.slotIndex, dir);
+      return;
+    }
+    movePane(dir);
+  }
+
+  function deleteSelectedTmuxGroup() {
+    if (selectedTmuxGroupIsLegacy) {
+      deleteTab(normalizedSelection.slotIndex);
+      return;
+    }
+    deletePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? 0);
+  }
 
   return (
     <section className="space-y-3 animate-stagger">
@@ -907,11 +1116,16 @@ export default function SlotsSection({
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3 items-start">
-              <div className="min-w-0 rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden">
-                <div className="px-3 py-2 border-b border-subtle flex items-center justify-between gap-3 bg-[var(--bg-card)]">
+              <div className="min-w-0 overflow-hidden rounded-lg border border-default bg-[var(--bg-elevated)]">
+                <div className="px-3 py-2.5 border-b border-subtle flex items-center justify-between gap-3 bg-[var(--bg-card)]">
                   <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-primary">{t("matrixCanvas")}</p>
-                    <p className="text-[11px] text-tertiary truncate">{t("matrixCanvasHint")}</p>
+                    <p className="text-[13px] font-semibold text-primary">{t("matrixCanvas")}</p>
+                    <p className="text-[11px] text-tertiary truncate">
+                      {t("configSlotSummary", {
+                        slots: slots.length,
+                        windows: slots.reduce((count, slot) => count + Math.max(slot.windows.length, 1), 0),
+                      })}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -922,7 +1136,7 @@ export default function SlotsSection({
                     {t("addTab")}
                   </button>
                 </div>
-                <div className="workspace-matrix-surface relative p-2 min-h-[300px]">
+                <div className="workspace-matrix-surface relative p-3 min-h-[300px]">
                   <div
                     className="absolute inset-0 opacity-[0.10] pointer-events-none"
                     style={{
@@ -931,15 +1145,12 @@ export default function SlotsSection({
                       backgroundSize: "28px 28px",
                     }}
                   />
-                  <div className="relative space-y-2">
+                  <div className="relative space-y-2.5">
                     {slots.map((slot, slotIndex) => {
                       const selectedTab = slotIndex === normalizedSelection.slotIndex;
                       const slotName = slot.name || t("unnamed");
                       const panes = slotToPanes(slot);
-                      const layout = slot.layout || "auto";
-                      const tabAgent = slot.runtime === "terminal" && slot.windows.length === 0
-                        ? slot.agent ?? null
-                        : panes.find((pane) => pane.agent)?.agent ?? null;
+                      const canvasPanes = slotToCanvasPanes(slot);
                       return (
                         <section
                           key={`${slot.name}-${slotIndex}`}
@@ -948,7 +1159,7 @@ export default function SlotsSection({
                           onDragOver={handleTabDragOver}
                           onDrop={(event) => handleTabDrop(event, slotIndex)}
                           onDragEnd={() => setTabDrag(null)}
-                          className={`rounded-md border bg-[var(--bg-card)] transition-all overflow-hidden ${
+                          className={`group/tab rounded-lg border bg-[var(--bg-card)] transition-all overflow-hidden shadow-sm ${
                             selectedTab
                               ? "border-[var(--accent-border)] shadow-[inset_3px_0_0_var(--accent)]"
                               : "border-default hover:border-[var(--border-strong)]"
@@ -956,37 +1167,56 @@ export default function SlotsSection({
                             tabDrag?.slotIndex === slotIndex ? "opacity-55" : ""
                           }`}
                         >
-                          <div className="grid grid-cols-1 lg:grid-cols-[132px_minmax(0,1fr)]">
+                          <div className="grid grid-cols-1 lg:grid-cols-[124px_minmax(0,1fr)]">
                             <button
                               type="button"
                               onClick={() => setSelection({ slotIndex, target: "tab", windowIndex: null })}
-                              className="workspace-tab-rail text-left p-2.5 border-b lg:border-b-0 lg:border-r border-subtle hover:bg-[var(--bg-hover)]/55 transition-colors"
+                              className={`workspace-tab-rail relative text-left p-2.5 border-b lg:border-b-0 lg:border-r border-subtle transition-colors ${
+                                selectedTab && normalizedSelection.target === "tab"
+                                  ? "bg-[var(--accent-bg)]/55"
+                                  : selectedTab
+                                  ? "bg-[var(--accent-bg)]/25"
+                                  : "hover:bg-[var(--bg-hover)]/55"
+                              }`}
                               aria-label={selectedTab ? t("collapseSlot", { name: slotName }) : t("expandSlot", { name: slotName })}
                             >
-                              <span className="block text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("tab")}</span>
-                              <span className="mt-0.5 flex items-center gap-1.5 text-[13px] font-semibold text-primary">
-                                <AgentMark agent={tabAgent} compact />
-                                <span className="truncate">{slotName}</span>
+                              <span className="flex items-start justify-between gap-2">
+                                <span className="min-w-0">
+                                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("tab")}</span>
+                                  <span className="mt-0.5 block truncate text-[13px] font-semibold text-primary">{slotName}</span>
+                                </span>
+                                <span
+                                  className="mt-0.5 inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted"
+                                  title={t("dragTab")}
+                                  aria-hidden="true"
+                                >
+                                  <GripVertical className="h-3.5 w-3.5" />
+                                </span>
                               </span>
                               <span className="block mt-0.5 text-[10px] text-tertiary truncate">{tabSummary(t, slot)}</span>
-                              <span className="mt-1.5 flex items-center justify-between gap-2">
-                                <span className="inline-flex rounded-md border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
-                                  {layoutLabel(t, layout)}
-                                </span>
-                                <ChevronsUpDown className="w-3.5 h-3.5 text-muted cursor-grab active:cursor-grabbing" aria-hidden="true" />
-                              </span>
+                              {selectedTab && normalizedSelection.target === "tab" && (
+                                <span
+                                  className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-[var(--accent)]"
+                                  aria-hidden="true"
+                                />
+                              )}
                             </button>
 
-                            <div className="min-w-0 p-2">
+                            <div className="min-w-0 p-2.5">
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--bg-hover)]/70 px-2 py-1 text-[10px] font-semibold text-tertiary">
-                                    <RuntimeIcon runtime={slot.runtime} className="w-3 h-3 text-[var(--accent)]" />
-                                    {runtimeLabel(t, slot.runtime)}
+                                  <span className="text-[11px] font-medium text-tertiary truncate">
+                                    {isLegacyTmuxSlot(slot)
+                                      ? countText(t, "tmuxGroupCount_one", "tmuxGroupCount", 1)
+                                      : paneCountText(t, paneCount(slot))}
                                   </span>
-                                  <span className="text-[11px] text-tertiary truncate">{t("tabSummaryPanes", { count: paneCount(slot) })}</span>
+                                  {isLegacyTmuxSlot(slot) && (
+                                    <span className="text-[11px] text-tertiary truncate">
+                                      · {countText(t, "tmuxWindowCount_one", "tmuxWindowCount", panes.length)}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0 opacity-70 transition-opacity group-hover/tab:opacity-100 focus-within:opacity-100">
                                   <button
                                     type="button"
                                     onClick={() => addPaneToSlot(slotIndex, slotToPanes(slot).length - 1)}
@@ -995,34 +1225,6 @@ export default function SlotsSection({
                                     title={t("addPane")}
                                   >
                                     <Plus className="w-3.5 h-3.5" />
-                                  </button>
-                                  {(slot.runtime === "tmux" || panes.length > 1) && (
-                                    <LayoutPicker
-                                      value={layout}
-                                      options={layoutOptions}
-                                      onChange={(value) => setSlotLayout(slotIndex, value)}
-                                      compact
-                                    />
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => moveTab(slotIndex, -1)}
-                                    disabled={slotIndex === 0}
-                                    className="icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover disabled:opacity-30 flex items-center justify-center"
-                                    aria-label={t("moveSlotUp", { name: slotName })}
-                                    title={t("moveSlotUp", { name: slotName })}
-                                  >
-                                    <ChevronUp className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => moveTab(slotIndex, 1)}
-                                    disabled={slotIndex === slots.length - 1}
-                                    className="icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover disabled:opacity-30 flex items-center justify-center"
-                                    aria-label={t("moveSlotDown", { name: slotName })}
-                                    title={t("moveSlotDown", { name: slotName })}
-                                  >
-                                    <ChevronDown className="w-3 h-3" />
                                   </button>
                                   <button
                                     type="button"
@@ -1037,46 +1239,24 @@ export default function SlotsSection({
                               </div>
 
                               <div className="space-y-2">
-                                {slot.runtime === "tmux" && (
-                                  <div className="rounded-md border border-subtle bg-[var(--bg-hover)]/35 px-2.5 py-2">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                                        <PanelsTopLeft className="w-3 h-3 text-[var(--accent)]" />
-                                        {t("tmuxWindowStack")}
-                                      </span>
-                                      <span className="text-[10px] text-tertiary">{t("tmuxWindowCount", { count: panes.length })}</span>
-                                    </div>
-                                    <div className="mt-1.5 flex flex-wrap gap-1">
-                                      {panes.map((pane, paneIndex) => (
-                                        <span
-                                          key={`${pane.name}-${paneIndex}-chip`}
-                                          className="inline-flex items-center gap-1 rounded-md border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-secondary"
-                                        >
-                                          <AgentMark agent={pane.agent} compact />
-                                          <span className="truncate max-w-[120px]">{pane.name || t("unnamed")}</span>
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
                                 <div
-                                  className="grid gap-1.5 min-h-[78px]"
-                                  style={paneGridStyle(slot, panes)}
+                                  className="grid gap-2 min-h-[74px]"
+                                  style={paneGridStyle(slot, canvasPanes as unknown as WindowConfig[])}
                                   onDragOver={(event) => handlePaneDragOver(event, slotIndex)}
                                   onDrop={(event) => handlePaneAppendDrop(event, slotIndex)}
                                 >
-                                  {panes.map((pane, paneIndex) => {
+                                  {canvasPanes.map((pane, paneIndex) => {
                                     const selectedPane =
                                       selectedTab &&
                                       normalizedSelection.target === "pane" &&
-                                      (slot.runtime === "terminal" && slot.windows.length === 0
+                                      (slot.runtime === "tmux"
+                                        ? normalizedSelection.windowIndex === null
+                                        : slot.runtime === "terminal" && slot.windows.length === 0
                                         ? normalizedSelection.windowIndex === null
                                         : normalizedSelection.windowIndex === paneIndex);
-                                    const paneName = slot.runtime === "terminal" && slot.windows.length === 0
-                                      ? terminalPaneName(slot)
-                                      : pane.name || t("unnamed");
+                                    const paneName = pane.name || t("unnamed");
                                     const cwdLabel = pane.cwd || slot.cwd || "";
-                                    const paneAgent = slot.runtime === "terminal" && slot.windows.length === 0 ? slot.agent ?? null : pane.agent ?? null;
+                                    const paneAgent = pane.agent ?? null;
                                     const paneIsDraggable = canDragPane(slot);
                                     return (
                                       <div
@@ -1086,123 +1266,100 @@ export default function SlotsSection({
                                         onClick={() => setSelection({
                                           slotIndex,
                                           target: "pane",
-                                          windowIndex: slot.windows.length > 0 || slot.runtime === "tmux" ? paneIndex : null,
+                                          windowIndex: pane.windowIndex,
                                         })}
                                         draggable={paneIsDraggable}
                                         onDragStart={(event) => handlePaneDragStart(event, slotIndex, paneIndex)}
                                         onDragOver={(event) => handlePaneDragOver(event, slotIndex)}
                                         onDrop={(event) => handlePaneDrop(event, slotIndex, paneIndex)}
-                                        onDragEnd={() => setPaneDrag(null)}
+                                        onDragEnd={() => {
+                                          paneDragRef.current = null;
+                                          setPaneDrag(null);
+                                        }}
                                         onKeyDown={(event) => {
                                           if (event.key === "Enter" || event.key === " ") {
                                             event.preventDefault();
                                             setSelection({
                                               slotIndex,
                                               target: "pane",
-                                              windowIndex: slot.windows.length > 0 || slot.runtime === "tmux" ? paneIndex : null,
+                                              windowIndex: pane.windowIndex,
                                             });
                                           }
                                         }}
-                                        className={`workspace-pane-card group/pane relative min-h-[72px] rounded-md border p-2.5 text-left transition-all ${
+                                        className={`workspace-pane-card group/pane relative min-h-[68px] overflow-hidden rounded-md border p-2.5 text-left transition-all ${
                                           selectedPane
-                                            ? "border-[var(--accent-border)] bg-[var(--accent-bg)]"
-                                            : "border-default hover:border-[var(--border-strong)]"
+                                            ? "border-[var(--accent-border)] bg-[var(--accent-bg)] shadow-[0_0_0_3px_var(--accent-bg),0_10px_24px_rgba(15,23,42,0.08)]"
+                                            : pane.kind === "tmux-group"
+                                            ? "border-[var(--accent-border)] bg-[var(--accent-bg)]/35 hover:border-[var(--accent)]"
+                                            : "border-default bg-[var(--bg-card)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]/45"
                                         } ${
                                           paneDrag?.slotIndex === slotIndex && paneDrag.paneIndex === paneIndex
                                             ? "opacity-55"
                                             : ""
                                         }`}
-                                        style={paneCellStyle(slot, panes, paneIndex)}
+                                        style={paneCellStyle(slot, canvasPanes as unknown as WindowConfig[], paneIndex)}
                                         aria-label={t("expandWindow", { name: paneName })}
                                       >
-                                      <span className="flex items-start justify-between gap-2 pr-14">
+                                      {selectedPane && (
+                                        <span
+                                          className="pointer-events-none absolute inset-y-2 left-2 w-0.5 rounded-full bg-[var(--accent)]"
+                                          aria-hidden="true"
+                                        />
+                                      )}
+                                      <span className="relative flex items-start justify-between gap-2 pl-1.5">
                                         <span className="flex min-w-0 items-start gap-2">
                                           <AgentMark agent={paneAgent} />
                                           <span className="min-w-0">
                                             <span className="block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                                              {slot.runtime === "tmux" ? t("tmuxWindow") : t("pane")}
+                                              {pane.kind === "tmux-group" ? t("tmuxWindowStack") : t("pane")}
                                             </span>
                                             <span className="block mt-0.5 text-[13px] font-semibold text-primary truncate">{paneName}</span>
                                           </span>
                                         </span>
-                                        {!paneIsDraggable ? (
-                                          <SquareTerminal className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden="true" />
-                                        ) : (
-                                          <ChevronsUpDown className="w-4 h-4 text-tertiary shrink-0 cursor-grab active:cursor-grabbing" aria-label={t("dragPane")} />
-                                        )}
+                                        <span className="flex shrink-0 items-center gap-1.5">
+                                          {!paneIsDraggable ? (
+                                            <SquareTerminal className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden="true" />
+                                          ) : (
+                                          <span
+                                            className="inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted cursor-grab active:cursor-grabbing"
+                                            title={t("dragPane")}
+                                          >
+                                            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                                          </span>
+                                          )}
+                                        </span>
                                       </span>
-                                      <span className="mt-2 block text-[12px] text-secondary truncate">
-                                        {slot.runtime === "terminal" && slot.windows.length === 0 ? terminalPaneSummary(t, slot) : paneSummary(t, pane)}
+                                      <span className="relative mt-2 block pl-1.5 text-[12px] text-secondary truncate">
+                                        {pane.kind === "tmux-group"
+                                          ? countText(
+                                              t,
+                                              "tmuxWindowGroupSummary_one",
+                                              "tmuxWindowGroupSummary",
+                                              isLegacyTmuxSlot(slot)
+                                                ? panes.length
+                                                : tmuxGroupWindows(slot.windows[pane.windowIndex ?? paneIndex]).length
+                                            )
+                                          : slot.runtime === "terminal" && slot.windows.length === 0 ? terminalPaneSummary(t, slot) : paneSummary(t, panes[pane.windowIndex ?? paneIndex])}
                                       </span>
-                                      {cwdLabel && cwdLabel !== "." && (
-                                        <span className="mt-0.5 block text-[10px] text-tertiary font-mono truncate">
-                                          {cwdLabel}
+                                      {pane.kind === "tmux-group" && (
+                                        <span className="relative mt-2 flex flex-wrap gap-1 pl-1.5">
+                                          {(isLegacyTmuxSlot(slot)
+                                            ? panes
+                                            : tmuxGroupWindows(slot.windows[pane.windowIndex ?? paneIndex])
+                                          ).map((window, windowIndex) => (
+                                            <span
+                                              key={`${window.name}-${windowIndex}-chip`}
+                                              className="inline-flex min-w-0 items-center gap-1 rounded-md border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-secondary"
+                                            >
+                                              <AgentMark agent={window.agent} compact />
+                                              <span className="truncate max-w-[120px]">{window.name || t("unnamed")}</span>
+                                            </span>
+                                          ))}
                                         </span>
                                       )}
-                                      {canDragPane(slot) && (
-                                        <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-default bg-[var(--bg-card)]/95 p-0.5 opacity-0 shadow-sm transition-opacity group-hover/pane:opacity-100 group-focus-within/pane:opacity-100">
-                                          <button
-                                            type="button"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              addPaneToSlot(slotIndex, paneIndex);
-                                            }}
-                                            className="icon-touch sm:min-h-6 sm:min-w-6 rounded text-[11px] text-secondary hover:text-primary hover:bg-[var(--bg-hover)] flex items-center justify-center"
-                                            aria-label={t("splitPane")}
-                                            title={t("splitPane")}
-                                          >
-                                            +
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              movePaneAtSlot(slotIndex, paneIndex, -1);
-                                            }}
-                                            disabled={paneIndex === 0}
-                                            className="icon-touch sm:min-h-6 sm:min-w-6 rounded text-[11px] text-secondary hover:text-primary hover:bg-[var(--bg-hover)] flex items-center justify-center disabled:opacity-35"
-                                            aria-label={t("moveWindowUp", { name: paneName })}
-                                            title={t("moveWindowUp", { name: paneName })}
-                                          >
-                                            ↑
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              movePaneAtSlot(slotIndex, paneIndex, 1);
-                                            }}
-                                            disabled={paneIndex === panes.length - 1}
-                                            className="icon-touch sm:min-h-6 sm:min-w-6 rounded text-[11px] text-secondary hover:text-primary hover:bg-[var(--bg-hover)] flex items-center justify-center disabled:opacity-35"
-                                            aria-label={t("moveWindowDown", { name: paneName })}
-                                            title={t("moveWindowDown", { name: paneName })}
-                                          >
-                                            ↓
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              duplicatePaneAtSlot(slotIndex, paneIndex);
-                                            }}
-                                            className="icon-touch sm:min-h-6 sm:min-w-6 rounded text-[11px] text-secondary hover:text-primary hover:bg-[var(--bg-hover)] flex items-center justify-center"
-                                            aria-label={t("duplicatePane")}
-                                            title={t("duplicatePane")}
-                                          >
-                                            ⧉
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              deletePaneAtSlot(slotIndex, paneIndex);
-                                            }}
-                                            className="icon-touch sm:min-h-6 sm:min-w-6 rounded text-[11px] text-[var(--danger)] hover:bg-[var(--danger-bg)] flex items-center justify-center"
-                                            aria-label={t("removeWindow", { name: paneName })}
-                                            title={t("removeWindow", { name: paneName })}
-                                          >
-                                            ×
-                                          </button>
+                                      {cwdLabel && cwdLabel !== "." && (
+                                        <span className="relative mt-0.5 block pl-1.5 text-[10px] text-tertiary font-mono truncate">
+                                          {cwdLabel}
                                         </span>
                                       )}
                                       </div>
@@ -1231,17 +1388,31 @@ export default function SlotsSection({
                 <aside className="rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden xl:sticky xl:top-3">
                   <div className="px-3 py-3 border-b border-subtle bg-[var(--bg-card)]">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("inspector")}</p>
-                    <h3 className="mt-1 text-[15px] font-semibold text-primary">
-                      {editingPane ? t("selectedPane") : t("selectedTab")}
-                    </h3>
+                    <div className="mt-1 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-[15px] font-semibold text-primary">
+                          {editingPane ? t("selectedPane") : t("selectedTab")}
+                        </h3>
+                        <p className="mt-0.5 truncate text-[11px] text-tertiary">
+                          {editingPane
+                            ? selectedTmuxGroup
+                              ? selectedSlot.name || t("unnamed")
+                              : selectedWindow?.name ?? selectedSlot.title ?? selectedSlot.name
+                            : selectedSlot.name || t("unnamed")}
+                        </p>
+                      </div>
+                      <span className="inline-flex shrink-0 items-center rounded-md border border-default bg-[var(--bg-hover)] px-2 py-1 text-[10px] font-semibold text-tertiary">
+                        {selectedTmuxGroup ? t("tmuxWindowStack") : editingPane ? t("pane") : t("tab")}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="p-3 space-y-4">
+                  <div className="p-3 space-y-3">
                     {!editingPane && (
-                    <section className="space-y-2.5">
+                    <section className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("tab")}</p>
-                        <span className="text-[10px] text-tertiary">{runtimeLabel(t, selectedSlot.runtime)}</span>
+                        <span className="text-[10px] text-tertiary">{t("tabGroup")}</span>
                       </div>
                       <div>
                         <FieldLabel required>{t("tabName")}</FieldLabel>
@@ -1254,29 +1425,6 @@ export default function SlotsSection({
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2.5">
                         <div>
-                          <FieldLabel>{t("runtime")}</FieldLabel>
-                          <SelectInput
-                            value={selectedSlot.runtime}
-                            onChange={(value) => setRuntime(value as SlotConfig["runtime"])}
-                            options={[
-                              {
-                                value: "tmux",
-                                label: tmuxUnavailable ? `Tmux (${t("unavailable")})` : "Tmux",
-                                disabled: tmuxUnavailable,
-                              },
-                              { value: "terminal", label: t("openTerminal") },
-                            ]}
-                          />
-                        </div>
-                        <div>
-                          <FieldLabel>{t("workingDirectory")}</FieldLabel>
-                          <TextInput
-                            value={selectedSlot.cwd}
-                            onChange={(value) => updateSlot(normalizedSelection.slotIndex, { cwd: value })}
-                            placeholder="."
-                          />
-                        </div>
-                        <div>
                           <FieldLabel>{t("tabLayout")}</FieldLabel>
                           <LayoutPicker
                             value={selectedSlot.layout || "auto"}
@@ -1285,25 +1433,16 @@ export default function SlotsSection({
                           />
                         </div>
                       </div>
-                      <details className="group rounded-md border border-default bg-[var(--bg-card)]">
-                        <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
-                          <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-                          {t("environmentVariables")}
-                        </summary>
-                        <div className="px-3 pb-3 pt-1">
-                          <KeyValueList
-                            items={selectedSlot.env}
-                            onChange={(env) => updateSlot(normalizedSelection.slotIndex, { env })}
-                          />
-                        </div>
-                      </details>
                     </section>
                     )}
 
                     {editingPane && (
-                    <section className="space-y-2.5 pt-3 border-t border-default">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("pane")}</p>
-                      {selectedSlot.runtime === "terminal" ? (
+                    <section className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("pane")}</p>
+                        <span className="text-[10px] text-tertiary">{runtimeLabel(t, selectedSlot.runtime)}</span>
+                      </div>
+	                      {selectedSlot.runtime === "terminal" && !selectedTmuxGroup ? (
                         <div className="space-y-2.5">
                           <div>
                             <FieldLabel>{t("title")}</FieldLabel>
@@ -1325,12 +1464,13 @@ export default function SlotsSection({
                                   updateWindow(normalizedSelection.windowIndex ?? 0, {
                                     agent: value || null,
                                     command: value ? null : selectedTerminalWindow.command,
+                                    session: value ? selectedTerminalWindow.session ?? "auto" : null,
                                   });
                                 } else {
                                   updateSlot(normalizedSelection.slotIndex, {
                                     agent: value || undefined,
                                     command: value ? undefined : selectedSlot.command,
-                                    session_id: value ? selectedSlot.session_id : undefined,
+                                    session: value ? selectedSlot.session ?? "auto" : undefined,
                                   });
                                 }
                               }}
@@ -1339,16 +1479,15 @@ export default function SlotsSection({
                           </div>
                           {(selectedTerminalWindow?.agent ?? selectedSlot.agent) ? (
                             <div>
-                              <FieldLabel>{t("sessionId")}</FieldLabel>
-                              <SessionIdInput
-                                value={selectedTerminalWindow?.session_id ?? selectedSlot.session_id ?? ""}
+                              <FieldLabel>{t("agentSession")}</FieldLabel>
+                              <SessionInput
+                                value={selectedTerminalWindow?.session ?? selectedTerminalWindow?.session_id ?? selectedSlot.session ?? selectedSlot.session_id ?? "auto"}
                                 onChange={(value) => {
-                                  if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { session_id: value || null });
-                                  else updateSlot(normalizedSelection.slotIndex, { session_id: value || undefined });
+                                  if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { session: value || null, session_id: null });
+                                  else updateSlot(normalizedSelection.slotIndex, { session: value || undefined, session_id: undefined });
                                 }}
                                 agent={selectedTerminalWindow?.agent ?? selectedSlot.agent}
-                                sessions={agentSessions}
-                                loading={agentSessionsLoading}
+                                scope={scope}
                               />
                             </div>
                           ) : (
@@ -1364,6 +1503,189 @@ export default function SlotsSection({
                               />
                             </div>
                           )}
+                          <details className="group rounded-md border border-default bg-[var(--bg-card)]">
+                            <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
+                              <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                              {t("advanced")}
+                            </summary>
+                            <div className="px-3 pb-3 pt-1 space-y-2.5">
+                              <div>
+                                <FieldLabel>{t("workingDirectory")}</FieldLabel>
+                                <TextInput
+                                  value={selectedTerminalWindow?.cwd ?? selectedSlot.cwd ?? ""}
+                                  onChange={(value) => {
+                                    if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { cwd: value || null });
+                                    else updateSlot(normalizedSelection.slotIndex, { cwd: value || "." });
+                                  }}
+                                  placeholder="."
+                                />
+                              </div>
+                              <div>
+                                <FieldLabel>{t("environmentVariables")}</FieldLabel>
+                                <KeyValueList
+                                  items={selectedTerminalWindow?.env ?? selectedSlot.env}
+                                  onChange={(env) => {
+                                    if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { env });
+                                    else updateSlot(normalizedSelection.slotIndex, { env });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                      ) : selectedTmuxGroup ? (
+                        <div className="space-y-3">
+                          <div>
+	                            <FieldLabel required>{t("paneName")}</FieldLabel>
+	                            <TextInput
+	                              value={isLegacyTmuxSlot(selectedSlot) ? selectedSlot.name : selectedWindow?.name ?? ""}
+	                              onChange={updateSelectedTmuxGroupName}
+	                              placeholder="tmux"
+	                              invalid={!(isLegacyTmuxSlot(selectedSlot) ? selectedSlot.name : selectedWindow?.name ?? "").trim()}
+	                            />
+                          </div>
+                          <div className="rounded-md border border-default bg-[var(--bg-hover)]/30 p-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+	                                <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("tmuxWindows")}</p>
+	                                <p className="mt-0.5 text-[11px] text-tertiary">
+	                                  {countText(t, "tmuxWindowGroupSummary_one", "tmuxWindowGroupSummary", selectedTmuxWindowList.length)}
+	                                </p>
+                              </div>
+                              <button
+                                type="button"
+	                                onClick={addSelectedTmuxWindow}
+                                className="control-touch rounded-md border border-default bg-[var(--bg-card)] px-2.5 text-[11px] font-semibold text-secondary hover:border-[var(--border-strong)] hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                              >
+                                <Plus className="h-3.5 w-3.5 text-tertiary" />
+                                {t("addTmuxWindow")}
+                              </button>
+                            </div>
+                            <div className="mt-2 space-y-2">
+	                              {selectedTmuxWindowList.map((window, windowIndex) => (
+                                <div
+                                  key={`${window.name}-${windowIndex}-detail`}
+                                  className="rounded-md border border-default bg-[var(--bg-card)] p-2 shadow-sm"
+                                >
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <AgentMark agent={window.agent} compact />
+                                      <div className="min-w-0">
+                                        <p className="truncate text-[12px] font-semibold text-primary">{window.name || t("unnamed")}</p>
+                                        <p className="truncate text-[10px] text-tertiary">{window.agent ? displayAgentName(window.agent) : window.command || "$SHELL"}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                      <button
+                                        type="button"
+	                                        onClick={() => moveSelectedTmuxWindow(windowIndex, -1)}
+                                        disabled={windowIndex === 0}
+                                        className="icon-touch sm:min-h-7 sm:min-w-7 rounded-md text-tertiary hover:bg-[var(--bg-hover)] hover:text-primary disabled:opacity-30"
+                                        aria-label={t("moveUp")}
+                                        title={t("moveUp")}
+                                      >
+                                        <ArrowUp className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+	                                        onClick={() => moveSelectedTmuxWindow(windowIndex, 1)}
+	                                        disabled={windowIndex >= selectedTmuxWindowList.length - 1}
+                                        className="icon-touch sm:min-h-7 sm:min-w-7 rounded-md text-tertiary hover:bg-[var(--bg-hover)] hover:text-primary disabled:opacity-30"
+                                        aria-label={t("moveDown")}
+                                        title={t("moveDown")}
+                                      >
+                                        <ArrowDown className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+	                                        onClick={() => deleteSelectedTmuxWindow(windowIndex)}
+	                                        disabled={selectedTmuxWindowList.length <= 1}
+                                        className="icon-touch sm:min-h-7 sm:min-w-7 rounded-md text-tertiary hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-30"
+                                        aria-label={t("removeTmuxWindow")}
+                                        title={t("removeTmuxWindow")}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    <div>
+                                      <FieldLabel required>{t("tmuxWindow")}</FieldLabel>
+                                      <TextInput
+                                        value={window.name}
+	                                        onChange={(value) => updateSelectedTmuxWindow(windowIndex, { name: value })}
+                                        placeholder="main"
+                                        invalid={!window.name.trim()}
+                                      />
+                                    </div>
+                                    <div>
+                                      <FieldLabel>{t("agent")}</FieldLabel>
+                                      <SelectInput
+                                        value={window.agent ?? ""}
+	                                        onChange={(value) => updateSelectedTmuxWindow(windowIndex, {
+                                          agent: value || null,
+                                          command: value ? null : window.command,
+                                          session: value ? window.session ?? "auto" : null,
+                                        })}
+                                        options={agentOptions}
+                                      />
+                                    </div>
+                                    {window.agent ? (
+                                      <div>
+                                        <FieldLabel>{t("agentSession")}</FieldLabel>
+                                        <SessionInput
+                                          value={window.session ?? window.session_id ?? "auto"}
+	                                          onChange={(value) => updateSelectedTmuxWindow(windowIndex, { session: value || null, session_id: null })}
+                                          agent={window.agent}
+                                          scope={scope}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <FieldLabel>{t("shellCommand")}</FieldLabel>
+                                        <TextInput
+                                          value={window.command ?? ""}
+	                                          onChange={(value) => updateSelectedTmuxWindow(windowIndex, { command: value || null })}
+                                          placeholder="$SHELL"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <details className="group mt-2 rounded-md border border-subtle bg-[var(--bg-hover)]/25">
+                                    <summary className="flex items-center gap-2 px-2.5 py-2 cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
+                                      <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                                      {t("advanced")}
+                                    </summary>
+                                    <div className="px-2.5 pb-2.5 pt-0 space-y-2.5">
+                                      <div>
+                                        <FieldLabel>{t("workingDirectory")}</FieldLabel>
+                                        <TextInput
+                                          value={window.cwd ?? ""}
+	                                          onChange={(value) => updateSelectedTmuxWindow(windowIndex, { cwd: value || null })}
+                                          placeholder={t("relativeToSlotCwd")}
+                                        />
+                                      </div>
+                                      <div>
+                                        <FieldLabel>{t("label")}</FieldLabel>
+                                        <TextInput
+                                          value={window.label ?? ""}
+	                                          onChange={(value) => updateSelectedTmuxWindow(windowIndex, { label: value || null })}
+                                          placeholder={t("overrideLabel")}
+                                        />
+                                      </div>
+                                      <div>
+                                        <FieldLabel>{t("environmentVariables")}</FieldLabel>
+                                        <KeyValueList
+                                          items={window.env}
+	                                          onChange={(env) => updateSelectedTmuxWindow(windowIndex, { env })}
+                                        />
+                                      </div>
+                                    </div>
+                                  </details>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       ) : selectedWindow ? (
                         <div className="space-y-2.5">
@@ -1380,18 +1702,20 @@ export default function SlotsSection({
                             <FieldLabel>{t("agent")}</FieldLabel>
                             <SelectInput
                               value={selectedWindow.agent ?? ""}
-                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { agent: value || null })}
+                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, {
+                                agent: value || null,
+                                session: value ? selectedWindow.session ?? "auto" : null,
+                              })}
                               options={agentOptions}
                             />
                           </div>
                           <div>
-                            <FieldLabel>{t("sessionId")}</FieldLabel>
-                            <SessionIdInput
-                              value={selectedWindow.session_id ?? ""}
-                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { session_id: value || null })}
+                            <FieldLabel>{t("agentSession")}</FieldLabel>
+                            <SessionInput
+                              value={selectedWindow.session ?? selectedWindow.session_id ?? "auto"}
+                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { session: value || null, session_id: null })}
                               agent={selectedWindow.agent}
-                              sessions={agentSessions}
-                              loading={agentSessionsLoading}
+                              scope={scope}
                             />
                           </div>
                           <details className="group rounded-md border border-default bg-[var(--bg-card)]">
@@ -1442,69 +1766,144 @@ export default function SlotsSection({
                     </section>
                     )}
 
-                    {editingPane ? (
-                    <section className="space-y-2.5 pt-3 border-t border-default">
+                    {selectedTmuxGroup ? (
+                    <section className="space-y-3 pt-3 border-t border-default">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("groupPosition")}</p>
+                        <p className="mt-0.5 text-[11px] text-tertiary">{t("groupPositionHint")}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => moveSelectedTmuxGroup(-1)}
+                          disabled={!canMoveSelectedGroupUp}
+                          className="min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-35 disabled:hover:bg-[var(--bg-card)]"
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <ArrowUp className="h-3.5 w-3.5 text-tertiary" />
+                            {t("moveUp")}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSelectedTmuxGroup(1)}
+                          disabled={!canMoveSelectedGroupDown}
+                          className="min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-35 disabled:hover:bg-[var(--bg-card)]"
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <ArrowDown className="h-3.5 w-3.5 text-tertiary" />
+                            {t("moveDown")}
+                          </span>
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={deleteSelectedTmuxGroup}
+                        className="w-full control-touch rounded-md border border-[var(--danger)]/20 text-[12px] text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {t("removeGroup")}
+                      </button>
+                    </section>
+                    ) : null}
+
+                    {editingPane && !selectedTmuxGroup ? (
+                    <section className="space-y-3 pt-3 border-t border-default">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("scheduling")}</p>
                         <p className="mt-0.5 text-[11px] text-tertiary">{t("canvasSchedulingHint")}</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-1.5">
                         <button
                           type="button"
                           onClick={() => splitSelectedPane("horizontal")}
-                          className="control-touch rounded-md border border-default text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors"
+                          className="min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors"
                         >
-                          {t("splitRight")}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Plus className="h-3.5 w-3.5 text-tertiary" />
+                            {t("splitRight")}
+                          </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => splitSelectedPane("vertical")}
-                          className="control-touch rounded-md border border-default text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors"
+                          className="min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors"
                         >
-                          {t("splitDown")}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Plus className="h-3.5 w-3.5 text-tertiary" />
+                            {t("splitDown")}
+                          </span>
                         </button>
                         <button
                           type="button"
                           onClick={duplicatePane}
-                          className="control-touch rounded-md border border-default text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors"
+                          className="col-span-2 min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors"
                         >
-                          {t("duplicatePane")}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Copy className="h-3.5 w-3.5 text-tertiary" />
+                            {t("duplicatePane")}
+                          </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => movePane(-1)}
                           disabled={!canMoveSelectedPaneUp}
-                          className="control-touch rounded-md border border-default text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors disabled:opacity-40"
+                          className="min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-35 disabled:hover:bg-[var(--bg-card)]"
                         >
-                          {t("moveUp")}
+                          <span className="inline-flex items-center gap-1.5">
+                            <ArrowUp className="h-3.5 w-3.5 text-tertiary" />
+                            {t("moveUp")}
+                          </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => movePane(1)}
                           disabled={!canMoveSelectedPaneDown}
-                          className="control-touch rounded-md border border-default text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors disabled:opacity-40"
+                          className="min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-35 disabled:hover:bg-[var(--bg-card)]"
                         >
-                          {t("moveDown")}
+                          <span className="inline-flex items-center gap-1.5">
+                            <ArrowDown className="h-3.5 w-3.5 text-tertiary" />
+                            {t("moveDown")}
+                          </span>
                         </button>
                       </div>
-                      {selectedWindow && slots.length > 1 && (
-                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    </section>
+                    ) : null}
+
+                    {editingPane && selectedMovablePane && slots.length > 1 ? (
+                    <section className="space-y-3 pt-3 border-t border-default">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("moveToTab")}</p>
+                        <p className="mt-0.5 text-[11px] text-tertiary">{t("moveToTabHint")}</p>
+                      </div>
+                      {moveTargetOptions.length > 0 ? (
+                        <div className="space-y-2">
                           <SelectInput
                             value={moveTarget}
                             onChange={setMoveTarget}
-                            options={tabOptions}
+                            options={moveTargetOptions}
                             ariaLabel={t("moveToTab")}
                           />
                           <button
                             type="button"
                             onClick={movePaneToTab}
-                            disabled={Number(moveTarget) === normalizedSelection.slotIndex || slots[Number(moveTarget)]?.runtime !== selectedSlot.runtime}
-                            className="control-touch px-3 rounded-md bg-[var(--accent-bg)] text-[var(--accent)] text-[12px] font-semibold border border-[var(--accent-border)] disabled:opacity-40"
+                            disabled={!canMovePaneToSelectedTab}
+                            className="w-full control-touch rounded-md bg-[var(--accent-bg)] text-[var(--accent)] text-[12px] font-semibold border border-[var(--accent-border)] disabled:opacity-40 flex items-center justify-center gap-1.5"
                           >
+                            <MoveRight className="h-3.5 w-3.5" />
                             {t("move")}
                           </button>
                         </div>
+                      ) : (
+                        <div className="rounded-md border border-dashed border-default bg-[var(--bg-hover)]/35 px-3 py-2 text-[11px] text-tertiary">
+                          {t("noCompatibleTabs")}
+                        </div>
                       )}
+                    </section>
+                    ) : null}
+
+                    {editingPane && !selectedTmuxGroup ? (
+                    <section className="space-y-2.5 pt-3 border-t border-default">
                       <button
                         type="button"
                         onClick={deletePane}

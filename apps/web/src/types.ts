@@ -10,6 +10,17 @@ export interface WindowInfo {
   agent: string | null;
   command: string;
   session_id: string | null;
+  session_intent?: "auto" | "fresh" | "explicit" | string;
+  session_binding_status?:
+    | "none"
+    | "bound"
+    | "fresh"
+    | "will_create"
+    | "pending_capture"
+    | "ambiguous"
+    | string;
+  session_binding_source?: string | null;
+  session_binding_updated_at?: string | null;
   label: string | null;
   cwd: string;
   status?: "running" | "stopped" | "external";
@@ -20,6 +31,7 @@ export interface WindowInfo {
 export interface SlotInfo {
   name: string;
   runtime: string;
+  layout?: string;
   status: "running" | "stopped" | "external";
   session_name: string;
   windows: WindowInfo[];

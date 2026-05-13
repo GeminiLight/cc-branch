@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, Plus, Settings, X } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import type { APIClient } from "../api/client";
+import type { WorkspaceStatus } from "../types";
 import type { ProjectItem } from "../stores/projectStore";
 import { useI18n } from "../i18n";
 import logoUrl from "../assets/logo/logo.svg";
@@ -39,6 +40,25 @@ function statusDotClass(status: ProjectStatus["status"] | undefined): string {
   if (status === "stopped") return "bg-[var(--text-tertiary)]";
   if (status === "no_config") return "bg-[var(--warning)]";
   return "bg-[var(--danger)]";
+}
+
+function statusFromWorkspace(data: WorkspaceStatus | undefined): ProjectStatus | undefined {
+  if (!data) return undefined;
+  if (data.status === "needs_init" || data.status === "missing") {
+    return { status: "no_config", runningCount: 0, totalCount: 0 };
+  }
+  if (data.status === "invalid_config") {
+    return { status: "error", runningCount: 0, totalCount: 0 };
+  }
+
+  const slots = Array.isArray(data.slots) ? data.slots : [];
+  const running = slots.filter((s) => s.status === "running").length;
+  const external = slots.filter((s) => s.status === "external").length;
+  return {
+    status: running > 0 ? "running" : external > 0 ? "external" : "stopped",
+    runningCount: running,
+    totalCount: slots.length,
+  };
 }
 
 const SIDEBAR_COLLAPSED_KEY = "cc-branch.sidebar.collapsed";
@@ -107,37 +127,33 @@ export default function Sidebar({
     });
   }, []);
 
-  // Use TanStack Query to poll all project statuses
+  // Reuse the workspace status cache and only poll the active project. Polling every
+  // project multiplies config parsing and tmux inspection cost as the sidebar grows.
   const statusQueries = useQueries({
-    queries: projects.map((p) => ({
-      queryKey: ["sidebar", "status", p.id, p.path],
-      queryFn: async ({ signal }: { signal: AbortSignal }) => {
-        try {
-          const data = await api.getStatus(p.path, signal);
-          const running = data.slots.filter((s) => s.status === "running").length;
-          const external = data.slots.filter((s) => s.status === "external").length;
-          return {
-            status: running > 0 ? ("running" as const) : external > 0 ? ("external" as const) : ("stopped" as const),
-            runningCount: running,
-            totalCount: data.slots.length,
-          };
-        } catch {
-          return { status: "no_config" as const, runningCount: 0, totalCount: 0 };
-        }
-      },
-      refetchInterval: 5000,
-      refetchIntervalInBackground: false,
-      staleTime: 3000,
-    })),
+    queries: projects.map((p) => {
+      const active = p.id === activeProjectId;
+      return {
+        queryKey: ["workspace", "status", p.path, p.selected_config_path],
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          api.getStatus({ projectPath: p.path, configPath: p.selected_config_path }, signal),
+        enabled: active,
+        refetchInterval: active ? 5000 : false,
+        refetchIntervalInBackground: false,
+        staleTime: 3000,
+      };
+    }),
   });
 
   const statuses = useMemo(() => {
     const map: Record<string, ProjectStatus> = {};
     projects.forEach((p, i) => {
       const q = statusQueries[i];
-      if (q.data) {
-        map[p.id] = q.data;
+      if (q.isError) {
+        map[p.id] = { status: "error", runningCount: 0, totalCount: 0 };
+        return;
       }
+      const status = statusFromWorkspace(q.data as WorkspaceStatus | undefined);
+      if (status) map[p.id] = status;
     });
     return map;
   }, [projects, statusQueries]);

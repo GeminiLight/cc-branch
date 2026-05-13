@@ -18,6 +18,9 @@ class WindowState:
     applied_at: str | None = None
     managed_runtime: str | None = None
     tmux_session: str | None = None
+    session_binding_status: str | None = None
+    session_binding_source: str | None = None
+    session_binding_updated_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -41,6 +44,12 @@ class WindowState:
             result["managed_runtime"] = self.managed_runtime
         if self.tmux_session is not None:
             result["tmux_session"] = self.tmux_session
+        if self.session_binding_status is not None:
+            result["session_binding_status"] = self.session_binding_status
+        if self.session_binding_source is not None:
+            result["session_binding_source"] = self.session_binding_source
+        if self.session_binding_updated_at is not None:
+            result["session_binding_updated_at"] = self.session_binding_updated_at
         return result
 
 
@@ -91,6 +100,9 @@ class WorkspaceState:
                     applied_at=entry.get("applied_at"),
                     managed_runtime=entry.get("managed_runtime"),
                     tmux_session=entry.get("tmux_session"),
+                    session_binding_status=entry.get("session_binding_status"),
+                    session_binding_source=entry.get("session_binding_source"),
+                    session_binding_updated_at=entry.get("session_binding_updated_at"),
                 )
         raw_slots = data.get("slots", {})
         slots: dict[str, SlotState] = {}
@@ -131,4 +143,3 @@ class AppliedWindowResult:
     tmux_session: str
     action: Literal["created", "recreated", "already_present", "opened_external", "skipped"]
     launch_fingerprint: str | None = None
-

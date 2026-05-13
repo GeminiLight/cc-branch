@@ -46,6 +46,9 @@ def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> W
                 applied_at=existing.applied_at,
                 managed_runtime=existing.managed_runtime,
                 tmux_session=existing.tmux_session,
+                session_binding_status=existing.session_binding_status,
+                session_binding_source=existing.session_binding_source,
+                session_binding_updated_at=existing.session_binding_updated_at,
             )
         else:
             merged.windows[key] = WindowState(

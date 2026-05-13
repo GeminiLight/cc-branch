@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -12,8 +13,8 @@ from pathlib import Path
 from typing import Iterable
 from urllib.parse import quote, unquote, urlparse
 
-from .results import ActionResult
 from ..config import project_dir_for_config
+from .results import ActionResult
 
 _DEFAULT_AGENTS = ["codex", "claude", "gemini", "cursor", "kimi"]
 
@@ -47,13 +48,31 @@ def agent_session_options(
 ) -> ActionResult:
     """Return known local sessions for *agent* or all supported agents."""
     project_dir = project_dir_for_config(config_path)
+    sessions = agent_session_options_for_project(project_dir, agent, home=home, limit=limit)
+    return ActionResult(
+        ok=True,
+        code="agent_sessions_loaded",
+        message="Agent sessions loaded",
+        payload={"sessions": [session.to_dict() for session in sessions[:limit]]},
+    )
+
+
+def agent_session_options_for_project(
+    project_dir: Path,
+    agent: str | None = None,
+    *,
+    home: Path | None = None,
+    limit: int = 40,
+) -> list[AgentSessionOption]:
+    """Return known local sessions scoped to an already resolved project directory."""
+    project_dir = _normalize_display_path(project_dir)
     home_dir = home or Path.home()
     requested = [_agent_key(agent)] if agent else _DEFAULT_AGENTS
 
     sessions: list[AgentSessionOption] = []
     for name in requested:
         if name == "codex":
-            sessions.extend(_codex_sessions(home_dir, limit=limit))
+            sessions.extend(_codex_sessions(home_dir, project_dir, limit=limit))
         elif name == "claude":
             sessions.extend(_claude_sessions(home_dir, project_dir, limit=limit))
         elif name == "gemini":
@@ -65,35 +84,71 @@ def agent_session_options(
 
     sessions = _dedupe(sessions)
     sessions.sort(key=lambda item: item.updated_at or "", reverse=True)
-    return ActionResult(
-        ok=True,
-        code="agent_sessions_loaded",
-        message="Agent sessions loaded",
-        payload={"sessions": [session.to_dict() for session in sessions[:limit]]},
-    )
+    return sessions[:limit]
 
 
-def _codex_sessions(home: Path, *, limit: int) -> list[AgentSessionOption]:
-    path = home / ".codex" / "session_index.jsonl"
-    if not path.exists():
-        return []
-
+def _codex_sessions(home: Path, project_dir: Path, *, limit: int) -> list[AgentSessionOption]:
+    index_by_session = _codex_session_index_lookup(home)
+    projects_by_session = _codex_session_project_lookup(home)
     sessions: list[AgentSessionOption] = []
-    for item in _read_jsonl(path):
-        session_id = _string(item.get("id"))
-        if not session_id:
+    for session_id, (session_project, transcript_path, transcript_updated_at) in projects_by_session.items():
+        if not _same_path(session_project, project_dir):
             continue
-        label = _clean_label(_string(item.get("thread_name"))) or session_id
+        indexed = index_by_session.get(session_id, {})
+        label = _clean_label(_string(indexed.get("thread_name"))) or session_id
+        updated_at = _latest_iso_string(
+            _string(indexed.get("updated_at")),
+            transcript_updated_at,
+        ) or _mtime_iso(transcript_path)
         sessions.append(
             AgentSessionOption(
                 agent="codex",
                 id=session_id,
                 label=label,
-                updated_at=_string(item.get("updated_at")) or None,
-                source="~/.codex/session_index.jsonl",
+                updated_at=updated_at,
+                source=str(transcript_path),
+                project_path=str(session_project),
             )
         )
-    return sessions[-limit:]
+    sessions.sort(key=lambda item: item.updated_at or "", reverse=True)
+    return sessions[:limit]
+
+
+def _codex_session_index_lookup(home: Path) -> dict[str, dict]:
+    path = home / ".codex" / "session_index.jsonl"
+    if not path.exists():
+        return {}
+    indexed: dict[str, dict] = {}
+    for item in _read_jsonl(path):
+        session_id = _string(item.get("id"))
+        if session_id:
+            indexed[session_id] = item
+    return indexed
+
+
+def _codex_session_project_lookup(home: Path) -> dict[str, tuple[Path, Path, str | None]]:
+    sessions_dir = home / ".codex" / "sessions"
+    if not sessions_dir.exists():
+        return {}
+
+    projects: dict[str, tuple[Path, Path, str | None]] = {}
+    for transcript_path in sorted(sessions_dir.rglob("*.jsonl")):
+        meta_id = ""
+        cwd: Path | None = None
+        updated_at = ""
+        for item in _read_jsonl(transcript_path):
+            timestamp = _string(item.get("timestamp"))
+            if timestamp and timestamp > updated_at:
+                updated_at = timestamp
+            if item.get("type") == "session_meta":
+                payload = item.get("payload")
+                if not isinstance(payload, dict):
+                    continue
+                meta_id = _string(payload.get("id")) or meta_id
+                cwd = _path_from_uri(_string(payload.get("cwd"))) or cwd
+        if meta_id and cwd and meta_id not in projects:
+            projects[meta_id] = (cwd, transcript_path, updated_at or None)
+    return projects
 
 
 def _claude_sessions(home: Path, project_dir: Path, *, limit: int) -> list[AgentSessionOption]:
@@ -106,19 +161,19 @@ def _claude_sessions(home: Path, project_dir: Path, *, limit: int) -> list[Agent
     sessions: list[AgentSessionOption] = []
     for project_path in project_dirs:
         index_path = project_path / "sessions-index.json"
-        sessions.extend(_claude_index_sessions(index_path, seen_paths))
+        sessions.extend(_claude_index_sessions(index_path, seen_paths, project_dir))
         if project_path.exists():
             for transcript_path in sorted(project_path.glob("*.jsonl")):
                 if transcript_path in seen_paths:
                     continue
                 seen_paths.add(transcript_path)
-                session = _claude_transcript_session(transcript_path)
+                session = _claude_transcript_session(transcript_path, project_dir)
                 if session:
                     sessions.append(session)
     return sessions[-limit:]
 
 
-def _claude_index_sessions(path: Path, seen_paths: set[Path]) -> list[AgentSessionOption]:
+def _claude_index_sessions(path: Path, seen_paths: set[Path], project_dir: Path) -> list[AgentSessionOption]:
     if path in seen_paths or not path.exists():
         return []
     seen_paths.add(path)
@@ -148,13 +203,13 @@ def _claude_index_sessions(path: Path, seen_paths: set[Path]) -> list[AgentSessi
                 label=label,
                 updated_at=_string(entry.get("modified")) or _string(entry.get("created")) or None,
                 source=str(path),
-                project_path=_string(entry.get("projectPath")) or None,
+                project_path=str(_scoped_project_path(_string(entry.get("projectPath")), project_dir)),
             )
         )
     return sessions
 
 
-def _claude_transcript_session(path: Path) -> AgentSessionOption | None:
+def _claude_transcript_session(path: Path, project_dir: Path) -> AgentSessionOption | None:
     session_id = path.stem
     label = ""
     updated_at = ""
@@ -167,7 +222,7 @@ def _claude_transcript_session(path: Path) -> AgentSessionOption | None:
             updated_at = timestamp
         cwd = _string(item.get("cwd"))
         if cwd and not project_path:
-            project_path = cwd
+            project_path = str(_scoped_project_path(cwd, project_dir))
         if item.get("type") == "summary" and not label:
             label = _clean_label(_string(item.get("summary")))
 
@@ -179,11 +234,11 @@ def _claude_transcript_session(path: Path) -> AgentSessionOption | None:
         label=label or session_id,
         updated_at=updated_at or _mtime_iso(path),
         source=str(path),
-        project_path=project_path or None,
+        project_path=project_path or str(project_dir),
     )
 
 
-def _gemini_sessions(home: Path, _project_dir: Path, *, limit: int) -> list[AgentSessionOption]:
+def _gemini_sessions(home: Path, project_dir: Path, *, limit: int) -> list[AgentSessionOption]:
     brain_dir = home / ".gemini" / "antigravity" / "brain"
     if not brain_dir.exists():
         return []
@@ -192,6 +247,9 @@ def _gemini_sessions(home: Path, _project_dir: Path, *, limit: int) -> list[Agen
     for metadata_path in sorted(brain_dir.glob("*/*.metadata.json")):
         data = _read_json(metadata_path)
         if not isinstance(data, dict):
+            continue
+        project_path = _metadata_project_path(data, project_dir)
+        if not project_path or not _same_path(project_path, project_dir):
             continue
         session_id = metadata_path.parent.name
         summary = _clean_label(_string(data.get("summary"))) or session_id
@@ -205,6 +263,7 @@ def _gemini_sessions(home: Path, _project_dir: Path, *, limit: int) -> list[Agen
             label=f"Antigravity: {summary}",
             updated_at=updated_at,
             source=str(metadata_path),
+            project_path=str(project_path),
         )
     return list(by_session.values())[-limit:]
 
@@ -306,6 +365,39 @@ def _cursor_workspace_path(entry: dict) -> Path | None:
     return _path_from_uri(path)
 
 
+def _metadata_project_path(data: dict, project_dir: Path) -> Path | None:
+    for key in ("projectPath", "project_path", "workspacePath", "workspace_path", "cwd", "root"):
+        value = _string(data.get(key))
+        if value:
+            return _scoped_project_path(value, project_dir)
+
+    for key in ("project", "workspace"):
+        nested = data.get(key)
+        if not isinstance(nested, dict):
+            continue
+        for nested_key in ("path", "fsPath", "uri", "cwd", "root"):
+            value = _string(nested.get(nested_key))
+            if value:
+                return _scoped_project_path(value, project_dir)
+    return None
+
+
+def _scoped_project_path(value: str, project_dir: Path) -> Path:
+    path = _path_from_uri(value)
+    if not path:
+        return _normalize_display_path(project_dir)
+    if path.is_absolute():
+        return _normalize_display_path(path)
+    return _normalize_display_path(project_dir / path)
+
+
+def _normalize_display_path(path: Path) -> Path:
+    expanded = path.expanduser()
+    if not expanded.is_absolute():
+        expanded = Path.cwd() / expanded
+    return Path(os.path.normpath(str(expanded)))
+
+
 def _path_from_uri(value: str) -> Path | None:
     if not value:
         return None
@@ -352,10 +444,14 @@ def _agent_key(value: str | None) -> str:
 
 
 def _same_path(left: Path, right: Path) -> bool:
-    try:
-        return left.expanduser().resolve(strict=False) == right.expanduser().resolve(strict=False)
-    except OSError:
-        return str(left) == str(right)
+    return _path_identity(left) == _path_identity(right)
+
+
+def _path_identity(path: Path) -> str:
+    expanded = path.expanduser()
+    if not expanded.is_absolute():
+        expanded = Path.cwd() / expanded
+    return os.path.normcase(os.path.normpath(str(expanded)))
 
 
 def _mtime_iso(path: Path) -> str | None:
@@ -377,6 +473,10 @@ def _latest_mtime_iso(paths: Iterable[Path]) -> str | None:
     if not newest:
         return None
     return datetime.fromtimestamp(newest, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _latest_iso_string(*values: str | None) -> str | None:
+    return max((value for value in values if value), default=None)
 
 
 def _epoch_millis_iso(value: object) -> str | None:

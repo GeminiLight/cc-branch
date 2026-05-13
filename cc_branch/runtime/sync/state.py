@@ -47,8 +47,18 @@ def record_applied_results(
             continue
 
         existing = next_state.windows.get(window.key)
+        if window.session_mode == "fresh":
+            session_id = None
+            binding_status = "fresh"
+            binding_source = None
+            binding_updated_at = None
+        else:
+            session_id = window.resolved_session_id or (existing.session_id if existing else None)
+            binding_status = "bound" if session_id else (existing.session_binding_status if existing else None)
+            binding_source = existing.session_binding_source if existing else None
+            binding_updated_at = existing.session_binding_updated_at if existing else None
         next_state.windows[window.key] = WindowState(
-            session_id=window.resolved_session_id or (existing.session_id if existing else None),
+            session_id=session_id,
             label=window.resolved_label or (existing.label if existing else None),
             agent=window.agent or (existing.agent if existing else None),
             slot=slot.name,
@@ -58,6 +68,9 @@ def record_applied_results(
             applied_at=applied_at,
             managed_runtime=slot.runtime,
             tmux_session=slot.tmux_session,
+            session_binding_status=binding_status,
+            session_binding_source=binding_source,
+            session_binding_updated_at=binding_updated_at,
         )
 
     return next_state

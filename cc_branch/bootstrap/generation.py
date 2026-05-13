@@ -8,7 +8,7 @@ from .models import ConfigSummary
 def generate_starter_config(
     project_name: str,
     available_agents: list[str],
-    profile: str = "solo-dev",
+    profile: str = "development",
     tmux_available: bool = True,
 ) -> str:
     """Generate YAML config based on available agents."""
@@ -44,12 +44,12 @@ def summarize_config(config_content: str) -> ConfigSummary:
         ]
         if agent
     }
+    pane_count = sum(
+        max(1, len(pane.get("windows", []))) if isinstance(pane.get("windows"), list) else 1
+        for pane in panes
+    )
     return ConfigSummary(
         slots=len(tabs),
-        windows=sum(
-            len(pane.get("windows", []))
-            for pane in panes
-            if pane.get("runtime", "terminal") == "tmux"
-        ),
+        windows=pane_count,
         agents=len(referenced_agents),
     )

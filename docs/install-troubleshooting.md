@@ -97,7 +97,7 @@ pip install .
 
 ## tmux is missing
 
-The Python package does not install tmux. CC Branch can install and run without it. Only `runtime: tmux` slots need tmux; `runtime: terminal` slots can still open normal shell, zsh, bash, or PowerShell processes.
+The Python package does not install tmux. CC Branch can install and run without it. Only `layoutBackend: tmux` tabs need tmux; direct-layout panes can still open normal shell, zsh, bash, or PowerShell processes.
 
 macOS:
 
@@ -111,11 +111,11 @@ Ubuntu/Debian:
 sudo apt-get install tmux
 ```
 
-If you do not want tmux, change the affected slot to `runtime: terminal` in `.cc-branch/config.yaml`.
+If you do not want tmux, change the affected tab to `layoutBackend: direct` in `.cc-branch/config.yaml`.
 
 ## Agent CLI commands are missing
 
-CC Branch starts the commands referenced by `.cc-branch/config.yaml`. If `claude`, `codex`, `gemini`, `cursor`, or another configured tool is not on `PATH`, the related window cannot start.
+CC Branch starts the commands referenced by `.cc-branch/config.yaml`. If `claude`, `codex`, `gemini`, `cursor`, or another configured tool is not on `PATH`, the related pane cannot start.
 
 Fix:
 
@@ -137,7 +137,7 @@ pipx install cc-branch
 
 ## Desktop app starts but cannot launch workspaces
 
-The desktop app bundles the CC Branch backend, but it still depends on the local tools used by your workspace. `runtime: tmux` needs tmux; terminal-runtime slots need the selected shell; Agent windows need their Agent CLI.
+The desktop app bundles the CC Branch backend, but it still depends on the local tools used by your workspace. `layoutBackend: tmux` needs tmux; direct-layout panes need the selected shell; Agent panes need their Agent CLI.
 
 Fix:
 

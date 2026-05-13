@@ -24,6 +24,7 @@ class WindowPlan:
     command_binary: str
     post_launch_commands: list[str]
     bootstrapped: bool
+    session_mode: str
     resume_mode: str
     create_mode: str
     agent_declared: bool
@@ -43,6 +44,7 @@ class WindowPlan:
             "command_binary": self.command_binary,
             "post_launch_commands": self.post_launch_commands,
             "bootstrapped": self.bootstrapped,
+            "session_mode": self.session_mode,
             "resume_mode": self.resume_mode,
             "create_mode": self.create_mode,
             "agent_declared": self.agent_declared,
@@ -139,6 +141,7 @@ class WorkspacePlan:
                         command_binary=w.get("command_binary", ""),
                         post_launch_commands=w.get("post_launch_commands", []),
                         bootstrapped=w.get("bootstrapped", False),
+                        session_mode=w.get("session_mode", "auto"),
                         resume_mode=w.get("resume_mode", "none"),
                         create_mode=w.get("create_mode", "none"),
                         agent_declared=w.get("agent_declared", True),

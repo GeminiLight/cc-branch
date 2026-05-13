@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
     init_cmd.add_argument("--force", action="store_true", help="overwrite existing config files")
     init_cmd.add_argument("--minimal", action="store_true", help="create config without environment checks")
-    init_cmd.add_argument("--profile", type=str, default="solo-dev", help="profile template to use")
+    init_cmd.add_argument("--profile", type=str, default="development", help="profile template to use")
 
     def add_start_options(command: argparse.ArgumentParser) -> None:
         command.add_argument("-h", "--help", action="store_true", help="show this help message")
@@ -69,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument(
             "--detach",
             action="store_true",
-            help="start reusable tmux sessions without attaching or opening terminal-runtime slots",
+            help="start reusable tmux sessions without attaching or opening direct-layout panes",
         )
         command.add_argument("--dashboard", action="store_true", help="open the tiled tmux dashboard")
 
@@ -88,7 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
         add_help=False,
     )
     open_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
-    open_cmd.add_argument("target", nargs="?", metavar="slot[:window]", help="optional target such as dev or dev:planner")
+    open_cmd.add_argument("target", nargs="?", metavar="tab[:pane]", help="optional target such as dev or dev:planner")
     open_cmd.add_argument("--opener", type=str, default=None, help="opener id such as auto-terminal, warp, vscode, or cursor")
     open_cmd.add_argument("--project-dir", action="store_true", help="open the project directory instead of the workspace")
 
@@ -114,39 +114,39 @@ def build_parser() -> argparse.ArgumentParser:
 
     attach_cmd = sub.add_parser(
         "attach",
-        help="attach to a slot or slot window",
-        description="Attach to a slot or slot window",
+        help="attach to a tab or pane",
+        description="Attach to a tab or pane",
         add_help=False,
     )
     attach_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
-    attach_cmd.add_argument("slot", nargs="?", metavar="slot[:window]", help="target such as dev or dev:planner")
+    attach_cmd.add_argument("slot", nargs="?", metavar="tab[:pane]", help="target such as dev or dev:planner")
 
     stop_cmd = sub.add_parser(
         "stop",
-        help="stop the workspace, a slot, or a slot window",
-        description="Stop the workspace, a slot, or a slot window",
+        help="stop the workspace, a tab, or a pane",
+        description="Stop the workspace, a tab, or a pane",
         add_help=False,
     )
     stop_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
-    stop_cmd.add_argument("target", nargs="?", metavar="slot[:window]", help="optional target such as dev or dev:planner")
+    stop_cmd.add_argument("target", nargs="?", metavar="tab[:pane]", help="optional target such as dev or dev:planner")
 
     restart_cmd = sub.add_parser(
         "restart",
-        help="restart the workspace, a slot, or a slot window",
-        description="Restart the workspace, a slot, or a slot window",
+        help="restart the workspace, a tab, or a pane",
+        description="Restart the workspace, a tab, or a pane",
         add_help=False,
     )
     restart_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
-    restart_cmd.add_argument("target", nargs="?", metavar="slot[:window]", help="optional target such as dev or dev:planner")
+    restart_cmd.add_argument("target", nargs="?", metavar="tab[:pane]", help="optional target such as dev or dev:planner")
     restart_cmd.add_argument("--prepare", action="store_true", help="write missing generated state metadata before restart")
     restart_cmd.add_argument("--detach", action="store_true", help="restart without attaching")
 
     def add_apply_options(command: argparse.ArgumentParser) -> None:
         command.add_argument("-h", "--help", action="store_true", help="show this help message")
-        command.add_argument("target", nargs="?", metavar="slot[:window]", help="optional target such as dev or dev:planner")
+        command.add_argument("target", nargs="?", metavar="tab[:pane]", help="optional target such as dev or dev:planner")
         command.add_argument("--dry-run", action="store_true", help="show planned actions without changing runtime")
         command.add_argument("--yes", action="store_true", help="sync without interactive confirmation")
-        command.add_argument("--stop-removed", action="store_true", help="also stop extra tmux windows not in config")
+        command.add_argument("--stop-removed", action="store_true", help="also stop extra tmux panes not in config")
 
     sync_cmd = sub.add_parser(
         "sync",
@@ -168,8 +168,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     dashboard_cmd = sub.add_parser(
         "dashboard",
-        help="open a tiled tmux dashboard for all slots",
-        description="Open a tiled tmux dashboard for all slots",
+        help="open a tiled tmux dashboard for all tabs",
+        description="Open a tiled tmux dashboard for all tabs",
         add_help=False,
     )
     dashboard_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
@@ -202,10 +202,10 @@ def _add_session_group(
     nested.add_parser("list", help="list saved agent session entries", description="List saved agent session entries")
 
     inspect_cmd = nested.add_parser("inspect", help="inspect a saved session entry", description="Inspect a saved session entry")
-    inspect_cmd.add_argument("key", metavar="slot[:window]", help="target such as dev:planner")
+    inspect_cmd.add_argument("key", metavar="tab[:pane]", help="target such as dev:planner")
 
     prune_cmd = nested.add_parser("prune", help="remove orphaned session entries", description="Remove orphaned session entries")
     prune_cmd.add_argument("--dry-run", action="store_true", help="show what would be removed")
 
     command_cmd = nested.add_parser("command", help="print the launch command for a target", description="Print the launch command for a target")
-    command_cmd.add_argument("key", metavar="slot[:window]", help="target such as dev:planner")
+    command_cmd.add_argument("key", metavar="tab[:pane]", help="target such as dev:planner")

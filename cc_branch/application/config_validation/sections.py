@@ -9,13 +9,20 @@ from .constants import (
     AGENT_FIELDS,
     AGENT_STRING_FIELDS,
     CREATE_MODES,
+    DEFAULTS_FIELDS,
+    DEFAULTS_STRING_FIELDS,
     LABEL_MODES,
+    LAYOUT_BACKENDS,
     OPENER_FIELDS,
     OPENER_STRING_FIELDS,
     RESUME_MODES,
     RUNTIMES,
     SLOT_FIELDS,
     SLOT_STRING_FIELDS,
+    PANE_FIELDS,
+    PANE_STRING_FIELDS,
+    TAB_FIELDS,
+    TAB_STRING_FIELDS,
     WINDOW_FIELDS,
     WINDOW_STRING_FIELDS,
 )
@@ -69,6 +76,20 @@ def opener_issues(raw_openers: Any) -> list[Issue]:
         if isinstance(raw_opener, dict):
             issues.extend(unknown_fields(raw_opener, OPENER_FIELDS, f"opener:{name}"))
             issues.extend(string_type_issues(raw_opener, OPENER_STRING_FIELDS, f"opener:{name}"))
+    return issues
+
+
+def defaults_issues(raw_defaults: Any) -> list[Issue]:
+    if raw_defaults is None:
+        return []
+    if not isinstance(raw_defaults, dict):
+        return [invalid_type("defaults", raw_defaults, "config", "mapping")]
+    issues: list[Issue] = []
+    issues.extend(unknown_fields(raw_defaults, DEFAULTS_FIELDS, "defaults"))
+    if raw_defaults.get("shell") is not None and not isinstance(raw_defaults.get("shell"), (str, dict)):
+        issues.append(invalid_type("shell", raw_defaults.get("shell"), "defaults", "string or mapping"))
+    elif isinstance(raw_defaults.get("shell"), str):
+        issues.extend(string_type_issues(raw_defaults, DEFAULTS_STRING_FIELDS, "defaults"))
     return issues
 
 
@@ -129,4 +150,70 @@ def slot_issues(raw_slots: Any) -> list[Issue]:
             issues.extend(window_issues(raw_windows, slot_name))
         elif raw_slot.get("command") is None and raw_slot.get("agent") is None:
             issues.append(missing_launch_command(f"window:{slot_name}:main"))
+    return issues
+
+
+def pane_issues(raw_panes: Any, tab_name: str) -> list[Issue]:
+    issues: list[Issue] = []
+    if raw_panes is None:
+        return issues
+    if not isinstance(raw_panes, list):
+        return [invalid_type("panes", raw_panes, f"tab:{tab_name}", "list")]
+    valid_panes = [pane for pane in raw_panes if isinstance(pane, dict)]
+    duplicate_panes = duplicated_names(valid_panes)
+    for name in sorted(duplicate_panes):
+        issues.append(duplicate_issue("duplicate_pane", name, f"pane:{tab_name}:{name}", "pane"))
+    for index, raw_pane in enumerate(raw_panes):
+        if not isinstance(raw_pane, dict):
+            continue
+        pane_name = name_or_fallback(raw_pane, f"pane[{index}]")
+        target = f"pane:{tab_name}:{pane_name}"
+        issues.extend(unknown_fields(raw_pane, PANE_FIELDS, target))
+        issues.extend(string_type_issues(raw_pane, PANE_STRING_FIELDS, target))
+        issues.extend(env_issues(raw_pane, target))
+        issue = enum_issue(raw_pane, "runtime", RUNTIMES, target)
+        if issue is not None:
+            issues.append(issue)
+        issue = enum_issue(raw_pane, "layoutBackend", LAYOUT_BACKENDS, target)
+        if issue is not None:
+            issues.append(issue)
+        for field, allowed in (
+            ("resume_mode", RESUME_MODES),
+            ("create_mode", CREATE_MODES),
+            ("label_mode", LABEL_MODES),
+        ):
+            issue = enum_issue(raw_pane, field, allowed, target)
+            if issue is not None:
+                issues.append(issue)
+
+        raw_windows = raw_pane.get("windows")
+        if raw_windows is not None:
+            issues.extend(window_issues(raw_windows, pane_name))
+        elif raw_pane.get("command") is None and raw_pane.get("agent") is None:
+            issues.append(missing_launch_command(target))
+    return issues
+
+
+def tab_issues(raw_tabs: Any) -> list[Issue]:
+    issues: list[Issue] = []
+    if raw_tabs is None:
+        return issues
+    if not isinstance(raw_tabs, list):
+        return [invalid_type("tabs", raw_tabs, "config", "list")]
+    valid_tabs = [tab for tab in raw_tabs if isinstance(tab, dict)]
+    duplicate_tabs = duplicated_names(valid_tabs)
+    for name in sorted(duplicate_tabs):
+        issues.append(duplicate_issue("duplicate_tab", name, f"tab:{name}", "tab"))
+    for index, raw_tab in enumerate(raw_tabs):
+        if not isinstance(raw_tab, dict):
+            continue
+        tab_name = name_or_fallback(raw_tab, f"tab[{index}]")
+        target = f"tab:{tab_name}"
+        issues.extend(unknown_fields(raw_tab, TAB_FIELDS, target))
+        issues.extend(string_type_issues(raw_tab, TAB_STRING_FIELDS, target))
+        issues.extend(env_issues(raw_tab, target))
+        issue = enum_issue(raw_tab, "layoutBackend", LAYOUT_BACKENDS, target)
+        if issue is not None:
+            issues.append(issue)
+        issues.extend(pane_issues(raw_tab.get("panes"), tab_name))
     return issues

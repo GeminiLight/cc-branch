@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -332,34 +333,47 @@ class OpenerTests(unittest.TestCase):
                     intent=OpenIntent(kind="attach_target", target="dev"),
                 )
 
-    def test_vscode_workspace_open_opens_folder_and_integrated_terminals(self):
-        """VS Code should open the real folder and automate integrated terminals on macOS."""
+    def test_vscode_workspace_open_creates_project_tasks_bridge(self):
+        """VS Code should open the real folder and expose cc-branch tasks without GUI automation."""
+        import tempfile
+
         from cc_branch.openers import open_workspace_file
 
-        with (
-            patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
-            patch("cc_branch.openers.editors.sys.platform", "darwin"),
-            patch("cc_branch.openers.editors._popen") as popen,
-            patch("cc_branch.openers.editors.subprocess.run") as run,
-        ):
-            run.return_value.returncode = 0
-            run.return_value.stdout = ""
-            run.return_value.stderr = ""
-            open_workspace_file(
-                "vscode",
-                cwd=Path("/tmp/demo"),
-                commands=[
-                    OpenCommandSpec("dev:planner", Path("/tmp/demo"), "cc-branch attach dev:planner"),
-                    OpenCommandSpec("scratch:main", Path("/tmp/demo/subdir"), "zsh"),
-                ],
-            )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subdir = root / "subdir"
+            subdir.mkdir()
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors._popen") as popen,
+            ):
+                open_workspace_file(
+                    "vscode",
+                    cwd=root,
+                    commands=[
+                        OpenCommandSpec("dev:planner", root, "cc-branch attach dev:planner"),
+                        OpenCommandSpec("scratch:main", subdir, "zsh"),
+                    ],
+                )
 
-        self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(Path("/tmp/demo").resolve())])
-        script = "\n".join(run.call_args.args[0])
-        self.assertIn("Visual Studio Code", script)
-        self.assertIn('tell process "Code"', script)
-        self.assertIn("cc-branch attach dev:planner", script)
-        self.assertIn(f"cd {Path('/tmp/demo/subdir').resolve()} && zsh", script)
+            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(root.resolve())])
+            sidecar = root / ".cc-branch" / ".generated" / "vscode-tasks.json"
+            bridge = root / ".vscode" / "tasks.json"
+            self.assertTrue(sidecar.exists())
+            self.assertTrue(bridge.exists())
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+            self.assertEqual(payload["version"], "2.0.0")
+            self.assertEqual([task["label"] for task in payload["tasks"]], [
+                "cc-branch: dev:planner",
+                "cc-branch: scratch:main",
+            ])
+            self.assertEqual(payload["tasks"][0]["presentation"]["group"], "cc-branch")
+            self.assertEqual(payload["tasks"][0]["runOptions"], {"runOn": "folderOpen"})
+            self.assertEqual(payload["tasks"][1]["options"]["cwd"], str(subdir.resolve()))
+            if bridge.is_symlink():
+                self.assertEqual(bridge.resolve(), sidecar.resolve())
+            else:
+                self.assertEqual(json.loads(bridge.read_text(encoding="utf-8")), payload)
 
     def test_vscode_workspace_open_does_not_create_generated_workspace_file_on_macos(self):
         """The Explorer should show the real folder, not a generated .code-workspace wrapper."""
@@ -373,14 +387,9 @@ class OpenerTests(unittest.TestCase):
             workspace_dir.mkdir()
             with (
                 patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
-                patch("cc_branch.openers.editors.sys.platform", "darwin"),
                 patch("cc_branch.openers.editors._cache_dir", return_value=cache_dir),
                 patch("cc_branch.openers.editors._popen"),
-                patch("cc_branch.openers.editors.subprocess.run") as run,
             ):
-                run.return_value.returncode = 0
-                run.return_value.stdout = ""
-                run.return_value.stderr = ""
                 open_workspace_file(
                     "vscode",
                     cwd=Path("/tmp/demo"),
@@ -391,60 +400,58 @@ class OpenerTests(unittest.TestCase):
 
             self.assertEqual(list(workspace_dir.glob("*.code-workspace")), [])
 
-    def test_vscode_workspace_open_does_not_create_generated_workspace_file_on_linux(self):
-        """Non-macOS editor opens should still use the real folder, not a generated wrapper."""
+    def test_vscode_workspace_open_preserves_existing_user_tasks(self):
+        """Existing user-owned .vscode/tasks.json must never be overwritten."""
         import tempfile
 
         from cc_branch.openers import open_workspace_file
 
         with tempfile.TemporaryDirectory() as tmp:
-            cache_dir = Path(tmp)
-            workspace_dir = cache_dir / "editor-workspaces"
-            workspace_dir.mkdir()
+            root = Path(tmp)
+            user_tasks = root / ".vscode" / "tasks.json"
+            user_tasks.parent.mkdir()
+            user_content = '{"version":"2.0.0","tasks":[{"label":"user task","type":"shell","command":"echo user"}]}\n'
+            user_tasks.write_text(user_content, encoding="utf-8")
             with (
                 patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
-                patch("cc_branch.openers.editors.sys.platform", "linux"),
-                patch("cc_branch.openers.editors._cache_dir", return_value=cache_dir),
                 patch("cc_branch.openers.editors._popen") as popen,
-                patch("cc_branch.openers.editors.subprocess.run") as run,
             ):
                 open_workspace_file(
                     "vscode",
-                    cwd=Path("/tmp/demo"),
+                    cwd=root,
                     commands=[
-                        OpenCommandSpec("dev", Path("/tmp/demo"), "cc-branch attach dev"),
+                        OpenCommandSpec("dev", root, "cc-branch attach dev"),
                     ],
                 )
 
-            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(Path("/tmp/demo").resolve())])
-            run.assert_not_called()
-            self.assertEqual(list(workspace_dir.glob("*.code-workspace")), [])
+            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(root.resolve())])
+            self.assertEqual(user_tasks.read_text(encoding="utf-8"), user_content)
+            self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
 
-    def test_cursor_workspace_open_opens_folder_and_integrated_terminal(self):
-        """Cursor should open the real folder and create integrated terminals."""
+    def test_cursor_workspace_open_creates_project_tasks_bridge(self):
+        """Cursor should use the same project tasks bridge as VS Code."""
+        import tempfile
+
         from cc_branch.openers import open_workspace_file
 
-        with (
-            patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/cursor"),
-            patch("cc_branch.openers.editors.sys.platform", "darwin"),
-            patch("cc_branch.openers.editors._popen") as popen,
-            patch("cc_branch.openers.editors.subprocess.run") as run,
-        ):
-            run.return_value.returncode = 0
-            run.return_value.stdout = ""
-            run.return_value.stderr = ""
-            open_workspace_file(
-                "cursor",
-                cwd=Path("/tmp/demo"),
-                commands=[
-                    OpenCommandSpec("dev:planner", Path("/tmp/demo"), "/repo/bin/cc-branch attach dev:planner"),
-                ],
-            )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/cursor"),
+                patch("cc_branch.openers.editors._popen") as popen,
+            ):
+                open_workspace_file(
+                    "cursor",
+                    cwd=root,
+                    commands=[
+                        OpenCommandSpec("dev:planner", root, "/repo/bin/cc-branch attach dev:planner"),
+                    ],
+                )
 
-        self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/cursor", "-n", str(Path("/tmp/demo").resolve())])
-        script = "\n".join(run.call_args.args[0])
-        self.assertIn("Cursor", script)
-        self.assertIn("/repo/bin/cc-branch attach dev:planner", script)
+            self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/cursor", "-n", str(root.resolve())])
+            sidecar = root / ".cc-branch" / ".generated" / "vscode-tasks.json"
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+            self.assertEqual(payload["tasks"][0]["command"], "/repo/bin/cc-branch attach dev:planner")
 
     def test_warp_workspace_dashboard_uses_launch_configuration_uri(self):
         """Warp should run workspace commands through a launch configuration."""
@@ -522,6 +529,42 @@ class OpenerTests(unittest.TestCase):
             self.assertIn('exec: "npm run dev"', content)
             self.assertIn('exec: "python worker.py"', content)
             self.assertIn('exec: "tail -f app.log"', content)
+
+    def test_warp_layout_balances_four_commands_as_two_by_two_grid(self):
+        """Four commands should render as two balanced groups, not a shrinking tail."""
+        from cc_branch.openers.warp import _warp_layout_yaml
+
+        specs = [
+            OpenCommandSpec("one", Path("/tmp/demo"), "one"),
+            OpenCommandSpec("two", Path("/tmp/demo"), "two"),
+            OpenCommandSpec("three", Path("/tmp/demo"), "three"),
+            OpenCommandSpec("four", Path("/tmp/demo"), "four"),
+        ]
+
+        content = _warp_layout_yaml("CC Branch demo", specs)
+
+        self.assertEqual(content.count("split_direction:"), 3)
+        self.assertIn(
+            """          panes:
+            - split_direction: horizontal
+              panes:
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "one"
+                  is_focused: true
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "two"
+            - split_direction: horizontal
+              panes:
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "three"
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "four\"""",
+            content,
+        )
 
     def test_warp_layout_uses_stable_project_name_and_removes_legacy_hash_configs(self):
         """Repeated Warp opens should reuse a stable launch config instead of visible cache hashes."""

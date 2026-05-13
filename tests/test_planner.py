@@ -146,6 +146,112 @@ class PlannerTests(unittest.TestCase):
             window = plan.slots[0].windows[0]
             self.assertEqual(window.resolved_session_id, "existing-session-id")
 
+    def test_plan_workspace_explicit_session_value_resumes_that_session(self):
+        """A non-keyword session value is treated as the real agent session id."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "test"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        runtime: "tmux"
+                        agent: "codex"
+                        session: "codex-session-123"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            window = plan.slots[0].windows[0]
+            self.assertEqual(window.resolved_session_id, "codex-session-123")
+            self.assertEqual(window.launch_command, "codex resume codex-session-123")
+
+    def test_plan_workspace_fresh_session_ignores_existing_state_session(self):
+        """session: fresh means start clean and do not bind the old state session."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "test"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        runtime: "tmux"
+                        agent: "codex"
+                        session: "fresh"
+                """,
+            )
+            self._write(
+                root / ".cc-branch/state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "old-session-id"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            window = plan.slots[0].windows[0]
+            self.assertIsNone(window.resolved_session_id)
+            self.assertEqual(window.launch_command, "codex")
+            self.assertNotIn("session_id", plan.state_updates.get("dev.planner", {}))
+
+    def test_plan_workspace_auto_session_uses_bound_state_session(self):
+        """session: auto keeps the default reuse-or-create behavior explicit."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "test"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "planner"
+                        runtime: "tmux"
+                        agent: "codex"
+                        session: "auto"
+                """,
+            )
+            self._write(
+                root / ".cc-branch/state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "bound-session-id"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            window = plan.slots[0].windows[0]
+            self.assertEqual(window.resolved_session_id, "bound-session-id")
+            self.assertEqual(window.launch_command, "codex resume bound-session-id")
+
     def test_plan_workspace_resolves_labels(self):
         """Test that plan_workspace resolves labels correctly."""
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, memo, useEffect } from "react";
+import { useState, useCallback, useRef, memo, useEffect, type CSSProperties } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -14,7 +14,7 @@ import {
   SquareTerminal,
   Wand2,
 } from "lucide-react";
-import type { OpenIntent, OpenerInfo, SlotInfo, SyncStatus, WorkspaceAction } from "../types";
+import type { OpenIntent, OpenerInfo, SlotInfo, SyncStatus, WindowInfo, WorkspaceAction } from "../types";
 // Dashboard uses hooks only; api prop kept for SetupGuide compatibility
 import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
@@ -89,15 +89,32 @@ function workspaceOpenButtonLabel(t: (key: string, vars?: Record<string, string 
   return t("launch");
 }
 
-function isActionableSyncStatus(status?: SyncStatus): boolean {
-  return status === "changed" || status === "missing" || status === "untracked";
+function isActionableSyncStatus(status?: SyncStatus, slotStatus?: SlotInfo["status"]): boolean {
+  if (status === "missing") return slotStatus === "running";
+  return status === "changed" || status === "untracked";
+}
+
+function isActionableWindowSync(window: WindowInfo | undefined, slot: SlotInfo): boolean {
+  if (!window) return false;
+  return isActionableSyncStatus(window.sync_status, slot.status);
+}
+
+function actionableRuntimeDriftCount(slots: SlotInfo[]): number {
+  return slots.reduce((count, slot) => {
+    const slotDrift = isActionableSyncStatus(slot.sync_status, slot.status)
+      && !slot.windows.some((window) => isActionableWindowSync(window, slot))
+      ? 1
+      : 0;
+    const windowDrift = slot.windows.filter((window) => isActionableWindowSync(window, slot)).length;
+    return count + slotDrift + windowDrift;
+  }, 0);
 }
 
 function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: SlotInfo["status"] }) {
   const { t } = useI18n();
   if (!status || status === "current" || status === "external") return null;
   if (status === "missing" && slotStatus && slotStatus !== "running") return null;
-  const isActionable = status === "changed" || status === "missing" || status === "untracked";
+  const isActionable = isActionableSyncStatus(status, slotStatus);
   return (
     <span
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
@@ -121,8 +138,51 @@ function paneCountLabel(t: (key: string, vars?: Record<string, string | number>)
   return t(count === 1 ? "paneCountShortOne" : "paneCountShort", { count });
 }
 
+function countText(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  singularKey: string,
+  pluralKey: string,
+  count: number,
+): string {
+  return t(count === 1 ? singularKey : pluralKey, { count });
+}
+
 function tabPaneCount(slot: SlotInfo): number {
-  return slot.runtime === "tmux" ? 1 : 1;
+  if (slot.runtime === "tmux") return 1;
+  return Math.max(slot.windows.length, 1);
+}
+
+function normalizedTabLayout(slot: SlotInfo, paneCount: number): string {
+  const layout = slot.layout || "auto";
+  if (layout === "horizontal" || layout === "vertical" || layout === "main-left" || layout === "grid") {
+    return layout;
+  }
+  if (paneCount <= 2) return "horizontal";
+  if (paneCount === 3) return "main-left";
+  return "grid";
+}
+
+function paneGridStyle(slot: SlotInfo, paneCount: number): CSSProperties {
+  const count = Math.max(paneCount, 1);
+  if (count <= 1) return {};
+  const layout = normalizedTabLayout(slot, count);
+  if (layout === "vertical") {
+    return { gridTemplateRows: `repeat(${count}, minmax(0, 1fr))` };
+  }
+  if (layout === "main-left" && count >= 3) {
+    return { gridTemplateColumns: "1.35fr 1fr", gridTemplateRows: "repeat(2, minmax(0, 1fr))" };
+  }
+  if (layout === "grid" && count >= 4) {
+    return { gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(count))}, minmax(0, 1fr))` };
+  }
+  return { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` };
+}
+
+function paneCellStyle(slot: SlotInfo, paneCount: number, index: number): CSSProperties {
+  if (normalizedTabLayout(slot, paneCount) === "main-left" && paneCount >= 3 && index === 0) {
+    return { gridRow: "span 2" };
+  }
+  return {};
 }
 
 function tabDisplayName(t: (key: string, vars?: Record<string, string | number>) => string, index: number): string {
@@ -193,7 +253,7 @@ function windowSummary(
   window: SlotInfo["windows"][number]
 ): string {
   if (window.agent) {
-    return window.session_id ? t("sessionBound") : t("newSessionOnStart");
+    return agentSessionSummary(t, window);
   }
   return t("commandSummary", { command: window.command || "-" });
 }
@@ -204,16 +264,42 @@ function terminalTaskSummary(
 ): string {
   if (!window) return t("terminalTask");
   if (window.agent) {
-    return window.session_id ? t("sessionBound") : t("newSessionOnStart");
+    return agentSessionSummary(t, window);
   }
   return t("commandSummary", { command: window.command || "-" });
+}
+
+function agentSessionSummary(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  window: WindowInfo
+): string {
+  if (window.session_id) {
+    return t("sessionBoundShort", { id: shortSessionId(window.session_id) });
+  }
+  switch (window.session_binding_status) {
+    case "fresh":
+      return t("sessionFreshSummary");
+    case "pending_capture":
+      return t("sessionPendingCapture");
+    case "ambiguous":
+      return t("sessionCaptureAmbiguous");
+    case "will_create":
+    case undefined:
+      return t("sessionWillCreate");
+    default:
+      return t("sessionWillCreate");
+  }
+}
+
+function shortSessionId(sessionId: string): string {
+  return sessionId.length > 10 ? `${sessionId.slice(0, 8)}...` : sessionId;
 }
 
 const SlotCard = memo(function SlotCard({
   slot,
   index,
   onRunAction,
-  onRepairTarget,
+  onSyncTarget,
   onEditTarget,
   busy,
   openerId,
@@ -222,7 +308,7 @@ const SlotCard = memo(function SlotCard({
   slot: SlotInfo;
   index: number;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
-  onRepairTarget: (target: string) => void;
+  onSyncTarget: (target: string) => void;
   onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
   busy: boolean;
   openerId: string;
@@ -237,10 +323,11 @@ const SlotCard = memo(function SlotCard({
   const primaryWindow = slot.windows[0];
   const paneCount = tabPaneCount(slot);
   const tabName = slot.name || tabDisplayName(t, index);
-  const terminalSummary = terminalTaskSummary(t, primaryWindow);
+  const terminalPanes = slot.windows.length > 0 ? slot.windows : [];
+  const hasMultipleTerminalPanes = slot.runtime === "terminal" && terminalPanes.length > 1;
   const internalWindowCount = slot.runtime === "tmux" ? slot.windows.length : 0;
-  const slotNeedsAction = isActionableSyncStatus(slot.sync_status) || slot.windows.some((w) => isActionableSyncStatus(w.sync_status));
-  const primaryWindowNeedsAction = isActionableSyncStatus(primaryWindow?.sync_status) || (slot.runtime === "terminal" && isActionableSyncStatus(slot.sync_status));
+  const slotNeedsAction = isActionableSyncStatus(slot.sync_status, slot.status) || slot.windows.some((w) => isActionableWindowSync(w, slot));
+  const primaryWindowNeedsAction = isActionableWindowSync(primaryWindow, slot) || (slot.runtime === "terminal" && isActionableSyncStatus(slot.sync_status, slot.status));
 
   return (
     <div
@@ -271,11 +358,15 @@ const SlotCard = memo(function SlotCard({
               <SyncBadge status={slot.sync_status} slotStatus={slot.status} />
             </div>
             <p className="text-[11px] text-tertiary mt-0.5 truncate">
-              <span>{paneCountLabel(t, paneCount)}</span>
+              <span>
+                {slot.runtime === "tmux"
+                  ? countText(t, "tmuxGroupCount_one", "tmuxGroupCount", 1)
+                  : paneCountLabel(t, paneCount)}
+              </span>
               {internalWindowCount > 0 && (
                 <>
-                  <span className="text-muted mx-1">·</span>
-                  <span>{t("tmuxWindowCount", { count: internalWindowCount })}</span>
+                  <span className="text-muted mx-1">{" · "}</span>
+                  <span>{countText(t, "tmuxWindowCount_one", "tmuxWindowCount", internalWindowCount)}</span>
                 </>
               )}
             </p>
@@ -285,61 +376,75 @@ const SlotCard = memo(function SlotCard({
 
       <div className="bg-[var(--bg-card)] p-3">
         {slot.runtime === "terminal" ? (
-          <div className={`rounded-md border bg-[var(--bg-elevated)] px-3 py-2.5 ${
-            primaryWindowNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
-          }`}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
-                  <SquareTerminal className="w-4 h-4 shrink-0" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <AgentMark agent={primaryWindow?.agent} />
-                    <span className="text-[13px] font-semibold text-primary">{t("terminalLabel")}</span>
-                    <PaneStatus status={primaryWindow?.status || slot.status} />
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-tertiary truncate" title={primaryWindow?.session_id || primaryWindow?.command || undefined}>
-                    {terminalSummary}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end gap-1 shrink-0">
-                {primaryWindowNeedsAction && (
-                  <button
-                    type="button"
-                    onClick={() => onRepairTarget(slotTarget)}
-                    disabled={busy || slotRuntimeUnavailable}
-                    className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
-                    title={t("repairItem")}
-                    aria-label={t("repairItem")}
-                  >
-                    {t("repair")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onRunAction("open", slotTarget, openerId, "attach_target")}
-                  disabled={busy || slotRuntimeUnavailable}
-                  className={paneActionClassName}
-                  aria-label={`${primaryActionLabel} ${slotTarget}`}
-                  title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : primaryActionLabel}
+          <div className="grid gap-2" style={paneGridStyle(slot, paneCount)}>
+            {(terminalPanes.length > 0 ? terminalPanes : [primaryWindow]).filter(Boolean).map((window, paneIndex) => {
+              const paneTarget = hasMultipleTerminalPanes ? `${slot.name}:${window.name}` : slotTarget;
+              const paneNeedsAction = isActionableWindowSync(window, slot) || (!hasMultipleTerminalPanes && primaryWindowNeedsAction);
+              return (
+                <div
+                  key={window.name || paneIndex}
+                  style={paneCellStyle(slot, paneCount, paneIndex)}
+                  className={`min-h-[76px] rounded-md border bg-[var(--bg-elevated)] px-2.5 py-2 ${
+                    paneNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
+                  }`}
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-                {onEditTarget && (
-                  <button
-                    type="button"
-                    onClick={() => onEditTarget({ slotName: slot.name })}
-                    className={paneActionClassName}
-                    aria-label={t("editSlotNamed", { name: slotTarget })}
-                    title={t("editSlotNamed", { name: slotTarget })}
-                  >
-                    <PencilLine className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
+                  <div className="flex h-full items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                        <SquareTerminal className="w-4 h-4 shrink-0" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <AgentMark agent={window.agent} />
+                          <span className="truncate text-[13px] font-semibold text-primary">
+                            {hasMultipleTerminalPanes ? window.name : t("terminalLabel")}
+                          </span>
+                          <PaneStatus status={window.status || slot.status} />
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-tertiary truncate" title={window.session_id || window.command || undefined}>
+                          {terminalTaskSummary(t, window)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-1 shrink-0">
+                      {paneNeedsAction && (
+                        <button
+                          type="button"
+                          onClick={() => onSyncTarget(paneTarget)}
+                          disabled={busy || slotRuntimeUnavailable}
+                          className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
+                          title={t("syncItem")}
+                          aria-label={t("syncItem")}
+                        >
+                          {t("sync")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onRunAction("open", paneTarget, openerId, "attach_target")}
+                        disabled={busy || slotRuntimeUnavailable}
+                        className={paneActionClassName}
+                        aria-label={`${primaryActionLabel} ${paneTarget}`}
+                        title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${primaryActionLabel} ${paneTarget}`}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                      {onEditTarget && (
+                        <button
+                          type="button"
+                          onClick={() => onEditTarget(hasMultipleTerminalPanes ? { slotName: slot.name, windowName: window.name } : { slotName: slot.name })}
+                          className={paneActionClassName}
+                          aria-label={hasMultipleTerminalPanes ? t("editWindowNamed", { name: paneTarget }) : t("editSlotNamed", { name: slotTarget })}
+                          title={hasMultipleTerminalPanes ? t("editWindowNamed", { name: paneTarget }) : t("editSlotNamed", { name: slotTarget })}
+                        >
+                          <PencilLine className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className={`rounded-md border bg-[var(--bg-elevated)] px-3 py-2.5 ${
@@ -363,16 +468,16 @@ const SlotCard = memo(function SlotCard({
                 </div>
               </div>
               <div className="flex items-center justify-end gap-1">
-                {isActionableSyncStatus(slot.sync_status) && !slot.windows.some((w) => isActionableSyncStatus(w.sync_status)) && (
+                {isActionableSyncStatus(slot.sync_status, slot.status) && !slot.windows.some((w) => isActionableWindowSync(w, slot)) && (
                   <button
                     type="button"
-                    onClick={() => onRepairTarget(slotTarget)}
+                    onClick={() => onSyncTarget(slotTarget)}
                     disabled={busy || slotRuntimeUnavailable}
                     className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
-                    title={t("repairItem")}
-                    aria-label={t("repairItem")}
+                    title={t("syncItem")}
+                    aria-label={t("syncItem")}
                   >
-                    {t("repair")}
+                    {t("sync")}
                   </button>
                 )}
                 <button
@@ -402,12 +507,12 @@ const SlotCard = memo(function SlotCard({
             <div className="mt-2 rounded-md border border-subtle bg-[var(--bg-card)]">
               <div className="flex items-center justify-between gap-2 border-b border-subtle px-2.5 py-1.5">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("tmuxWindows")}</p>
-                <span className="text-[10px] text-muted">{t("tmuxWindowCount", { count: slot.windows.length })}</span>
+                <span className="text-[10px] text-muted">{countText(t, "tmuxWindowCount_one", "tmuxWindowCount", slot.windows.length)}</span>
               </div>
               <div className="divide-y divide-[var(--border-subtle)]">
                 {slot.windows.map((w) => {
                   const windowTarget = `${slot.name}:${w.name}`;
-                  const windowNeedsAction = isActionableSyncStatus(w.sync_status);
+                  const windowNeedsAction = isActionableWindowSync(w, slot);
                   return (
                     <div
                       key={w.name}
@@ -429,13 +534,13 @@ const SlotCard = memo(function SlotCard({
                         {windowNeedsAction && (
                           <button
                             type="button"
-                            onClick={() => onRepairTarget(windowTarget)}
+                            onClick={() => onSyncTarget(windowTarget)}
                             disabled={busy || slotRuntimeUnavailable}
                             className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
-                            title={t("repairItem")}
-                            aria-label={t("repairItem")}
+                            title={t("syncItem")}
+                            aria-label={t("syncItem")}
                           >
-                            {t("repair")}
+                            {t("sync")}
                           </button>
                         )}
                         <button
@@ -689,15 +794,14 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
   const syncSummary = data.runtime_sync?.summary;
   const changedCount = syncSummary?.changed || 0;
-  const missingCount = syncSummary?.missing || 0;
   const untrackedCount = syncSummary?.untracked || 0;
   const extraCount = syncSummary?.extra || 0;
-  const syncCount = changedCount + missingCount + untrackedCount;
-  const issueCount = Math.max(syncCount + extraCount, tmuxRuntimeUnavailable ? 1 : 0);
+  const driftCount = actionableRuntimeDriftCount(data.slots);
+  const syncCount = driftCount;
+  const issueCount = Math.max(driftCount + extraCount, tmuxRuntimeUnavailable ? 1 : 0);
   const runtimeSyncNotices = [
     tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : null,
     changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
-    missingCount > 0 ? t("runtimeMissingPending", { count: missingCount }) : null,
     untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
     extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
   ].filter((notice): notice is string => Boolean(notice));
@@ -733,10 +837,10 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     slotsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const requestRepair = (target: string) => {
-    requestConfirmedAction("sync", target, t("repairItem"), {
-      confirmText: t("repair"),
-      description: t("repairConfirmDescription", { target }),
+  const requestSync = (target: string) => {
+    requestConfirmedAction("sync", target, t("syncItem"), {
+      confirmText: t("sync"),
+      description: t("syncTargetConfirmDescription", { target }),
     });
   };
 
@@ -891,7 +995,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             onEditTarget={onEditTarget}
             busy={actionMutation.isPending}
             openerId={selectedOpener.id}
-            onRepairTarget={requestRepair}
+            onSyncTarget={requestSync}
             tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
           />
         </div>

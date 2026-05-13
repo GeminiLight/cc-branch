@@ -85,7 +85,7 @@ def _run_guided_init(cwd: Path, args: argparse.Namespace) -> int:
     if not env_report.available_agents:
         console.print("[yellow]⚠[/yellow] No AI agent CLIs detected")
         console.print()
-        console.print("[dim]You can still create a workspace, but it will only have shell windows.[/dim]")
+        console.print("[dim]You can still create a workspace, but it will only have shell panes.[/dim]")
         console.print("[dim]Install at least one agent CLI for AI-powered workflows.[/dim]")
         console.print()
 
@@ -121,7 +121,7 @@ def _print_environment_report(env_report) -> None:
         console.print(f"  [green]✓[/green] tmux: ok ({env_report.tmux_path})")
     else:
         console.print("  [yellow]⚠[/yellow] tmux runtime: unavailable")
-        console.print("    [dim]→ Starter config will use terminal runtime slots.[/dim]")
+        console.print("    [dim]→ Starter config will use direct-layout tabs.[/dim]")
         console.print(f"    [dim]→ Install tmux later to enable reusable tmux workspaces: {tmux_install_hint()}[/dim]")
 
     console.print()
@@ -158,8 +158,8 @@ def _print_init_result(payload: dict, available_agents: list[str]) -> None:
     summary = payload["summary"]
     state_windows = payload.get("state_windows", [])
     console.print(f"[green]✓[/green] Created {config_path.name}")
-    console.print(f"  [dim]- {summary['slots']} slots[/dim]")
-    console.print(f"  [dim]- {summary['windows']} windows[/dim]")
+    console.print(f"  [dim]- {summary['slots']} tabs[/dim]")
+    console.print(f"  [dim]- {summary['windows']} panes[/dim]")
     console.print(f"  [dim]- {summary['agents']} agents[/dim]")
     console.print()
 

@@ -6,8 +6,10 @@
 # Templates support simple variable substitution with {key} syntax:
 #   {session_id}  — resolved session ID from state
 #   {project}     — workspace project name
-#   {slot}        — slot name
-#   {window}      — window name
+#   {tab}         — workspace tab name
+#   {pane}        — pane name
+#   {slot}        — legacy alias for {tab}
+#   {window}      — legacy alias for {pane}
 #   {label}       — resolved label
 #
 # resume_mode controls which adapter is used:
@@ -23,32 +25,32 @@ agents:
     create_mode: generated_uuid
     create_template: "claude --session-id {session_id}"
     resume_template: "-r {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   codex:
     command: codex
     install_hint: "Install Codex: npm install -g @openai/codex-cli"
     resume_mode: flag
     resume_template: "resume {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   gemini:
     command: gemini
     install_hint: "Install Gemini CLI: pip install google-generativeai-cli"
     resume_mode: flag
     resume_template: "--session {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   cursor:
     command: cursor
     install_hint: "Install Cursor CLI: https://cursor.sh/cli"
     resume_mode: flag
     resume_template: "--resume {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"
 
   kimi:
     command: kimi
     install_hint: "Install Kimi CLI: pip install kimi-cli"
     resume_mode: flag
     resume_template: "--session-id {session_id}"
-    label_template: "{project}/{slot}/{window}"
+    label_template: "{project}/{tab}/{pane}"

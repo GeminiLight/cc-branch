@@ -2,26 +2,26 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-> Start and resume multiple Agent CLI and shell windows from one project config.
+> Start and resume multiple Agent CLI and shell panes from one project config.
 
-CC Branch (`cc-branch`, `ccb`) is a local workspace manager for developers who run several AI coding agents in one repository. It records the window layout, agent commands, working directories, and local session metadata so the same working setup can be recreated quickly.
+CC Branch (`cc-branch`, `ccb`) is a local workspace manager for developers who run several AI coding agents in one repository. It records workspace tabs, panes, agent commands, working directories, and local session metadata so the same working setup can be recreated quickly.
 
 ## Use Cases
 
-- Run planner, coder, reviewer, dev server, and shell windows as one repeatable project workspace.
-- Resume the same AI coding setup across days without manually rebuilding windows.
+- Run planner, coder, reviewer, dev server, and shell panes as one repeatable project workspace.
+- Resume the same AI coding setup across days without manually rebuilding panes.
 - Share a project workspace template with teammates while keeping local session state private.
 
 ## Key Features
 
 - **Workspace templates** for common solo, pair, and minimal AI coding workflows.
-- **Start and reconnect commands** to preview, launch, attach, stop, and restart windows.
+- **Start and reconnect commands** to preview, launch, attach, stop, and restart panes.
 - **Session continuity** for Agent CLIs that support resuming previous sessions.
 - **Local dashboard and health checks** for setup, status, config editing, and common actions.
 
 ## Install
 
-Requirements: Python 3.10+ when installing through PyPI or source, plus the Agent CLIs used by your config. `tmux` is optional and only required for slots that use `runtime: tmux`.
+Requirements: Python 3.10+ when installing through PyPI or source, plus the Agent CLIs used by your config. `tmux` is optional and only required for tabs that use `layoutBackend: tmux`.
 
 ```bash
 pipx install cc-branch
@@ -57,7 +57,7 @@ cc-branch start   # start the configured workspace and enter it
 
 Use `cc-branch open` when you want CC Branch to open the workspace through your configured local app. For example, `cc-branch open --opener warp` or `cc-branch open --opener vscode`.
 
-Use `cc-branch start --detach` only when you want to create reusable tmux sessions without attaching or opening terminal-runtime slots.
+Use `cc-branch start --detach` only when you want to create reusable tmux sessions without attaching or opening direct-layout panes.
 
 Optional checks:
 
@@ -69,13 +69,17 @@ In the Web UI, choose one local tool and then use either "Open workspace" or "Op
 ## Example Config
 
 ```yaml
-version: 1
+version: 2
 project: "my-app"
 root: "."
+openWith: auto-terminal
+layoutBackend: tmux
+defaults:
+  shell: system-default
 
-slots:
+tabs:
   - name: "dev"
-    windows:
+    panes:
       - name: "planner"
         agent: "codex"
       - name: "server"

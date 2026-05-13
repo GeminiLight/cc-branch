@@ -28,6 +28,24 @@ class SessionInfo:
     label: str | None
     status: Literal["running", "stopped", "orphaned"]
     launch_command: str | None = None
+    session_intent: str = "auto"
+    session_binding_status: str = "none"
+    session_binding_source: str | None = None
+    session_binding_updated_at: str | None = None
+
+
+def _binding_status(agent, session_id, entry, window_plan) -> str:
+    if not agent:
+        return "none"
+    if window_plan and window_plan.session_mode == "fresh":
+        return "fresh"
+    if session_id:
+        return "bound"
+    if entry and entry.session_binding_status:
+        return entry.session_binding_status
+    if window_plan and window_plan.session_mode == "auto":
+        return "will_create"
+    return "none"
 
 
 def list_sessions(
@@ -44,11 +62,11 @@ def list_sessions(
     sessions: list[SessionInfo] = []
 
     # Build a lookup from plan windows to their launch commands
-    plan_windows: dict[str, str | None] = {}
+    plan_windows: dict[str, object] = {}
     for slot in plan.slots:
         for window in slot.windows:
             key = session_key(slot.name, window.name)
-            plan_windows[key] = window.launch_command
+            plan_windows[key] = window
 
     # Cache session existence per slot to avoid redundant subprocess calls
     session_exists_cache: dict[str, bool] = {}
@@ -81,6 +99,9 @@ def list_sessions(
             else:
                 status = "stopped"
 
+        window_plan = plan_windows.get(key)
+        launch_command = getattr(window_plan, "launch_command", None)
+        session_intent = getattr(window_plan, "session_mode", "auto")
         sessions.append(
             SessionInfo(
                 key=key,
@@ -90,7 +111,11 @@ def list_sessions(
                 session_id=entry.session_id,
                 label=entry.label,
                 status=status,
-                launch_command=plan_windows.get(key),
+                launch_command=launch_command,
+                session_intent=session_intent,
+                session_binding_status=_binding_status(entry.agent, entry.session_id, entry, window_plan),
+                session_binding_source=entry.session_binding_source,
+                session_binding_updated_at=entry.session_binding_updated_at,
             )
         )
 
@@ -120,6 +145,13 @@ def list_sessions(
                     label=window.resolved_label,
                     status=status,
                     launch_command=window.launch_command,
+                    session_intent=window.session_mode,
+                    session_binding_status=_binding_status(
+                        window.agent,
+                        window.resolved_session_id,
+                        None,
+                        window,
+                    ),
                 )
             )
 
@@ -142,6 +174,7 @@ def inspect_session(
     # Check if the key exists in state
     entry = state.get_window(key)
     if entry is not None:
+        window_plan = plan.get_window(slot_name, window_name)
         if not is_managed_runtime(slot_plan.runtime):
             status: Literal["running", "stopped", "orphaned"] = "stopped"
             return SessionInfo(
@@ -153,6 +186,10 @@ def inspect_session(
                 label=entry.label,
                 status=status,
                 launch_command=None,
+                session_intent=getattr(window_plan, "session_mode", "auto"),
+                session_binding_status=_binding_status(entry.agent, entry.session_id, entry, window_plan),
+                session_binding_source=entry.session_binding_source,
+                session_binding_updated_at=entry.session_binding_updated_at,
             )
         session_exists = tmux_has_session(slot_plan.tmux_session)
         if not session_exists:
@@ -170,6 +207,10 @@ def inspect_session(
             label=entry.label,
             status=status,
             launch_command=None,
+            session_intent=getattr(window_plan, "session_mode", "auto"),
+            session_binding_status=_binding_status(entry.agent, entry.session_id, entry, window_plan),
+            session_binding_source=entry.session_binding_source,
+            session_binding_updated_at=entry.session_binding_updated_at,
         )
 
     # Check if the window exists in the plan but not in state
@@ -186,6 +227,8 @@ def inspect_session(
                     label=w.resolved_label,
                     status=status,
                     launch_command=w.launch_command,
+                    session_intent=w.session_mode,
+                    session_binding_status=_binding_status(w.agent, w.resolved_session_id, None, w),
                 )
             session_exists = tmux_has_session(slot_plan.tmux_session)
             if not session_exists:
@@ -203,6 +246,8 @@ def inspect_session(
                 label=w.resolved_label,
                 status=status,
                 launch_command=w.launch_command,
+                session_intent=w.session_mode,
+                session_binding_status=_binding_status(w.agent, w.resolved_session_id, None, w),
             )
 
     return None

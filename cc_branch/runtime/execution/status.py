@@ -6,6 +6,22 @@ from ...models import WorkspaceConfig, WorkspacePlan
 from ..capabilities import is_external_process_runtime, supports_attach
 
 
+def _binding_status(window, state_entry) -> str:
+    if window is None:
+        return state_entry.session_binding_status if state_entry and state_entry.session_binding_status else "none"
+    if not window.agent:
+        return "none"
+    if window.session_mode == "fresh":
+        return "fresh"
+    if window.resolved_session_id:
+        return "bound"
+    if state_entry and state_entry.session_binding_status:
+        return state_entry.session_binding_status
+    if window.session_mode == "auto":
+        return "will_create"
+    return "none"
+
+
 def list_window_names(session: str) -> set[str]:
     """Return the set of window names inside a tmux session."""
     import cc_branch.runtime.execution as execution
@@ -85,8 +101,11 @@ def format_status(workspace: WorkspaceConfig, plan: WorkspacePlan, state=None) -
             key = f"{slot['name']}.{window['name']}"
             sync = sync_by_key.get(key)
             sync_text = f" sync={sync}" if sync else ""
+            state_entry = state.get_window(key) if state is not None else None
+            binding = _binding_status(plan.get_window(slot["name"], window["name"]), state_entry)
+            binding_text = f" binding={binding}" if binding != "none" else ""
             lines.append(
                 f"  - {window['name']}: agent={agent} "
-                f"window={window_status}{sync_text} session_id={session_id} label={label}"
+                f"window={window_status}{sync_text}{binding_text} session_id={session_id} label={label}"
             )
     return "\n".join(lines)

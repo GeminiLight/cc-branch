@@ -232,7 +232,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
         self.assertTrue(callable(profiles.get_profile_config))
         self.assertTrue(callable(profiles.get_available_profiles))
-        self.assertIn("solo-dev", profiles.PROFILES)
+        self.assertIn("development", profiles.PROFILES)
 
     def test_config_module_is_package_facade(self):
         import importlib
@@ -508,6 +508,12 @@ class RuntimeBoundaryTests(unittest.TestCase):
             plan = plan_workspace(workspace, state, bootstrap_missing=False)
             previous_backend = get_backend()
             set_backend(FakeBackend({"demo-dev": {"planner"}}))
+            def fail_session_check(_session: str) -> bool:
+                raise AssertionError("status should reuse sync inspection instead of checking sessions again")
+
+            def fail_window_check(_session: str, _window: str) -> bool:
+                raise AssertionError("status should reuse sync inspection instead of checking windows again")
+
             try:
                 status = build_workspace_status(
                     workspace,
@@ -515,6 +521,8 @@ class RuntimeBoundaryTests(unittest.TestCase):
                     state,
                     config_path=root / ".cc-branch/config.yaml",
                     state_path=root / ".cc-branch/state.yaml",
+                    session_exists=fail_session_check,
+                    window_exists=fail_window_check,
                 )
             finally:
                 set_backend(previous_backend)
@@ -912,6 +920,41 @@ class ConfigWorkflowTests(unittest.TestCase):
             self.assertIn("diagnostics", result.payload)
             self.assertIn("content_hash", result.payload)
 
+    def test_save_workspace_config_accepts_canonical_public_fields_without_warnings(self):
+        from cc_branch.application.config_workflows import read_workspace_config, save_workspace_config
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            state_path = root / ".cc-branch/state.yaml"
+            content = textwrap.dedent(
+                """
+                version: 2
+                project: "demo"
+                root: "."
+                openWith: "auto-terminal"
+                layoutBackend: "tmux"
+                defaults:
+                  shell: "system-default"
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "main"
+                        command: "zsh"
+                """
+            ).strip() + "\n"
+
+            result = save_workspace_config(config_path, state_path, content)
+            read_result = read_workspace_config(config_path, state_path)
+
+            self.assertTrue(result.ok)
+            self.assertEqual(result.warnings, ())
+            self.assertEqual(result.payload["issues"], [])
+            self.assertTrue(read_result.ok)
+            self.assertEqual(read_result.warnings, ())
+            self.assertEqual(read_result.payload["issues"], [])
+
     def test_read_workspace_config_returns_missing_draft(self):
         from cc_branch.application.config_workflows import read_workspace_config
 
@@ -1024,7 +1067,7 @@ class ConfigWorkflowTests(unittest.TestCase):
                 patch("cc_branch.application.config_workflows.check_environment", return_value=env) as check_environment,
                 patch("cc_branch.application.config_workflows.initialize_workspace_files", return_value=init_result) as initialize_files,
             ):
-                result = initialize_workspace(root, profile="solo-dev", bootstrap_sessions=True)
+                result = initialize_workspace(root, profile="development", bootstrap_sessions=True)
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "workspace_initialized")
@@ -1034,7 +1077,7 @@ class ConfigWorkflowTests(unittest.TestCase):
             check_environment.assert_called_once_with(root)
             initialize_files.assert_called_once_with(
                 root,
-                profile="solo-dev",
+                profile="development",
                 available_agents=["codex", "claude"],
                 bootstrap_sessions_requested=True,
             )
@@ -1045,13 +1088,13 @@ class ConfigWorkflowTests(unittest.TestCase):
         from cc_branch.application.config_workflows import profile_options
 
         with (
-            patch("cc_branch.application.config_workflows.get_available_profiles", return_value=["solo-dev"]),
-            patch("cc_branch.application.config_workflows.get_profile_description", return_value="Solo profile"),
+            patch("cc_branch.application.config_workflows.get_available_profiles", return_value=["development"]),
+            patch("cc_branch.application.config_workflows.get_profile_description", return_value="Development profile"),
         ):
             result = profile_options()
 
         self.assertTrue(result.ok)
-        self.assertEqual(result.payload, {"profiles": [{"id": "solo-dev", "description": "Solo profile"}]})
+        self.assertEqual(result.payload, {"profiles": [{"id": "development", "description": "Development profile"}]})
 
     def test_opener_options_use_workspace_custom_openers_when_config_exists(self):
         from unittest.mock import patch
@@ -1290,6 +1333,65 @@ class ConfigWorkflowTests(unittest.TestCase):
                     ("missing_launch_command", "window:dev:main"),
                 ],
             )
+
+    def test_collect_config_issues_accepts_v2_tabs_and_validates_panes(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "ui"
+                            agent: "codex"
+                          - name: "tmux"
+                            runtime: "tmux"
+                            windows:
+                              - name: "shell"
+                                command: "zsh"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            self.assertEqual(issues, [])
+
+    def test_collect_config_issues_accepts_canonical_workspace_terms(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+                    root: "."
+                    openWith: "cursor"
+                    layoutBackend: "tmux"
+                    defaults:
+                      shell: "system-default"
+
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "planner"
+                            agent: "codex"
+                          - name: "server"
+                            command: "pnpm dev"
+                            shell: "zsh"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            self.assertEqual(issues, [])
 
     def test_collect_config_issues_errors_for_invalid_env_keys(self):
         from cc_branch.application.config_validation import collect_config_issues
@@ -1858,7 +1960,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             ])
             open_with.assert_not_called()
 
-    def test_open_workspace_layout_opener_attaches_tmux_slots_once(self):
+    def test_open_workspace_layout_opener_expands_tmux_windows(self):
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -1904,7 +2006,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertTrue(result.ok)
             specs = open_command_layout.call_args.args[1]
             self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                ("dev", "cc-branch attach dev"),
+                ("dev:planner", "cc-branch attach dev:planner"),
                 ("scratch:main", "zsh"),
             ])
 

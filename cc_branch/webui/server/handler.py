@@ -109,12 +109,11 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.send_error(500)
             return
 
-        content_type, _ = mimetypes.guess_type(filename)
-        if content_type is None:
-            content_type = "application/octet-stream"
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         try:
             self.send_response(200)
             self.send_header("Content-Type", content_type)
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable" if filename.startswith("assets/") else "no-cache")
             self.end_headers()
             self.wfile.write(content)
         except _CLIENT_DISCONNECT_ERRORS:
@@ -271,8 +270,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 self._serve_text("Unauthorized", "text/plain; charset=utf-8", status=401)
                 return
             html = read_static_file("index.html")
-            headers = {"Referrer-Policy": "no-referrer"}
-            self._serve_text(html, "text/html; charset=utf-8", headers)
+            self._serve_text(html, "text/html; charset=utf-8", {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
         except Exception:
             self.send_error(500)
 

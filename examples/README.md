@@ -27,7 +27,7 @@ Best for:
 
 - one developer
 - implementation + review split
-- a dev-server window
+- a dev-server pane
 - a scratch shell
 
 ### `scenario-multi-project.yaml`
@@ -35,7 +35,7 @@ Best for:
 Best for:
 
 - monorepos or related projects
-- separate frontend/backend/library slots
+- separate frontend/backend/library tabs
 - different agents per project area
 
 ### `scenario-long-term.yaml`
@@ -44,7 +44,7 @@ Best for:
 
 - persistent multi-week project context
 - planning / implementation / testing separation
-- multiple long-lived agent windows
+- multiple long-lived agent panes
 
 ### `agent-branch.yaml`
 

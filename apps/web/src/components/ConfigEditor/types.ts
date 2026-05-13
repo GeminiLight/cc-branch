@@ -17,11 +17,15 @@ export interface AgentConfig {
 
 export interface WindowConfig {
   name: string;
+  layoutBackend?: "direct" | "tmux" | null;
   agent: string | null;
   command: string | null;
   cwd: string | null;
   env: Record<string, string>;
+  windows?: WindowConfig[];
+  session?: string | null;
   session_id: string | null;
+  shell?: ShellSpec | null;
   label: string | null;
   label_template: string | null;
   resume_mode: string | null;
@@ -44,6 +48,7 @@ export interface SlotConfig {
   command?: string;
   title?: string;
   agent?: string;
+  session?: string;
   session_id?: string;
   label?: string;
 }
@@ -54,10 +59,25 @@ export interface DisplayConfig {
   dashboard: boolean;
 }
 
+export type ShellSpec =
+  | "system-default"
+  | "zsh"
+  | "bash"
+  | "pwsh"
+  | "cmd"
+  | { command: string; args?: string[] };
+
+export interface WorkspaceDefaults {
+  shell: ShellSpec | null;
+}
+
 export interface ConfigFormData {
   version: number;
   project: string;
   root: string;
+  openWith?: string | null;
+  layoutBackend?: "tmux" | "direct";
+  defaults?: WorkspaceDefaults;
   display: DisplayConfig;
   agents: Record<string, AgentConfig>;
   slots: SlotConfig[];
@@ -80,7 +100,9 @@ export const DEFAULT_WINDOW: WindowConfig = {
   command: null,
   cwd: null,
   env: {},
+  session: null,
   session_id: null,
+  shell: null,
   label: null,
   label_template: null,
   resume_mode: null,
@@ -110,6 +132,9 @@ export function createDefaultConfig(): ConfigFormData {
     version: 2,
     project: "my-project",
     root: ".",
+    openWith: null,
+    layoutBackend: "direct",
+    defaults: { shell: null },
     display: { ...DEFAULT_DISPLAY },
     agents: {},
     slots: [],

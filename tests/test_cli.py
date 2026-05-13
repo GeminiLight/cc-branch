@@ -453,7 +453,7 @@ class CLITests(unittest.TestCase):
                     main(["attach"])
 
             self.assertEqual(ctx.exception.code, 2)
-            self.assertIn("attach requires a <slot>", stderr.getvalue())
+            self.assertIn("attach requires a <tab>", stderr.getvalue())
 
     def test_all_commands_have_help_data(self):
         commands = [
@@ -491,7 +491,7 @@ class CLITests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         rendered = stdout.getvalue()
-        self.assertIn("slot[:window]", rendered)
+        self.assertIn("tab[:pane]", rendered)
         self.assertIn("dev:planner", rendered)
 
     def test_serve_help_includes_token_in_rich_help(self):
@@ -594,6 +594,7 @@ class CLITests(unittest.TestCase):
                 patch("cc_branch.application.workspace_status._default_session_exists", return_value=False),
                 patch("cc_branch.application.workspace_status._default_window_exists", return_value=False),
                 patch("cc_branch.runtime.sync._tmux_has_session", return_value=False),
+                patch("cc_branch.runtime.sync._list_window_names", return_value=set()),
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--format", "json", "status"])

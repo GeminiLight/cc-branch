@@ -19,15 +19,15 @@ import { useProjectStore, getActiveProject } from "./stores/projectStore";
 import { useUIStore } from "./stores/uiStore";
 import Sidebar from "./components/Sidebar";
 const AddProjectModal = lazy(() => import("./components/AddProjectModal"));
+const ConfigEditor = lazy(() => import("./components/ConfigEditor"));
+const DoctorView = lazy(() => import("./components/DoctorView"));
+const SettingsModal = lazy(() => import("./components/SettingsModal"));
 import ErrorBoundary from "./components/ErrorBoundary";
 import OfflineBanner from "./components/OfflineBanner";
 import SkipLink from "./components/SkipLink";
 import Dropdown from "./components/ui/Dropdown";
 import Tooltip from "./components/ui/Tooltip";
 import Dashboard from "./components/Dashboard";
-import ConfigEditor from "./components/ConfigEditor";
-import DoctorView from "./components/DoctorView";
-import SettingsModal from "./components/SettingsModal";
 import ConfigSelector from "./components/ConfigSelector";
 
 type Tab = "dashboard" | "workspace" | "project" | "doctor";
@@ -44,6 +44,17 @@ const langItems = [
   { label: "中文", value: "zh", icon: <Globe className="w-3.5 h-3.5" /> },
 ];
 
+function PanelLoading() {
+  return (
+    <div className="page-shell space-y-3 pt-1" aria-label="Loading panel">
+      <div className="surface-card border border-default rounded-lg px-4 py-4">
+        <div className="h-4 w-36 rounded bg-[var(--bg-hover)] animate-pulse" />
+        <div className="mt-3 h-24 rounded-md bg-[var(--bg-hover)]/70 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
 function AppInner() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const { t, lang, setLang } = useI18n();
@@ -59,6 +70,7 @@ function AppInner() {
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [projectsHydrated, setProjectsHydrated] = useState(false);
   const activeConfigPath = activeProject?.selected_config_path;
   const activeScope = activeProject ? { projectPath: activeProject.path, configPath: activeConfigPath } : undefined;
   const { data: configOptionsData } = useConfigOptions(activeScope);
@@ -75,6 +87,9 @@ function AppInner() {
       })
       .catch(() => {
         // Silently fail; user can still manually add projects.
+      })
+      .finally(() => {
+        if (!cancelled) setProjectsHydrated(true);
       });
     return () => {
       cancelled = true;
@@ -182,6 +197,47 @@ function AppInner() {
     setSettingsOpen(true);
   }, [setMobileSidebarOpen]);
 
+  const activePanel = activeProject ? (
+    <Suspense fallback={<PanelLoading />}>
+      <div
+        role="tabpanel"
+        id={`panel-${tab}`}
+        aria-labelledby={`tab-${tab}`}
+        className="transition-opacity duration-200 opacity-100"
+      >
+        {tab === "dashboard" ? (
+          <Dashboard
+            key={`dash-${activeProject.id}-${selectedConfigPath || "default"}`}
+            projectPath={activeProject.path}
+            configPath={selectedConfigPath}
+            isActive
+            onEditTarget={handleEditWorkspaceTarget}
+          />
+        ) : tab === "workspace" ? (
+          <ConfigEditor
+            key={`workspace-${activeProject.id}-${selectedConfigPath || "default"}`}
+            projectPath={activeProject.path}
+            configPath={selectedConfigPath}
+            view="workspace"
+          />
+        ) : tab === "project" ? (
+          <ConfigEditor
+            key={`project-config-${activeProject.id}-${selectedConfigPath || "default"}`}
+            projectPath={activeProject.path}
+            configPath={selectedConfigPath}
+            view="project"
+          />
+        ) : (
+          <DoctorView
+            key={`doc-${activeProject.id}-${selectedConfigPath || "default"}`}
+            projectPath={activeProject.path}
+            configPath={selectedConfigPath}
+          />
+        )}
+      </div>
+    </Suspense>
+  ) : null;
+
   // Global keyboard shortcuts
   useKeyboardShortcuts({
     onTab1: () => setTab("dashboard"),
@@ -235,10 +291,17 @@ function AppInner() {
             </button>
 
             <div className="min-w-0 flex flex-col justify-center">
-              <span className="text-sm font-semibold text-primary tracking-tight leading-tight">
-                {activeProject?.name || t("appTitle")}
-              </span>
-              {activeProject?.path && (
+              {!projectsHydrated ? (
+                <>
+                  <span className="block h-[16px] w-[168px] rounded bg-[var(--bg-hover)]/70" aria-hidden="true" />
+                  <span className="mt-1 block h-[11px] w-[320px] max-w-[min(52vw,320px)] rounded bg-[var(--bg-hover)]/45" aria-hidden="true" />
+                </>
+              ) : (
+                <span className="text-sm font-semibold text-primary tracking-tight leading-tight">
+                  {activeProject?.name || t("appTitle")}
+                </span>
+              )}
+              {projectsHydrated && activeProject?.path && (
                 <Tooltip content={activeProject.path} side="bottom">
                   <span className="block text-[11px] text-tertiary font-mono truncate max-w-[min(52vw,520px)] leading-tight mt-0.5">
                     {activeProject.path}
@@ -249,7 +312,7 @@ function AppInner() {
           </div>
 
           <div className="flex items-center gap-0.5 shrink-0">
-            {configOptionsData?.configs && activeProject && (
+            {activeProject && configOptionsData?.configs ? (
               <ConfigSelector
                 projectPath={activeProject.path}
                 configs={configOptionsData.configs}
@@ -259,7 +322,12 @@ function AppInner() {
                 onRename={handleRenameConfig}
                 onDelete={handleDeleteConfig}
               />
-            )}
+            ) : activeProject ? (
+              <div
+                className="control-touch w-[152px] sm:min-w-[176px] max-w-[260px] rounded-lg border border-default bg-[var(--bg-hover)]/45"
+                aria-hidden="true"
+              />
+            ) : null}
             <Dropdown
               align="right"
               value={lang}
@@ -351,32 +419,10 @@ function AppInner() {
 
         {/* Content */}
         <main id="main-content" className="flex-1 px-4 sm:px-5 py-5 min-w-0 overflow-y-auto" tabIndex={-1}>
-          {activeProject ? (
-            <>
-              <div role="tabpanel" id="panel-dashboard" aria-labelledby="tab-dashboard" hidden={tab !== "dashboard"} className={`transition-opacity duration-200 ${tab === "dashboard" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <Dashboard
-                  key={`dash-${activeProject.id}-${selectedConfigPath || "default"}`}
-                  projectPath={activeProject.path}
-                  configPath={selectedConfigPath}
-                  isActive={tab === "dashboard"}
-                  onEditTarget={handleEditWorkspaceTarget}
-                />
-              </div>
-              <div role="tabpanel" id="panel-workspace" aria-labelledby="tab-workspace" hidden={tab !== "workspace"} className={`transition-opacity duration-200 ${tab === "workspace" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <ConfigEditor key={`workspace-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} view="workspace" />
-              </div>
-              <div role="tabpanel" id="panel-project" aria-labelledby="tab-project" hidden={tab !== "project"} className={`transition-opacity duration-200 ${tab === "project" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <ConfigEditor
-                  key={`project-config-${activeProject.id}-${selectedConfigPath || "default"}`}
-                  projectPath={activeProject.path}
-                  configPath={selectedConfigPath}
-                  view="project"
-                />
-              </div>
-              <div role="tabpanel" id="panel-doctor" aria-labelledby="tab-doctor" hidden={tab !== "doctor"} className={`transition-opacity duration-200 ${tab === "doctor" ? "opacity-100" : "opacity-0 hidden"}`}>
-                <DoctorView key={`doc-${activeProject.id}-${selectedConfigPath || "default"}`} projectPath={activeProject.path} configPath={selectedConfigPath} />
-              </div>
-            </>
+          {!projectsHydrated ? (
+            <PanelLoading />
+          ) : activeProject ? (
+            activePanel
           ) : (
             <div className="text-center py-20">
               <p className="text-sm text-secondary">{t("selectProject")}</p>
@@ -393,10 +439,14 @@ function AppInner() {
           onAdd={handleAddProject}
         />
       </Suspense>
-      <SettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

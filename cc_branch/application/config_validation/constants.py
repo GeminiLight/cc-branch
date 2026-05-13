@@ -12,9 +12,14 @@ TOP_LEVEL_FIELDS = {
     "agents",
     "openers",
     "default_opener",
+    "openWith",
+    "layoutBackend",
+    "defaults",
     "slots",
+    "tabs",
 }
 DISPLAY_FIELDS = {"mode", "columns", "dashboard"}
+DEFAULTS_FIELDS = {"shell"}
 AGENT_FIELDS = {
     "command",
     "resume_mode",
@@ -36,8 +41,34 @@ SLOT_FIELDS = {
     "command",
     "title",
     "agent",
+    "session",
     "session_id",
     "label",
+}
+TAB_FIELDS = {"name", "layout", "layoutBackend", "opener", "cwd", "env", "panes"}
+PANE_FIELDS = {
+    "name",
+    "runtime",
+    "layoutBackend",
+    "layout",
+    "opener",
+    "cwd",
+    "env",
+    "windows",
+    "command",
+    "title",
+    "agent",
+    "session",
+    "session_id",
+    "shell",
+    "label",
+    "label_template",
+    "resume_mode",
+    "resume_template",
+    "create_mode",
+    "create_template",
+    "label_mode",
+    "rename_template",
 }
 WINDOW_FIELDS = {
     "name",
@@ -45,6 +76,7 @@ WINDOW_FIELDS = {
     "command",
     "cwd",
     "env",
+    "session",
     "session_id",
     "label",
     "label_template",
@@ -56,6 +88,7 @@ WINDOW_FIELDS = {
     "rename_template",
 }
 RUNTIMES = set(RUNTIME_CAPABILITIES)
+LAYOUT_BACKENDS = {"tmux", "direct"}
 RESUME_MODES = {"none", "flag", "command"}
 CREATE_MODES = {"none", "generated_uuid"}
 LABEL_MODES = {"none", "metadata", "command"}
@@ -70,12 +103,38 @@ AGENT_STRING_FIELDS = {
     "rename_template",
 }
 OPENER_STRING_FIELDS = {"label", "kind", "command"}
-SLOT_STRING_FIELDS = {"name", "runtime", "opener", "cwd", "command", "title", "agent", "session_id", "label"}
+TOP_LEVEL_STRING_FIELDS = {"project", "root", "default_opener", "openWith", "layoutBackend"}
+DEFAULTS_STRING_FIELDS = {"shell"}
+SLOT_STRING_FIELDS = {"name", "runtime", "opener", "cwd", "command", "title", "agent", "session", "session_id", "label"}
+TAB_STRING_FIELDS = {"name", "layout", "layoutBackend", "opener", "cwd"}
+PANE_STRING_FIELDS = {
+    "name",
+    "runtime",
+    "layoutBackend",
+    "layout",
+    "opener",
+    "cwd",
+    "command",
+    "title",
+    "agent",
+    "session",
+    "session_id",
+    "shell",
+    "label",
+    "label_template",
+    "resume_mode",
+    "resume_template",
+    "create_mode",
+    "create_template",
+    "label_mode",
+    "rename_template",
+}
 WINDOW_STRING_FIELDS = {
     "name",
     "agent",
     "command",
     "cwd",
+    "session",
     "session_id",
     "label",
     "label_template",

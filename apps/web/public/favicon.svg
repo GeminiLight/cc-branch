@@ -1,10 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="cc-branch">
-  <rect x="8" y="8" width="104" height="104" rx="22" fill="#0a1f20"/>
-  <rect x="8" y="8" width="104" height="104" rx="22" fill="none" stroke="#174447" stroke-width="2"/>
-  <rect x="27" y="27" width="22" height="66" rx="7" fill="#2dd4bf"/>
-  <path d="M50 28h33c4 0 7 3 7 7v50c0 4-3 7-7 7H50V28Z" fill="#0f766e"/>
-  <path d="M50 28l40 12v52L50 78V28Z" fill="#115e59"/>
-  <rect x="64" y="35" width="28" height="7" rx="3.5" fill="#ecfdf5"/>
-  <rect x="64" y="54" width="34" height="7" rx="3.5" fill="#f4b740"/>
-  <rect x="64" y="73" width="27" height="7" rx="3.5" fill="#35d08f"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="cc-branch">
+  <rect width="256" height="256" rx="56" fill="#10292B"/>
+
+  <!-- Back fold. It extends under the front rail so there is no notch at the join. -->
+  <path
+    d="M92 56
+       L158 91
+       C164 95 167 102 167 110
+       V207
+       L92 174Z"
+    fill="#0F766E"/>
+
+  <!-- Front rail. Custom path: round left side, calmer right corners for a cleaner fold seam. -->
+  <path
+    d="M76 56
+       H96
+       C104 56 110 62 110 70
+       V186
+       C110 194 104 200 96 200
+       H76
+       C66 200 58 192 58 182
+       V74
+       C58 64 66 56 76 56Z"
+    fill="#2DD4BF"/>
+
+  <!-- Workspace lanes. Uneven lengths make them feel like real targets, not decoration. -->
+  <rect x="144" y="75" width="56" height="16" rx="8" fill="#F6FFF9"/>
+  <rect x="144" y="120" width="70" height="16" rx="8" fill="#F4B740"/>
+  <rect x="144" y="165" width="58" height="16" rx="8" fill="#35D08F"/>
 </svg>

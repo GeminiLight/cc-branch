@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../hooks', () => ({
   useDoctor: () => mocks.doctorResult.current,
+  useConfig: () => ({ data: { issues: [] } }),
+  useWorkspace: () => ({ data: { runtime_sync: { summary: {} } } }),
 }))
 
 function renderDoctorView() {
