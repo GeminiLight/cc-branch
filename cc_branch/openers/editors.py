@@ -85,7 +85,7 @@ class EditorWorkspaceOpener:
                     "presentation": {
                         "reveal": "always",
                         "panel": "dedicated",
-                        "group": self.task_group(spec.title),
+                        "group": self.task_group(spec),
                         "clear": False,
                     },
                     "runOptions": {"runOn": "folderOpen"},
@@ -99,10 +99,12 @@ class EditorWorkspaceOpener:
     def project_tasks_json(self, commands: list[OpenCommandSpec]) -> str:
         return json.dumps(self.tasks_payload(commands), indent=2) + "\n"
 
-    def task_group(self, title: str) -> str:
-        """Return the VS Code split-terminal group for a command title."""
-        tab_name, separator, _pane_name = title.partition(":")
-        group_name = tab_name if separator else title
+    def task_group(self, spec: OpenCommandSpec) -> str:
+        """Return the VS Code split-terminal group for a command spec."""
+        group_name = spec.split_group
+        if group_name is None:
+            tab_name, separator, _pane_name = spec.title.partition(":")
+            group_name = tab_name if separator else spec.title
         return f"cc-branch:{group_name.strip() or 'workspace'}"
 
     def prepare_project_tasks(self, cwd: Path, commands: list[OpenCommandSpec]) -> None:

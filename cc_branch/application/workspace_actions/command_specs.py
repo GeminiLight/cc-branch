@@ -23,6 +23,7 @@ class WorkspaceCommandSpecs:
                         title=f"{slot.name}:{window.name}",
                         cwd=Path(window.cwd),
                         command=window.launch_command,
+                        split_group=slot.name,
                     )
                 )
             return specs
@@ -33,6 +34,7 @@ class WorkspaceCommandSpecs:
                         title=f"{slot.name}:{window.name}",
                         cwd=Path(window.cwd),
                         command=window.launch_command,
+                        split_group=slot.name,
                     )
                 )
         return specs
@@ -43,6 +45,7 @@ class WorkspaceCommandSpecs:
                 title=slot.name,
                 cwd=Path(slot.cwd),
                 command=f"{cli} attach {slot.name}",
+                split_group=slot.name,
             )
             for slot in slots
         ]
@@ -60,6 +63,7 @@ class WorkspaceCommandSpecs:
                         title=target,
                         cwd=Path(window.cwd),
                         command=f"{cli} attach {target}",
+                        split_group=slot.name,
                     )
                 )
         return specs
@@ -74,6 +78,7 @@ class WorkspaceCommandSpecs:
                     title=target,
                     cwd=Path(window.cwd),
                     command=f"{cli} attach {target}",
+                    split_group=slot.name,
                 )
             ]
         return self.tmux_window_attach_specs([slot], cli)

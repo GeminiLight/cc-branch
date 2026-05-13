@@ -64,3 +64,4 @@ class OpenCommandSpec:
     title: str
     cwd: Path
     command: str
+    split_group: str | None = None

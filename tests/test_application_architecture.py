@@ -446,6 +446,32 @@ class RuntimeBoundaryTests(unittest.TestCase):
         ]:
             self.assertTrue(use_case.__doc__)
 
+    def test_workspace_command_specs_carry_tab_split_group(self):
+        from types import SimpleNamespace
+
+        from cc_branch.application.workspace_actions.command_specs import WorkspaceCommandSpecs
+
+        dev = SimpleNamespace(
+            name="dev",
+            cwd="/tmp/demo",
+            windows=[
+                SimpleNamespace(name="frontend", cwd="/tmp/demo", launch_command="npm run dev"),
+                SimpleNamespace(name="backend", cwd="/tmp/demo", launch_command="python api.py"),
+            ],
+        )
+        docs = SimpleNamespace(
+            name="docs",
+            cwd="/tmp/demo",
+            windows=[
+                SimpleNamespace(name="writer", cwd="/tmp/demo", launch_command="codex"),
+            ],
+        )
+
+        specs = WorkspaceCommandSpecs().terminal_command_specs([dev, docs])
+
+        self.assertEqual([spec.title for spec in specs], ["dev:frontend", "dev:backend", "docs:writer"])
+        self.assertEqual([spec.split_group for spec in specs], ["dev", "dev", "docs"])
+
     def _write(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")

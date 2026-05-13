@@ -70,7 +70,12 @@ class OpenerDispatcher:
             raise OpenerError(f"Opener {opener_id} does not support running commands")
 
         resolved = [
-            OpenCommandSpec(title=spec.title, cwd=spec.cwd.expanduser().resolve(), command=spec.command)
+            OpenCommandSpec(
+                title=spec.title,
+                cwd=spec.cwd.expanduser().resolve(),
+                command=spec.command,
+                split_group=spec.split_group,
+            )
             for spec in commands
         ]
         if opener_id == "warp":
@@ -88,7 +93,12 @@ class OpenerDispatcher:
 
         cwd = cwd.expanduser().resolve()
         resolved = [
-            OpenCommandSpec(title=spec.title, cwd=spec.cwd.expanduser().resolve(), command=spec.command)
+            OpenCommandSpec(
+                title=spec.title,
+                cwd=spec.cwd.expanduser().resolve(),
+                command=spec.command,
+                split_group=spec.split_group,
+            )
             for spec in commands
         ]
         self.editor.open(opener_id, info, cwd, resolved)

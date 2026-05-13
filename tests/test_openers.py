@@ -391,6 +391,21 @@ class OpenerTests(unittest.TestCase):
         groups = [task["presentation"]["group"] for task in payload["tasks"]]
         self.assertEqual(groups, ["cc-branch:dev", "cc-branch:dev", "cc-branch:docs"])
 
+    def test_vscode_task_split_uses_explicit_group_over_title_shape(self):
+        """Split grouping is carried by command metadata, not inferred from labels."""
+        from cc_branch.openers.editors import editor_workspace_opener
+
+        payload = editor_workspace_opener.tasks_payload(
+            [
+                OpenCommandSpec("Frontend", Path("/tmp/demo"), "npm run dev", split_group="dev"),
+                OpenCommandSpec("Backend", Path("/tmp/demo"), "python api.py", split_group="dev"),
+                OpenCommandSpec("Writer", Path("/tmp/demo"), "codex", split_group="docs"),
+            ]
+        )
+
+        groups = [task["presentation"]["group"] for task in payload["tasks"]]
+        self.assertEqual(groups, ["cc-branch:dev", "cc-branch:dev", "cc-branch:docs"])
+
     def test_vscode_workspace_open_does_not_create_generated_workspace_file_on_macos(self):
         """The Explorer should show the real folder, not a generated .code-workspace wrapper."""
         import tempfile
