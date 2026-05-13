@@ -104,6 +104,12 @@ const StatusDot = memo(function StatusDot({ status }: { status: "ok" | "error" |
   return <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0 mt-0.5" />;
 });
 
+const CHECK_STATUS_PRIORITY: Record<CheckItem["status"], number> = {
+  error: 0,
+  warn: 1,
+  ok: 2,
+};
+
 export default function DoctorView({ projectPath, configPath }: DoctorViewProps) {
   const { t } = useI18n();
   const scope = { projectPath, configPath };
@@ -193,6 +199,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
   const issueCount = checks.filter((check) => check.status === "error").length;
   const warningCount = checks.filter((check) => check.status === "warn").length;
   const passedCount = checks.filter((check) => check.status === "ok").length;
+  const visibleChecks = [...checks].sort((a, b) => CHECK_STATUS_PRIORITY[a.status] - CHECK_STATUS_PRIORITY[b.status]);
   const overall = issueCount > 0 ? "error" : warningCount > 0 ? "warn" : parsed?.overall ?? "ok";
   const overallLabel =
     overall === "ok"
@@ -281,34 +288,34 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
         <div className="px-4 py-3 border-b border-subtle bg-[var(--bg-card)] flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <StatusDot status={overall} />
-            <p className="text-[13px] font-semibold text-primary">{t("doctorChecks")}</p>
+            <p className="text-[13px] font-semibold text-primary">{t("doctorFindings")}</p>
           </div>
           <span className={`text-[11px] font-semibold ${overallColor}`}>{overallLabel}</span>
         </div>
         <div className="p-1.5 space-y-1">
-        {checks.map((check, i) => (
-          <div
-            key={i}
-            className={`rounded-md px-3 py-3 flex items-start gap-2.5 ${
-              check.status === "error"
-                ? "bg-[var(--danger-bg)]"
-                : check.status === "warn"
-                  ? "bg-[var(--warning-bg)]"
-              : "hover:bg-[var(--bg-hover)]/35"
-            }`}
-          >
-            <StatusDot status={check.status} />
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">{check.icon}</p>
-              <p className="text-[13px] text-primary mt-px">{check.text}</p>
-              {check.fix && (
-                <p className="text-[11px] text-tertiary mt-1 font-mono bg-[var(--bg-hover)] px-2 py-1 rounded inline-block">
-                  → {check.fix}
-                </p>
-              )}
+          {visibleChecks.map((check, i) => (
+            <div
+              key={i}
+              className={`rounded-md px-3 py-3 flex items-start gap-2.5 ${
+                check.status === "error"
+                  ? "bg-[var(--danger-bg)]"
+                  : check.status === "warn"
+                    ? "bg-[var(--warning-bg)]"
+                    : "hover:bg-[var(--bg-hover)]/35"
+              }`}
+            >
+              <StatusDot status={check.status} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">{check.icon}</p>
+                <p className="text-[13px] text-primary mt-px">{check.text}</p>
+                {check.fix && (
+                  <p className="text-[11px] text-tertiary mt-1 font-mono bg-[var(--bg-hover)] px-2 py-1 rounded inline-block">
+                    → {check.fix}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
         </div>
       </div>
     </div>

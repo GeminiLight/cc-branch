@@ -50,9 +50,20 @@ describe('DoctorView summary', () => {
   it('summarizes blocking issues and warnings before the detailed checks', () => {
     renderDoctorView()
 
+    expect(screen.getByText('Workspace diagnosis')).toBeInTheDocument()
+    expect(screen.getByText('Findings')).toBeInTheDocument()
     expect(screen.getByText('1 issue')).toBeInTheDocument()
     expect(screen.getByText('1 warning')).toBeInTheDocument()
     expect(screen.getByText('Action needed before this workspace is healthy.')).toBeInTheDocument()
+  })
+
+  it('shows actionable findings before passing checks', () => {
+    renderDoctorView()
+
+    const issue = screen.getByText('not installed')
+    const passed = screen.getByText('.cc-branch/config.yaml found')
+
+    expect(issue.compareDocumentPosition(passed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('does not surface stale unknown-field warnings for canonical v2 fields', () => {

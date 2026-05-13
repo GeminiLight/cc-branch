@@ -26,6 +26,8 @@
 | 修复隐式 terminal pane 跨标签拖拽 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`ConfigEditor.test.tsx` | 已修复：没有显式 `panes/windows` 的 terminal 标签页也能作为一个真实窗格拖入其它标签页，移动后源标签页会被移除。 |
 | 覆盖画布拖拽保存持久化 | `scripts/qa/verify-workspace-drag.py`、`tests/fixtures/browser-drag-project/.cc-branch/config.yaml` | 已补浏览器级保存验证：拖拽 terminal pane 和 tmux group 后点击 Save，再读取 YAML，确认目标 tab、pane 顺序、`zsh` 命令和 tmux nested windows 都被保存。 |
 | 避免 Web UI 动态数据陈旧 | `cc_branch/webui/server/handler.py`、`tests/test_webui.py` | 已修复：所有 API JSON 响应增加 `Cache-Control: no-store`，避免配置、诊断、状态被浏览器缓存成旧结果。 |
+| 审查 Doctor 整体健康态 | `apps/web/src/components/DoctorView.tsx`、`DoctorView.test.tsx` | 已修复：配置问题、运行时漂移和结构化 doctor issues 会共同决定顶部健康态，不再出现下方有错误但顶部显示全部通过。 |
+| 优化 Doctor 阅读顺序和产品语义 | `apps/web/src/components/DoctorView.tsx`、`apps/web/src/i18n/index.tsx`、`DoctorView.test.tsx` | 已推进：标题从 Health Check 收敛为 Workspace diagnosis，详细列表改为问题/警告优先，避免用户先读到通过项再看到待处理问题。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |
@@ -69,7 +71,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  21 passed (21)
-Tests  162 passed (162)
+Tests  165 passed (165)
 ```
 
 ```bash
@@ -77,6 +79,17 @@ cd apps/web && npm run lint && npm run build
 ```
 
 结果：ESLint 通过，Vite production build 通过。
+
+```bash
+cd apps/web && npm test -- DoctorView.test.tsx
+```
+
+结果：
+
+```text
+Test Files  1 passed (1)
+Tests  5 passed (5)
+```
 
 ```bash
 python scripts/build-webui.py
