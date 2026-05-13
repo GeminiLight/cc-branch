@@ -48,7 +48,10 @@ def env_issues(data: dict, target: str) -> list[Issue]:
 
 def name_or_fallback(data: dict, fallback: str) -> str:
     value = data.get("name")
-    return value if isinstance(value, str) and value else fallback
+    if not isinstance(value, str):
+        return fallback
+    name = value.strip()
+    return name or fallback
 
 
 def duplicated_names(items: list[dict]) -> set[str]:
@@ -56,7 +59,10 @@ def duplicated_names(items: list[dict]) -> set[str]:
     duplicates: set[str] = set()
     for item in items:
         name = item.get("name")
-        if not isinstance(name, str) or not name:
+        if not isinstance(name, str):
+            continue
+        name = name.strip()
+        if not name:
             continue
         if name in seen:
             duplicates.add(name)

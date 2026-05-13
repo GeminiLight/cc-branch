@@ -14,10 +14,13 @@ def _duplicate_names(values: list[str]) -> list[str]:
     seen: set[str] = set()
     duplicates: set[str] = set()
     for value in values:
-        if value in seen:
-            duplicates.add(value)
+        name = value.strip()
+        if not name:
+            continue
+        if name in seen:
+            duplicates.add(name)
         else:
-            seen.add(value)
+            seen.add(name)
     return sorted(duplicates)
 
 

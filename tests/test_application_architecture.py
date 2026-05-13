@@ -1419,6 +1419,42 @@ class ConfigWorkflowTests(unittest.TestCase):
                 ],
             )
 
+    def test_collect_config_issues_normalizes_names_before_duplicate_checks(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "main"
+                            agent: "codex"
+                      - name: " dev "
+                        panes:
+                          - name: "main"
+                            agent: "codex"
+                          - name: " main "
+                            command: "zsh"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            errors = [issue for issue in issues if issue.severity == "error"]
+            self.assertCountEqual(
+                [(issue.issue_type, issue.target) for issue in errors],
+                [
+                    ("duplicate_tab", "tab:dev"),
+                    ("duplicate_pane", "pane:dev:main"),
+                ],
+            )
+
     def test_collect_config_issues_accepts_v2_tabs_and_validates_panes(self):
         from cc_branch.application.config_validation import collect_config_issues
 

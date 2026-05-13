@@ -176,6 +176,39 @@ class DoctorTests(unittest.TestCase):
 
             self.assertIn("duplicate", report.lower())
 
+    def test_doctor_normalizes_names_before_duplicate_checks(self):
+        """Doctor should report names that only differ by surrounding spaces as duplicates."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "tmux"
+                    windows:
+                      - name: "editor"
+                        command: "vim"
+                      - name: " editor "
+                        command: "zsh"
+                  - name: " dev "
+                    runtime: "terminal"
+                    command: "bash"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            report = build_doctor_report(workspace, plan)
+
+            self.assertIn("duplicate slot 'dev'", report.lower())
+            self.assertIn("duplicate window 'editor'", report.lower())
+
     def test_doctor_reports_duplicate_windows(self):
         """Test that doctor reports duplicate window names within a slot."""
         with tempfile.TemporaryDirectory() as tmp:
