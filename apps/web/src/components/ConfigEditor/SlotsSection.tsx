@@ -6,9 +6,6 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import {
-  ChevronDown,
-} from "lucide-react";
 import { useI18n } from "../../i18n";
 import type { RuntimeAvailability, WorkspaceScope } from "../../types";
 import type { SlotConfig, WindowConfig } from "./types";
@@ -18,15 +15,14 @@ import {
   RemovePaneAction,
   TmuxGroupPositionActions,
 } from "./InspectorActions";
-import LayoutPicker from "./LayoutPicker";
-import SessionInput from "./SessionInput";
 import TmuxGroupEditor from "./TmuxGroupEditor";
 import WorkspaceCanvas from "./WorkspaceCanvas";
 import {
-  FieldLabel,
-  TextInput,
-  SelectInput,
-  KeyValueList,
+  AgentPaneEditor,
+  TabEditor,
+  TerminalPaneEditor,
+} from "./WorkspaceDetailEditors";
+import {
   InlineError,
 } from "./FormPrimitives";
 import {
@@ -582,31 +578,11 @@ export default function SlotsSection({
 
                   <div className="p-3 space-y-3">
                     {!editingPane && (
-                    <section className="space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("tab")}</p>
-                        <span className="text-[10px] text-tertiary">{t("tabGroup")}</span>
-                      </div>
-                      <div>
-                        <FieldLabel required>{t("tabName")}</FieldLabel>
-                        <TextInput
-                          value={selectedSlot.name}
-                          onChange={(value) => updateSlot(normalizedSelection.slotIndex, { name: value })}
-                          placeholder="coding"
-                          invalid={!selectedSlot.name.trim()}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2.5">
-                        <div>
-                          <FieldLabel>{t("tabLayout")}</FieldLabel>
-                          <LayoutPicker
-                            value={selectedSlot.layout || "auto"}
-                            options={layoutOptions}
-                            onChange={(value) => updateSlot(normalizedSelection.slotIndex, { layout: value })}
-                          />
-                        </div>
-                      </div>
-                    </section>
+                      <TabEditor
+                        slot={selectedSlot}
+                        layoutOptions={layoutOptions}
+                        onChange={(patch) => updateSlot(normalizedSelection.slotIndex, patch)}
+                      />
                     )}
 
                     {editingPane && (
@@ -615,97 +591,15 @@ export default function SlotsSection({
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("pane")}</p>
                         <span className="text-[10px] text-tertiary">{runtimeLabel(t, selectedSlot.runtime)}</span>
                       </div>
-	                      {selectedSlot.runtime === "terminal" && !selectedTmuxGroup ? (
-                        <div className="space-y-2.5">
-                          <div>
-                            <FieldLabel>{t("title")}</FieldLabel>
-                            <TextInput
-                              value={selectedTerminalWindow?.name ?? selectedSlot.title ?? ""}
-                              onChange={(value) => {
-                                if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { name: value });
-                                else updateSlot(normalizedSelection.slotIndex, { title: value || undefined });
-                              }}
-                              placeholder="main"
-                            />
-                          </div>
-                          <div>
-                            <FieldLabel>{t("agent")}</FieldLabel>
-                            <SelectInput
-                              value={selectedTerminalWindow?.agent ?? selectedSlot.agent ?? ""}
-                              onChange={(value) => {
-                                if (selectedTerminalWindow) {
-                                  updateWindow(normalizedSelection.windowIndex ?? 0, {
-                                    agent: value || null,
-                                    command: value ? null : selectedTerminalWindow.command,
-                                    session: value ? selectedTerminalWindow.session ?? "auto" : null,
-                                  });
-                                } else {
-                                  updateSlot(normalizedSelection.slotIndex, {
-                                    agent: value || undefined,
-                                    command: value ? undefined : selectedSlot.command,
-                                    session: value ? selectedSlot.session ?? "auto" : undefined,
-                                  });
-                                }
-                              }}
-                              options={agentOptions}
-                            />
-                          </div>
-                          {(selectedTerminalWindow?.agent ?? selectedSlot.agent) ? (
-                            <div>
-                              <FieldLabel>{t("agentSession")}</FieldLabel>
-                              <SessionInput
-                                value={selectedTerminalWindow?.session ?? selectedTerminalWindow?.session_id ?? selectedSlot.session ?? selectedSlot.session_id ?? "auto"}
-                                onChange={(value) => {
-                                  if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { session: value || null, session_id: null });
-                                  else updateSlot(normalizedSelection.slotIndex, { session: value || undefined, session_id: undefined });
-                                }}
-                                agent={selectedTerminalWindow?.agent ?? selectedSlot.agent}
-                                scope={scope}
-                              />
-                            </div>
-                          ) : (
-                            <div>
-                              <FieldLabel>{t("shellCommand")}</FieldLabel>
-                              <TextInput
-                                value={selectedTerminalWindow?.command ?? selectedSlot.command ?? ""}
-                                onChange={(value) => {
-                                  if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { command: value || null });
-                                  else updateSlot(normalizedSelection.slotIndex, { command: value || undefined });
-                                }}
-                                placeholder="$SHELL"
-                              />
-                            </div>
-                          )}
-                          <details className="group rounded-md border border-default bg-[var(--bg-card)]">
-                            <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
-                              <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-                              {t("advanced")}
-                            </summary>
-                            <div className="px-3 pb-3 pt-1 space-y-2.5">
-                              <div>
-                                <FieldLabel>{t("workingDirectory")}</FieldLabel>
-                                <TextInput
-                                  value={selectedTerminalWindow?.cwd ?? selectedSlot.cwd ?? ""}
-                                  onChange={(value) => {
-                                    if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { cwd: value || null });
-                                    else updateSlot(normalizedSelection.slotIndex, { cwd: value || "." });
-                                  }}
-                                  placeholder="."
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel>{t("environmentVariables")}</FieldLabel>
-                                <KeyValueList
-                                  items={selectedTerminalWindow?.env ?? selectedSlot.env}
-                                  onChange={(env) => {
-                                    if (selectedTerminalWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { env });
-                                    else updateSlot(normalizedSelection.slotIndex, { env });
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </details>
-                        </div>
+                      {selectedSlot.runtime === "terminal" && !selectedTmuxGroup ? (
+                        <TerminalPaneEditor
+                          slot={selectedSlot}
+                          window={selectedTerminalWindow}
+                          agentOptions={agentOptions}
+                          scope={scope}
+                          onSlotChange={(patch) => updateSlot(normalizedSelection.slotIndex, patch)}
+                          onWindowChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
+                        />
                       ) : selectedTmuxGroup ? (
                         <TmuxGroupEditor
                           groupName={isLegacyTmuxSlot(selectedSlot) ? selectedSlot.name : selectedWindow?.name ?? ""}
@@ -719,76 +613,12 @@ export default function SlotsSection({
                           onUpdateWindow={updateSelectedTmuxWindow}
                         />
                       ) : selectedWindow ? (
-                        <div className="space-y-2.5">
-                          <div>
-                            <FieldLabel required>{t("paneName")}</FieldLabel>
-                            <TextInput
-                              value={selectedWindow.name}
-                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { name: value })}
-                              placeholder="builder"
-                              invalid={!selectedWindow.name.trim()}
-                            />
-                          </div>
-                          <div>
-                            <FieldLabel>{t("agent")}</FieldLabel>
-                            <SelectInput
-                              value={selectedWindow.agent ?? ""}
-                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, {
-                                agent: value || null,
-                                session: value ? selectedWindow.session ?? "auto" : null,
-                              })}
-                              options={agentOptions}
-                            />
-                          </div>
-                          <div>
-                            <FieldLabel>{t("agentSession")}</FieldLabel>
-                            <SessionInput
-                              value={selectedWindow.session ?? selectedWindow.session_id ?? "auto"}
-                              onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { session: value || null, session_id: null })}
-                              agent={selectedWindow.agent}
-                              scope={scope}
-                            />
-                          </div>
-                          <details className="group rounded-md border border-default bg-[var(--bg-card)]">
-                            <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
-                              <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-                              {t("advanced")}
-                            </summary>
-                            <div className="px-3 pb-3 pt-1 space-y-2.5">
-                              <div>
-                                <FieldLabel>{t("commandOverride")}</FieldLabel>
-                                <TextInput
-                                  value={selectedWindow.command ?? ""}
-                                  onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { command: value || null })}
-                                  placeholder="npm run dev"
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel>{t("workingDirectory")}</FieldLabel>
-                                <TextInput
-                                  value={selectedWindow.cwd ?? ""}
-                                  onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { cwd: value || null })}
-                                  placeholder={t("relativeToSlotCwd")}
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel>{t("label")}</FieldLabel>
-                                <TextInput
-                                  value={selectedWindow.label ?? ""}
-                                  onChange={(value) => updateWindow(normalizedSelection.windowIndex ?? 0, { label: value || null })}
-                                  placeholder={t("overrideLabel")}
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel>{t("environmentVariables")}</FieldLabel>
-                                <KeyValueList
-                                  items={selectedWindow.env}
-                                  onChange={(env) => updateWindow(normalizedSelection.windowIndex ?? 0, { env })}
-                                />
-                              </div>
-                            </div>
-                          </details>
-                        </div>
+                        <AgentPaneEditor
+                          window={selectedWindow}
+                          agentOptions={agentOptions}
+                          scope={scope}
+                          onChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
+                        />
                       ) : (
                         <div className="rounded-md border border-dashed border-default p-4 text-[12px] text-tertiary">
                           {t("noPanesYet")}
