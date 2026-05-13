@@ -25,6 +25,7 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
 import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
+import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
@@ -42,22 +43,8 @@ interface ConfigEditorProps {
 type EditorMode = "form" | "yaml";
 type IssueTone = "danger" | "warning" | "info";
 
-const PUBLIC_SCHEMA_FIELDS = new Set(["openWith", "layoutBackend", "defaults", "tabs"]);
-
 function hasYamlComments(value: string): boolean {
   return value.split("\n").some((line) => line.trimStart().startsWith("#"));
-}
-
-function isStaleCanonicalSchemaIssue(issue: ConfigIssue): boolean {
-  return (
-    issue.issue_type === "unknown_field" &&
-    typeof issue.context?.field === "string" &&
-    PUBLIC_SCHEMA_FIELDS.has(issue.context.field)
-  );
-}
-
-function visibleConfigIssues(issues: ConfigIssue[]): ConfigIssue[] {
-  return issues.filter((issue) => !isStaleCanonicalSchemaIssue(issue));
 }
 
 function issueTone(issues: ConfigIssue[]): IssueTone {

@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, XCircle } from "lu
 import { useI18n } from "../i18n";
 import { useConfig, useDoctor, useWorkspace } from "../hooks";
 import type { DoctorReportPayload, WorkspaceStatus } from "../types";
+import { visibleConfigIssues } from "../utils/configIssues";
 import EmptyState from "./ui/EmptyState";
 
 interface DoctorViewProps {
@@ -107,7 +108,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
 
   const productChecks = useMemo<CheckItem[]>(() => {
     const checks: CheckItem[] = [];
-    const configIssues = configData?.issues ?? [];
+    const configIssues = visibleConfigIssues(configData?.issues);
     for (const issue of configIssues) {
       checks.push({
         status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",

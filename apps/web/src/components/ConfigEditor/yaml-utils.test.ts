@@ -174,4 +174,46 @@ describe("ConfigEditor YAML session intent", () => {
     expect(yaml).toContain("session: codex-session-123");
     expect(yaml).not.toContain("session_id");
   });
+
+  it("round-trips a mixed tab with a terminal pane and a tmux window group", () => {
+    const yaml = [
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: ui",
+      "        agent: codex",
+      "      - name: tmux-dev",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: frontend",
+      "            agent: codex",
+      "          - name: backend",
+      "            command: pnpm api",
+      "",
+    ].join("\n");
+
+    const parsed = parseConfigYaml(yaml);
+    const serialized = serializeConfigForm(parsed);
+    const reparsed = parseConfigYaml(serialized);
+
+    expect(parsed.slots).toHaveLength(1);
+    expect(parsed.slots[0].windows).toHaveLength(2);
+    expect(parsed.slots[0].windows[0].name).toBe("ui");
+    expect(parsed.slots[0].windows[0].layoutBackend).toBe("direct");
+    expect(parsed.slots[0].windows[1].name).toBe("tmux-dev");
+    expect(parsed.slots[0].windows[1].layoutBackend).toBe("tmux");
+    expect(parsed.slots[0].windows[1].windows?.map((window) => window.name)).toEqual([
+      "frontend",
+      "backend",
+    ]);
+    expect(serialized).toContain("layoutBackend: tmux");
+    expect(serialized).toContain("windows:");
+    expect(reparsed.slots[0].windows[1].windows?.map((window) => window.name)).toEqual([
+      "frontend",
+      "backend",
+    ]);
+  });
 });

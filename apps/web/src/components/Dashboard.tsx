@@ -905,7 +905,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                       : t("toolCannotOpenProject", { app: projectDirectoryOpener.label }))
                     : t("systemFileManagerUnavailable")}
                   aria-label={t("openProjectDirectory")}
-                  className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
+                  className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   {actionMutation.isPending ? (
                     <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -917,7 +917,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 <button
                   type="button"
                   onClick={() => refetch()}
-                  className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5"
+                  className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                   title={t("lastCheckedAt", { time: lastUpdated || "--" })}
                   aria-label={t("refreshStatus")}
                 >
@@ -933,7 +933,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                   onChange={setDefaultOpener}
                   ariaLabel={t("selectedTool", { app: selectedOpener.label })}
                   trigger={
-                    <span className="control-touch w-[112px] sm:w-[132px] min-w-0 px-2.5 rounded-l-md rounded-r-none surface-card border border-default border-r-0 text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors flex items-center justify-between gap-2">
+                    <span className="control-touch w-[136px] sm:w-[168px] min-w-0 px-2.5 rounded-l-md rounded-r-none surface-card border border-default border-r-0 text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors flex items-center justify-between gap-2">
                       <span className="min-w-0 flex-1 truncate text-left text-[12px] font-medium">{selectedOpener.label}</span>
                       <ChevronDown className="ml-auto w-3 h-3 shrink-0 opacity-70" />
                     </span>
@@ -943,7 +943,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                   type="button"
                   onClick={runWorkspaceOpen}
                   disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
-                  className="control-touch min-w-[82px] px-3 rounded-r-md rounded-l-none text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] border border-[var(--accent)] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="control-touch min-w-[96px] px-3 rounded-r-md rounded-l-none text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] border border-[var(--accent)] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                   title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
                   aria-label={workspaceOpenLabel(t, selectedOpener)}
                 >

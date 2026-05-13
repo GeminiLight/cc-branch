@@ -89,9 +89,9 @@ WINDOW_FIELDS = {
 }
 RUNTIMES = set(RUNTIME_CAPABILITIES)
 LAYOUT_BACKENDS = {"tmux", "direct"}
-RESUME_MODES = {"none", "flag", "command"}
+RESUME_MODES = {"none", "flag", "internal"}
 CREATE_MODES = {"none", "generated_uuid"}
-LABEL_MODES = {"none", "metadata", "command"}
+LABEL_MODES = {"none", "metadata", "internal"}
 AGENT_STRING_FIELDS = {
     "command",
     "resume_mode",

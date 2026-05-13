@@ -1,0 +1,224 @@
+# CC Branch 当前代码与产品审查报告
+
+日期：2026-05-14
+范围：当前工作树下的配置模型、Web UI Dashboard / Project config / Doctor 主流程、前后端验证路径。
+
+## 审查目标
+
+这轮审查按三个要求执行：
+
+- 架构质量：配置模型、运行时 adapter、前端展示层是否对同一套概念保持一致。
+- 功能正确性：找出会误导用户或导致错误诊断的真实 bug，并补测试。
+- UI/UX 精修：减少首屏误解、状态误报和控件截断，让用户更容易理解“当前工作空间到底会怎么启动”。
+
+## 当前结论
+
+整体质量比上一轮稳定，但还不能说完全完成。核心进展是把配置 v2 的公共字段、agent adapter 枚举、诊断页展示规则重新对齐，并对 Dashboard 的主动作区做了窄幅修复。
+
+当前产品风险从“明显显示错误状态”下降到“仍需要持续打磨复杂配置体验”。本轮已修复的问题都有测试或接口证据覆盖。
+
+## 已确认并修复的问题
+
+### 1. 配置校验和运行时 adapter 枚举不一致
+
+问题：
+
+- agent adapter 实际支持 `resume_mode: internal` 和 `label_mode: internal`。
+- 前端和 `agents.yaml` 也按 `internal` 表达。
+- 但配置校验常量仍接受 `command`，拒绝 `internal`。
+
+影响：
+
+- 合法配置会被误报 invalid enum。
+- 非运行时支持的 `command` 值反而可能通过校验。
+
+修复：
+
+- `cc_branch/application/config_validation/constants.py`
+  - `RESUME_MODES = {"none", "flag", "internal"}`
+  - `LABEL_MODES = {"none", "metadata", "internal"}`
+- `tests/test_application_architecture.py`
+  - 新增 `test_collect_config_issues_uses_runtime_agent_adapter_enums`
+  - 覆盖 `internal` 被接受、`command` 被拒绝。
+
+### 2. `openWith` / `layoutBackend` 被旧路径误报 unknown field
+
+问题：
+
+- 当前后端已经接受 `openWith` 和 `layoutBackend`。
+- 但诊断页直接渲染 `configData.issues`，没有复用配置页的 stale warning 过滤逻辑。
+- 如果浏览器或 React Query cache 中残留旧后端返回的 warning，诊断页仍会展示：
+  - `Unknown field 'openWith'`
+  - `Unknown field 'layoutBackend'`
+
+影响：
+
+- 用户会以为当前配置格式仍然不合法。
+- Configuration / Doctor 两个页面对同一配置给出不同判断。
+
+修复：
+
+- `apps/web/src/utils/configIssues.ts`
+  - 新增共享 `visibleConfigIssues()`。
+  - 只过滤已确认属于 v2 公共字段的 stale unknown warning。
+  - 其他真实 unknown field 仍正常展示。
+- `apps/web/src/components/ConfigEditor/index.tsx`
+  - 改为使用共享 helper。
+- `apps/web/src/components/DoctorView.tsx`
+  - 诊断页也使用同一套展示规则。
+- `apps/web/src/components/DoctorView.test.tsx`
+  - 新增测试：过滤 `openWith` / `layoutBackend`，保留真实 `stillWrong`。
+
+验证：
+
+- 当前接口 `GET /api/config?project_path=/Users/geminilight/code/cli-workspace` 返回 `issues: []`。
+- 配置页与诊断页都有对应测试覆盖。
+
+### 3. 混合 tab 的 YAML round-trip 缺少保护
+
+问题：
+
+- 当前配置模型允许一个 tab 下同时存在普通 terminal pane 和 tmux window group。
+- 这是近期明确下来的核心概念，但 YAML parse / serialize 没有专门测试保护。
+
+影响：
+
+- 后续改 UI 或 serializer 时，容易把 tmux group 内部 windows flatten 掉。
+- 用户在画布里编辑复杂布局后可能丢结构。
+
+修复：
+
+- `apps/web/src/components/ConfigEditor/yaml-utils.test.ts`
+  - 新增 round-trip 测试。
+  - 覆盖一个 tab 内同时存在 direct pane 和 `layoutBackend: tmux` group。
+  - 验证 tmux group 内部 windows 在 serialize / reparse 后仍保留。
+
+### 4. Dashboard 主动作区控件宽度和换行问题
+
+问题：
+
+- `System Terminal` 在 Dashboard 右上主动作组里容易被截断。
+- `Open directory` / `Refresh status` 在窄宽度下会换行，导致按钮高度和视觉节奏不一致。
+- `Launch` 宽度偏紧。
+
+影响：
+
+- 用户第一眼看不清“先选环境，再启动”的主流程。
+- 主动作区显得不够精致。
+
+修复：
+
+- `apps/web/src/components/Dashboard.tsx`
+  - opener selector 宽度从 `112/132px` 调整为 `136/168px`。
+  - 工具按钮和启动按钮增加 `whitespace-nowrap`。
+  - 启动按钮最小宽度提高到 `96px`。
+
+验证：
+
+- 截图证据：
+  - `tmp/review-pass/dashboard-after-actions.png`
+  - `tmp/review-pass/dashboard-after-width.png`
+
+### 5. tmux 文案的中英文词典混用
+
+问题：
+
+- 英文词典中的 `tmuxPanes` 曾被误改为中文。
+- 中文词典中的 `tmuxWindows` / `tmuxPanes` 仍保留英文表达。
+
+影响：
+
+- 切换语言时，Dashboard 和画布中 tmux group / tmux window 的词汇会混杂。
+- 这会放大本来就复杂的 Tab / Pane / Tmux group 概念负担。
+
+修复：
+
+- `apps/web/src/i18n/index.tsx`
+  - 英文保持 `Tmux windows`。
+  - 中文统一为 `Tmux 窗口`。
+
+验证：
+
+- `cd apps/web && npm test -- Dashboard.test.tsx DoctorView.test.tsx ConfigEditor.test.tsx`
+- `cd apps/web && npm run lint`
+
+### 6. Project config 暴露工程化术语
+
+问题：
+
+- 表单里仍出现 `Layout backend` 这类实现术语。
+- 用户真正需要理解的是“这个窗格会作为普通终端打开，还是作为 tmux 窗格组打开”。
+
+影响：
+
+- 用户会把底层 YAML 字段理解成产品概念。
+- Project config 看起来更像内部调试面板，而不是可用的配置界面。
+
+修复：
+
+- `apps/web/src/i18n/index.tsx`
+  - `Layout backend` 改为 `Pane type`。
+  - `Default layout backend` 改为 `Default pane type`。
+  - `Direct` 改为 `Regular terminal`。
+  - 中文统一为 `窗格类型`、`默认窗格类型`、`普通终端`、`Tmux 窗格组`。
+
+## 仍需后续处理的风险
+
+### 1. 配置概念仍然复杂
+
+当前概念已经趋于清晰：
+
+- Tab：外部 terminal/editor 里的标签页容器。
+- Pane：Tab 内的可视终端区域。
+- Tmux group：一个 Pane 内由 tmux 管理的一组 windows。
+- Tmux window：tmux group 内部可切换的窗口。
+
+但 UI 里仍然需要持续压低解释性文字，让画布本身承担更多所见即所得表达。
+
+### 2. Doctor 仍偏 CLI 环境检查
+
+Doctor 现在能合并配置问题和 runtime drift，但它仍更像环境诊断。长期看应该继续收敛为“这个工作空间为什么启动不了 / 为什么状态不一致”的产品级诊断，而不只是 CLI 工具可用性检查。
+
+### 3. 本轮只做了局部 UI 修复
+
+Dashboard 主动作区已经修过，但 Space canvas / Project config 的整体视觉统一还没有达到“最终完成”。下一步更应该集中在：
+
+- 画布选中态和拖拽态。
+- tmux group 的信息层级。
+- Project config 中全局配置和工作空间配置的区分。
+
+## 验证记录
+
+已通过：
+
+```bash
+python3.11 -m unittest tests.test_application_architecture tests.test_config -q
+cd apps/web && npm test -- ConfigEditor.test.tsx DoctorView.test.tsx
+cd apps/web && npm run lint
+cd apps/web && npm run build
+python3.11 -m ruff check cc_branch tests
+python3.11 scripts/build-webui.py
+```
+
+全量验证也已通过：
+
+```bash
+python3.11 -m unittest discover tests
+cd apps/web && npm test
+```
+
+未运行：
+
+```bash
+python3.11 -m mypy cc_branch
+```
+
+原因：当前 Python 3.11 环境未安装 `mypy`。
+
+当前后端接口验证：
+
+```bash
+curl -sS 'http://127.0.0.1:5194/api/config?project_path=/Users/geminilight/code/cli-workspace'
+```
+
+结果中的 `issues` 为 `[]`。

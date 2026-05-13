@@ -1208,6 +1208,62 @@ class ConfigWorkflowTests(unittest.TestCase):
             self.assertEqual(errors[0].target, "agent:codex")
             self.assertEqual(errors[1].target, "slot:dev")
 
+    def test_collect_config_issues_uses_runtime_agent_adapter_enums(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            accepted = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+
+                    agents:
+                      local:
+                        command: "local-agent"
+                        resume_mode: "internal"
+                        resume_template: "/resume {session_id}"
+                        label_mode: "internal"
+                        rename_template: "/rename {label}"
+
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "main"
+                            agent: "local"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+            rejected = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+
+                    agents:
+                      local:
+                        command: "local-agent"
+                        resume_mode: "command"
+                        label_mode: "command"
+
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "main"
+                            agent: "local"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            self.assertEqual(accepted, [])
+            self.assertEqual(
+                [(issue.target, issue.context["field"]) for issue in rejected],
+                [("agent:local", "resume_mode"), ("agent:local", "label_mode")],
+            )
+
     def test_save_workspace_config_rejects_structural_validation_errors(self):
         from cc_branch.application.config_workflows import save_workspace_config
 
