@@ -21,7 +21,7 @@
 | 审查 Dashboard 主动作区 | `apps/web/src/components/Dashboard.tsx`、截图 `tmp/review-pass/*` | 已局部修复：工具选择、打开目录、刷新、启动按钮不再明显截断或换行。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
 | 审查 tmux group 计数 | `ConfigEditor/index.tsx`、`SlotsSection.tsx`、`ConfigEditor.test.tsx` | 已修复：tmux group 在外部空间按 1 个 pane 计数，内部 tmux windows 不误算。 |
-| 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已部分完成：tmux group / legacy tmux slot / pane count 的纯逻辑从组件中抽出并加测试。 |
+| 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -48,8 +48,8 @@ cd apps/web && npm test
 结果：
 
 ```text
-Test Files  18 passed (18)
-Tests  117 passed (117)
+Test Files  19 passed (19)
+Tests  126 passed (126)
 ```
 
 ```bash
@@ -103,7 +103,7 @@ ce37e5b Ignore local generated review artifacts
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 仍然承担较多职责：布局渲染、拖拽、inspector 编辑、tmux group 编辑、session 选择。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑，但仍然承担较多职责：布局渲染、拖拽、inspector 编辑、tmux group 编辑、session 选择。
 - Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -140,6 +140,6 @@ ce37e5b Ignore local generated review artifacts
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出 workspace model，下一步应拆 canvas rendering、pane movement、inspector editing。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model，下一步应拆 canvas rendering、pane movement、inspector editing。
 2. 为 workspace canvas 增加端到端交互测试，覆盖跨 tab 拖拽、tmux group 移动、复杂布局保存。
 3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。
