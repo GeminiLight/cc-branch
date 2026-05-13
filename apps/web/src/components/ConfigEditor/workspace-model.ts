@@ -1,7 +1,7 @@
 import type { SlotConfig, WindowConfig } from "./types";
 
 export function isTmuxGroupWindow(window: WindowConfig | null | undefined): boolean {
-  return Boolean(window && (window.layoutBackend === "tmux" || window.windows?.length));
+  return Boolean(window && (window.layoutBackend === "tmux" || Array.isArray(window.windows)));
 }
 
 export function isLegacyTmuxSlot(slot: SlotConfig | null | undefined): boolean {

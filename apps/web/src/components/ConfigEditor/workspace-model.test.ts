@@ -65,4 +65,15 @@ describe("workspace model", () => {
     expect(isLegacyTmuxSlot(slot)).toBe(false);
     expect(configuredPaneCount(slot)).toBe(2);
   });
+
+  it("treats an explicit empty windows array as a tmux group marker", () => {
+    const slot = slotConfig({
+      runtime: "tmux",
+      windows: [windowConfig({ name: "empty-group", windows: [] })],
+    });
+
+    expect(isTmuxGroupWindow(slot.windows[0])).toBe(true);
+    expect(isLegacyTmuxSlot(slot)).toBe(false);
+    expect(configuredPaneCount(slot)).toBe(1);
+  });
 });
