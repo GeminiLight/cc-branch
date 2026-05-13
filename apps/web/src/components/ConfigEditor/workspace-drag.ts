@@ -5,6 +5,7 @@ import { paneCount } from "./workspace-display";
 
 export type PaneDragState = { slotIndex: number; paneIndex: number } | null;
 export type TabDragState = { slotIndex: number } | null;
+export type DropAxis = "horizontal" | "vertical";
 
 type WorkspaceDragOptions = {
   slots: SlotConfig[];
@@ -17,6 +18,21 @@ function paneDragFromEvent(event: DragEvent<HTMLElement>): PaneDragState {
   const match = payload.match(/^(\d+):(\d+)$/);
   if (!match) return null;
   return { slotIndex: Number(match[1]), paneIndex: Number(match[2]) };
+}
+
+export function dropAxisForSlot(slot: SlotConfig | null | undefined): DropAxis {
+  if (!slot) return "horizontal";
+  const layout = normalizedLayout(slot, paneCount(slot));
+  return layout === "vertical" || layout === "main-top" ? "vertical" : "horizontal";
+}
+
+export function isPointerAfterDropMidpoint(
+  axis: DropAxis,
+  pointer: { clientX: number; clientY: number },
+  rect: Pick<DOMRect, "left" | "top" | "width" | "height">,
+): boolean {
+  if (axis === "vertical") return pointer.clientY > rect.top + rect.height / 2;
+  return pointer.clientX > rect.left + rect.width / 2;
 }
 
 export function useWorkspaceDrag({ slots, onMoveTab, onMovePane }: WorkspaceDragOptions) {
@@ -78,11 +94,11 @@ export function useWorkspaceDrag({ slots, onMoveTab, onMovePane }: WorkspaceDrag
     if (!currentDrag) return;
     const target = slots[slotIndex];
     const rect = event.currentTarget.getBoundingClientRect();
-    const layout = target ? normalizedLayout(target, paneCount(target)) : "horizontal";
-    const verticalDrop = layout === "vertical" || layout === "main-top";
-    const after = verticalDrop
-      ? event.clientY > rect.top + rect.height / 2
-      : event.clientX > rect.left + rect.width / 2;
+    const after = isPointerAfterDropMidpoint(
+      dropAxisForSlot(target),
+      { clientX: event.clientX, clientY: event.clientY },
+      rect,
+    );
     onMovePane(currentDrag.slotIndex, currentDrag.paneIndex, slotIndex, paneIndex + (after ? 1 : 0));
     clearPaneDrag();
   }

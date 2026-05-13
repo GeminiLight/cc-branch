@@ -31,6 +31,7 @@
 | 拆分 tmux group 编辑器 | `apps/web/src/components/ConfigEditor/TmuxGroupEditor.tsx`、`SlotsSection.tsx` | 已推进：tmux group 名称、内部 tmux window 列表、agent/session/advanced/env 编辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 843 行。 |
 | 拆分标签页和普通窗格编辑器 | `apps/web/src/components/ConfigEditor/WorkspaceDetailEditors.tsx`、`SlotsSection.tsx` | 已推进：tab 编辑、terminal pane 编辑、agent pane 编辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 672 行。 |
 | 拆分画布拖拽协调逻辑 | `apps/web/src/components/ConfigEditor/workspace-drag.ts`、`WorkspaceCanvas.tsx`、`SlotsSection.tsx` | 已推进：HTML5 drag payload、drop midpoint、append drop 和 drag state 从 workspace 编辑器中抽成 hook，`SlotsSection.tsx` 进一步降到 587 行。 |
+| 补拖拽落点判断测试 | `apps/web/src/components/ConfigEditor/workspace-drag.test.ts` | 已补保护：横向、纵向、main-top/main-left/grid/auto 布局下的 drop midpoint 判断有纯函数测试覆盖。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -57,8 +58,8 @@ cd apps/web && npm test
 结果：
 
 ```text
-Test Files  19 passed (19)
-Tests  131 passed (131)
+Test Files  20 passed (20)
+Tests  134 passed (134)
 ```
 
 ```bash
