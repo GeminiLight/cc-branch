@@ -30,6 +30,7 @@
 | 拆分 inspector 动作区 | `apps/web/src/components/ConfigEditor/InspectorActions.tsx`、`SlotsSection.tsx` | 已推进：pane 调度、移动到标签页、删除 pane、tmux group 位置操作从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 988 行。 |
 | 拆分 tmux group 编辑器 | `apps/web/src/components/ConfigEditor/TmuxGroupEditor.tsx`、`SlotsSection.tsx` | 已推进：tmux group 名称、内部 tmux window 列表、agent/session/advanced/env 编辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 843 行。 |
 | 拆分标签页和普通窗格编辑器 | `apps/web/src/components/ConfigEditor/WorkspaceDetailEditors.tsx`、`SlotsSection.tsx` | 已推进：tab 编辑、terminal pane 编辑、agent pane 编辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 672 行。 |
+| 拆分画布拖拽协调逻辑 | `apps/web/src/components/ConfigEditor/workspace-drag.ts`、`WorkspaceCanvas.tsx`、`SlotsSection.tsx` | 已推进：HTML5 drag payload、drop midpoint、append drop 和 drag state 从 workspace 编辑器中抽成 hook，`SlotsSection.tsx` 进一步降到 587 行。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -111,7 +112,7 @@ ce37e5b Ignore local generated review artifacts
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器，但仍然承担拖拽事件和整体 selection 编排。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器和 drag/drop coordination，但仍然承担整体 selection 编排和 workspace mutation orchestration。
 - Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -148,6 +149,6 @@ ce37e5b Ignore local generated review artifacts
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor 和 detail editors，下一步应拆 drag/drop coordination。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor、detail editors 和 drag/drop coordination，下一步应拆 selection / mutation orchestration 或补浏览器级拖拽验证。
 2. 为 workspace canvas 增加端到端交互测试，覆盖真实浏览器拖拽、tmux group 移动、复杂布局保存。
 3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。

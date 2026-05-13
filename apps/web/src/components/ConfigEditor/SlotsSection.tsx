@@ -5,7 +5,7 @@
  * tabs/panes so users edit the workspace model, not the storage model.
  */
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { RuntimeAvailability, WorkspaceScope } from "../../types";
 import type { SlotConfig, WindowConfig } from "./types";
@@ -26,7 +26,6 @@ import {
   InlineError,
 } from "./FormPrimitives";
 import {
-  canDragPane,
   clampSelection,
   editableWindowsForSlot,
   emptyWindow,
@@ -34,7 +33,6 @@ import {
   isTmuxGroupWindow,
   movePaneBetweenSlots,
   moveTab as moveTabModel,
-  normalizedLayout,
   slotWithWindows,
   tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
@@ -42,9 +40,7 @@ import {
   type TabLayout,
 } from "./workspace-model";
 import { paneCount } from "./workspace-display";
-
-type PaneDragState = { slotIndex: number; paneIndex: number } | null;
-type TabDragState = { slotIndex: number } | null;
+import { useWorkspaceDrag } from "./workspace-drag";
 
 function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) => string, runtime: SlotConfig["runtime"]): string {
   return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
@@ -67,9 +63,6 @@ export default function SlotsSection({
   const defaultRuntime = runtimeAvailability?.tmux?.available === false ? "terminal" : "tmux";
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
   const [moveTarget, setMoveTarget] = useState("0");
-  const [paneDrag, setPaneDrag] = useState<PaneDragState>(null);
-  const [tabDrag, setTabDrag] = useState<TabDragState>(null);
-  const paneDragRef = useRef<PaneDragState>(null);
 
   const normalizedSelection = useMemo(() => clampSelection(selection, slots), [selection, slots]);
   const selectedSlot = slots[normalizedSelection.slotIndex];
@@ -197,28 +190,6 @@ export default function SlotsSection({
     moveTabByDrag(index, index + 2);
   }
 
-  function handleTabDragStart(event: DragEvent<HTMLElement>, slotIndex: number) {
-    setTabDrag({ slotIndex });
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `tab:${slotIndex}`);
-  }
-
-  function handleTabDragOver(event: DragEvent<HTMLElement>) {
-    if (!tabDrag) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }
-
-  function handleTabDrop(event: DragEvent<HTMLElement>, slotIndex: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!tabDrag) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const after = event.clientY > rect.top + rect.height / 2;
-    moveTabByDrag(tabDrag.slotIndex, slotIndex + (after ? 1 : 0));
-    setTabDrag(null);
-  }
-
   function updateWindow(index: number, patch: Partial<WindowConfig>) {
     if (!selectedSlot || selectedSlot.windows.length === 0) return;
     const windows = [...selectedSlot.windows];
@@ -333,63 +304,6 @@ export default function SlotsSection({
     const mutation = movePaneBetweenSlots(slots, fromSlotIndex, fromPaneIndex, toSlotIndex, toPaneIndex);
     if (!mutation) return;
     replaceSlots(mutation.slots, mutation.selection);
-  }
-
-  function handlePaneDragStart(event: DragEvent<HTMLElement>, slotIndex: number, paneIndex: number) {
-    const slot = slots[slotIndex];
-    if (!slot || !canDragPane(slot)) return;
-    event.stopPropagation();
-    const nextDrag = { slotIndex, paneIndex };
-    paneDragRef.current = nextDrag;
-    setPaneDrag(nextDrag);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `${slotIndex}:${paneIndex}`);
-  }
-
-  function paneDragFromEvent(event: DragEvent<HTMLElement>): PaneDragState {
-    const payload = event.dataTransfer.getData("text/plain");
-    const match = payload.match(/^(\d+):(\d+)$/);
-    if (!match) return null;
-    return { slotIndex: Number(match[1]), paneIndex: Number(match[2]) };
-  }
-
-  function handlePaneDragOver(event: DragEvent<HTMLElement>, slotIndex: number) {
-    const target = slots[slotIndex];
-    const currentDrag = paneDragRef.current ?? paneDrag ?? paneDragFromEvent(event);
-    const source = currentDrag ? slots[currentDrag.slotIndex] : null;
-    if (!currentDrag || !target || !source) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }
-
-  function handlePaneDrop(event: DragEvent<HTMLElement>, slotIndex: number, paneIndex: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    const currentDrag = paneDragRef.current ?? paneDrag ?? paneDragFromEvent(event);
-    if (!currentDrag) return;
-    const target = slots[slotIndex];
-    const rect = event.currentTarget.getBoundingClientRect();
-    const layout = target ? normalizedLayout(target, paneCount(target)) : "horizontal";
-    const verticalDrop = layout === "vertical" || layout === "main-top";
-    const after =
-      verticalDrop
-        ? event.clientY > rect.top + rect.height / 2
-        : event.clientX > rect.left + rect.width / 2;
-    movePaneByDrag(currentDrag.slotIndex, currentDrag.paneIndex, slotIndex, paneIndex + (after ? 1 : 0));
-    paneDragRef.current = null;
-    setPaneDrag(null);
-  }
-
-  function handlePaneAppendDrop(event: DragEvent<HTMLElement>, slotIndex: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    const target = slots[slotIndex];
-    const currentDrag = paneDragRef.current ?? paneDrag ?? paneDragFromEvent(event);
-    const source = currentDrag ? slots[currentDrag.slotIndex] : null;
-    if (!currentDrag || !target || !source) return;
-    movePaneByDrag(currentDrag.slotIndex, currentDrag.paneIndex, slotIndex, paneCount(target));
-    paneDragRef.current = null;
-    setPaneDrag(null);
   }
 
   function movePaneToTab() {
@@ -510,29 +424,30 @@ export default function SlotsSection({
     deletePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? 0);
   }
 
-  function clearPaneDrag() {
-    paneDragRef.current = null;
-    setPaneDrag(null);
-  }
+  const workspaceDrag = useWorkspaceDrag({
+    slots,
+    onMoveTab: moveTabByDrag,
+    onMovePane: movePaneByDrag,
+  });
 
   const canvasProps = {
     slots,
     selection: normalizedSelection,
-    tabDrag,
-    paneDrag,
+    tabDrag: workspaceDrag.tabDrag,
+    paneDrag: workspaceDrag.paneDrag,
     onAddTab: addTab,
     onDeleteTab: deleteTab,
     onAddPane: addPaneToSlot,
     onSelect: setSelection,
-    onTabDragStart: handleTabDragStart,
-    onTabDragOver: handleTabDragOver,
-    onTabDrop: handleTabDrop,
-    onTabDragEnd: () => setTabDrag(null),
-    onPaneDragStart: handlePaneDragStart,
-    onPaneDragOver: handlePaneDragOver,
-    onPaneDrop: handlePaneDrop,
-    onPaneAppendDrop: handlePaneAppendDrop,
-    onPaneDragEnd: clearPaneDrag,
+    onTabDragStart: workspaceDrag.handleTabDragStart,
+    onTabDragOver: workspaceDrag.handleTabDragOver,
+    onTabDrop: workspaceDrag.handleTabDrop,
+    onTabDragEnd: workspaceDrag.clearTabDrag,
+    onPaneDragStart: workspaceDrag.handlePaneDragStart,
+    onPaneDragOver: workspaceDrag.handlePaneDragOver,
+    onPaneDrop: workspaceDrag.handlePaneDrop,
+    onPaneAppendDrop: workspaceDrag.handlePaneAppendDrop,
+    onPaneDragEnd: workspaceDrag.clearPaneDrag,
   };
 
   return (

@@ -3,6 +3,7 @@ import { GripVertical, Plus, SquareTerminal, Terminal, Trash2 } from "lucide-rea
 import { useI18n } from "../../i18n";
 import AgentMark from "../ui/AgentMark";
 import type { SlotConfig } from "./types";
+import type { PaneDragState, TabDragState } from "./workspace-drag";
 import {
   canDragPane,
   isLegacyTmuxSlot,
@@ -20,9 +21,6 @@ import {
   tabSummary,
   terminalPaneSummary,
 } from "./workspace-display";
-
-type PaneDragState = { slotIndex: number; paneIndex: number } | null;
-type TabDragState = { slotIndex: number } | null;
 
 type WorkspaceCanvasProps = {
   slots: SlotConfig[];
