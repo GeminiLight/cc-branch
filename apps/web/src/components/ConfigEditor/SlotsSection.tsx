@@ -222,8 +222,8 @@ function LayoutGlyph({ layout }: { layout: TabLayout }) {
   );
 }
 
-function paneGridStyle(slot: SlotConfig, panes: WindowConfig[]): CSSProperties {
-  const count = Math.max(panes.length, 1);
+function paneGridStyle(slot: SlotConfig, paneLength: number): CSSProperties {
+  const count = Math.max(paneLength, 1);
   const layout = normalizedLayout(slot, count);
   if (count === 1) return { gridTemplateColumns: "minmax(0, 1fr)" };
   if (layout === "vertical") {
@@ -248,8 +248,8 @@ function paneGridStyle(slot: SlotConfig, panes: WindowConfig[]): CSSProperties {
   return { gridTemplateColumns: `repeat(${count}, minmax(112px, 1fr))` };
 }
 
-function paneCellStyle(slot: SlotConfig, panes: WindowConfig[], index: number): CSSProperties {
-  const count = Math.max(panes.length, 1);
+function paneCellStyle(slot: SlotConfig, paneLength: number, index: number): CSSProperties {
+  const count = Math.max(paneLength, 1);
   const layout = normalizedLayout(slot, count);
   if (index !== 0 || count <= 1) return {};
   if (layout === "main-left") return { gridRow: `1 / span ${Math.max(count - 1, 1)}` };
@@ -1038,7 +1038,7 @@ export default function SlotsSection({
                               <div className="space-y-2">
                                 <div
                                   className="grid gap-2 min-h-[74px]"
-                                  style={paneGridStyle(slot, canvasPanes as unknown as WindowConfig[])}
+                                  style={paneGridStyle(slot, canvasPanes.length)}
                                   onDragOver={(event) => handlePaneDragOver(event, slotIndex)}
                                   onDrop={(event) => handlePaneAppendDrop(event, slotIndex)}
                                 >
@@ -1094,7 +1094,7 @@ export default function SlotsSection({
                                             ? "opacity-55"
                                             : ""
                                         }`}
-                                        style={paneCellStyle(slot, canvasPanes as unknown as WindowConfig[], paneIndex)}
+                                        style={paneCellStyle(slot, canvasPanes.length, paneIndex)}
                                         aria-label={t("editWindowNamed", { name: paneName })}
                                       >
                                       {selectedPane && (
