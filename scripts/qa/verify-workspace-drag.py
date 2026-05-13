@@ -6,8 +6,9 @@ Run against a local `cc-branch serve` instance:
     python scripts/qa/verify-workspace-drag.py http://127.0.0.1:5197 tmp/browser-qa/workspace-drag-after.png
 
 The fixture project in `tests/fixtures/browser-drag-project` contains an
-implicit terminal tab and a tab with explicit panes. The check drags the
-implicit terminal pane into the explicit tab and verifies the resulting DOM.
+implicit terminal tab, a tab with explicit panes, and a legacy tmux tab. The
+check drags the implicit terminal pane and the tmux group into the explicit tab
+and verifies the resulting DOM.
 """
 
 from __future__ import annotations
@@ -35,6 +36,19 @@ def pane_labels(page: Page) -> list[str]:
         "(nodes) => nodes.map((node) => node.getAttribute('aria-label'))"
     )
     return [label for label in labels if isinstance(label, str)]
+
+
+def tab_labels(page: Page) -> list[str]:
+    labels = page.locator("button[aria-label^='Edit tab ']").evaluate_all(
+        "(nodes) => nodes.map((node) => node.getAttribute('aria-label'))"
+    )
+    return [label for label in labels if isinstance(label, str)]
+
+
+def drag_pane(page: Page, source_name: str, target_name: str) -> None:
+    source = page.get_by_role("button", name=f"Edit pane {source_name}")
+    target = page.get_by_role("button", name=f"Edit pane {target_name}")
+    source.drag_to(target, target_position={"x": 18, "y": 18}, force=True)
 
 
 def main() -> int:
@@ -65,9 +79,7 @@ def main() -> int:
         page.get_by_role("tab", name=re.compile(r"^Workspace$")).click()
         page.get_by_role("button", name="Edit pane shell").wait_for(state="visible")
 
-        source = page.get_by_role("button", name="Edit pane shell")
-        target = page.get_by_role("button", name="Edit pane ui")
-        source.drag_to(target, target_position={"x": 18, "y": 18}, force=True)
+        drag_pane(page, "shell", "ui")
 
         page.wait_for_function(
             """
@@ -78,17 +90,34 @@ def main() -> int:
             """
         )
 
+        drag_pane(page, "review", "ui")
+
+        page.wait_for_function(
+            """
+            () => !document.querySelector("button[aria-label='Edit tab review']")
+              && Array.from(document.querySelectorAll("[role='button'][aria-label^='Edit pane ']"))
+                .map((node) => node.getAttribute('aria-label'))
+                .includes('Edit pane review')
+            """
+        )
+
         labels = pane_labels(page)
+        tabs = tab_labels(page)
         page.screenshot(path=str(screenshot), full_page=True)
         browser.close()
 
-    if "Edit pane shell" not in labels or "Edit pane ui" not in labels:
-        fail(f"expected moved shell pane and target ui pane; got {labels}")
+    expected_panes = {"Edit pane shell", "Edit pane ui", "Edit pane spec", "Edit pane review"}
+    missing = expected_panes.difference(labels)
+    if missing:
+        fail(f"missing expected panes {sorted(missing)}; got {labels}")
+    if tabs != ["Edit tab dev"]:
+        fail(f"expected all moved panes to land in dev tab; got tabs {tabs}")
     if console_errors:
         fail("console errors: " + " | ".join(console_errors[:5]))
 
-    print("PASS: browser drag moved implicit terminal pane into another tab")
+    print("PASS: browser drag moved implicit terminal pane and tmux group into another tab")
     print("pane labels:", labels)
+    print("tab labels:", tabs)
     print("screenshot:", screenshot)
     return 0
 

@@ -10,3 +10,10 @@ tabs:
         command: npm run dev
       - name: spec
         command: npm test
+  - name: review
+    layoutBackend: tmux
+    panes:
+      - name: audit
+        command: npm run lint
+      - name: docs
+        command: npm run docs
