@@ -56,6 +56,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
         try:
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
             self._set_cors()
             self.end_headers()
             self.wfile.write(payload)

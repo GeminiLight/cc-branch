@@ -241,6 +241,7 @@ slots:
         handler._send_json({"ok": True})
 
         self.assertIn(("status", 200), calls)
+        self.assertIn(("Cache-Control", "no-store"), calls)
 
     def _start_test_server(self, port: int = 0, token: str | None = None) -> tuple:
         """Start a test server and return (server, port)."""
