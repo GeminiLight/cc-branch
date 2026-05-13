@@ -1,0 +1,12 @@
+version: 2
+project: browser-drag-project
+root: .
+tabs:
+  - name: shell
+    command: zsh
+  - name: dev
+    panes:
+      - name: ui
+        command: npm run dev
+      - name: spec
+        command: npm test
