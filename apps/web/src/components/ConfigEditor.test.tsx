@@ -26,11 +26,11 @@ vi.mock('../hooks', () => ({
   useAgentSessions: (...args: unknown[]) => mocks.useAgentSessions(...args),
 }))
 
-function renderConfigEditor() {
+function renderConfigEditor(view: 'workspace' | 'project' = 'workspace') {
   return render(
     <I18nProvider>
       <ToastProvider>
-        <ConfigEditor projectPath="/tmp/demo" />
+        <ConfigEditor projectPath="/tmp/demo" view={view} />
       </ToastProvider>
     </I18nProvider>
   )
@@ -190,6 +190,15 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor()
 
     expect(screen.getAllByText('Form')).toHaveLength(1)
+  })
+
+  it('shows project identity and launch defaults without hiding them behind advanced details', () => {
+    renderConfigEditor('project')
+
+    expect(screen.getByText('Workspace identity')).toBeInTheDocument()
+    expect(screen.getByText('Launch defaults')).toBeInTheDocument()
+    expect(screen.getByText('Default launch tool')).toBeInTheDocument()
+    expect(screen.queryByText('Advanced defaults')).not.toBeInTheDocument()
   })
 
   it('shows terminal commands as shell commands only when no agent is selected', () => {

@@ -2,10 +2,35 @@
  * ConfigEditor — Project info section.
  */
 
-import { ChevronDown, Folder } from "lucide-react";
+import { Folder, Rocket } from "lucide-react";
+import type { ReactNode } from "react";
 import { useI18n } from "../../i18n";
 import type { ConfigFormData } from "./types";
 import { SectionHeader, CollapsibleSection, FieldLabel, SelectInput, TextInput } from "./FormPrimitives";
+
+function SettingsGroup({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden">
+      <div className="px-3 py-2 border-b border-subtle flex items-center gap-2">
+        <span className="w-7 h-7 rounded-md bg-[var(--bg-hover)] flex items-center justify-center text-tertiary shrink-0">
+          {icon}
+        </span>
+        <h3 className="text-[12px] font-semibold text-primary">{title}</h3>
+      </div>
+      <div className="p-3">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function ProjectSection({
   data,
@@ -26,36 +51,36 @@ export default function ProjectSection({
     <section className="rounded-md transition-colors">
       <SectionHeader
         title={t("project")}
-        subtitle={`${data.project} / ${data.root}`}
         icon={<Folder className="w-3.5 h-3.5" />}
         expanded={expanded}
         onToggle={onToggle}
       />
       <CollapsibleSection expanded={expanded}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <FieldLabel required>{t("projectName")}</FieldLabel>
-            <TextInput
-              value={data.project}
-              onChange={(v) => onChange({ project: v })}
-              placeholder="my-project"
-              invalid={!data.project.trim()}
-            />
-          </div>
-          <div>
-            <FieldLabel>{t("rootDirectory")}</FieldLabel>
-            <TextInput
-              value={data.root}
-              onChange={(v) => onChange({ root: v })}
-              placeholder="."
-            />
-          </div>
-          <details className="group sm:col-span-2 rounded-md border border-default bg-[var(--bg-card)]">
-            <summary className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer text-[12px] font-semibold text-secondary hover:text-primary">
-              <span>{t("advancedDefaults")}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-tertiary transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-subtle px-3 pb-3 pt-3">
+        <div className="space-y-3">
+          <SettingsGroup title={t("projectIdentity")} icon={<Folder className="w-3.5 h-3.5" />}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>{t("projectName")}</FieldLabel>
+                <TextInput
+                  value={data.project}
+                  onChange={(v) => onChange({ project: v })}
+                  placeholder="my-project"
+                  invalid={!data.project.trim()}
+                />
+              </div>
+              <div>
+                <FieldLabel>{t("rootDirectory")}</FieldLabel>
+                <TextInput
+                  value={data.root}
+                  onChange={(v) => onChange({ root: v })}
+                  placeholder="."
+                />
+              </div>
+            </div>
+          </SettingsGroup>
+
+          <SettingsGroup title={t("launchDefaults")} icon={<Rocket className="w-3.5 h-3.5" />}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <FieldLabel>{t("openWithDefault")}</FieldLabel>
                 <SelectInput
@@ -99,7 +124,7 @@ export default function ProjectSection({
                 />
               </div>
             </div>
-          </details>
+          </SettingsGroup>
         </div>
       </CollapsibleSection>
     </section>

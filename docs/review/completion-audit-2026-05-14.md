@@ -20,6 +20,7 @@
 | 审查 YAML round-trip 风险 | `apps/web/src/components/ConfigEditor/yaml-utils.test.ts` | 已补保护：普通 pane + tmux group 混合 tab 可以 parse / serialize / reparse。 |
 | 审查 Dashboard 主动作区 | `apps/web/src/components/Dashboard.tsx`、截图 `tmp/review-pass/*` | 已局部修复：工具选择、打开目录、刷新、启动按钮不再明显截断或换行。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
+| 优化 Project config 信息架构 | `apps/web/src/components/ConfigEditor/ProjectSection.tsx`、`apps/web/src/i18n/index.tsx`、`ConfigEditor.test.tsx` | 已推进：项目配置页拆成 Workspace identity 和 Launch defaults 两组，默认启动工具、默认窗格类型和默认 Shell 不再藏在 `Advanced defaults` 原生折叠区里。 |
 | 审查 tmux group 计数 | `ConfigEditor/index.tsx`、`SlotsSection.tsx`、`ConfigEditor.test.tsx` | 已修复：tmux group 在外部空间按 1 个 pane 计数，内部 tmux windows 不误算。 |
 | 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
 | 审查跨标签页拖拽语义 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`SlotsSection.tsx`、`workspace-model.test.ts` | 已修复：Tab 作为容器不再限制 pane/tmux group 移动；legacy tmux tab 拖入其它 tab 时会转换为目标 tab 中的 tmux group。 |
@@ -84,7 +85,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  22 passed (22)
-Tests  168 passed (168)
+Tests  169 passed (169)
 ```
 
 ```bash
@@ -112,7 +113,20 @@ cd apps/web && npm test -- yaml-utils.test.ts workspace-validation.test.ts Confi
 
 ```text
 Test Files  3 passed (3)
-Tests  31 passed (31)
+Tests  32 passed (32)
+```
+
+```bash
+/Users/geminilight/opt/anaconda3/bin/python - <<'PY'
+# Playwright smoke: open Project config and verify Workspace identity / Launch defaults are visible.
+PY
+```
+
+结果：
+
+```text
+screenshot tmp/review-pass/project-config-2026-05-14.png
+Workspace identity visible; Launch defaults visible; Advanced defaults absent.
 ```
 
 ```bash
