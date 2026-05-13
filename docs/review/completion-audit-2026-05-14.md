@@ -45,6 +45,7 @@
 | 拆分同标签页窗格移动 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：同一 tab 内按方向移动 pane 的边界判断、排序和选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 553 行。 |
 | 拆分窗格新增/复制/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：pane add / duplicate / delete 的 legacy tmux 转换、隐式 terminal tab 复制/删除、显式 pane 插入/删除和无效索引保护已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 504 行。 |
 | 拆分 tmux 内部 window mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：legacy tmux tab 和显式 tmux group 内部 window 的 add / update / move / delete 已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 483 行。 |
+| 避免 UI 自动生成重复名称 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已修复：新增/复制 tab、pane、tmux window 时会基于 trim 后名称生成唯一名称，避免 UI 自己制造随后被校验挡住的重复名。 |
 | 拆分工作空间名称校验 | `apps/web/src/components/ConfigEditor/workspace-validation.ts`、`workspace-validation.test.ts`、`SlotsSection.tsx`、`yaml-utils.ts` | 已推进：标签页/窗格空名称和重复标签页名称校验从组件中抽成纯函数，并复用于保存前 `validateConfigForm`；重复名会先 trim，避免 `dev` 和 ` dev ` 逃过校验，`SlotsSection.tsx` 进一步降到 478 行。 |
 | 对齐后端名称重复校验 | `cc_branch/application/config_validation/validators.py`、`cc_branch/doctor/checks.py`、`tests/test_application_architecture.py`、`tests/test_doctor.py` | 已修复：raw config validation 和 doctor 现在也会先 trim 名称再判断重复，避免 UI 保存前校验和后端诊断结果不一致。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
@@ -85,7 +86,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  22 passed (22)
-Tests  169 passed (169)
+Tests  170 passed (170)
 ```
 
 ```bash

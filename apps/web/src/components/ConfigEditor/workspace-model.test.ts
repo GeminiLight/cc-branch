@@ -22,6 +22,7 @@ import {
   tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
   updateTmuxWindowMutation,
+  uniqueName,
   uniqueTabName,
 } from "./workspace-model";
 
@@ -58,10 +59,14 @@ function slotConfig(patch: Partial<SlotConfig> = {}): SlotConfig {
 }
 
 describe("workspace model", () => {
+  it("generates unique names after trimming existing names", () => {
+    expect(uniqueName(["coding", " coding-1 "], " coding ")).toBe("coding-2");
+  });
+
   it("generates a stable unique tab name", () => {
     const slots = [
       slotConfig({ name: "coding" }),
-      slotConfig({ name: "coding-1" }),
+      slotConfig({ name: " coding-1 " }),
       slotConfig({ name: "review" }),
     ];
 
@@ -168,10 +173,11 @@ describe("workspace model", () => {
 
   it("duplicates an implicit terminal pane as a new tab", () => {
     const mutation = duplicatePaneMutation([
-      slotConfig({ name: "scratch", title: "Scratch", runtime: "terminal", windows: [] }),
+      slotConfig({ name: " scratch ", title: "Scratch", runtime: "terminal", windows: [] }),
+      slotConfig({ name: "scratch-copy", runtime: "terminal", windows: [] }),
     ], 0, null);
 
-    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["scratch", "scratch-copy"]);
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual([" scratch ", "scratch-copy-1", "scratch-copy"]);
     expect(mutation?.slots[1].title).toBe("Scratch-copy");
     expect(mutation?.selection).toEqual({ slotIndex: 1, target: "pane", windowIndex: null });
   });
@@ -180,11 +186,15 @@ describe("workspace model", () => {
     const mutation = duplicatePaneMutation([
       slotConfig({
         name: "dev",
-        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api", agent: "codex" })],
+        windows: [
+          windowConfig({ name: "ui" }),
+          windowConfig({ name: " api ", agent: "codex" }),
+          windowConfig({ name: "api-copy" }),
+        ],
       }),
     ], 0, 1);
 
-    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["ui", "api", "api-copy"]);
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["ui", " api ", "api-copy-1", "api-copy"]);
     expect(mutation?.slots[0].windows[2]).toMatchObject({ agent: "codex" });
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 2 });
   });
@@ -256,13 +266,13 @@ describe("workspace model", () => {
           windowConfig({
             name: "workers",
             layoutBackend: "tmux",
-            windows: [windowConfig({ name: "api" })],
+            windows: [windowConfig({ name: "api" }), windowConfig({ name: "window-3" })],
           }),
         ],
       }),
     ], 0, 0);
 
-    expect(mutation?.[0].windows[0].windows?.map((window) => window.name)).toEqual(["api", "window-2"]);
+    expect(mutation?.[0].windows[0].windows?.map((window) => window.name)).toEqual(["api", "window-3", "window-3-1"]);
   });
 
   it("moves a tmux window inside a tmux group", () => {

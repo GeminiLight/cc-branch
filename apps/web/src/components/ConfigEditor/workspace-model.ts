@@ -56,15 +56,24 @@ export function emptyWindow(name = "main", agent: string | null = null): WindowC
   };
 }
 
-export function uniqueTabName(slots: SlotConfig[], base = "coding"): string {
-  const names = new Set(slots.map((slot) => slot.name));
-  let name = base;
+export function uniqueName(existingNames: string[], base: string): string {
+  const names = new Set(existingNames.map((name) => name.trim()).filter(Boolean));
+  const normalizedBase = base.trim() || "item";
+  let name = normalizedBase;
   let i = 1;
   while (names.has(name)) {
-    name = `${base}-${i}`;
+    name = `${normalizedBase}-${i}`;
     i++;
   }
   return name;
+}
+
+export function uniqueTabName(slots: SlotConfig[], base = "coding"): string {
+  return uniqueName(slots.map((slot) => slot.name), base);
+}
+
+function copyNameBase(name: string | undefined, fallback: string): string {
+  return `${name?.trim() || fallback}-copy`;
 }
 
 export function addTabMutation(
@@ -116,7 +125,8 @@ export function addPaneMutation(
   const slot = slots[slotIndex];
   if (!slot) return null;
   if (isLegacyTmuxSlot(slot)) {
-    const panes = [tmuxGroupWindowFromSlot(slot), emptyWindow("pane-2", agents[0] ?? null)];
+    const panes = [tmuxGroupWindowFromSlot(slot)];
+    panes.push(emptyWindow(uniqueName(panes.map((pane) => pane.name), "pane-2"), agents[0] ?? null));
     const next = [...slots];
     next[slotIndex] = slotWithWindows(slot, panes, layout || slot.layout || "auto");
     return {
@@ -127,7 +137,7 @@ export function addPaneMutation(
 
   const windows = editableWindowsForSlot(slot);
   const insertAt = afterIndex == null ? windows.length : Math.min(afterIndex + 1, windows.length);
-  windows.splice(insertAt, 0, emptyWindow(`pane-${windows.length + 1}`, agents[0] ?? null));
+  windows.splice(insertAt, 0, emptyWindow(uniqueName(windows.map((window) => window.name), `pane-${windows.length + 1}`), agents[0] ?? null));
   const next = [...slots];
   next[slotIndex] = slotWithWindows(slot, windows, layout || slot.layout || "auto");
   return {
@@ -146,7 +156,7 @@ export function duplicatePaneMutation(
   if (slot.runtime === "terminal" && slot.windows.length === 0) {
     const copy: SlotConfig = {
       ...slot,
-      name: `${slot.name || "tab"}-copy`,
+      name: uniqueTabName(slots, copyNameBase(slot.name, "tab")),
       title: slot.title ? `${slot.title}-copy` : slot.title,
       windows: [],
     };
@@ -163,7 +173,10 @@ export function duplicatePaneMutation(
   const sourceWindow = windows[sourceIndex];
   if (!sourceWindow) return null;
   const insertAt = sourceIndex + 1;
-  windows.splice(insertAt, 0, { ...sourceWindow, name: `${sourceWindow.name || "pane"}-copy` });
+  windows.splice(insertAt, 0, {
+    ...sourceWindow,
+    name: uniqueName(windows.map((window) => window.name), copyNameBase(sourceWindow.name, "pane")),
+  });
   const next = [...slots];
   next[slotIndex] = slotWithWindows(slot, windows);
   return {
@@ -260,10 +273,10 @@ export function addTmuxWindowMutation(
   slotIndex: number,
   paneIndex: number | null,
 ): SlotConfig[] | null {
-  return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => [
-    ...windows,
-    emptyWindow(`window-${windows.length + 1}`),
-  ]);
+  return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => {
+    const name = uniqueName(windows.map((window) => window.name), `window-${windows.length + 1}`);
+    return [...windows, emptyWindow(name)];
+  });
 }
 
 export function moveTmuxWindowMutation(
