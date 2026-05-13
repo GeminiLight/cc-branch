@@ -3,7 +3,9 @@ project: browser-drag-project
 root: .
 tabs:
   - name: shell
-    command: zsh
+    panes:
+      - name: shell
+        command: zsh
   - name: dev
     panes:
       - name: ui
