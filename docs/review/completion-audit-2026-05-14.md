@@ -22,6 +22,7 @@
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
 | 审查 tmux group 计数 | `ConfigEditor/index.tsx`、`SlotsSection.tsx`、`ConfigEditor.test.tsx` | 已修复：tmux group 在外部空间按 1 个 pane 计数，内部 tmux windows 不误算。 |
 | 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
+| 审查跨标签页拖拽语义 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`SlotsSection.tsx`、`workspace-model.test.ts` | 已修复：Tab 作为容器不再限制 pane/tmux group 移动；legacy tmux tab 拖入其它 tab 时会转换为目标 tab 中的 tmux group。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -49,7 +50,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  19 passed (19)
-Tests  126 passed (126)
+Tests  131 passed (131)
 ```
 
 ```bash
@@ -103,7 +104,7 @@ ce37e5b Ignore local generated review artifacts
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑，但仍然承担较多职责：布局渲染、拖拽、inspector 编辑、tmux group 编辑、session 选择。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑和跨 tab 移动逻辑，但仍然承担较多职责：布局渲染、拖拽事件、inspector 编辑、tmux group 编辑、session 选择。
 - Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -117,7 +118,7 @@ ce37e5b Ignore local generated review artifacts
 
 - 所有 opener 在所有系统上都无问题。
 - VS Code / Cursor / Warp 的所有布局启动路径都在当前审计中重新端到端验证。
-- 拖拽交互在所有复杂画布组合下都无 bug。
+- 拖拽交互已有模型层覆盖跨 tab 移动、legacy tmux group 转换、最后一个 pane 移动后删除空 tab，但仍缺少真实浏览器级拖拽验证。
 
 ### 3. “非常非常完美”的 UI/UX 尚未达到可关闭标准
 
@@ -140,6 +141,6 @@ ce37e5b Ignore local generated review artifacts
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model，下一步应拆 canvas rendering、pane movement、inspector editing。
-2. 为 workspace canvas 增加端到端交互测试，覆盖跨 tab 拖拽、tmux group 移动、复杂布局保存。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model 和 pane movement，下一步应拆 canvas rendering、inspector editing。
+2. 为 workspace canvas 增加端到端交互测试，覆盖真实浏览器拖拽、tmux group 移动、复杂布局保存。
 3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。

@@ -6,6 +6,8 @@ import {
   editableWindowsForSlot,
   isLegacyTmuxSlot,
   isTmuxGroupWindow,
+  movePaneBetweenSlots,
+  moveTab,
   slotToCanvasPanes,
   slotWithWindows,
   tmuxGroupWindowFromSlot,
@@ -175,5 +177,112 @@ describe("workspace model", () => {
       target: "pane",
       windowIndex: 1,
     });
+  });
+
+  it("moves tabs while keeping the same selected tab identity", () => {
+    const first = slotConfig({ name: "first" });
+    const second = slotConfig({ name: "second" });
+    const third = slotConfig({ name: "third" });
+
+    const mutation = moveTab([first, second, third], 0, 3, {
+      slotIndex: 1,
+      target: "tab",
+      windowIndex: null,
+    });
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["second", "third", "first"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("reorders panes inside one tab without changing runtimes", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" }), windowConfig({ name: "docs" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 0, 3);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["api", "docs", "ui"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 2 });
+  });
+
+  it("moves panes across tabs even when their runtimes differ", () => {
+    const slots = [
+      slotConfig({
+        name: "source",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "worker" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 1, 1, 1);
+
+    expect(mutation?.slots).toHaveLength(2);
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["frontend"]);
+    expect(mutation?.slots[1].runtime).toBe("terminal");
+    expect(mutation?.slots[1].windows.map((window) => window.name)).toEqual(["target", "backend"]);
+    expect(mutation?.slots[1].windows[0]).toMatchObject({
+      layoutBackend: "tmux",
+      windows: [expect.objectContaining({ name: "worker" })],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 1, target: "pane", windowIndex: 1 });
+  });
+
+  it("turns a legacy tmux tab into a movable tmux group when dropped into another tab", () => {
+    const slots = [
+      slotConfig({
+        name: "tmux-dev",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+      slotConfig({
+        name: "terminal-dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "review" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 1, 1);
+
+    expect(mutation?.slots).toHaveLength(1);
+    expect(mutation?.slots[0].name).toBe("terminal-dev");
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows).toHaveLength(2);
+    expect(mutation?.slots[0].windows[1]).toMatchObject({
+      name: "tmux-dev",
+      layoutBackend: "tmux",
+      windows: [expect.objectContaining({ name: "frontend" }), expect.objectContaining({ name: "backend" })],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("removes an empty source tab after moving its last explicit pane", () => {
+    const slots = [
+      slotConfig({
+        name: "single",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "only" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 1, 1);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["target"]);
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["existing", "only"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
   });
 });

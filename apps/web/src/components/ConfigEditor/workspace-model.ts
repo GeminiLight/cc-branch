@@ -16,6 +16,11 @@ export type CanvasPane = {
   kind: "terminal" | "tmux-group";
 };
 
+export type WorkspaceMutation = {
+  slots: SlotConfig[];
+  selection: Selection;
+};
+
 export function isTmuxGroupWindow(window: WindowConfig | null | undefined): boolean {
   return Boolean(window && (window.layoutBackend === "tmux" || Array.isArray(window.windows)));
 }
@@ -168,4 +173,89 @@ export function normalizedLayout(slot: SlotConfig, paneLength: number): TabLayou
   if (paneLength <= 2) return "horizontal";
   if (paneLength === 3) return "main-left";
   return "grid";
+}
+
+export function moveTab(slots: SlotConfig[], fromSlotIndex: number, toSlotIndex: number, selection: Selection): WorkspaceMutation | null {
+  if (fromSlotIndex < 0 || fromSlotIndex >= slots.length) return null;
+  const next = [...slots];
+  const selectedBeforeMove = slots[selection.slotIndex];
+  const [moved] = next.splice(fromSlotIndex, 1);
+  if (!moved) return null;
+  const insertIndex = Math.min(
+    Math.max(fromSlotIndex < toSlotIndex ? toSlotIndex - 1 : toSlotIndex, 0),
+    next.length
+  );
+  next.splice(insertIndex, 0, moved);
+  const nextSelectedIndex = selectedBeforeMove ? Math.max(next.indexOf(selectedBeforeMove), 0) : insertIndex;
+  return {
+    slots: next,
+    selection: {
+      slotIndex: nextSelectedIndex,
+      target: selection.target,
+      windowIndex: selection.windowIndex,
+    },
+  };
+}
+
+export function movePaneBetweenSlots(
+  slots: SlotConfig[],
+  fromSlotIndex: number,
+  fromPaneIndex: number,
+  toSlotIndex: number,
+  toPaneIndex: number,
+): WorkspaceMutation | null {
+  const source = slots[fromSlotIndex];
+  const target = slots[toSlotIndex];
+  if (!source || !target) return null;
+  if (fromSlotIndex === toSlotIndex && isLegacyTmuxSlot(source)) return null;
+  if (fromSlotIndex === toSlotIndex && fromPaneIndex === toPaneIndex) return null;
+
+  if (fromSlotIndex === toSlotIndex) {
+    if (source.windows.length === 0) return null;
+    const windows = editableWindowsForSlot(source);
+    const [moved] = windows.splice(fromPaneIndex, 1);
+    if (!moved) return null;
+    const insertIndex = Math.min(
+      Math.max(fromPaneIndex < toPaneIndex ? toPaneIndex - 1 : toPaneIndex, 0),
+      windows.length
+    );
+    windows.splice(insertIndex, 0, moved);
+    const next = [...slots];
+    next[fromSlotIndex] = slotWithWindows(source, windows);
+    return {
+      slots: next,
+      selection: { slotIndex: fromSlotIndex, target: "pane", windowIndex: insertIndex },
+    };
+  }
+
+  const sourceIsLegacyTmuxGroup = isLegacyTmuxSlot(source);
+  const sourceWindows = sourceIsLegacyTmuxGroup ? [] : editableWindowsForSlot(source);
+  if (!sourceIsLegacyTmuxGroup && source.windows.length === 0) return null;
+
+  const moved = sourceIsLegacyTmuxGroup
+    ? tmuxGroupWindowFromSlot(source)
+    : sourceWindows.splice(fromPaneIndex, 1)[0];
+  if (!moved) return null;
+
+  const targetWindows = isLegacyTmuxSlot(target) ? [tmuxGroupWindowFromSlot(target)] : editableWindowsForSlot(target);
+  const insertIndex = Math.min(Math.max(toPaneIndex, 0), targetWindows.length);
+  targetWindows.splice(insertIndex, 0, moved);
+
+  const next = [...slots];
+  if (sourceIsLegacyTmuxGroup || sourceWindows.length === 0) {
+    next.splice(fromSlotIndex, 1);
+    const adjustedTargetIndex = fromSlotIndex < toSlotIndex ? toSlotIndex - 1 : toSlotIndex;
+    next[adjustedTargetIndex] = slotWithWindows(target, targetWindows);
+    return {
+      slots: next,
+      selection: { slotIndex: adjustedTargetIndex, target: "pane", windowIndex: insertIndex },
+    };
+  }
+
+  next[fromSlotIndex] = slotWithWindows(source, sourceWindows);
+  next[toSlotIndex] = slotWithWindows(target, targetWindows);
+  return {
+    slots: next,
+    selection: { slotIndex: toSlotIndex, target: "pane", windowIndex: insertIndex },
+  };
 }

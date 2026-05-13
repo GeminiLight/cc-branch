@@ -45,6 +45,8 @@ import {
   emptyWindow,
   isLegacyTmuxSlot,
   isTmuxGroupWindow,
+  movePaneBetweenSlots,
+  moveTab as moveTabModel,
   normalizedLayout,
   slotToCanvasPanes,
   slotToPanes,
@@ -563,22 +565,9 @@ export default function SlotsSection({
   }
 
   function moveTabByDrag(fromSlotIndex: number, toSlotIndex: number) {
-    if (fromSlotIndex < 0 || fromSlotIndex >= slots.length) return;
-    const next = [...slots];
-    const selectedBeforeMove = slots[normalizedSelection.slotIndex];
-    const [moved] = next.splice(fromSlotIndex, 1);
-    if (!moved) return;
-    const insertIndex = Math.min(
-      Math.max(fromSlotIndex < toSlotIndex ? toSlotIndex - 1 : toSlotIndex, 0),
-      next.length
-    );
-    next.splice(insertIndex, 0, moved);
-    const nextSelectedIndex = selectedBeforeMove ? Math.max(next.indexOf(selectedBeforeMove), 0) : insertIndex;
-    replaceSlots(next, {
-      slotIndex: nextSelectedIndex,
-      target: normalizedSelection.target,
-      windowIndex: normalizedSelection.windowIndex,
-    });
+    const mutation = moveTabModel(slots, fromSlotIndex, toSlotIndex, normalizedSelection);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function moveTab(index: number, dir: number) {
@@ -722,46 +711,9 @@ export default function SlotsSection({
   }
 
   function movePaneByDrag(fromSlotIndex: number, fromPaneIndex: number, toSlotIndex: number, toPaneIndex: number) {
-    const source = slots[fromSlotIndex];
-    const target = slots[toSlotIndex];
-    if (!source || !target) return;
-    if (isLegacyTmuxSlot(source)) {
-      if (fromSlotIndex === toSlotIndex) return;
-      moveTabByDrag(fromSlotIndex, toSlotIndex + (toPaneIndex > 0 ? 1 : 0));
-      return;
-    }
-    if (source.windows.length === 0) return;
-    if (fromSlotIndex === toSlotIndex && fromPaneIndex === toPaneIndex) return;
-
-    const next = [...slots];
-    const sourceWindows = editableWindowsForSlot(source);
-    const [moved] = sourceWindows.splice(fromPaneIndex, 1);
-    if (!moved) return;
-
-    if (fromSlotIndex === toSlotIndex) {
-      const insertIndex = Math.min(
-        Math.max(fromPaneIndex < toPaneIndex ? toPaneIndex - 1 : toPaneIndex, 0),
-        sourceWindows.length
-      );
-      sourceWindows.splice(insertIndex, 0, moved);
-      next[fromSlotIndex] = slotWithWindows(source, sourceWindows);
-      replaceSlots(next, { slotIndex: toSlotIndex, target: "pane", windowIndex: insertIndex });
-      return;
-    }
-
-    const targetWindows = isLegacyTmuxSlot(target) ? [tmuxGroupWindowFromSlot(target)] : editableWindowsForSlot(target);
-    const insertIndex = Math.min(Math.max(toPaneIndex, 0), targetWindows.length);
-    targetWindows.splice(insertIndex, 0, moved);
-    if (sourceWindows.length === 0) {
-      next.splice(fromSlotIndex, 1);
-      const adjustedTargetIndex = fromSlotIndex < toSlotIndex ? toSlotIndex - 1 : toSlotIndex;
-      next[adjustedTargetIndex] = slotWithWindows(target, targetWindows);
-      replaceSlots(next, { slotIndex: adjustedTargetIndex, target: "pane", windowIndex: insertIndex });
-      return;
-    }
-    next[fromSlotIndex] = slotWithWindows(source, sourceWindows);
-    next[toSlotIndex] = slotWithWindows(target, targetWindows);
-    replaceSlots(next, { slotIndex: toSlotIndex, target: "pane", windowIndex: insertIndex });
+    const mutation = movePaneBetweenSlots(slots, fromSlotIndex, fromPaneIndex, toSlotIndex, toPaneIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function handlePaneDragStart(event: DragEvent<HTMLElement>, slotIndex: number, paneIndex: number) {
@@ -826,25 +778,15 @@ export default function SlotsSection({
     const targetIndex = selectedMoveTargetIndex;
     const target = slots[targetIndex];
     if (!target || targetIndex === normalizedSelection.slotIndex) return;
-    const next = [...slots];
-    const sourceIndex = normalizedSelection.slotIndex;
-    const sourceIsLegacyTmuxGroup = isLegacyTmuxSlot(selectedSlot);
-    const sourceWindows = sourceIsLegacyTmuxGroup ? [] : editableWindowsForSlot(selectedSlot);
-    const moved = sourceIsLegacyTmuxGroup
-      ? tmuxGroupWindowFromSlot(selectedSlot)
-      : sourceWindows.splice(normalizedSelection.windowIndex ?? 0, 1)[0];
-    if (!moved) return;
-    const targetWindows = isLegacyTmuxSlot(target) ? [tmuxGroupWindowFromSlot(target)] : editableWindowsForSlot(target);
-    if (sourceIsLegacyTmuxGroup || sourceWindows.length === 0) {
-      next.splice(sourceIndex, 1);
-      const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-      next[adjustedTargetIndex] = slotWithWindows(target, [...targetWindows, moved]);
-      replaceSlots(next, { slotIndex: adjustedTargetIndex, target: "pane", windowIndex: targetWindows.length });
-      return;
-    }
-    next[sourceIndex] = slotWithWindows(selectedSlot, sourceWindows);
-    next[targetIndex] = slotWithWindows(target, [...targetWindows, moved]);
-    replaceSlots(next, { slotIndex: targetIndex, target: "pane", windowIndex: targetWindows.length });
+    const mutation = movePaneBetweenSlots(
+      slots,
+      normalizedSelection.slotIndex,
+      normalizedSelection.windowIndex ?? 0,
+      targetIndex,
+      configuredPaneCount(target),
+    );
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   const selectedTmuxWindowList = selectedTmuxGroup
