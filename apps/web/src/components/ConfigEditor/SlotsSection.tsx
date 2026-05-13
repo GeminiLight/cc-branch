@@ -26,11 +26,9 @@ import {
   InlineError,
 } from "./FormPrimitives";
 import {
-  clampSelection,
   editableWindowsForSlot,
   emptyWindow,
   isLegacyTmuxSlot,
-  isTmuxGroupWindow,
   movePaneBetweenSlots,
   moveTab as moveTabModel,
   slotWithWindows,
@@ -41,6 +39,7 @@ import {
 } from "./workspace-model";
 import { paneCount } from "./workspace-display";
 import { useWorkspaceDrag } from "./workspace-drag";
+import { deriveWorkspaceSelection } from "./workspace-selection";
 
 function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) => string, runtime: SlotConfig["runtime"]): string {
   return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
@@ -64,30 +63,24 @@ export default function SlotsSection({
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
   const [moveTarget, setMoveTarget] = useState("0");
 
-  const normalizedSelection = useMemo(() => clampSelection(selection, slots), [selection, slots]);
-  const selectedSlot = slots[normalizedSelection.slotIndex];
-  const selectedWindow =
-    normalizedSelection.target === "pane" && !isLegacyTmuxSlot(selectedSlot) && selectedSlot?.windows.length
-      ? selectedSlot.windows[normalizedSelection.windowIndex ?? 0]
-      : null;
-  const selectedTerminalPane =
-    normalizedSelection.target === "pane" &&
-    selectedSlot?.runtime === "terminal" &&
-    selectedSlot.windows.length === 0;
-  const selectedTerminalWindow = selectedSlot?.runtime === "terminal" && !isTmuxGroupWindow(selectedWindow) ? selectedWindow : null;
-  const selectedTmuxGroup = normalizedSelection.target === "pane" && (isLegacyTmuxSlot(selectedSlot) || isTmuxGroupWindow(selectedWindow));
-  const editingPane = Boolean(selectedWindow || selectedTerminalPane || selectedTmuxGroup);
+  const {
+    normalizedSelection,
+    selectedSlot,
+    selectedWindow,
+    selectedTerminalWindow,
+    selectedTmuxGroup,
+    editingPane,
+  } = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
 
   useEffect(() => {
-    const next = clampSelection(selection, slots);
     if (
-      next.slotIndex !== selection.slotIndex ||
-      next.target !== selection.target ||
-      next.windowIndex !== selection.windowIndex
+      normalizedSelection.slotIndex !== selection.slotIndex ||
+      normalizedSelection.target !== selection.target ||
+      normalizedSelection.windowIndex !== selection.windowIndex
     ) {
-      setSelection(next);
+      setSelection(normalizedSelection);
     }
-  }, [selection, slots]);
+  }, [normalizedSelection, selection]);
 
   const agentOptions = [
     { value: "", label: t("noneOption") },
@@ -323,7 +316,7 @@ export default function SlotsSection({
   }
 
   const selectedTmuxWindowList = selectedTmuxGroup
-    ? isLegacyTmuxSlot(selectedSlot)
+    ? selectedSlot && isLegacyTmuxSlot(selectedSlot)
       ? selectedSlot.windows
       : selectedWindow
       ? tmuxGroupWindows(selectedWindow)
