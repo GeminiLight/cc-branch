@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ...constants import CONFIGS_DIR
 from ...config import (
     config_options_payload,
     project_dir_for_config,
@@ -13,6 +12,7 @@ from ...config import (
     resolve_config_selection,
     resolve_state_path,
 )
+from ...constants import CONFIGS_DIR
 from ..results import ActionResult
 from .versioning import write_text_atomic
 

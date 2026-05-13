@@ -16,6 +16,7 @@ from ...openers import list_openers
 from ...planner import plan_workspace
 from ...profiles import get_available_profiles, get_profile_description
 from ...state import load_state
+from ..agent_sessions import agent_session_options
 from ..config_validation import collect_config_issues
 from ..diagnostics import get_doctor_report, render_report
 from .initialization import (
@@ -27,12 +28,11 @@ from .initialization import (
     initialize_workspace_from_environment,
     inspect_workspace_environment,
 )
+from .manage import create_workspace_config, delete_workspace_config, rename_workspace_config
 from .options import agent_options, opener_options, profile_options
-from ..agent_sessions import agent_session_options
 from .options import agent_payload as _agent_payload
 from .read import probe_project, read_workspace_config
 from .save import save_workspace_config
-from .manage import create_workspace_config, delete_workspace_config, rename_workspace_config
 from .versioning import (
     base_version_matches,
     content_hash,

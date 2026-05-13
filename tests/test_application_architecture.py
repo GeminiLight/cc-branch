@@ -921,7 +921,10 @@ class ConfigWorkflowTests(unittest.TestCase):
             self.assertIn("content_hash", result.payload)
 
     def test_save_workspace_config_accepts_canonical_public_fields_without_warnings(self):
-        from cc_branch.application.config_workflows import read_workspace_config, save_workspace_config
+        from cc_branch.application.config_workflows import (
+            read_workspace_config,
+            save_workspace_config,
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

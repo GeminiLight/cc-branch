@@ -569,6 +569,7 @@ class OpenerTests(unittest.TestCase):
     def test_warp_layout_uses_stable_project_name_and_removes_legacy_hash_configs(self):
         """Repeated Warp opens should reuse a stable launch config instead of visible cache hashes."""
         import tempfile
+
         from cc_branch.openers.dispatcher import open_command_layout
 
         with tempfile.TemporaryDirectory() as tmp:

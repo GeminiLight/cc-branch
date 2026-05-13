@@ -27,7 +27,12 @@ from ...application.diagnostics import get_doctor_payload
 from ...application.global_agents import read_global_agents, save_global_agents
 from ...application.workspace_actions import execute_workspace_action
 from ...application.workspace_status import get_workspace_status
-from ...config import config_options_payload, project_dir_for_config, resolve_config_path, resolve_config_selection
+from ...config import (
+    config_options_payload,
+    project_dir_for_config,
+    resolve_config_path,
+    resolve_config_selection,
+)
 from ...openers import OpenerError
 from ...runtime.backends import get_backend
 from .directory_picker import pick_directory
