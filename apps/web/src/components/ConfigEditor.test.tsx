@@ -371,6 +371,7 @@ describe('ConfigEditor diagnostics', () => {
     expect(group).toBeInTheDocument()
     expect(group).toHaveAttribute('draggable', 'true')
     expect(screen.getByText('Tmux group')).toBeInTheDocument()
+    expect(screen.getAllByText('Tabs: 1 / panes: 1').length).toBeGreaterThan(0)
     expect(screen.getAllByText('3 tmux windows')).not.toHaveLength(0)
     expect(screen.getByText('main')).toBeInTheDocument()
     expect(screen.getByText('worker')).toBeInTheDocument()

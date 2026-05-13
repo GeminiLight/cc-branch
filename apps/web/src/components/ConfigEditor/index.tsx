@@ -43,6 +43,16 @@ interface ConfigEditorProps {
 type EditorMode = "form" | "yaml";
 type IssueTone = "danger" | "warning" | "info";
 
+function isTmuxGroupWindow(window: ConfigFormData["slots"][number]["windows"][number]): boolean {
+  return Boolean(window.layoutBackend === "tmux" || window.windows?.length);
+}
+
+function configuredPaneCount(slot: ConfigFormData["slots"][number]): number {
+  const hasExplicitTmuxGroup = slot.windows.some(isTmuxGroupWindow);
+  if (slot.runtime === "tmux" && !hasExplicitTmuxGroup) return 1;
+  return Math.max(slot.windows.length, 1);
+}
+
 function hasYamlComments(value: string): boolean {
   return value.split("\n").some((line) => line.trimStart().startsWith("#"));
 }
@@ -350,7 +360,7 @@ export default function ConfigEditor({
   const terminalCount = formData.slots.filter((slot) => slot.runtime === "terminal").length;
   const tmuxCount = slotCount - terminalCount;
   const configuredWindowCount = formData.slots.reduce(
-    (count, slot) => count + Math.max(slot.windows.length, 1),
+    (count, slot) => count + configuredPaneCount(slot),
     0
   );
   const agentOverrideCount = Object.keys(formData.agents).length;

@@ -1123,7 +1123,7 @@ export default function SlotsSection({
                     <p className="text-[11px] text-tertiary truncate">
                       {t("configSlotSummary", {
                         slots: slots.length,
-                        windows: slots.reduce((count, slot) => count + Math.max(slot.windows.length, 1), 0),
+                        windows: slots.reduce((count, slot) => count + paneCount(slot), 0),
                       })}
                     </p>
                   </div>

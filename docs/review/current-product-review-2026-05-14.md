@@ -162,6 +162,30 @@
   - `Direct` 改为 `Regular terminal`。
   - 中文统一为 `窗格类型`、`默认窗格类型`、`普通终端`、`Tmux 窗格组`。
 
+### 7. 空间画布把 tmux windows 误计为 panes
+
+问题：
+
+- 一个 tmux group 在外部空间里应该占一个 pane。
+- tmux group 内部可以包含多个 tmux windows。
+- 空间画布和配置摘要有路径使用 `slot.windows.length` 计数，legacy tmux tab 会被误算成多个 panes。
+
+影响：
+
+- 用户看到的摘要和实际画布结构不一致。
+- 对 “Tab / Pane / Tmux group / Tmux window” 的概念理解会被进一步干扰。
+
+修复：
+
+- `apps/web/src/components/ConfigEditor/index.tsx`
+  - 新增 `configuredPaneCount()`，把 legacy tmux slot 计为 1 个 pane。
+- `apps/web/src/components/ConfigEditor/SlotsSection.tsx`
+  - 空间画布摘要改用 `paneCount(slot)`。
+- `apps/web/src/i18n/index.tsx`
+  - 摘要文案改为 `Tabs: {slots} / panes: {windows}`，避免 `1 tabs / 1 panes`。
+- `apps/web/src/components/ConfigEditor.test.tsx`
+  - 覆盖 3 个 tmux windows 仍显示为 1 个 pane。
+
 ## 仍需后续处理的风险
 
 ### 1. 配置概念仍然复杂
