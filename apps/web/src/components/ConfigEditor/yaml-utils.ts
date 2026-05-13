@@ -8,6 +8,7 @@
 import YAML from "js-yaml";
 import type { ConfigFormData, AgentConfig, SlotConfig, WindowConfig, ShellSpec } from "./types";
 import { createDefaultConfig } from "./types";
+import { validateWorkspaceNames } from "./workspace-validation";
 
 function coerceLayoutBackend(value: unknown, fallback: "tmux" | "direct" = "direct"): "tmux" | "direct" {
   const raw = String(value ?? "").trim();
@@ -331,15 +332,13 @@ export function validateConfigForm(
 ): string[] {
   const errors: string[] = [];
   if (!data.project.trim()) errors.push(t("projectNameRequired"));
-  if (data.slots.some((s) => !s.name.trim())) errors.push(t("allSlotsMustHaveName"));
-  if (data.slots.some((s) => s.windows.some((w) => !w.name.trim()))) {
+  const workspaceValidation = validateWorkspaceNames(data.slots);
+  if (workspaceValidation.hasEmptyTabNames) errors.push(t("allSlotsMustHaveName"));
+  if (workspaceValidation.hasEmptyPaneNames) {
     errors.push(t("allWindowsMustHaveName"));
   }
-  // Duplicate slot names
-  const slotNames = data.slots.map((s) => s.name);
-  const dupSlots = slotNames.filter((name, i) => slotNames.indexOf(name) !== i);
-  if (dupSlots.length > 0) {
-    errors.push(t("duplicateSlotNames", { names: [...new Set(dupSlots)].join(", ") }));
+  if (workspaceValidation.duplicateTabNames.length > 0) {
+    errors.push(t("duplicateSlotNames", { names: workspaceValidation.duplicateTabNames.join(", ") }));
   }
   return errors;
 }

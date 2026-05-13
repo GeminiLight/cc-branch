@@ -1,7 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { parseConfigYaml, serializeConfigForm } from "./yaml-utils";
+import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 
 describe("ConfigEditor YAML session intent", () => {
+  it("validates duplicate tab names after trimming whitespace", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: main",
+      "  - name: \" dev \"",
+      "    panes:",
+      "      - name: review",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Duplicate slot names: dev");
+  });
+
   it("parses canonical workspace terms and pane shell overrides", () => {
     const data = parseConfigYaml([
       "version: 2",
