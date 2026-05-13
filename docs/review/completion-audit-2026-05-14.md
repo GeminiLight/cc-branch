@@ -27,6 +27,7 @@
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |
 | 拆分布局选择控件 | `apps/web/src/components/ConfigEditor/LayoutPicker.tsx`、`SlotsSection.tsx` | 已推进：tab layout glyph 和 segmented picker 从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1097 行。 |
+| 拆分 inspector 动作区 | `apps/web/src/components/ConfigEditor/InspectorActions.tsx`、`SlotsSection.tsx` | 已推进：pane 调度、移动到标签页、删除 pane、tmux group 位置操作从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 988 行。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -108,7 +109,7 @@ ce37e5b Ignore local generated review artifacts
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器和 layout picker，但仍然承担较多职责：拖拽事件、inspector 编辑、tmux group 编辑。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker 和 inspector 动作区，但仍然承担较多职责：拖拽事件、inspector 表单编辑、tmux group window 表单编辑。
 - Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -145,6 +146,6 @@ ce37e5b Ignore local generated review artifacts
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector 和 layout picker，下一步应拆 inspector editing / tmux group editing。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker 和 inspector actions，下一步应拆 inspector editing / tmux group editing。
 2. 为 workspace canvas 增加端到端交互测试，覆盖真实浏览器拖拽、tmux group 移动、复杂布局保存。
 3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。
