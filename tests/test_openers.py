@@ -367,13 +367,29 @@ class OpenerTests(unittest.TestCase):
                 "cc-branch: dev:planner",
                 "cc-branch: scratch:main",
             ])
-            self.assertEqual(payload["tasks"][0]["presentation"]["group"], "cc-branch")
+            self.assertEqual(payload["tasks"][0]["presentation"]["group"], "cc-branch:dev")
+            self.assertEqual(payload["tasks"][1]["presentation"]["group"], "cc-branch:scratch")
             self.assertEqual(payload["tasks"][0]["runOptions"], {"runOn": "folderOpen"})
             self.assertEqual(payload["tasks"][1]["options"]["cwd"], str(subdir.resolve()))
             if bridge.is_symlink():
                 self.assertEqual(bridge.resolve(), sidecar.resolve())
             else:
                 self.assertEqual(json.loads(bridge.read_text(encoding="utf-8")), payload)
+
+    def test_vscode_task_split_groups_only_panes_inside_the_same_tab(self):
+        """VS Code split groups should not merge panes from different CC Branch tabs."""
+        from cc_branch.openers.editors import editor_workspace_opener
+
+        payload = editor_workspace_opener.tasks_payload(
+            [
+                OpenCommandSpec("dev:frontend", Path("/tmp/demo"), "npm run dev"),
+                OpenCommandSpec("dev:backend", Path("/tmp/demo"), "python api.py"),
+                OpenCommandSpec("docs:writer", Path("/tmp/demo"), "codex"),
+            ]
+        )
+
+        groups = [task["presentation"]["group"] for task in payload["tasks"]]
+        self.assertEqual(groups, ["cc-branch:dev", "cc-branch:dev", "cc-branch:docs"])
 
     def test_vscode_workspace_open_does_not_create_generated_workspace_file_on_macos(self):
         """The Explorer should show the real folder, not a generated .code-workspace wrapper."""
