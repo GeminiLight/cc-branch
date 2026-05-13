@@ -1171,7 +1171,7 @@ export default function SlotsSection({
                                   ? "bg-[var(--accent-bg)]/25"
                                   : "hover:bg-[var(--bg-hover)]/55"
                               }`}
-                              aria-label={selectedTab ? t("collapseSlot", { name: slotName }) : t("expandSlot", { name: slotName })}
+                              aria-label={t("editSlotNamed", { name: slotName })}
                             >
                               <span className="flex items-start justify-between gap-2">
                                 <span className="min-w-0">
@@ -1291,7 +1291,7 @@ export default function SlotsSection({
                                             : ""
                                         }`}
                                         style={paneCellStyle(slot, canvasPanes as unknown as WindowConfig[], paneIndex)}
-                                        aria-label={t("expandWindow", { name: paneName })}
+                                        aria-label={t("editWindowNamed", { name: paneName })}
                                       >
                                       {selectedPane && (
                                         <span

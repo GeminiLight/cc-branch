@@ -213,7 +213,7 @@ describe('ConfigEditor diagnostics', () => {
     }
 
     renderConfigEditor()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane scratch' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane scratch' }))
 
     expect(screen.getByText('Shell command')).toBeInTheDocument()
     expect(screen.queryByText(/^Command$/)).not.toBeInTheDocument()
@@ -241,7 +241,7 @@ describe('ConfigEditor diagnostics', () => {
     }
 
     renderConfigEditor()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane coder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane coder' }))
 
     expect(screen.queryByText('Shell command')).not.toBeInTheDocument()
     expect(screen.getByText('Agent session')).toBeInTheDocument()
@@ -291,12 +291,12 @@ describe('ConfigEditor diagnostics', () => {
   it('gives slot and window icon controls specific accessible names', () => {
     renderConfigEditor()
 
-    expect(screen.getByRole('button', { name: 'Collapse tab dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit tab dev' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove tab dev' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane dev' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane dev' }))
 
-    expect(screen.queryByRole('button', { name: 'Expand pane main' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit pane main' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Move pane main up' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove pane main' })).not.toBeInTheDocument()
   })
@@ -366,7 +366,7 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const group = screen.getByRole('button', { name: 'Expand pane dev' })
+    const group = screen.getByRole('button', { name: 'Edit pane dev' })
 
     expect(group).toBeInTheDocument()
     expect(group).toHaveAttribute('draggable', 'true')
@@ -376,9 +376,9 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByText('main')).toBeInTheDocument()
     expect(screen.getByText('worker')).toBeInTheDocument()
     expect(screen.getByText('review')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Expand pane main' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Expand pane worker' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Expand pane review' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit pane main' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit pane worker' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit pane review' })).not.toBeInTheDocument()
 
     fireEvent.click(group)
 
@@ -416,7 +416,7 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane coder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane coder' }))
 
     expect(mocks.useAgentSessions).toHaveBeenLastCalledWith(
       { projectPath: '/tmp/demo', configPath: undefined },
@@ -467,8 +467,8 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const devGroup = screen.getByRole('button', { name: 'Expand pane dev' })
-    const reviewGroup = screen.getByRole('button', { name: 'Expand pane review' })
+    const devGroup = screen.getByRole('button', { name: 'Edit pane dev' })
+    const reviewGroup = screen.getByRole('button', { name: 'Edit pane review' })
     devGroup.getBoundingClientRect = () => ({
       x: 0,
       y: 0,
@@ -491,12 +491,12 @@ describe('ConfigEditor diagnostics', () => {
       const tabLabels = screen
         .getAllByRole('button')
         .map((button) => button.getAttribute('aria-label'))
-        .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) tab /)))
+        .filter((label): label is string => Boolean(label?.match(/^Edit tab /)))
 
-      expect(tabLabels).toEqual(['Collapse tab dev'])
+      expect(tabLabels).toEqual(['Edit tab dev'])
     })
-    expect(screen.getByRole('button', { name: 'Expand pane review' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Expand pane dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane review' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane dev' })).toBeInTheDocument()
   })
 
   it('moves a selected tmux group from the inspector', async () => {
@@ -531,7 +531,7 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane review' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
     fireEvent.click(screen.getByRole('option', { name: /dev/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Move' }))
@@ -540,12 +540,12 @@ describe('ConfigEditor diagnostics', () => {
       const tabLabels = screen
         .getAllByRole('button')
         .map((button) => button.getAttribute('aria-label'))
-        .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) tab /)))
+        .filter((label): label is string => Boolean(label?.match(/^Edit tab /)))
 
-      expect(tabLabels).toEqual(['Collapse tab dev'])
+      expect(tabLabels).toEqual(['Edit tab dev'])
     })
-    expect(screen.getByRole('button', { name: 'Expand pane dev' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Expand pane review' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane dev' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane review' })).toBeInTheDocument()
   })
 
   it('moves a legacy tmux tab group from the inspector', async () => {
@@ -575,17 +575,17 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane review' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
     fireEvent.click(screen.getByRole('option', { name: /dev/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Move' }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Collapse tab dev' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Expand tab review' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Edit tab dev' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Edit tab review' })).not.toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: 'Expand pane ui' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Expand pane review' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane ui' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane review' })).toBeInTheDocument()
   })
 
   it('moves terminal panes across tabs by dragging on the workspace matrix', async () => {
@@ -616,8 +616,8 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const uiPane = screen.getByRole('button', { name: 'Expand pane ui' })
-    const shellPane = screen.getByRole('button', { name: 'Expand pane shell' })
+    const uiPane = screen.getByRole('button', { name: 'Edit pane ui' })
+    const shellPane = screen.getByRole('button', { name: 'Edit pane shell' })
     uiPane.getBoundingClientRect = () => ({
       x: 0,
       y: 0,
@@ -640,9 +640,9 @@ describe('ConfigEditor diagnostics', () => {
       const paneLabels = screen
         .getAllByRole('button')
         .map((button) => button.getAttribute('aria-label'))
-        .filter((label): label is string => Boolean(label?.match(/^Expand pane /)))
+        .filter((label): label is string => Boolean(label?.match(/^Edit pane /)))
 
-      expect(paneLabels).toEqual(['Expand pane shell', 'Expand pane ui', 'Expand pane spec'])
+      expect(paneLabels).toEqual(['Edit pane shell', 'Edit pane ui', 'Edit pane spec'])
     })
   })
 
@@ -678,7 +678,7 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane spec' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane spec' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
 
     expect(screen.queryByRole('option', { name: /dev/ })).not.toBeInTheDocument()
@@ -689,13 +689,13 @@ describe('ConfigEditor diagnostics', () => {
       const paneLabels = screen
         .getAllByRole('button')
         .map((button) => button.getAttribute('aria-label'))
-        .filter((label): label is string => Boolean(label?.match(/^Expand pane /)))
+        .filter((label): label is string => Boolean(label?.match(/^Edit pane /)))
 
       expect(paneLabels).toEqual([
-        'Expand pane ui',
-        'Expand pane shell',
-        'Expand pane lint',
-        'Expand pane spec',
+        'Edit pane ui',
+        'Edit pane shell',
+        'Edit pane lint',
+        'Edit pane spec',
       ])
     })
   })
@@ -729,7 +729,7 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand pane spec' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane spec' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
 
     expect(screen.queryByText('Add another tab first.')).not.toBeInTheDocument()
@@ -737,9 +737,9 @@ describe('ConfigEditor diagnostics', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Move' }))
 
     await waitFor(() => {
-      const tmuxTab = screen.getByRole('button', { name: 'Collapse tab tmux-dev' }).closest('section')!
-      expect(within(tmuxTab).getByRole('button', { name: 'Expand pane tmux-dev' })).toBeInTheDocument()
-      expect(within(tmuxTab).getByRole('button', { name: 'Expand pane spec' })).toBeInTheDocument()
+      const tmuxTab = screen.getByRole('button', { name: 'Edit tab tmux-dev' }).closest('section')!
+      expect(within(tmuxTab).getByRole('button', { name: 'Edit pane tmux-dev' })).toBeInTheDocument()
+      expect(within(tmuxTab).getByRole('button', { name: 'Edit pane spec' })).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -783,8 +783,8 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor()
 
-    const devRow = screen.getByRole('button', { name: 'Collapse tab dev' }).closest('section')!
-    const reviewRow = screen.getByRole('button', { name: 'Expand tab review' }).closest('section')!
+    const devRow = screen.getByRole('button', { name: 'Edit tab dev' }).closest('section')!
+    const reviewRow = screen.getByRole('button', { name: 'Edit tab review' }).closest('section')!
     reviewRow.getBoundingClientRect = () => ({
       x: 0,
       y: 0,
@@ -805,9 +805,9 @@ describe('ConfigEditor diagnostics', () => {
     const tabLabels = screen
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))
-      .filter((label): label is string => Boolean(label?.match(/^(Collapse|Expand) tab /)))
+      .filter((label): label is string => Boolean(label?.match(/^Edit tab /)))
 
-    expect(tabLabels).toEqual(['Expand tab spec', 'Collapse tab dev', 'Expand tab review'])
+    expect(tabLabels).toEqual(['Edit tab spec', 'Edit tab dev', 'Edit tab review'])
   })
 
   it('keeps tab details runtime agnostic', () => {
