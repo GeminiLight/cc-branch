@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
+  addPaneMutation,
   addTabMutation,
   clampSelection,
   configuredPaneCount,
+  deletePaneMutation,
   deleteTabMutation,
+  duplicatePaneMutation,
   editableWindowsForSlot,
   isLegacyTmuxSlot,
   isTmuxGroupWindow,
@@ -116,6 +119,99 @@ describe("workspace model", () => {
   it("ignores invalid tab deletion indexes", () => {
     expect(deleteTabMutation([slotConfig()], -1)).toBeNull();
     expect(deleteTabMutation([slotConfig()], 1)).toBeNull();
+  });
+
+  it("adds a pane to an explicit terminal tab", () => {
+    const mutation = addPaneMutation([
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" })],
+      }),
+    ], 0, ["codex"], 0, "vertical");
+
+    expect(mutation?.slots[0]).toMatchObject({
+      runtime: "terminal",
+      layout: "vertical",
+      windows: [
+        expect.objectContaining({ name: "ui" }),
+        expect.objectContaining({ name: "pane-2", agent: "codex" }),
+      ],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("splits a legacy tmux tab into a movable tmux group plus a new pane", () => {
+    const mutation = addPaneMutation([
+      slotConfig({
+        name: "tmux-dev",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" })],
+      }),
+    ], 0, ["claude"]);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows).toEqual([
+      expect.objectContaining({
+        name: "tmux-dev",
+        layoutBackend: "tmux",
+        windows: [expect.objectContaining({ name: "frontend" })],
+      }),
+      expect.objectContaining({ name: "pane-2", agent: "claude" }),
+    ]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("duplicates an implicit terminal pane as a new tab", () => {
+    const mutation = duplicatePaneMutation([
+      slotConfig({ name: "scratch", title: "Scratch", runtime: "terminal", windows: [] }),
+    ], 0, null);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["scratch", "scratch-copy"]);
+    expect(mutation?.slots[1].title).toBe("Scratch-copy");
+    expect(mutation?.selection).toEqual({ slotIndex: 1, target: "pane", windowIndex: null });
+  });
+
+  it("duplicates an explicit pane next to its source", () => {
+    const mutation = duplicatePaneMutation([
+      slotConfig({
+        name: "dev",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api", agent: "codex" })],
+      }),
+    ], 0, 1);
+
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["ui", "api", "api-copy"]);
+    expect(mutation?.slots[0].windows[2]).toMatchObject({ agent: "codex" });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 2 });
+  });
+
+  it("deletes an implicit terminal pane by deleting the tab", () => {
+    const mutation = deletePaneMutation([
+      slotConfig({ name: "scratch", runtime: "terminal", windows: [] }),
+      slotConfig({ name: "review", runtime: "terminal", windows: [] }),
+    ], 0, null);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["review"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("deletes an explicit pane and selects the previous remaining pane", () => {
+    const mutation = deletePaneMutation([
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" }), windowConfig({ name: "docs" })],
+      }),
+    ], 0, 1);
+
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["ui", "docs"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 0 });
+  });
+
+  it("ignores invalid explicit pane deletion indexes", () => {
+    expect(deletePaneMutation([
+      slotConfig({ windows: [windowConfig({ name: "ui" })] }),
+    ], 0, 4)).toBeNull();
   });
 
   it("treats legacy tmux slots as one outer pane regardless of internal windows", () => {

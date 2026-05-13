@@ -26,19 +26,19 @@ import {
   InlineError,
 } from "./FormPrimitives";
 import {
+  addPaneMutation,
   addTabMutation,
   deleteTabMutation,
-  editableWindowsForSlot,
+  deletePaneMutation,
+  duplicatePaneMutation,
   emptyWindow,
   isLegacyTmuxSlot,
   movePaneBetweenSlots,
   movePaneWithinTabMutation,
   moveTab as moveTabModel,
-  slotWithWindows,
-  tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
+  type PaneSplitLayout,
   type Selection,
-  type TabLayout,
 } from "./workspace-model";
 import { paneCount } from "./workspace-display";
 import { useWorkspaceDrag } from "./workspace-drag";
@@ -170,27 +170,15 @@ export default function SlotsSection({
     updateSlot(normalizedSelection.slotIndex, { windows });
   }
 
-  function splitSelectedPane(layout: Extract<TabLayout, "horizontal" | "vertical">) {
+  function splitSelectedPane(layout: PaneSplitLayout) {
     if (!selectedSlot) return;
     addPaneToSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? 0, layout);
   }
 
-  function addPaneToSlot(slotIndex: number, afterIndex?: number, layout?: Extract<TabLayout, "horizontal" | "vertical">) {
-    const slot = slots[slotIndex];
-    if (!slot) return;
-    if (isLegacyTmuxSlot(slot)) {
-      const panes = [tmuxGroupWindowFromSlot(slot), emptyWindow("pane-2", agents[0] ?? null)];
-      const next = [...slots];
-      next[slotIndex] = slotWithWindows(slot, panes, layout || slot.layout || "auto");
-      replaceSlots(next, { slotIndex, target: "pane", windowIndex: 1 });
-      return;
-    }
-    const windows = editableWindowsForSlot(slot);
-    const insertAt = afterIndex == null ? windows.length : Math.min(afterIndex + 1, windows.length);
-    windows.splice(insertAt, 0, emptyWindow(`pane-${windows.length + 1}`, agents[0] ?? null));
-    const next = [...slots];
-    next[slotIndex] = slotWithWindows(slot, windows, layout || slot.layout || "auto");
-    replaceSlots(next, { slotIndex, target: "pane", windowIndex: slot.runtime === "tmux" ? null : insertAt });
+  function addPaneToSlot(slotIndex: number, afterIndex?: number, layout?: PaneSplitLayout) {
+    const mutation = addPaneMutation(slots, slotIndex, agents, afterIndex, layout);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function duplicatePane() {
@@ -199,29 +187,9 @@ export default function SlotsSection({
   }
 
   function duplicatePaneAtSlot(slotIndex: number, windowIndex: number | null) {
-    const slot = slots[slotIndex];
-    if (!slot) return;
-    if (slot.runtime === "terminal" && slot.windows.length === 0) {
-      const copy: SlotConfig = {
-        ...slot,
-        name: `${slot.name || "tab"}-copy`,
-        title: slot.title ? `${slot.title}-copy` : slot.title,
-        windows: [],
-      };
-      const next = [...slots];
-      next.splice(slotIndex + 1, 0, copy);
-      replaceSlots(next, { slotIndex: slotIndex + 1, target: "pane", windowIndex: null });
-      return;
-    }
-    const sourceIndex = windowIndex ?? 0;
-    const windows = editableWindowsForSlot(slot);
-    const sourceWindow = windows[sourceIndex];
-    if (!sourceWindow) return;
-    const insertAt = sourceIndex + 1;
-    windows.splice(insertAt, 0, { ...sourceWindow, name: `${sourceWindow.name || "pane"}-copy` });
-    const next = [...slots];
-    next[slotIndex] = slotWithWindows(slot, windows);
-    replaceSlots(next, { slotIndex, target: "pane", windowIndex: insertAt });
+    const mutation = duplicatePaneMutation(slots, slotIndex, windowIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function deletePane() {
@@ -230,26 +198,9 @@ export default function SlotsSection({
   }
 
   function deletePaneAtSlot(slotIndex: number, windowIndex: number | null) {
-    const slot = slots[slotIndex];
-    if (!slot) return;
-    if (slot.runtime === "terminal" && slot.windows.length === 0) {
-      deleteTab(slotIndex);
-      return;
-    }
-    const targetIndex = windowIndex ?? 0;
-    const windows = editableWindowsForSlot(slot);
-    windows.splice(targetIndex, 1);
-    if (windows.length === 0) {
-      deleteTab(slotIndex);
-      return;
-    }
-    const next = [...slots];
-    next[slotIndex] = slotWithWindows(slot, windows);
-    replaceSlots(next, {
-      slotIndex,
-      target: "pane",
-      windowIndex: slot.runtime === "tmux" ? null : Math.max(0, targetIndex - 1),
-    });
+    const mutation = deletePaneMutation(slots, slotIndex, windowIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
   }
 
   function movePane(dir: number) {

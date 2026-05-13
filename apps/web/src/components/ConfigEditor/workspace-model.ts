@@ -21,6 +21,8 @@ export type WorkspaceMutation = {
   selection: Selection;
 };
 
+export type PaneSplitLayout = Extract<TabLayout, "horizontal" | "vertical">;
+
 export function isTmuxGroupWindow(window: WindowConfig | null | undefined): boolean {
   return Boolean(window && (window.layoutBackend === "tmux" || Array.isArray(window.windows)));
 }
@@ -101,6 +103,103 @@ export function deleteTabMutation(slots: SlotConfig[], index: number): Workspace
   return {
     slots: next,
     selection: { slotIndex: Math.max(0, index - 1), target: "tab", windowIndex: null },
+  };
+}
+
+export function addPaneMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  agents: string[],
+  afterIndex?: number,
+  layout?: PaneSplitLayout,
+): WorkspaceMutation | null {
+  const slot = slots[slotIndex];
+  if (!slot) return null;
+  if (isLegacyTmuxSlot(slot)) {
+    const panes = [tmuxGroupWindowFromSlot(slot), emptyWindow("pane-2", agents[0] ?? null)];
+    const next = [...slots];
+    next[slotIndex] = slotWithWindows(slot, panes, layout || slot.layout || "auto");
+    return {
+      slots: next,
+      selection: { slotIndex, target: "pane", windowIndex: 1 },
+    };
+  }
+
+  const windows = editableWindowsForSlot(slot);
+  const insertAt = afterIndex == null ? windows.length : Math.min(afterIndex + 1, windows.length);
+  windows.splice(insertAt, 0, emptyWindow(`pane-${windows.length + 1}`, agents[0] ?? null));
+  const next = [...slots];
+  next[slotIndex] = slotWithWindows(slot, windows, layout || slot.layout || "auto");
+  return {
+    slots: next,
+    selection: { slotIndex, target: "pane", windowIndex: slot.runtime === "tmux" ? null : insertAt },
+  };
+}
+
+export function duplicatePaneMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  windowIndex: number | null,
+): WorkspaceMutation | null {
+  const slot = slots[slotIndex];
+  if (!slot) return null;
+  if (slot.runtime === "terminal" && slot.windows.length === 0) {
+    const copy: SlotConfig = {
+      ...slot,
+      name: `${slot.name || "tab"}-copy`,
+      title: slot.title ? `${slot.title}-copy` : slot.title,
+      windows: [],
+    };
+    const next = [...slots];
+    next.splice(slotIndex + 1, 0, copy);
+    return {
+      slots: next,
+      selection: { slotIndex: slotIndex + 1, target: "pane", windowIndex: null },
+    };
+  }
+
+  const sourceIndex = windowIndex ?? 0;
+  const windows = editableWindowsForSlot(slot);
+  const sourceWindow = windows[sourceIndex];
+  if (!sourceWindow) return null;
+  const insertAt = sourceIndex + 1;
+  windows.splice(insertAt, 0, { ...sourceWindow, name: `${sourceWindow.name || "pane"}-copy` });
+  const next = [...slots];
+  next[slotIndex] = slotWithWindows(slot, windows);
+  return {
+    slots: next,
+    selection: { slotIndex, target: "pane", windowIndex: insertAt },
+  };
+}
+
+export function deletePaneMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  windowIndex: number | null,
+): WorkspaceMutation | null {
+  const slot = slots[slotIndex];
+  if (!slot) return null;
+  if (slot.runtime === "terminal" && slot.windows.length === 0) {
+    return deleteTabMutation(slots, slotIndex);
+  }
+
+  const targetIndex = windowIndex ?? 0;
+  const windows = editableWindowsForSlot(slot);
+  if (targetIndex < 0 || targetIndex >= windows.length) return null;
+  windows.splice(targetIndex, 1);
+  if (windows.length === 0) {
+    return deleteTabMutation(slots, slotIndex);
+  }
+
+  const next = [...slots];
+  next[slotIndex] = slotWithWindows(slot, windows);
+  return {
+    slots: next,
+    selection: {
+      slotIndex,
+      target: "pane",
+      windowIndex: slot.runtime === "tmux" ? null : Math.max(0, targetIndex - 1),
+    },
   };
 }
 
