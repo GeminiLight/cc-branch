@@ -44,6 +44,7 @@
 | 拆分同标签页窗格移动 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：同一 tab 内按方向移动 pane 的边界判断、排序和选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 553 行。 |
 | 拆分窗格新增/复制/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：pane add / duplicate / delete 的 legacy tmux 转换、隐式 terminal tab 复制/删除、显式 pane 插入/删除和无效索引保护已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 504 行。 |
 | 拆分 tmux 内部 window mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：legacy tmux tab 和显式 tmux group 内部 window 的 add / update / move / delete 已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 483 行。 |
+| 拆分工作空间名称校验 | `apps/web/src/components/ConfigEditor/workspace-validation.ts`、`workspace-validation.test.ts`、`SlotsSection.tsx` | 已推进：标签页/窗格空名称和重复标签页名称校验从组件中抽成纯函数；重复名会先 trim，避免 `dev` 和 ` dev ` 逃过校验，`SlotsSection.tsx` 进一步降到 478 行。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
@@ -70,8 +71,8 @@ cd apps/web && npm test
 结果：
 
 ```text
-Test Files  21 passed (21)
-Tests  165 passed (165)
+Test Files  22 passed (22)
+Tests  167 passed (167)
 ```
 
 ```bash
@@ -89,6 +90,17 @@ cd apps/web && npm test -- DoctorView.test.tsx
 ```text
 Test Files  1 passed (1)
 Tests  5 passed (5)
+```
+
+```bash
+cd apps/web && npm test -- workspace-validation.test.ts ConfigEditor.test.tsx
+```
+
+结果：
+
+```text
+Test Files  2 passed (2)
+Tests  24 passed (24)
 ```
 
 ```bash

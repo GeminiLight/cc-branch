@@ -46,6 +46,7 @@ import {
 import { paneCount } from "./workspace-display";
 import { useWorkspaceDrag } from "./workspace-drag";
 import { deriveWorkspaceSelection } from "./workspace-selection";
+import { validateWorkspaceNames } from "./workspace-validation";
 
 function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) => string, runtime: SlotConfig["runtime"]): string {
   return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
@@ -283,13 +284,7 @@ export default function SlotsSection({
     onChange(next);
   }
 
-  const dupNames = slots
-    .map((slot) => slot.name)
-    .filter((name, index, arr) => arr.indexOf(name) !== index);
-  const emptyNames = slots.filter((slot) => !slot.name.trim());
-  const emptyWindows = slots.filter(
-    (slot) => slot.windows.some((win) => !win.name.trim())
-  );
+  const workspaceValidation = useMemo(() => validateWorkspaceNames(slots), [slots]);
   const canMoveSelectedPaneUp = Boolean(selectedSlot && selectedSlot.windows.length > 0 && (normalizedSelection.windowIndex ?? 0) > 0);
   const canMoveSelectedPaneDown = Boolean(
     selectedSlot &&
@@ -348,21 +343,21 @@ export default function SlotsSection({
 
   return (
     <section className="space-y-3 animate-stagger">
-          {dupNames.length > 0 && (
-            <InlineError message={t("duplicateSlotNames", { names: [...new Set(dupNames)].join(", ") })} />
-          )}
-          {emptyNames.length > 0 && (
-            <InlineError message={t("allSlotsMustHaveName")} />
-          )}
-          {emptyWindows.length > 0 && (
-            <InlineError message={t("allWindowsMustHaveName")} />
-          )}
+      {workspaceValidation.duplicateTabNames.length > 0 && (
+        <InlineError message={t("duplicateSlotNames", { names: workspaceValidation.duplicateTabNames.join(", ") })} />
+      )}
+      {workspaceValidation.hasEmptyTabNames && (
+        <InlineError message={t("allSlotsMustHaveName")} />
+      )}
+      {workspaceValidation.hasEmptyPaneNames && (
+        <InlineError message={t("allWindowsMustHaveName")} />
+      )}
 
-          {slots.length === 0 ? (
-            <WorkspaceCanvas {...canvasProps} />
-          ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3 items-start">
-              <WorkspaceCanvas {...canvasProps} />
+      {slots.length === 0 ? (
+        <WorkspaceCanvas {...canvasProps} />
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3 items-start">
+          <WorkspaceCanvas {...canvasProps} />
 
               {selectedSlot && (
                 <aside className="rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden xl:sticky xl:top-3">
