@@ -32,6 +32,7 @@
 | 拆分标签页和普通窗格编辑器 | `apps/web/src/components/ConfigEditor/WorkspaceDetailEditors.tsx`、`SlotsSection.tsx` | 已推进：tab 编辑、terminal pane 编辑、agent pane 编辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 672 行。 |
 | 拆分画布拖拽协调逻辑 | `apps/web/src/components/ConfigEditor/workspace-drag.ts`、`WorkspaceCanvas.tsx`、`SlotsSection.tsx` | 已推进：HTML5 drag payload、drop midpoint、append drop 和 drag state 从 workspace 编辑器中抽成 hook，`SlotsSection.tsx` 进一步降到 587 行。 |
 | 补拖拽落点判断测试 | `apps/web/src/components/ConfigEditor/workspace-drag.test.ts` | 已补保护：横向、纵向、main-top/main-left/grid/auto 布局下的 drop midpoint 判断有纯函数测试覆盖。 |
+| 补画布内 pane 拖拽集成测试 | `apps/web/src/components/ConfigEditor.test.tsx` | 已补保护：同一 tab 内 terminal pane 可以通过 workspace matrix 拖拽重排，覆盖用户最常见的画布内调度路径。 |
 | 拆分 selection 派生状态 | `apps/web/src/components/ConfigEditor/workspace-selection.ts`、`workspace-selection.test.ts`、`SlotsSection.tsx` | 已推进：空工作区、空 terminal tab、普通 terminal pane、legacy tmux tab、显式 tmux group 的选中态判断从组件中抽出并加测试，`SlotsSection.tsx` 进一步降到 580 行。 |
 | 拆分标签页新增/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：新增标签页的唯一命名、默认 terminal/tmux 初始化和删除后的选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 559 行。 |
 | 拆分同标签页窗格移动 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：同一 tab 内按方向移动 pane 的边界判断、排序和选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 553 行。 |
@@ -64,7 +65,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  21 passed (21)
-Tests  159 passed (159)
+Tests  160 passed (160)
 ```
 
 ```bash
@@ -132,7 +133,7 @@ ce37e5b Ignore local generated review artifacts
 
 - 所有 opener 在所有系统上都无问题。
 - VS Code / Cursor / Warp 的所有布局启动路径都在当前审计中重新端到端验证。
-- 拖拽交互已有模型层覆盖跨 tab 移动、legacy tmux group 转换、最后一个 pane 移动后删除空 tab，但仍缺少真实浏览器级拖拽验证。
+- 拖拽交互已有模型层覆盖跨 tab 移动、legacy tmux group 转换、最后一个 pane 移动后删除空 tab，并补了 jsdom 集成层的同 tab pane 重排验证，但仍缺少真实浏览器级拖拽验证。
 
 ### 3. “非常非常完美”的 UI/UX 尚未达到可关闭标准
 
