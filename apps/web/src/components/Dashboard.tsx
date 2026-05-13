@@ -24,11 +24,7 @@ import Modal from "./ui/Modal";
 import SetupGuide from "./SetupGuide";
 import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
-import claudeIconUrl from "../assets/agent-icons/claude.svg";
-import cursorIconUrl from "../assets/agent-icons/cursor.svg";
-import geminiIconUrl from "../assets/agent-icons/gemini.svg";
-import kimiIconUrl from "../assets/agent-icons/kimi.svg";
-import openaiIconUrl from "../assets/agent-icons/openai.svg";
+import AgentMark from "./ui/AgentMark";
 
 interface DashboardProps {
   api?: unknown;
@@ -130,10 +126,6 @@ function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: S
   );
 }
 
-function displayAgentName(agent: string): string {
-  return agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : agent;
-}
-
 function paneCountLabel(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
   return t(count === 1 ? "paneCountShortOne" : "paneCountShort", { count });
 }
@@ -187,48 +179,6 @@ function paneCellStyle(slot: SlotInfo, paneCount: number, index: number): CSSPro
 
 function tabDisplayName(t: (key: string, vars?: Record<string, string | number>) => string, index: number): string {
   return t("tabDisplayName", { index: index + 1 });
-}
-
-function normalizeAgentKey(agent: string | null | undefined): string {
-  const value = (agent || "").toLowerCase();
-  const compact = value.replace(/[\s_-]+/g, "");
-  if (value.includes("codex")) return "codex";
-  if (compact.includes("claude") || compact.includes("cloudcode") || compact.includes("anthropic")) return "claude";
-  if (compact.includes("gemini") || compact.includes("antigravity")) return "gemini";
-  if (compact.includes("cursor")) return "cursor";
-  if (compact.includes("kimi")) return "kimi";
-  return value;
-}
-
-function agentIdentity(agent: string | null | undefined) {
-  const key = normalizeAgentKey(agent);
-  if (key === "codex") return { label: "Codex", initials: "Cx", iconUrl: openaiIconUrl, tone: "bg-white text-zinc-950 border-zinc-200 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300" };
-  if (key === "claude") return { label: "Claude", initials: "Cl", iconUrl: claudeIconUrl, tone: "bg-[#f4eee7] text-[#8a4b25] border-[#dfcabc] dark:bg-[#2a1d17] dark:text-[#f2c6a4] dark:border-[#5f3b2a]" };
-  if (key === "gemini") return { label: "Gemini", initials: "G", iconUrl: geminiIconUrl, tone: "bg-[#eef4ff] text-[#2459c7] border-[#c8d9ff] dark:bg-[#101a2e] dark:text-[#9bbcff] dark:border-[#293d66]" };
-  if (key === "cursor") return { label: "Cursor", initials: "Cu", iconUrl: cursorIconUrl, tone: "bg-zinc-950 text-white border-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-300" };
-  if (key === "kimi") return { label: "Kimi", initials: "Ki", iconUrl: kimiIconUrl, tone: "bg-[#f2efff] text-[#5d48b1] border-[#d7cff7] dark:bg-[#191329] dark:text-[#c8bbff] dark:border-[#3e3268]" };
-  if (agent) {
-    const label = displayAgentName(agent);
-    return { label, initials: label.slice(0, 2) || "A", tone: "bg-[var(--bg-elevated)] text-secondary border-default" };
-  }
-  return { label: "Shell", initials: "$", tone: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]" };
-}
-
-function AgentMark({ agent }: { agent?: string | null }) {
-  const identity = agentIdentity(agent);
-  return (
-    <span
-      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border text-[9px] font-bold ${identity.tone}`}
-      title={identity.label}
-      aria-label={identity.label}
-    >
-      {"iconUrl" in identity && identity.iconUrl ? (
-        <img src={identity.iconUrl} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
-      ) : (
-        identity.initials
-      )}
-    </span>
-  );
 }
 
 function PaneStatus({ status }: { status: SlotInfo["status"] }) {
@@ -395,7 +345,7 @@ const SlotCard = memo(function SlotCard({
                       </div>
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-1.5">
-                          <AgentMark agent={window.agent} />
+                          <AgentMark agent={window.agent} compact />
                           <span className="truncate text-[13px] font-semibold text-primary">
                             {hasMultipleTerminalPanes ? window.name : t("terminalLabel")}
                           </span>
@@ -522,7 +472,7 @@ const SlotCard = memo(function SlotCard({
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <AgentMark agent={w.agent} />
+                          <AgentMark agent={w.agent} compact />
                           <span className="text-[12px] font-semibold text-primary truncate">{w.name}</span>
                           <SyncBadge status={w.sync_status} slotStatus={slot.status} />
                         </div>
