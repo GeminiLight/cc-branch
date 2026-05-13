@@ -37,6 +37,7 @@ import {
   KeyValueList,
   InlineError,
 } from "./FormPrimitives";
+import { configuredPaneCount, isLegacyTmuxSlot, isTmuxGroupWindow } from "./workspace-model";
 
 type Selection = {
   slotIndex: number;
@@ -147,14 +148,6 @@ function emptyWindow(name = "main", agent: string | null = null): WindowConfig {
   };
 }
 
-function isTmuxGroupWindow(window: WindowConfig | null | undefined): boolean {
-  return Boolean(window && (window.layoutBackend === "tmux" || window.windows));
-}
-
-function isLegacyTmuxSlot(slot: SlotConfig | null | undefined): boolean {
-  return Boolean(slot && slot.runtime === "tmux" && !slot.windows.some(isTmuxGroupWindow));
-}
-
 function tmuxGroupWindowFromSlot(slot: SlotConfig): WindowConfig {
   return {
     ...emptyWindow(slot.name || "tmux"),
@@ -172,7 +165,7 @@ function tmuxGroupWindows(window: WindowConfig | null | undefined): WindowConfig
 }
 
 function paneCount(slot: SlotConfig): number {
-  return slotToCanvasPanes(slot).length;
+  return configuredPaneCount(slot);
 }
 
 function paneCountText(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {

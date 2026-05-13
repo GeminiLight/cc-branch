@@ -29,6 +29,7 @@ import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
+import { configuredPaneCount } from "./workspace-model";
 import ProjectSection from "./ProjectSection";
 import AgentsSection from "./AgentsSection";
 import SlotsSection from "./SlotsSection";
@@ -42,16 +43,6 @@ interface ConfigEditorProps {
 
 type EditorMode = "form" | "yaml";
 type IssueTone = "danger" | "warning" | "info";
-
-function isTmuxGroupWindow(window: ConfigFormData["slots"][number]["windows"][number]): boolean {
-  return Boolean(window.layoutBackend === "tmux" || window.windows?.length);
-}
-
-function configuredPaneCount(slot: ConfigFormData["slots"][number]): number {
-  const hasExplicitTmuxGroup = slot.windows.some(isTmuxGroupWindow);
-  if (slot.runtime === "tmux" && !hasExplicitTmuxGroup) return 1;
-  return Math.max(slot.windows.length, 1);
-}
 
 function hasYamlComments(value: string): boolean {
   return value.split("\n").some((line) => line.trimStart().startsWith("#"));
