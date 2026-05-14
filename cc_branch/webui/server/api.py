@@ -419,9 +419,12 @@ def _read_json_body(handler) -> dict:
     if not body:
         return {}
     try:
-        return json.loads(body)
+        data = json.loads(body)
     except JSONDecodeError as error:
         raise ValueError("Invalid JSON body") from error
+    if not isinstance(data, dict):
+        raise ValueError("Invalid JSON body")
+    return data
 
 
 def _resolve_project_config(project_dir, value: str):

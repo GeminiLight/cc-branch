@@ -432,17 +432,18 @@ slots:
         server, port = self._start_test_server()
         try:
             for path in ("/api/action", "/api/project/pick-directory"):
-                request = Request(
-                    f"http://127.0.0.1:{port}{path}",
-                    data=b"{",
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with self.assertRaises(HTTPError) as ctx:
-                    urlopen(request, timeout=2)
-                self.assertEqual(ctx.exception.code, 400)
-                payload = json.loads(ctx.exception.read().decode())
-                self.assertEqual(payload["error"], "Invalid JSON body")
+                for body in (b"{", b"[]"):
+                    request = Request(
+                        f"http://127.0.0.1:{port}{path}",
+                        data=body,
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with self.assertRaises(HTTPError) as ctx:
+                        urlopen(request, timeout=2)
+                    self.assertEqual(ctx.exception.code, 400)
+                    payload = json.loads(ctx.exception.read().decode())
+                    self.assertEqual(payload["error"], "Invalid JSON body")
         finally:
             self._stop_test_server(server)
 
