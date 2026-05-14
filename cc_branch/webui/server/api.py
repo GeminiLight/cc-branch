@@ -8,6 +8,7 @@ transport plumbing.
 from __future__ import annotations
 
 import json
+from json import JSONDecodeError
 
 from ...app_state import ProjectIndexStore
 from ...application.config_workflows import (
@@ -209,6 +210,8 @@ def api_save_global_agents(handler) -> None:
             handler._send_json({"error": result.message, "code": result.code, **result.payload}, 400)
             return
         handler._send_json({"success": True, **result.payload})
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -241,6 +244,8 @@ def api_project_pick_directory(handler) -> None:
         data = _read_json_body(handler)
         picked = pick_directory(data.get("starting_dir"))
         handler._send_json({"path": picked})
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -411,7 +416,12 @@ def api_action(handler) -> None:
 def _read_json_body(handler) -> dict:
     content_length = int(handler.headers.get("Content-Length", 0))
     body = handler.rfile.read(content_length).decode()
-    return json.loads(body) if body else {}
+    if not body:
+        return {}
+    try:
+        return json.loads(body)
+    except JSONDecodeError as error:
+        raise ValueError("Invalid JSON body") from error
 
 
 def _resolve_project_config(project_dir, value: str):
