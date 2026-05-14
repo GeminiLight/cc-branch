@@ -25,6 +25,12 @@ import SetupGuide from "./SetupGuide";
 import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
 import AgentMark from "./ui/AgentMark";
+import {
+  buildDashboardRuntimeSummary,
+  isActionableSyncStatus,
+  isActionableWindowSync,
+  tabPaneCount,
+} from "./dashboard-view-model";
 
 interface DashboardProps {
   api?: unknown;
@@ -85,27 +91,6 @@ function workspaceOpenButtonLabel(t: (key: string, vars?: Record<string, string 
   return t("launch");
 }
 
-function isActionableSyncStatus(status?: SyncStatus, slotStatus?: SlotInfo["status"]): boolean {
-  if (status === "missing") return slotStatus === "running";
-  return status === "changed" || status === "untracked";
-}
-
-function isActionableWindowSync(window: WindowInfo | undefined, slot: SlotInfo): boolean {
-  if (!window) return false;
-  return isActionableSyncStatus(window.sync_status, slot.status);
-}
-
-function actionableRuntimeDriftCount(slots: SlotInfo[]): number {
-  return slots.reduce((count, slot) => {
-    const slotDrift = isActionableSyncStatus(slot.sync_status, slot.status)
-      && !slot.windows.some((window) => isActionableWindowSync(window, slot))
-      ? 1
-      : 0;
-    const windowDrift = slot.windows.filter((window) => isActionableWindowSync(window, slot)).length;
-    return count + slotDrift + windowDrift;
-  }, 0);
-}
-
 function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: SlotInfo["status"] }) {
   const { t } = useI18n();
   if (!status || status === "current" || status === "external") return null;
@@ -137,11 +122,6 @@ function countText(
   count: number,
 ): string {
   return t(count === 1 ? singularKey : pluralKey, { count });
-}
-
-function tabPaneCount(slot: SlotInfo): number {
-  if (slot.runtime === "tmux") return 1;
-  return Math.max(slot.windows.length, 1);
 }
 
 function normalizedTabLayout(slot: SlotInfo, paneCount: number): string {
@@ -738,17 +718,16 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     );
   }
 
-  const runningCount = data.slots.filter((s) => s.status === "running").length;
-  const totalWindows = data.slots.reduce((count, slot) => count + tabPaneCount(slot), 0);
-  const hasTmuxSlots = data.slots.some((s) => s.runtime === "tmux");
-  const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
-  const syncSummary = data.runtime_sync?.summary;
-  const changedCount = syncSummary?.changed || 0;
-  const untrackedCount = syncSummary?.untracked || 0;
-  const extraCount = syncSummary?.extra || 0;
-  const driftCount = actionableRuntimeDriftCount(data.slots);
-  const syncCount = driftCount;
-  const issueCount = Math.max(driftCount + extraCount, tmuxRuntimeUnavailable ? 1 : 0);
+  const {
+    runningCount,
+    totalPanes,
+    tmuxRuntimeUnavailable,
+    changedCount,
+    untrackedCount,
+    extraCount,
+    syncCount,
+    issueCount,
+  } = buildDashboardRuntimeSummary(data);
   const runtimeSyncNotices = [
     tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : null,
     changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
@@ -837,7 +816,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 </div>
                 <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceWindows")}</p>
-                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{totalWindows}</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{totalPanes}</p>
                 </div>
               </div>
             </div>
@@ -927,7 +906,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             </span>
           )}
         </div>
-        <span className="text-[11px] text-muted">{t("workspaceCounts", { total: data.slots.length, windows: totalWindows })}</span>
+        <span className="text-[11px] text-muted">{t("workspaceCounts", { total: data.slots.length, windows: totalPanes })}</span>
       </div>
       {runtimeSyncNotices.length > 0 && (
         <div

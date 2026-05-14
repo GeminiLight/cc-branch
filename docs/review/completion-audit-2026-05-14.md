@@ -20,6 +20,7 @@
 | 审查 YAML round-trip 风险 | `apps/web/src/components/ConfigEditor/yaml-utils.test.ts` | 已补保护：普通 pane + tmux group 混合 tab 可以 parse / serialize / reparse。 |
 | 审查 Dashboard 主动作区 | `apps/web/src/components/Dashboard.tsx`、截图 `tmp/review-pass/*` | 已局部修复：工具选择、打开目录、刷新、启动按钮不再明显截断或换行。 |
 | 优化 Dashboard runtime 状态解释 | `apps/web/src/components/Dashboard.tsx`、`Dashboard.test.tsx` | 已修复：runtime changed / untracked / extra 等状态不再只藏在 `sr-only` 中；用户能在标签页区域直接看到紧凑的可见原因提示。 |
+| 修复 Dashboard runtime 计数一致性 | `apps/web/src/components/dashboard-view-model.ts`、`dashboard-view-model.test.ts`、`Dashboard.tsx` | 已修复：当 runtime drift 只出现在 `runtime_sync.summary` 而 pane/slot 上没有同步状态时，仪表盘不再显示“0 runtime update(s)”同时又展示 warning；计数现在取 pane-level drift 与 summary changed/untracked 的较大值，并加上 extra / tmux unavailable。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
 | 优化 Project config 信息架构 | `apps/web/src/components/ConfigEditor/ProjectSection.tsx`、`apps/web/src/i18n/index.tsx`、`ConfigEditor.test.tsx` | 已推进：项目配置页拆成 Workspace identity 和 Launch defaults 两组，默认启动工具、默认窗格类型和默认 Shell 不再藏在 `Advanced defaults` 原生折叠区里。 |
 | 审查 tmux group 计数 | `ConfigEditor/index.tsx`、`SlotsSection.tsx`、`ConfigEditor.test.tsx` | 已修复：tmux group 在外部空间按 1 个 pane 计数，内部 tmux windows 不误算。 |

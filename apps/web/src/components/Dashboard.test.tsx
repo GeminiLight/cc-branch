@@ -647,6 +647,7 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('1 running tmux-managed pane(s) use an older launch command.')).toBeInTheDocument()
     expect(screen.getByText('4 running pane(s) were not launched from the current config.')).toBeInTheDocument()
     expect(screen.getByText('3 extra tmux-managed pane(s) are running outside the config.')).toBeInTheDocument()
+    expect(screen.getByText('8 runtime update(s)')).toBeInTheDocument()
   })
 
   it('summarizes extra tmux panes without exposing a destructive header action', () => {
