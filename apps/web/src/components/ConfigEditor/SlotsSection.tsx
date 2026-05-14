@@ -28,6 +28,7 @@ import {
 import {
   addPaneMutation,
   addTabMutation,
+  addTmuxGroupPaneMutation,
   addTmuxWindowMutation,
   deleteTmuxWindowMutation,
   deleteTabMutation,
@@ -185,6 +186,12 @@ export default function SlotsSection({
     replaceSlots(mutation.slots, mutation.selection);
   }
 
+  function addTmuxGroupToSlot(slotIndex: number, afterIndex?: number) {
+    const mutation = addTmuxGroupPaneMutation(slots, slotIndex, agents, afterIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
   function duplicatePane() {
     if (!selectedSlot) return;
     duplicatePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? null);
@@ -325,6 +332,7 @@ export default function SlotsSection({
     onAddTab: addTab,
     onDeleteTab: deleteTab,
     onAddPane: addPaneToSlot,
+    onAddTmuxGroup: addTmuxGroupToSlot,
     onSelect: setSelection,
     onTabDragStart: workspaceDrag.handleTabDragStart,
     onTabDragOver: workspaceDrag.handleTabDragOver,

@@ -30,6 +30,7 @@ type WorkspaceCanvasProps = {
   onAddTab: () => void;
   onDeleteTab: (slotIndex: number) => void;
   onAddPane: (slotIndex: number, afterIndex?: number) => void;
+  onAddTmuxGroup: (slotIndex: number, afterIndex?: number) => void;
   onSelect: (selection: Selection) => void;
   onTabDragStart: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
   onTabDragOver: (event: DragEvent<HTMLElement>) => void;
@@ -50,6 +51,7 @@ export default function WorkspaceCanvas({
   onAddTab,
   onDeleteTab,
   onAddPane,
+  onAddTmuxGroup,
   onSelect,
   onTabDragStart,
   onTabDragOver,
@@ -177,6 +179,15 @@ export default function WorkspaceCanvas({
                           title={t("addPane")}
                         >
                           <Plus className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onAddTmuxGroup(slotIndex, slotToPanes(slot).length - 1)}
+                          className="min-h-7 min-w-7 rounded-md text-tertiary hover:text-primary hover:surface-hover flex items-center justify-center"
+                          aria-label={t("addTmuxGroup")}
+                          title={t("addTmuxGroup")}
+                        >
+                          <SquareTerminal className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"

@@ -146,6 +146,30 @@ export function addPaneMutation(
   };
 }
 
+export function addTmuxGroupPaneMutation(
+  slots: SlotConfig[],
+  slotIndex: number,
+  agents: string[],
+  afterIndex?: number,
+): WorkspaceMutation | null {
+  const slot = slots[slotIndex];
+  if (!slot) return null;
+  const panes = isLegacyTmuxSlot(slot) ? [tmuxGroupWindowFromSlot(slot)] : editableWindowsForSlot(slot);
+  const insertAt = afterIndex == null ? panes.length : Math.min(afterIndex + 1, panes.length);
+  const groupName = uniqueName(panes.map((pane) => pane.name), "tmux-group");
+  panes.splice(insertAt, 0, {
+    ...emptyWindow(groupName),
+    layoutBackend: "tmux",
+    windows: [emptyWindow("main", agents[0] ?? null)],
+  });
+  const next = [...slots];
+  next[slotIndex] = slotWithWindows(slot, panes, slot.layout || "auto");
+  return {
+    slots: next,
+    selection: { slotIndex, target: "pane", windowIndex: insertAt },
+  };
+}
+
 export function duplicatePaneMutation(
   slots: SlotConfig[],
   slotIndex: number,

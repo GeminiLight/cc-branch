@@ -3,6 +3,7 @@ import type { SlotConfig, WindowConfig } from "./types";
 import {
   addPaneMutation,
   addTabMutation,
+  addTmuxGroupPaneMutation,
   addTmuxWindowMutation,
   clampSelection,
   configuredPaneCount,
@@ -167,6 +168,54 @@ describe("workspace model", () => {
         windows: [expect.objectContaining({ name: "frontend" })],
       }),
       expect.objectContaining({ name: "pane-2", agent: "claude" }),
+    ]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("adds an explicit tmux group pane without changing existing direct panes", () => {
+    const mutation = addTmuxGroupPaneMutation([
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui", layoutBackend: "direct" })],
+      }),
+    ], 0, ["codex"], 0);
+
+    expect(mutation?.slots[0]).toMatchObject({
+      runtime: "terminal",
+      windows: [
+        expect.objectContaining({ name: "ui", layoutBackend: "direct" }),
+        expect.objectContaining({
+          name: "tmux-group",
+          layoutBackend: "tmux",
+          windows: [expect.objectContaining({ name: "main", agent: "codex" })],
+        }),
+      ],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("adds a second tmux group next to a legacy tmux tab group", () => {
+    const mutation = addTmuxGroupPaneMutation([
+      slotConfig({
+        name: "agents",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" })],
+      }),
+    ], 0, ["claude"]);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows).toEqual([
+      expect.objectContaining({
+        name: "agents",
+        layoutBackend: "tmux",
+        windows: [expect.objectContaining({ name: "frontend" })],
+      }),
+      expect.objectContaining({
+        name: "tmux-group",
+        layoutBackend: "tmux",
+        windows: [expect.objectContaining({ name: "main", agent: "claude" })],
+      }),
     ]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
   });
