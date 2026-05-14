@@ -930,10 +930,24 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
         <span className="text-[11px] text-muted">{t("workspaceCounts", { total: data.slots.length, windows: totalWindows })}</span>
       </div>
       {runtimeSyncNotices.length > 0 && (
-        <div className="sr-only" aria-live="polite">
-          {runtimeSyncNotices.map((notice) => (
-            <span key={notice}>{notice}</span>
-          ))}
+        <div
+          className="rounded-md border border-[var(--warning)]/25 bg-[var(--warning-bg)]/50 px-3 py-2 flex flex-col sm:flex-row sm:items-start gap-2"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-semibold text-[var(--warning)]">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {t("workspaceNeedsAction")}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {runtimeSyncNotices.map((notice) => (
+              <span
+                key={notice}
+                className="rounded bg-[var(--bg-card)]/70 px-2 py-0.5 text-[11px] font-medium text-secondary border border-[var(--warning)]/15"
+              >
+                {notice}
+              </span>
+            ))}
+          </div>
         </div>
       )}
       {data.slots.map((slot, i) => (
