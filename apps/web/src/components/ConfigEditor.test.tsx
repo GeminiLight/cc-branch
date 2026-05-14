@@ -192,11 +192,11 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getAllByText('Form')).toHaveLength(1)
   })
 
-  it('shows project identity and launch defaults without hiding them behind advanced details', () => {
+  it('shows project identity and workspace launch settings without hiding them behind advanced details', () => {
     renderConfigEditor('project')
 
-    expect(screen.getByText('Workspace identity')).toBeInTheDocument()
-    expect(screen.getByText('Launch defaults')).toBeInTheDocument()
+    expect(screen.getByText('Project identity')).toBeInTheDocument()
+    expect(screen.getByText('Workspace launch')).toBeInTheDocument()
     expect(screen.getByText('Default launch tool')).toBeInTheDocument()
     expect(screen.queryByText('Advanced defaults')).not.toBeInTheDocument()
   })
