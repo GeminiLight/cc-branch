@@ -342,6 +342,73 @@ class ConfigTests(unittest.TestCase):
                 ["planner", "review"],
             )
 
+    def test_workspace_to_dict_preserves_single_tmux_group_pane(self):
+        """A tmux group pane should not be flattened into tab-level tmux panes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                          - name: "review"
+                            agent: "claude"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            self.assertEqual([tab["name"] for tab in serialized["tabs"]], ["dev"])
+            self.assertEqual(len(serialized["tabs"][0]["panes"]), 1)
+            pane = serialized["tabs"][0]["panes"][0]
+            self.assertEqual(pane["name"], "agents")
+            self.assertEqual(pane["layoutBackend"], "tmux")
+            self.assertEqual([window["name"] for window in pane["windows"]], ["planner", "review"])
+
+    def test_workspace_to_dict_preserves_multiple_tmux_group_panes(self):
+        """Multiple tmux group panes in one tab should remain separate panes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "agents-a"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                      - name: "agents-b"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "review"
+                            agent: "claude"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            panes = serialized["tabs"][0]["panes"]
+            self.assertEqual([pane["name"] for pane in panes], ["agents-a", "agents-b"])
+            self.assertEqual([pane["layoutBackend"] for pane in panes], ["tmux", "tmux"])
+            self.assertEqual([pane["windows"][0]["name"] for pane in panes], ["planner", "review"])
+
     def test_load_workspace_normalizes_legacy_open_with_ids(self):
         """Older Web UI opener ids should normalize to registered opener ids."""
         with tempfile.TemporaryDirectory() as tmp:

@@ -179,6 +179,16 @@ def _pane_to_window(data: dict[str, Any]) -> WindowConfig:
     return WindowConfig.from_dict(data)
 
 
+def _is_explicit_tmux_group_pane(pane: dict[str, Any], tab_layout_backend: str) -> bool:
+    raw_windows = pane.get("windows")
+    if isinstance(raw_windows, list) and raw_windows:
+        return True
+    return (
+        ("layoutBackend" in pane or "runtime" in pane)
+        and _pane_layout_backend(pane, tab_layout_backend) == "tmux"
+    )
+
+
 def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[SlotConfig]:
     slots: list[SlotConfig] = []
     for raw_tab in raw_tabs:
@@ -218,37 +228,69 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                 )
             )
 
-        if tmux_panes or (not raw_panes and tab_layout_backend == "tmux"):
-            windows: list[WindowConfig] = []
-            for pane in tmux_panes:
+        plain_tmux_tab = (
+            tab_layout_backend == "tmux"
+            and not direct_panes
+            and bool(tmux_panes)
+            and all(not _is_explicit_tmux_group_pane(pane, tab_layout_backend) for pane in tmux_panes)
+        )
+
+        if plain_tmux_tab:
+            slots.append(
+                SlotConfig(
+                    name=tab_name,
+                    runtime="tmux",
+                    layout=tab_layout,
+                    opener=tab_opener if isinstance(tab_opener, str) else None,
+                    split_group=tab_name,
+                    cwd=tab_cwd,
+                    env=tab_env,
+                    windows=[WindowConfig.from_dict(pane) for pane in tmux_panes],
+                )
+            )
+        elif tmux_panes:
+            for index, pane in enumerate(tmux_panes):
                 raw_windows = pane.get("windows") or []
                 if isinstance(raw_windows, list) and raw_windows:
-                    windows.extend(
+                    windows = [
                         WindowConfig.from_dict(window)
                         for window in raw_windows
                         if isinstance(window, dict)
-                    )
+                    ]
                 else:
-                    windows.append(WindowConfig.from_dict(pane))
-            pane_name = str(tmux_panes[0].get("name") or "tmux") if tmux_panes else "tmux"
-            slot_name = (
-                tab_name
-                if not direct_panes and tab_layout_backend == "tmux"
-                else tab_name if len(tmux_panes) <= 1 and not direct_panes
-                else f"{tab_name}-{pane_name}"
-            )
+                    windows = [WindowConfig.from_dict(pane)]
+                explicit_group = _is_explicit_tmux_group_pane(pane, tab_layout_backend)
+                pane_name = str(pane.get("name") or "tmux") if explicit_group else None
+                slot_name = (
+                    tab_name
+                    if not direct_panes and len(tmux_panes) == 1
+                    else f"{tab_name}-{pane_name or pane.get('name') or index + 1}"
+                )
+                slots.append(
+                    SlotConfig(
+                        name=slot_name,
+                        runtime="tmux",
+                        layout=str(pane.get("layout") or tab_layout),
+                        opener=str(pane.get("opener") or tab_opener) if pane.get("opener") or tab_opener else None,
+                        split_group=tab_name,
+                        pane_name=pane_name,
+                        cwd=str(pane.get("cwd") or tab_cwd),
+                        env={**tab_env, **dict(pane.get("env") or {})},
+                        session=str(pane.get("session")) if pane.get("session") is not None else None,
+                        windows=windows,
+                    )
+                )
+        elif not raw_panes and tab_layout_backend == "tmux":
             slots.append(
                 SlotConfig(
-                    name=slot_name,
+                    name=tab_name,
                     runtime="tmux",
-                    layout=str(tmux_panes[0].get("layout") or tab_layout) if tmux_panes else tab_layout,
-                    opener=str(tmux_panes[0].get("opener") or tab_opener) if tmux_panes and (tmux_panes[0].get("opener") or tab_opener) else (tab_opener if isinstance(tab_opener, str) else None),
+                    layout=tab_layout,
+                    opener=tab_opener if isinstance(tab_opener, str) else None,
                     split_group=tab_name,
-                    pane_name=pane_name,
-                    cwd=str(tmux_panes[0].get("cwd") or tab_cwd) if tmux_panes else tab_cwd,
-                    env={**tab_env, **dict(tmux_panes[0].get("env") or {})} if tmux_panes else tab_env,
-                    session=str(tmux_panes[0].get("session")) if tmux_panes and tmux_panes[0].get("session") is not None else None,
-                    windows=windows,
+                    cwd=tab_cwd,
+                    env=tab_env,
+                    windows=[],
                 )
             )
     return slots
@@ -337,7 +379,11 @@ def _slots_to_tabs(slots: list[SlotConfig], default_layout_backend: str) -> list
 
     for group in ordered_groups:
         group_slots = grouped[group]
-        if len(group_slots) == 1:
+        if len(group_slots) == 1 and not (
+            group_slots[0].runtime == "tmux"
+            and group_slots[0].pane_name
+            and default_layout_backend != "tmux"
+        ):
             tabs.append(_slot_to_tab(group_slots[0], default_layout_backend))
         else:
             tabs.append(_merged_tab_from_group(group_slots, default_layout_backend))
