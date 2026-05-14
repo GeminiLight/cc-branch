@@ -153,7 +153,11 @@ export default function WorkspaceCanvas({
                   <div className="min-w-0 p-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[11px] font-medium text-tertiary truncate">
+                        <span
+                          className={`text-[11px] font-medium text-tertiary truncate ${
+                            isLegacyTmuxSlot(slot) ? "" : "hidden sm:inline"
+                          }`}
+                        >
                           {isLegacyTmuxSlot(slot)
                             ? countText(t, "tmuxGroupCount_one", "tmuxGroupCount", 1)
                             : paneCountText(t, paneCount(slot))}
@@ -168,7 +172,7 @@ export default function WorkspaceCanvas({
                         <button
                           type="button"
                           onClick={() => onAddPane(slotIndex, slotToPanes(slot).length - 1)}
-                          className="icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover flex items-center justify-center"
+                          className="min-h-8 min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover flex items-center justify-center"
                           aria-label={t("addPane")}
                           title={t("addPane")}
                         >
@@ -177,7 +181,7 @@ export default function WorkspaceCanvas({
                         <button
                           type="button"
                           onClick={() => onDeleteTab(slotIndex)}
-                          className="icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
+                          className="min-h-8 min-w-8 rounded-md text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
                           aria-label={t("removeSlotNamed", { name: slotName })}
                           title={t("removeSlotNamed", { name: slotName })}
                         >
