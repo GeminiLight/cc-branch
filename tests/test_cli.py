@@ -671,6 +671,37 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertIn("Launch command", stdout.getvalue())
 
+    def test_session_command_renders_double_brace_session_templates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            self._write(
+                root / ".cc-branch/state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "11111111-1111-1111-1111-111111111111"
+                    label: "demo/dev/planner"
+                    agent: "claude"
+                    slot: "dev"
+                    window: "planner"
+                """,
+            )
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["session", "command", "dev:planner"])
+
+            rendered = stdout.getvalue()
+            self.assertEqual(exit_code, 0)
+            self.assertIn("claude resume 11111111-1111-1111-1111-111111111111", rendered)
+            self.assertNotIn("{11111111-1111-1111-1111-111111111111}", rendered)
+            self.assertNotIn("{session_id}", rendered)
+
     def test_help_targets_explains_public_target_syntax(self):
         stdout = StringIO()
         with redirect_stdout(stdout):

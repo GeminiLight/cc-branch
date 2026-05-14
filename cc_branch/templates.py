@@ -7,5 +7,7 @@ def render_template(template: str | None, context: dict[str, object]) -> str:
 
     rendered = template
     for key, value in context.items():
-        rendered = rendered.replace("{" + key + "}", str(value))
+        text = str(value)
+        rendered = rendered.replace("{{" + key + "}}", text)
+        rendered = rendered.replace("{" + key + "}", text)
     return rendered
