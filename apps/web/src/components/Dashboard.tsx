@@ -216,6 +216,7 @@ const SlotCard = memo(function SlotCard({
   busy,
   openerId,
   tmuxRuntimeUnavailable,
+  compact = false,
 }: {
   slot: SlotInfo;
   index: number;
@@ -227,6 +228,7 @@ const SlotCard = memo(function SlotCard({
   busy: boolean;
   openerId: string;
   tmuxRuntimeUnavailable: boolean;
+  compact?: boolean;
 }) {
   const isRunning = slot.status === "running";
   const { t } = useI18n();
@@ -245,13 +247,15 @@ const SlotCard = memo(function SlotCard({
 
   return (
     <div
-      className={`relative grid grid-cols-1 lg:grid-cols-[154px_minmax(0,1fr)] surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out ${
+      className={`relative grid grid-cols-1 surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out ${
+        compact ? "" : "lg:grid-cols-[154px_minmax(0,1fr)]"
+      } ${
         slotNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_3px_var(--warning-bg)]" : isRunning ? "border-[var(--accent-border)]" : "border-default"
       }`}
     >
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${isRunning ? "bg-[var(--success)]" : "bg-[var(--border-subtle)]"}`} aria-hidden="true" />
-      <div className="bg-[var(--bg-card)]/70 px-4 py-3 border-b lg:border-b-0 lg:border-r border-subtle">
-        <div className="flex lg:flex-col gap-3 min-w-0">
+      <div className={`bg-[var(--bg-card)]/70 px-4 py-3 border-subtle ${compact ? "border-b" : "border-b lg:border-b-0 lg:border-r"}`}>
+        <div className={`flex gap-3 min-w-0 ${compact ? "" : "lg:flex-col"}`}>
           <div
             className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 ${
               isRunning
@@ -957,33 +961,47 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             key={group.name}
             role="group"
             aria-label={`${t("tabLabel")} ${group.name}`}
-            className="animate-stagger rounded-lg border-l-2 border-[var(--accent-border)] pl-3 py-1 space-y-2"
+            className="animate-stagger relative grid grid-cols-1 lg:grid-cols-[154px_minmax(0,1fr)] surface-card border border-default rounded-lg overflow-hidden"
             style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="rounded bg-[var(--accent-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--accent)]">
-                  {t("tabLabel")}
-                </span>
-                <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">{group.name}</h3>
+            <div className="workspace-tab-rail border-b lg:border-b-0 lg:border-r border-subtle p-3">
+              <div className="flex lg:flex-col gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-md border border-[var(--accent-border)] bg-[var(--accent-bg)] flex items-center justify-center shrink-0">
+                  <Monitor className="w-4 h-4 text-[var(--accent)]" />
+                </div>
+                <div className="min-w-0">
+                  <span className="rounded bg-[var(--accent-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--accent)]">
+                    {t("tabLabel")}
+                  </span>
+                  <h3 className="mt-1.5 text-[14px] font-semibold text-primary leading-tight truncate">{group.name}</h3>
+                  <p className="mt-0.5 text-[11px] text-tertiary truncate">{paneCountLabel(t, group.paneCount)}</p>
+                </div>
               </div>
-              <span className="text-[11px] text-muted">{paneCountLabel(t, group.paneCount)}</span>
             </div>
-            <div className="space-y-2">
+            <div
+              className="grid gap-2 p-3 bg-[var(--bg-card)]"
+              style={workspacePaneGridStyle({ layout: group.slots[0]?.layout }, group.slots.length)}
+            >
               {group.slots.map((slot, slotIndex) => (
-                <SlotCard
+                <div
                   key={slot.name}
-                  slot={slot}
-                  index={slotIndex}
-                  displayLabel={t("pane")}
-                  displayName={groupedSlotDisplayName(t, slot, group.name)}
-                  onRunAction={runAction}
-                  onEditTarget={onEditTarget}
-                  busy={actionMutation.isPending}
-                  openerId={selectedOpener.id}
-                  onSyncTarget={requestSync}
-                  tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
-                />
+                  style={workspacePaneCellStyle({ layout: group.slots[0]?.layout }, group.slots.length, slotIndex)}
+                  className="min-w-0"
+                >
+                  <SlotCard
+                    slot={slot}
+                    index={slotIndex}
+                    displayLabel={t("pane")}
+                    displayName={groupedSlotDisplayName(t, slot, group.name)}
+                    onRunAction={runAction}
+                    onEditTarget={onEditTarget}
+                    busy={actionMutation.isPending}
+                    openerId={selectedOpener.id}
+                    onSyncTarget={requestSync}
+                    tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
+                    compact
+                  />
+                </div>
               ))}
             </div>
           </div>
