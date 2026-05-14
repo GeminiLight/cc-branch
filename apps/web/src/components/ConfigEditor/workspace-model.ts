@@ -78,22 +78,16 @@ function copyNameBase(name: string | undefined, fallback: string): string {
 
 export function addTabMutation(
   slots: SlotConfig[],
-  defaultRuntime: SlotConfig["runtime"],
-  agents: string[],
 ): WorkspaceMutation {
   const name = uniqueTabName(slots);
   const nextSlot: SlotConfig = {
     name,
-    runtime: defaultRuntime,
+    runtime: "terminal",
     layout: "auto",
     cwd: ".",
     env: {},
-    ...(defaultRuntime === "terminal"
-      ? agents[0]
-        ? { agent: agents[0] }
-        : { command: "$SHELL" }
-      : {}),
-    windows: defaultRuntime === "tmux" ? [emptyWindow("builder", agents[0] ?? null)] : [],
+    command: "$SHELL",
+    windows: [],
   };
   return {
     slots: [...slots, nextSlot],

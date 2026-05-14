@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n";
-import type { RuntimeAvailability, WorkspaceScope } from "../../types";
+import type { WorkspaceScope } from "../../types";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
   MoveToTabActions,
@@ -67,16 +67,13 @@ export default function SlotsSection({
   agents,
   scope,
   onChange,
-  runtimeAvailability,
 }: {
   slots: SlotConfig[];
   agents: string[];
   scope?: WorkspaceScope;
   onChange: (slots: SlotConfig[]) => void;
-  runtimeAvailability?: RuntimeAvailability;
 }) {
   const { t } = useI18n();
-  const defaultRuntime = runtimeAvailability?.tmux?.available === false ? "terminal" : "tmux";
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
   const [moveTarget, setMoveTarget] = useState("0");
 
@@ -144,7 +141,7 @@ export default function SlotsSection({
   }
 
   function addTab() {
-    const mutation = addTabMutation(slots, defaultRuntime, agents);
+    const mutation = addTabMutation(slots);
     replaceSlots(mutation.slots, mutation.selection);
   }
 

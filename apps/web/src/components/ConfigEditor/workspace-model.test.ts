@@ -74,37 +74,39 @@ describe("workspace model", () => {
     expect(uniqueTabName(slots)).toBe("coding-2");
   });
 
-  it("adds a tmux tab with a default builder window", () => {
-    const mutation = addTabMutation([], "tmux", ["codex"]);
+  it("adds a clean terminal tab without binding an agent or tmux runtime", () => {
+    const mutation = addTabMutation([]);
 
     expect(mutation.slots).toEqual([
       expect.objectContaining({
         name: "coding",
-        runtime: "tmux",
+        runtime: "terminal",
         layout: "auto",
         cwd: ".",
         env: {},
-        windows: [expect.objectContaining({ name: "builder", agent: "codex" })],
+        command: "$SHELL",
+        windows: [],
       }),
     ]);
+    expect(mutation.slots[0].agent).toBeUndefined();
     expect(mutation.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
   });
 
-  it("adds a terminal tab with the first available agent", () => {
-    const mutation = addTabMutation([slotConfig({ name: "coding" })], "terminal", ["claude"]);
+  it("adds unique shell tabs regardless of available agents", () => {
+    const mutation = addTabMutation([slotConfig({ name: "coding" })]);
 
     expect(mutation.slots[1]).toMatchObject({
       name: "coding-1",
       runtime: "terminal",
-      agent: "claude",
+      command: "$SHELL",
       windows: [],
     });
-    expect(mutation.slots[1].command).toBeUndefined();
+    expect(mutation.slots[1].agent).toBeUndefined();
     expect(mutation.selection).toEqual({ slotIndex: 1, target: "tab", windowIndex: null });
   });
 
-  it("adds a terminal tab with a shell command when no agent exists", () => {
-    const mutation = addTabMutation([], "terminal", []);
+  it("adds a shell tab when no agent exists", () => {
+    const mutation = addTabMutation([]);
 
     expect(mutation.slots[0]).toMatchObject({
       name: "coding",

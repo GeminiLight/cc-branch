@@ -525,7 +525,6 @@ export default function ConfigEditor({
             agents={effectiveAgentNames}
             scope={scope}
             onChange={updateSlots}
-            runtimeAvailability={data?.runtimes}
           />
         ) : (
           <div className="space-y-3">
