@@ -218,6 +218,44 @@
   - 页面包含 `1 tab · 1 pane`。
   - 页面不包含 `1 tabs · 1 panes`。
 
+### 9. Project config 默认启动工具会保存旧 opener id
+
+问题：
+
+- Project config 的默认启动工具下拉框仍使用旧值 `terminal` / `iterm`。
+- 后端 opener 注册表实际使用 `terminal-app` / `iterm2`。
+- YAML parser 也没有把旧 id 归一化到注册表 id。
+
+影响：
+
+- 用户在项目配置里选择默认启动工具后，可能保存出后端无法识别的 `openWith`。
+- 后续点击 Dashboard 的启动动作时，会出现“配置看起来能保存，但启动器不能正确 dispatch”的隐性故障。
+
+修复：
+
+- `apps/web/src/components/ConfigEditor/ProjectSection.tsx`
+  - 下拉选项改为注册表 id：`terminal-app`、`iterm2`。
+- `apps/web/src/components/ConfigEditor/yaml-utils.ts`
+  - 新增 opener id 归一化，兼容读取旧配置里的 `terminal` / `iterm`。
+- `cc_branch/models/config.py`
+  - 后端加载配置时同样归一化旧 opener id，避免旧 YAML 继续污染运行路径。
+- `apps/web/src/components/ConfigEditor.test.tsx`
+  - 覆盖 UI 保存 `Terminal.app` 时写出 `openWith: terminal-app`。
+- `apps/web/src/components/ConfigEditor/yaml-utils.test.ts`
+  - 覆盖旧 id parse 后变成注册表 id。
+- `tests/test_config.py`
+  - 覆盖后端加载旧 `openWith` 后归一化。
+
+验证：
+
+- `cd apps/web && npm test -- ConfigEditor.test.tsx yaml-utils.test.ts`
+- `python3.11 -m unittest tests.test_config.ConfigTests.test_load_workspace_normalizes_legacy_open_with_ids tests.test_config.ConfigTests.test_load_workspace_parses_canonical_workspace_terms tests.test_config.ConfigTests.test_workspace_to_dict_serializes_canonical_terms`
+- `cd apps/web && npm test && npm run lint && npm run build`
+- `python3.11 -m unittest discover tests`
+- `python scripts/build-webui.py`
+- 浏览器截图：
+  - `tmp/review-live-2026-05-14/project-opener-selector-fixed.png`
+
 ## 仍需后续处理的风险
 
 ### 1. 配置概念仍然复杂

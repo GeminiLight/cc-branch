@@ -49,6 +49,12 @@ describe("ConfigEditor YAML session intent", () => {
     expect(data.slots[0].windows[1].shell).toBe("zsh");
   });
 
+  it("normalizes legacy opener ids to registered opener ids", () => {
+    expect(parseConfigYaml("version: 2\nproject: demo\nopenWith: terminal\n").openWith).toBe("terminal-app");
+    expect(parseConfigYaml("version: 2\nproject: demo\nopenWith: iterm\n").openWith).toBe("iterm2");
+    expect(parseConfigYaml("version: 2\nproject: demo\ndefault_opener: terminal\n").openWith).toBe("terminal-app");
+  });
+
   it("serializes canonical workspace terms without runtime windows wrappers", () => {
     const yaml = serializeConfigForm({
       version: 2,

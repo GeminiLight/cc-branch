@@ -17,6 +17,15 @@ function coerceLayoutBackend(value: unknown, fallback: "tmux" | "direct" = "dire
   return fallback;
 }
 
+function coerceOpenWith(value: unknown): string | null {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (raw === "terminal") return "terminal-app";
+  if (raw === "iterm") return "iterm2";
+  return raw;
+}
+
 function runtimeForLayoutBackend(layoutBackend: "tmux" | "direct"): SlotConfig["runtime"] {
   return layoutBackend === "tmux" ? "tmux" : "terminal";
 }
@@ -174,7 +183,7 @@ export function parseConfigYaml(yaml: string): ConfigFormData {
       version: Number(doc.version ?? 2),
       project: String(doc.project ?? "my-project"),
       root: String(doc.root ?? "."),
-      openWith: doc.openWith != null ? String(doc.openWith) : doc.default_opener != null ? String(doc.default_opener) : null,
+      openWith: coerceOpenWith(doc.openWith ?? doc.default_opener),
       layoutBackend,
       defaults,
       display: {

@@ -147,6 +147,18 @@ def _layout_backend(value: Any, default: str = "direct") -> str:
     return default
 
 
+def _opener_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    return {
+        "terminal": "terminal-app",
+        "iterm": "iterm2",
+    }.get(raw, raw)
+
+
 def _runtime_for_layout_backend(layout_backend: str) -> str:
     return "tmux" if layout_backend == "tmux" else "terminal"
 
@@ -279,7 +291,7 @@ class WorkspaceConfig:
         ):
             default_opener = raw_openers.get("default", default_opener)
             raw_openers = raw_openers.get("items", {})
-        default_opener = data.get("openWith", default_opener)
+        default_opener = _opener_id(data.get("openWith", default_opener))
         layout_backend = _layout_backend(data.get("layoutBackend"), "direct")
         openers = {
             k: OpenerSpec.from_dict(v)

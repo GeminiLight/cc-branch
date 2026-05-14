@@ -91,8 +91,8 @@ export default function ProjectSection({
                     { value: "cursor", label: "Cursor" },
                     { value: "vscode", label: "VS Code" },
                     { value: "warp", label: "Warp" },
-                    { value: "iterm", label: "iTerm" },
-                    { value: "terminal", label: "Terminal" },
+                    { value: "terminal-app", label: "Terminal.app" },
+                    { value: "iterm2", label: "iTerm2" },
                     { value: "auto-terminal", label: "Auto terminal" },
                   ]}
                 />

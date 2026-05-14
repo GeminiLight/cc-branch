@@ -301,6 +301,51 @@ class ConfigTests(unittest.TestCase):
             self.assertNotIn("windows", serialized["tabs"][0]["panes"][0])
             self.assertEqual(serialized["tabs"][0]["panes"][1]["shell"], "zsh")
 
+    def test_load_workspace_normalizes_legacy_open_with_ids(self):
+        """Older Web UI opener ids should normalize to registered opener ids."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                openWith: "terminal"
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "main"
+                        command: "zsh"
+                """,
+            )
+
+            workspace = load_workspace(config_path)
+
+            self.assertEqual(workspace.default_opener, "terminal-app")
+            self.assertEqual(workspace.to_dict()["openWith"], "terminal-app")
+
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                openWith: "iterm"
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "main"
+                        command: "zsh"
+                """,
+            )
+
+            workspace = load_workspace(config_path)
+
+            self.assertEqual(workspace.default_opener, "iterm2")
+            self.assertEqual(workspace.to_dict()["openWith"], "iterm2")
+
     def test_load_workspace_migrates_legacy_session_id_to_session_intent(self):
         """Legacy session_id in config should load as explicit session intent."""
         with tempfile.TemporaryDirectory() as tmp:

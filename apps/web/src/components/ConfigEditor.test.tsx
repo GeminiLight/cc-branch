@@ -201,6 +201,41 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByText('Advanced defaults')).not.toBeInTheDocument()
   })
 
+  it('writes registered opener ids from the project launch selector', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'openWith: auto-terminal',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: main',
+          '        command: zsh',
+          '',
+        ].join('\n'),
+        issues: [],
+      },
+    }
+
+    renderConfigEditor('project')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto terminal' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Terminal.app' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(mocks.saveConfig).toHaveBeenCalled()
+    })
+    expect(mocks.saveConfig.mock.calls[0][0].content).toContain('openWith: terminal-app')
+    expect(mocks.saveConfig.mock.calls[0][0].content).not.toContain('openWith: terminal\n')
+  })
+
   it('keeps agent overrides collapsed by default on project config', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {
