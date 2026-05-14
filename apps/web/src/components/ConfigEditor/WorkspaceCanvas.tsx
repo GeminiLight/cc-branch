@@ -83,13 +83,13 @@ export default function WorkspaceCanvas({
 
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-default bg-[var(--bg-elevated)]">
-      <div className="workspace-matrix-surface relative p-3 min-h-[300px]">
+      <div className="workspace-matrix-surface relative p-2.5 sm:p-3 min-h-[220px]">
         <div
-          className="absolute inset-0 opacity-[0.10] pointer-events-none"
+          className="absolute inset-0 opacity-[0.045] pointer-events-none"
           style={{
             backgroundImage:
               "linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
+            backgroundSize: "36px 36px",
           }}
         />
         <div className="relative space-y-2.5">
@@ -118,7 +118,7 @@ export default function WorkspaceCanvas({
                 data-drag-source={tabIsDragSource ? "true" : undefined}
                 data-drop-candidate={tabDropCandidate ? "true" : undefined}
               >
-                <div className="grid grid-cols-1 lg:grid-cols-[124px_minmax(0,1fr)]">
+                <div className="grid grid-cols-1 lg:grid-cols-[118px_minmax(0,1fr)]">
                   <button
                     type="button"
                     onClick={() => onSelect({ slotIndex, target: "tab", windowIndex: null })}
@@ -172,7 +172,7 @@ export default function WorkspaceCanvas({
                         <button
                           type="button"
                           onClick={() => onAddPane(slotIndex, slotToPanes(slot).length - 1)}
-                          className="min-h-8 min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover flex items-center justify-center"
+                          className="min-h-7 min-w-7 rounded-md text-tertiary hover:text-primary hover:surface-hover flex items-center justify-center"
                           aria-label={t("addPane")}
                           title={t("addPane")}
                         >
@@ -181,7 +181,7 @@ export default function WorkspaceCanvas({
                         <button
                           type="button"
                           onClick={() => onDeleteTab(slotIndex)}
-                          className="min-h-8 min-w-8 rounded-md text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
+                          className="min-h-7 min-w-7 rounded-md text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center"
                           aria-label={t("removeSlotNamed", { name: slotName })}
                           title={t("removeSlotNamed", { name: slotName })}
                         >
@@ -192,7 +192,7 @@ export default function WorkspaceCanvas({
 
                     <div className="space-y-2">
                       <div
-                        className="grid gap-2 min-h-[74px]"
+                        className="grid gap-2 min-h-[62px]"
                         style={workspacePaneGridStyle(slot, canvasPanes.length)}
                         onDragOver={(event) => onPaneDragOver(event, slotIndex)}
                         onDrop={(event) => onPaneAppendDrop(event, slotIndex)}
@@ -230,7 +230,7 @@ export default function WorkspaceCanvas({
                                   onSelect({ slotIndex, target: "pane", windowIndex: pane.windowIndex });
                                 }
                               }}
-                              className={`workspace-pane-card group/pane relative min-h-[68px] overflow-hidden rounded-md border p-2.5 text-left transition-all ${
+                              className={`workspace-pane-card group/pane relative min-h-[58px] overflow-hidden rounded-md border p-2 text-left transition-all ${
                                 selectedPane
                                   ? "border-[var(--accent-border)] bg-[var(--accent-bg)] ring-1 ring-[var(--accent-border)] shadow-[0_0_0_3px_var(--accent-bg),0_10px_24px_rgba(15,23,42,0.08)]"
                                   : pane.kind === "tmux-group"
@@ -274,7 +274,7 @@ export default function WorkspaceCanvas({
                                   )}
                                 </span>
                               </span>
-                              <span className="relative mt-2 block pl-1.5 text-[12px] text-secondary truncate">
+                              <span className="relative mt-1.5 block pl-1.5 text-[11px] text-secondary truncate">
                                 {pane.kind === "tmux-group"
                                   ? countText(
                                       t,

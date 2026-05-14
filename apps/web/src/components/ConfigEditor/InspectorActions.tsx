@@ -21,7 +21,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-10 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[12px] text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-35 disabled:hover:bg-[var(--bg-card)] ${className}`}
+      className={`min-h-8 rounded-md border border-default bg-[var(--bg-card)] px-2 text-left text-[11px] font-medium text-secondary hover:text-primary hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-35 disabled:hover:bg-[var(--bg-card)] ${className}`}
     >
       {children}
     </button>
@@ -53,9 +53,9 @@ export function TmuxGroupPositionActions({
   const { t } = useI18n();
   return (
     <section className="space-y-3 pt-3 border-t border-default">
-      <div>
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("groupPosition")}</p>
-        <p className="mt-0.5 text-[11px] text-tertiary">{t("groupPositionHint")}</p>
+        <span className="text-[10px] text-tertiary">{t("tmuxWindowStack")}</span>
       </div>
       <div className="grid grid-cols-2 gap-1.5">
         <ActionButton onClick={onMoveUp} disabled={!canMoveUp}>
@@ -97,9 +97,9 @@ export function PaneSchedulingActions({
   const { t } = useI18n();
   return (
     <section className="space-y-3 pt-3 border-t border-default">
-      <div>
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("scheduling")}</p>
-        <p className="mt-0.5 text-[11px] text-tertiary">{t("canvasSchedulingHint")}</p>
+        <span className="text-[10px] text-tertiary">{t("pane")}</span>
       </div>
       <div className="grid grid-cols-2 gap-1.5">
         <ActionButton onClick={onSplitRight}>
@@ -138,12 +138,12 @@ export function MoveToTabActions({
   const { t } = useI18n();
   return (
     <section className="space-y-3 pt-3 border-t border-default">
-      <div>
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("moveToTab")}</p>
-        <p className="mt-0.5 text-[11px] text-tertiary">{t("moveToTabHint")}</p>
+        <MoveRight className="h-3.5 w-3.5 text-tertiary" />
       </div>
       {options.length > 0 ? (
-        <div className="space-y-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_76px] gap-1.5">
           <SelectInput
             value={value}
             onChange={onChange}
@@ -154,9 +154,8 @@ export function MoveToTabActions({
             type="button"
             onClick={onMove}
             disabled={!canMove}
-            className="w-full control-touch rounded-md bg-[var(--accent-bg)] text-[var(--accent)] text-[12px] font-semibold border border-[var(--accent-border)] disabled:opacity-40 flex items-center justify-center gap-1.5"
+            className="control-touch rounded-md bg-[var(--accent-bg)] text-[var(--accent)] text-[12px] font-semibold border border-[var(--accent-border)] disabled:opacity-40 flex items-center justify-center gap-1.5"
           >
-            <MoveRight className="h-3.5 w-3.5" />
             {t("move")}
           </button>
         </div>

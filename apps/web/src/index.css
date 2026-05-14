@@ -257,14 +257,14 @@
 
   .workspace-matrix-surface {
     background:
-      linear-gradient(180deg, color-mix(in oklch, var(--bg-page) 72%, var(--accent) 6%) 0%, color-mix(in oklch, var(--bg-page) 82%, var(--text-primary) 3%) 52%, var(--bg-page) 100%);
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-page) 86%, var(--accent) 3%) 0%, color-mix(in oklch, var(--bg-page) 94%, var(--text-primary) 2%) 64%, var(--bg-page) 100%);
   }
 
   .workspace-pane-card {
     position: relative;
     background:
-      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 94%, var(--accent) 3%) 0%, var(--bg-card) 56%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 97%, var(--accent) 2%) 0%, var(--bg-card) 62%);
+    box-shadow: inset 0 1px 0 color-mix(in oklch, var(--bg-card) 74%, white 26%);
   }
 
   .workspace-pane-card::before {
@@ -273,13 +273,13 @@
     inset: 0 0 auto 0;
     height: 2px;
     background: linear-gradient(90deg, var(--accent), transparent 72%);
-    opacity: 0.32;
+    opacity: 0.18;
     pointer-events: none;
   }
 
   .workspace-tab-rail {
     background:
-      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 84%, var(--accent) 8%) 0%, color-mix(in oklch, var(--bg-card) 94%, var(--text-primary) 2%) 74%);
+      linear-gradient(180deg, color-mix(in oklch, var(--bg-card) 92%, var(--accent) 4%) 0%, color-mix(in oklch, var(--bg-card) 97%, var(--text-primary) 1%) 78%);
   }
 
   .page-shell {
