@@ -33,10 +33,10 @@ import ConfigSelector from "./components/ConfigSelector";
 
 type Tab = AppTab;
 
-const tabs: { id: Tab; labelKey: string; icon: typeof LayoutGrid }[] = [
+const tabs: { id: Tab; labelKey: string; compactLabelKey?: string; icon: typeof LayoutGrid }[] = [
   { id: "dashboard", labelKey: "dashboard", icon: LayoutGrid },
   { id: "workspace", labelKey: "workspaceTab", icon: FileCode2 },
-  { id: "project", labelKey: "projectConfigTab", icon: Bot },
+  { id: "project", labelKey: "projectConfigTab", compactLabelKey: "config", icon: Bot },
   { id: "doctor", labelKey: "doctor", icon: Stethoscope },
 ];
 
@@ -306,8 +306,8 @@ function AppInner() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-[var(--chrome-height)] min-h-[var(--chrome-height)] border-b border-default chrome-surface flex items-center justify-between px-5 shrink-0 z-10">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="h-[var(--chrome-height)] min-h-[var(--chrome-height)] border-b border-default chrome-surface flex items-center justify-between gap-2 px-3 sm:px-5 shrink-0 z-10">
+          <div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-none">
             {/* Mobile hamburger */}
             <button
               type="button"
@@ -318,7 +318,7 @@ function AppInner() {
               <LayoutGrid className="w-4 h-4" />
             </button>
 
-            <div className="min-w-0 flex flex-col justify-center">
+            <div className="hidden sm:flex min-w-0 flex-col justify-center">
               {!projectsHydrated ? (
                 <>
                   <span className="block h-[16px] w-[168px] rounded bg-[var(--bg-hover)]/70" aria-hidden="true" />
@@ -339,7 +339,7 @@ function AppInner() {
             </div>
           </div>
 
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center justify-end gap-0.5 min-w-0 shrink-0">
             {activeProject && configOptionsData?.configs ? (
               <ConfigSelector
                 projectPath={activeProject.path}
@@ -392,9 +392,9 @@ function AppInner() {
 
         {/* Tabs */}
         <div className="px-4 sm:px-5 pt-3">
-          <div className="page-shell border-b border-subtle">
+          <div className="page-shell border-b border-subtle overflow-x-auto">
           <div
-            className="inline-flex items-center gap-5 min-h-10"
+            className="inline-flex items-center gap-3 sm:gap-5 min-h-10 min-w-max"
             role="tablist"
             onKeyDown={(e) => {
               const idx = tabs.findIndex((t) => t.id === tab);
@@ -419,7 +419,7 @@ function AppInner() {
               }
             }}
           >
-            {tabs.map(({ id, labelKey, icon: Icon }) => {
+            {tabs.map(({ id, labelKey, compactLabelKey, icon: Icon }) => {
               const active = tab === id;
               return (
                 <button
@@ -430,14 +430,21 @@ function AppInner() {
                   aria-controls={`panel-${id}`}
                   id={`tab-${id}`}
                   onClick={() => handleSetTab(id)}
-                  className={`relative control-touch flex items-center gap-1.5 border-b-2 px-0 text-[13px] font-medium transition-colors ${
+                  className={`relative control-touch flex items-center gap-1.5 border-b-2 px-0 text-[12px] sm:text-[13px] font-medium whitespace-nowrap transition-colors ${
                     active
                       ? "border-[var(--accent)] text-primary"
                       : "border-transparent text-tertiary hover:text-secondary"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
-                  {t(labelKey)}
+                  {compactLabelKey ? (
+                    <>
+                      <span className="sm:hidden">{t(compactLabelKey)}</span>
+                      <span className="hidden sm:inline">{t(labelKey)}</span>
+                    </>
+                  ) : (
+                    t(labelKey)
+                  )}
                 </button>
               );
             })}
