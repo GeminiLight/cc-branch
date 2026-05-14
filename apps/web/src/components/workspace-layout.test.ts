@@ -23,4 +23,10 @@ describe("workspace layout", () => {
     });
     expect(workspacePaneCellStyle({ layout: "main-top" }, 3, 1)).toEqual({});
   });
+
+  it("keeps horizontal panes readable on narrow canvases", () => {
+    expect(workspacePaneGridStyle({ layout: "horizontal" }, 2)).toMatchObject({
+      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+    });
+  });
 });
