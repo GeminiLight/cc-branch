@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HTTPClient } from "./client";
+import { HTTPClient, TauriClient } from "./client";
+
+const invokeMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: invokeMock,
+}));
 
 describe("HTTPClient workspace scope", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    invokeMock.mockReset();
   });
 
   it("sends project and config path query parameters together", async () => {
@@ -240,5 +248,58 @@ describe("HTTPClient workspace scope", () => {
         }),
       })
     );
+  });
+});
+
+describe("TauriClient abort handling", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    invokeMock.mockReset();
+  });
+
+  it("cancels query methods before resolving the local API port", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancelled before IPC");
+    controller.abort(reason);
+
+    await expect(new TauriClient().getStatus(undefined, controller.signal)).rejects.toBe(reason);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("cancels query methods after resolving the local API port and before fetch", async () => {
+    const controller = new AbortController();
+    const reason = new Error("cancelled after IPC");
+    invokeMock.mockImplementation(async () => {
+      controller.abort(reason);
+      return { port: 7777, config_path: "/tmp/demo/.cc-branch/config.yaml", state_path: "/tmp/demo/.cc-branch/state.yaml" };
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new TauriClient().getStatus(undefined, controller.signal)).rejects.toBe(reason);
+    expect(invokeMock).toHaveBeenCalledWith("get_api_info", undefined);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("passes live query cancellation signals to the local API fetch", async () => {
+    invokeMock.mockResolvedValue({
+      port: 7777,
+      config_path: "/tmp/demo/.cc-branch/config.yaml",
+      state_path: "/tmp/demo/.cc-branch/state.yaml",
+    });
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ slots: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new TauriClient().getStatus(undefined, controller.signal);
+
+    expect(invokeMock).toHaveBeenCalledWith("get_api_info", undefined);
+    expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:7777/api/status", {
+      signal: controller.signal,
+    });
   });
 });

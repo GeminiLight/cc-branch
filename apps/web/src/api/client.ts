@@ -123,6 +123,20 @@ async function fetchApi(input: RequestInfo | URL, init?: RequestInit): Promise<R
   }
 }
 
+function abortErrorFrom(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) return signal.reason;
+  if (typeof DOMException !== "undefined") {
+    return new DOMException("The operation was aborted", "AbortError");
+  }
+  const error = new Error("The operation was aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw abortErrorFrom(signal);
+}
+
 async function readJsonResponse(res: Response): Promise<JsonResponse> {
   if (typeof res.text !== "function" && typeof res.json === "function") {
     try {
@@ -425,13 +439,13 @@ export class TauriClient implements APIClient {
     return tauri.invoke(cmd, args);
   }
 
-  private async _baseUrl(): Promise<string> {
-    const info = await this.getApiInfo();
+  private async _baseUrl(signal?: AbortSignal): Promise<string> {
+    const info = await this.getApiInfo(signal);
     return `http://127.0.0.1:${info.port}`;
   }
 
   async getStatus(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceStatus> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/status${qs(scope)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -439,7 +453,7 @@ export class TauriClient implements APIClient {
   }
 
   async getConfig(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/config${qs(scope)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -447,7 +461,7 @@ export class TauriClient implements APIClient {
   }
 
   async getConfigs(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<ConfigOptionsData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/configs${qs(scope)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -455,7 +469,7 @@ export class TauriClient implements APIClient {
   }
 
   async getDoctor(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<DoctorReport> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/doctor${qs(scope)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -463,7 +477,7 @@ export class TauriClient implements APIClient {
   }
 
   async probeProject(projectPath: string, signal?: AbortSignal): Promise<ProjectProbe> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/project/probe${qs(projectPath)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -480,7 +494,7 @@ export class TauriClient implements APIClient {
   }
 
   async getOpeners(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<OpenersData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/openers${qs(scope)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -488,7 +502,7 @@ export class TauriClient implements APIClient {
   }
 
   async getAgents(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<AgentsData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/agents${qs(scope)}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -496,7 +510,7 @@ export class TauriClient implements APIClient {
   }
 
   async getGlobalAgents(signal?: AbortSignal): Promise<GlobalAgentsData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/agents/global`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -520,7 +534,7 @@ export class TauriClient implements APIClient {
   }
 
   async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -548,13 +562,15 @@ export class TauriClient implements APIClient {
     return this.runAction("stop", sessionName, scope);
   }
 
-  async getApiInfo(_signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }> {
-    void _signal;
-    return this._invoke("get_api_info") as Promise<{ port: number; config_path: string; state_path: string }>;
+  async getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }> {
+    throwIfAborted(signal);
+    const info = await this._invoke("get_api_info") as { port: number; config_path: string; state_path: string };
+    throwIfAborted(signal);
+    return info;
   }
 
   async getProjectsIndex(signal?: AbortSignal): Promise<ProjectsIndexData> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/projects`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -658,7 +674,7 @@ export class TauriClient implements APIClient {
   }
 
   async getProfiles(signal?: AbortSignal): Promise<Profile[]> {
-    const baseUrl = await this._baseUrl();
+    const baseUrl = await this._baseUrl(signal);
     const res = await fetchApi(`${baseUrl}/api/profiles`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
