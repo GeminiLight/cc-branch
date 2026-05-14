@@ -1,13 +1,13 @@
-import type { CSSProperties, DragEvent, KeyboardEvent } from "react";
+import type { DragEvent, KeyboardEvent } from "react";
 import { GripVertical, Plus, SquareTerminal, Terminal, Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import AgentMark from "../ui/AgentMark";
+import { workspacePaneCellStyle, workspacePaneGridStyle } from "../workspace-layout";
 import type { SlotConfig } from "./types";
 import type { PaneDragState, TabDragState } from "./workspace-drag";
 import {
   canDragPane,
   isLegacyTmuxSlot,
-  normalizedLayout,
   slotToCanvasPanes,
   slotToPanes,
   tmuxGroupWindows,
@@ -41,41 +41,6 @@ type WorkspaceCanvasProps = {
   onPaneAppendDrop: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
   onPaneDragEnd: () => void;
 };
-
-function paneGridStyle(slot: SlotConfig, paneLength: number): CSSProperties {
-  const count = Math.max(paneLength, 1);
-  const layout = normalizedLayout(slot, count);
-  if (count === 1) return { gridTemplateColumns: "minmax(0, 1fr)" };
-  if (layout === "vertical") {
-    return { gridTemplateRows: `repeat(${count}, minmax(72px, 1fr))` };
-  }
-  if (layout === "main-left") {
-    return {
-      gridTemplateColumns: "minmax(150px, 1.18fr) minmax(116px, 0.82fr)",
-      gridTemplateRows: `repeat(${Math.max(count - 1, 1)}, minmax(70px, 1fr))`,
-    };
-  }
-  if (layout === "main-top") {
-    return {
-      gridTemplateColumns: `repeat(${Math.max(count - 1, 1)}, minmax(112px, 1fr))`,
-      gridTemplateRows: "minmax(82px, 1.04fr) minmax(68px, 0.96fr)",
-    };
-  }
-  if (layout === "grid") {
-    const columns = count <= 4 ? 2 : 3;
-    return { gridTemplateColumns: `repeat(${columns}, minmax(112px, 1fr))` };
-  }
-  return { gridTemplateColumns: `repeat(${count}, minmax(112px, 1fr))` };
-}
-
-function paneCellStyle(slot: SlotConfig, paneLength: number, index: number): CSSProperties {
-  const count = Math.max(paneLength, 1);
-  const layout = normalizedLayout(slot, count);
-  if (index !== 0 || count <= 1) return {};
-  if (layout === "main-left") return { gridRow: `1 / span ${Math.max(count - 1, 1)}` };
-  if (layout === "main-top") return { gridColumn: `1 / span ${Math.max(count - 1, 1)}` };
-  return {};
-}
 
 export default function WorkspaceCanvas({
   slots,
@@ -235,7 +200,7 @@ export default function WorkspaceCanvas({
                     <div className="space-y-2">
                       <div
                         className="grid gap-2 min-h-[74px]"
-                        style={paneGridStyle(slot, canvasPanes.length)}
+                        style={workspacePaneGridStyle(slot, canvasPanes.length)}
                         onDragOver={(event) => onPaneDragOver(event, slotIndex)}
                         onDrop={(event) => onPaneAppendDrop(event, slotIndex)}
                       >
@@ -281,7 +246,7 @@ export default function WorkspaceCanvas({
                               } ${paneIsDragSource ? "opacity-55 scale-[0.99]" : ""} ${
                                 paneDropCandidate ? "outline outline-1 outline-offset-1 outline-[var(--accent-border)]" : ""
                               }`}
-                              style={paneCellStyle(slot, canvasPanes.length, paneIndex)}
+                              style={workspacePaneCellStyle(slot, canvasPanes.length, paneIndex)}
                               aria-label={t("editWindowNamed", { name: paneName })}
                               aria-current={selectedPane ? "true" : undefined}
                               data-drag-source={paneIsDragSource ? "true" : undefined}

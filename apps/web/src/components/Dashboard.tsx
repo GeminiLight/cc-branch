@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, memo, useEffect, type CSSProperties } from "react";
+import { useState, useCallback, useRef, memo, useEffect } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -25,6 +25,7 @@ import SetupGuide from "./SetupGuide";
 import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
 import AgentMark from "./ui/AgentMark";
+import { workspacePaneCellStyle, workspacePaneGridStyle } from "./workspace-layout";
 import {
   buildDashboardRuntimeSummary,
   isActionableSyncStatus,
@@ -134,39 +135,6 @@ function countText(
   count: number,
 ): string {
   return t(count === 1 ? singularKey : pluralKey, { count });
-}
-
-function normalizedTabLayout(slot: SlotInfo, paneCount: number): string {
-  const layout = slot.layout || "auto";
-  if (layout === "horizontal" || layout === "vertical" || layout === "main-left" || layout === "grid") {
-    return layout;
-  }
-  if (paneCount <= 2) return "horizontal";
-  if (paneCount === 3) return "main-left";
-  return "grid";
-}
-
-function paneGridStyle(slot: SlotInfo, paneCount: number): CSSProperties {
-  const count = Math.max(paneCount, 1);
-  if (count <= 1) return {};
-  const layout = normalizedTabLayout(slot, count);
-  if (layout === "vertical") {
-    return { gridTemplateRows: `repeat(${count}, minmax(0, 1fr))` };
-  }
-  if (layout === "main-left" && count >= 3) {
-    return { gridTemplateColumns: "1.35fr 1fr", gridTemplateRows: "repeat(2, minmax(0, 1fr))" };
-  }
-  if (layout === "grid" && count >= 4) {
-    return { gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(count))}, minmax(0, 1fr))` };
-  }
-  return { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` };
-}
-
-function paneCellStyle(slot: SlotInfo, paneCount: number, index: number): CSSProperties {
-  if (normalizedTabLayout(slot, paneCount) === "main-left" && paneCount >= 3 && index === 0) {
-    return { gridRow: "span 2" };
-  }
-  return {};
 }
 
 function tabDisplayName(t: (key: string, vars?: Record<string, string | number>) => string, index: number): string {
@@ -322,14 +290,14 @@ const SlotCard = memo(function SlotCard({
 
       <div className="bg-[var(--bg-card)] p-3">
         {slot.runtime === "terminal" ? (
-          <div className="grid gap-2" style={paneGridStyle(slot, paneCount)}>
+          <div className="grid gap-2" style={workspacePaneGridStyle(slot, paneCount)}>
             {(terminalPanes.length > 0 ? terminalPanes : [primaryWindow]).filter(Boolean).map((window, paneIndex) => {
               const paneTarget = hasMultipleTerminalPanes ? `${slot.name}:${window.name}` : slotTarget;
               const paneNeedsAction = isActionableWindowSync(window, slot) || (!hasMultipleTerminalPanes && primaryWindowNeedsAction);
               return (
                 <div
                   key={window.name || paneIndex}
-                  style={paneCellStyle(slot, paneCount, paneIndex)}
+                  style={workspacePaneCellStyle(slot, paneCount, paneIndex)}
                   className={`min-h-[76px] rounded-md border bg-[var(--bg-elevated)] px-2.5 py-2 ${
                     paneNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
                   }`}
