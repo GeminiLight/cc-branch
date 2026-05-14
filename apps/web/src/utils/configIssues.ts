@@ -1,12 +1,20 @@
 import type { ConfigIssue } from "../types";
 
-const PUBLIC_SCHEMA_FIELDS = new Set(["openWith", "layoutBackend", "defaults", "tabs"]);
+function isCanonicalPublicField(field: string, target: string): boolean {
+  if (field === "openWith" || field === "defaults" || field === "tabs") {
+    return target === "config";
+  }
+  if (field === "layoutBackend") {
+    return target === "config" || target.startsWith("tab:") || target.startsWith("pane:");
+  }
+  return false;
+}
 
 function isStaleCanonicalSchemaIssue(issue: ConfigIssue): boolean {
   return (
     issue.issue_type === "unknown_field" &&
     typeof issue.context?.field === "string" &&
-    PUBLIC_SCHEMA_FIELDS.has(issue.context.field)
+    isCanonicalPublicField(issue.context.field, issue.target)
   );
 }
 

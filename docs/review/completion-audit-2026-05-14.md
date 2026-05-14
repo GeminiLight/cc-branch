@@ -16,7 +16,7 @@
 | 要求 | 产物 / 证据 | 当前结论 |
 | --- | --- | --- |
 | 审查配置模型和运行时 adapter 一致性 | `cc_branch/application/config_validation/constants.py`、`tests/test_application_architecture.py` | 已修复：`internal` 枚举与 runtime adapter 对齐，`command` 不再被误接受。 |
-| 审查配置 v2 公共字段 | `apps/web/src/utils/configIssues.ts`、`ConfigEditor`、`DoctorView` | 已修复：`openWith` / `layoutBackend` 不再通过旧缓存路径误报 unknown field。 |
+| 审查配置 v2 公共字段 | `apps/web/src/utils/configIssues.ts`、`configIssues.test.ts`、`ConfigEditor`、`DoctorView` | 已修复：`openWith` / `layoutBackend` 不再通过旧缓存路径误报 unknown field；过滤逻辑现在会检查 target，避免隐藏 agent/window 等非法位置里的真实 unknown-field 问题。 |
 | 审查 YAML round-trip 风险 | `apps/web/src/components/ConfigEditor/yaml-utils.test.ts` | 已补保护：普通 pane + tmux group 混合 tab 可以 parse / serialize / reparse。 |
 | 审查 Dashboard 主动作区 | `apps/web/src/components/Dashboard.tsx`、截图 `tmp/review-pass/*` | 已局部修复：工具选择、打开目录、刷新、启动按钮不再明显截断或换行。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
@@ -85,8 +85,8 @@ cd apps/web && npm test
 结果：
 
 ```text
-Test Files  22 passed (22)
-Tests  170 passed (170)
+Test Files  23 passed (23)
+Tests  172 passed (172)
 ```
 
 ```bash
