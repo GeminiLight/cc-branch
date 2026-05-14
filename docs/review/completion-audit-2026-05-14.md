@@ -41,6 +41,7 @@
 | 降低 Doctor 空状态视觉噪音 | `apps/web/src/components/DoctorView.tsx` | 已优化：摘要卡片只有在对应数量大于 0 时使用错误/警告/通过强调色；0 项状态用中性图标和弱背景，减少误导。 |
 | 清理 Doctor 通过项提示噪音 | `apps/web/src/components/doctor-view-model.ts`、`doctor-view-model.test.ts`、截图 `tmp/review-pass/doctor-view-2026-05-14-after.png` | 已修复：结构化 info 级 doctor issue 和文本 report 的通过项即使携带 hint，也不再显示“修复提示”。 |
 | 降低 Doctor 主列表噪音 | `apps/web/src/components/DoctorView.tsx`、`doctor-view-model.ts`、`DoctorView.test.tsx`、`doctor-view-model.test.ts`、截图 `tmp/review-live-2026-05-14/doctor-actionable-first.png` | 已优化：诊断页主列表默认只展示需要处理的错误/警告；通过项折到低权重详情区；全通过状态不再显示 `0 issues / 0 warnings`。 |
+| 压缩 Doctor 全通过状态重复文案 | `apps/web/src/components/DoctorView.tsx`、`DoctorView.test.tsx`、截图 `tmp/review-live-2026-05-14/doctor-compact-all-clear.png` | 已优化：all-clear 首屏不再重复展示 `All checks passed` / `Workspace checks are clear` / `Ready to launch`，只保留顶部结论和可展开的 passed checks。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |

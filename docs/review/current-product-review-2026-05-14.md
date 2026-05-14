@@ -203,6 +203,8 @@
 
 Doctor 现在能合并配置问题和 runtime drift，也已经把通过项降级到详情区，主列表优先展示真正需要处理的错误和警告。下一步应该继续把它收敛为“这个工作空间为什么启动不了 / 为什么状态不一致 / 下一步做什么”的产品级诊断，而不只是 CLI 工具可用性检查。
 
+补充修复：全通过状态已经进一步压缩，首屏不再重复展示 `All checks passed` / `Workspace checks are clear` / `Ready to launch`，只保留顶部结论和可展开的 passed checks。
+
 ### 3. 本轮只做了局部 UI 修复
 
 Dashboard 主动作区已经修过，但 Space canvas / Project config 的整体视觉统一还没有达到“最终完成”。下一步更应该集中在：

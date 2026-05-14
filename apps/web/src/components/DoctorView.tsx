@@ -187,7 +187,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
           </button>
         </div>
 
-        {hasActionableFindings ? (
+        {hasActionableFindings && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className={metricCardClass(issueCount > 0, METRIC_STYLES.issue.active)}>
               <XCircle className={metricIconClass(issueCount > 0, METRIC_STYLES.issue.icon)} />
@@ -211,14 +211,6 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
               </div>
             </div>
           </div>
-        ) : (
-          <div className="inline-flex max-w-max items-center gap-2 rounded-md success-bg px-3 py-2">
-            <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksPassed")}</p>
-              <p className="text-[13px] font-semibold text-primary">{passedCountLabel}</p>
-            </div>
-          </div>
         )}
       </div>
 
@@ -227,14 +219,18 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
         <div className="px-4 py-3 border-b border-subtle bg-[var(--bg-card)] flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <StatusDot status={overall} />
-            <p className="text-[13px] font-semibold text-primary">{t("doctorFindings")}</p>
+            <p className="text-[13px] font-semibold text-primary">
+              {hasActionableFindings ? t("doctorFindings") : t("doctorChecks")}
+            </p>
           </div>
-          <span className={`text-[11px] font-semibold ${overallColor}`}>{overallLabel}</span>
+          {hasActionableFindings && (
+            <span className={`text-[11px] font-semibold ${overallColor}`}>{overallLabel}</span>
+          )}
         </div>
         <div className="p-1.5 space-y-1.5">
           {actionableChecks.length > 0 ? (
             actionableChecks.map((check, i) => <FindingRow key={`${check.status}-${check.icon}-${i}`} check={check} />)
-          ) : (
+          ) : passingChecks.length === 0 ? (
             <div className="rounded-md px-3 py-3 flex items-start gap-2.5 success-bg">
               <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -242,7 +238,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
                 <p className="text-[12px] text-secondary mt-0.5">{summaryText}</p>
               </div>
             </div>
-          )}
+          ) : null}
 
           {passingChecks.length > 0 && (
             <details className="group rounded-md border border-subtle bg-[var(--bg-hover)]/25">

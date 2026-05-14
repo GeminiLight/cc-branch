@@ -72,7 +72,7 @@ describe('DoctorView summary', () => {
     expect(screen.getByText('Show details')).toBeInTheDocument()
   })
 
-  it('uses a compact ready finding instead of listing passed checks as primary findings', () => {
+  it('keeps all-clear diagnosis compact without repeating the ready message', () => {
     mocks.doctorResult.current = {
       data: { report: 'Workspace:\n✓ config: .cc-branch/config.yaml found\n' },
       error: null,
@@ -83,8 +83,9 @@ describe('DoctorView summary', () => {
 
     renderDoctorView()
 
-    expect(screen.getByText('Ready to launch')).toBeInTheDocument()
-    expect(screen.getAllByText('Workspace checks are clear.').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Ready to launch')).not.toBeInTheDocument()
+    expect(screen.getAllByText('All checks passed')).toHaveLength(1)
+    expect(screen.getAllByText('Workspace checks are clear.')).toHaveLength(1)
     expect(screen.getAllByText('1 passed').length).toBeGreaterThan(0)
     expect(screen.queryByText('0 issues')).not.toBeInTheDocument()
     expect(screen.queryByText('0 warnings')).not.toBeInTheDocument()
