@@ -485,6 +485,19 @@ describe("workspace model", () => {
     expect(mutation).toBeNull();
   });
 
+  it("rejects invalid source pane indexes for directional moves", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" })],
+      }),
+    ];
+
+    expect(movePaneWithinTabMutation(slots, 0, -1, 1)).toBeNull();
+    expect(movePaneWithinTabMutation(slots, 0, 2, -1)).toBeNull();
+  });
+
   it("moves panes across tabs even when their runtimes differ", () => {
     const slots = [
       slotConfig({
@@ -583,5 +596,40 @@ describe("workspace model", () => {
     expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["existing", "shell"]);
     expect(mutation?.slots[0].windows[1]).toMatchObject({ command: "zsh" });
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("rejects invalid source pane indexes for cross-tab moves", () => {
+    const slots = [
+      slotConfig({
+        name: "source",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "first" }), windowConfig({ name: "last" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    expect(movePaneBetweenSlots(slots, 0, -1, 1, 1)).toBeNull();
+    expect(movePaneBetweenSlots(slots, 0, 2, 1, 1)).toBeNull();
+  });
+
+  it("rejects invalid legacy tmux group source pane indexes", () => {
+    const slots = [
+      slotConfig({
+        name: "tmux-dev",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    expect(movePaneBetweenSlots(slots, 0, 1, 1, 1)).toBeNull();
   });
 });

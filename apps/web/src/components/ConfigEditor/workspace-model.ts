@@ -319,6 +319,7 @@ export function movePaneWithinTabMutation(
   if (!slot || (slot.runtime === "terminal" && slot.windows.length === 0)) return null;
   const targetIndex = windowIndex + dir;
   const windows = editableWindowsForSlot(slot);
+  if (windowIndex < 0 || windowIndex >= windows.length) return null;
   if (targetIndex < 0 || targetIndex >= windows.length) return null;
   const [moved] = windows.splice(windowIndex, 1);
   if (!moved) return null;
@@ -486,10 +487,12 @@ export function movePaneBetweenSlots(
   if (!source || !target) return null;
   if (fromSlotIndex === toSlotIndex && isLegacyTmuxSlot(source)) return null;
   if (fromSlotIndex === toSlotIndex && fromPaneIndex === toPaneIndex) return null;
+  if (fromPaneIndex < 0) return null;
 
   if (fromSlotIndex === toSlotIndex) {
     if (source.windows.length === 0) return null;
     const windows = editableWindowsForSlot(source);
+    if (fromPaneIndex >= windows.length) return null;
     const [moved] = windows.splice(fromPaneIndex, 1);
     if (!moved) return null;
     const insertIndex = Math.min(
@@ -506,7 +509,9 @@ export function movePaneBetweenSlots(
   }
 
   const sourceIsLegacyTmuxGroup = isLegacyTmuxSlot(source);
+  if (sourceIsLegacyTmuxGroup && fromPaneIndex !== 0) return null;
   const sourceWindows = sourceIsLegacyTmuxGroup ? [] : editableWindowsForSlot(source);
+  if (!sourceIsLegacyTmuxGroup && fromPaneIndex >= sourceWindows.length) return null;
 
   const moved = sourceIsLegacyTmuxGroup
     ? tmuxGroupWindowFromSlot(source)
