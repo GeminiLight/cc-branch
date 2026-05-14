@@ -31,6 +31,7 @@ import ProjectSection from "./ProjectSection";
 import AgentsSection from "./AgentsSection";
 import SlotsSection from "./SlotsSection";
 import Modal from "../ui/Modal";
+import { collectReferencedAgents, renameSlotAgentReferences } from "./agent-references";
 
 interface ConfigEditorProps {
   projectPath?: string;
@@ -157,15 +158,7 @@ export default function ConfigEditor({
   const updateAgents = useCallback(
     (agents: ConfigFormData["agents"], rename?: { from: string; to: string }) => {
       setFormData((prev) => {
-        const slots = rename
-          ? prev.slots.map((slot) => ({
-              ...slot,
-              windows: slot.windows.map((window) => ({
-                ...window,
-                agent: window.agent === rename.from ? rename.to : window.agent,
-              })),
-            }))
-          : prev.slots;
+        const slots = rename ? renameSlotAgentReferences(prev.slots, rename) : prev.slots;
         const next = { ...prev, agents, slots };
         const yaml = serializeConfigForm(next);
         setYamlContent(yaml);
@@ -355,10 +348,7 @@ export default function ConfigEditor({
     : hasUnsavedChanges
       ? "bg-[var(--warning-bg)] text-[var(--warning)]"
       : "success-bg success";
-  const referencedAgents = formData.slots.flatMap((slot) => [
-    slot.agent,
-    ...slot.windows.map((window) => window.agent),
-  ]).filter((agent): agent is string => Boolean(agent));
+  const referencedAgents = collectReferencedAgents(formData.slots);
   const effectiveAgentNames = Array.from(new Set([
     ...(agentsData?.agents.map((agent) => agent.id) || []),
     ...Object.keys(formData.agents),

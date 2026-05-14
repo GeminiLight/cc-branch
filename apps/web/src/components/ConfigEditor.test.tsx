@@ -275,6 +275,50 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByText('Command: codex')).not.toBeInTheDocument()
   })
 
+  it('renames agent references inside nested tmux group windows', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'agents:',
+          '  claude:',
+          '    command: claude',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: agents',
+          '        layoutBackend: tmux',
+          '        windows:',
+          '          - name: backend',
+          '            agent: claude',
+          '          - name: docs',
+          '            command: zsh',
+          '',
+        ].join('\n'),
+        issues: [],
+      },
+    }
+
+    renderConfigEditor('project')
+
+    fireEvent.click(screen.getByRole('button', { name: /Expand agent overrides section/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Expand agent claude/ }))
+    fireEvent.change(screen.getAllByDisplayValue('claude')[0], { target: { value: 'reviewer' } })
+    fireEvent.blur(screen.getByDisplayValue('reviewer'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(mocks.saveConfig).toHaveBeenCalled())
+    const content = mocks.saveConfig.mock.calls[0][0].content
+    expect(content).toContain('reviewer:')
+    expect(content).toContain('agent: reviewer')
+    expect(content).not.toContain('agent: claude')
+  })
+
   it('shows terminal commands as shell commands only when no agent is selected', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {
