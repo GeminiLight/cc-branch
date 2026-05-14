@@ -29,6 +29,8 @@
 | 避免 Web UI 动态数据陈旧 | `cc_branch/webui/server/handler.py`、`tests/test_webui.py` | 已修复：所有 API JSON 响应增加 `Cache-Control: no-store`，避免配置、诊断、状态被浏览器缓存成旧结果。 |
 | 审查 Doctor 整体健康态 | `apps/web/src/components/DoctorView.tsx`、`DoctorView.test.tsx` | 已修复：配置问题、运行时漂移、缺失的 tmux 托管窗格和结构化 doctor issues 会共同决定顶部健康态，不再出现下方有错误但顶部显示全部通过。 |
 | 优化 Doctor 阅读顺序和产品语义 | `apps/web/src/components/DoctorView.tsx`、`apps/web/src/i18n/index.tsx`、`DoctorView.test.tsx` | 已推进：标题从 Health Check 收敛为 Workspace diagnosis，详细列表改为问题/警告优先，避免用户先读到通过项再看到待处理问题。 |
+| 拆分 Doctor view model | `apps/web/src/components/doctor-view-model.ts`、`doctor-view-model.test.ts`、`DoctorView.tsx` | 已推进：文本 report 解析、结构化 issue 映射、配置 issue 过滤、runtime drift 汇总、整体健康态和计数文案从 React 组件抽成纯 view model，并补单元测试。 |
+| 降低 Doctor 空状态视觉噪音 | `apps/web/src/components/DoctorView.tsx` | 已优化：摘要卡片只有在对应数量大于 0 时使用错误/警告/通过强调色；0 项状态用中性图标和弱背景，减少误导。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |
@@ -85,8 +87,8 @@ cd apps/web && npm test
 结果：
 
 ```text
-Test Files  23 passed (23)
-Tests  173 passed (173)
+Test Files  24 passed (24)
+Tests  177 passed (177)
 ```
 
 ```bash
@@ -94,6 +96,17 @@ cd apps/web && npm run lint && npm run build
 ```
 
 结果：ESLint 通过，Vite production build 通过。
+
+```bash
+cd apps/web && npm test -- DoctorView.test.tsx doctor-view-model.test.ts
+```
+
+结果：
+
+```text
+Test Files  2 passed (2)
+Tests  10 passed (10)
+```
 
 ```bash
 cd apps/web && npm test -- DoctorView.test.tsx

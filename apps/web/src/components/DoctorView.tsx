@@ -2,8 +2,8 @@ import { useMemo, memo } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, XCircle } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useConfig, useDoctor, useWorkspace } from "../hooks";
-import type { DoctorReportPayload, WorkspaceStatus } from "../types";
-import { visibleConfigIssues } from "../utils/configIssues";
+import type { DoctorStatus } from "./doctor-view-model";
+import { buildDoctorViewModel } from "./doctor-view-model";
 import EmptyState from "./ui/EmptyState";
 
 interface DoctorViewProps {
@@ -11,98 +11,7 @@ interface DoctorViewProps {
   configPath?: string;
 }
 
-interface CheckItem {
-  status: "ok" | "error" | "warn";
-  icon: string;
-  text: string;
-  fix?: string;
-}
-
-function parseReport(report: string): { overall: "ok" | "error" | "warn"; checks: CheckItem[] } {
-  const lines = report.split("\n");
-  const checks: CheckItem[] = [];
-  let overall: "ok" | "error" | "warn" = "ok";
-  let category = "";
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-
-    if (line.endsWith(":") && !line.includes("✓") && !line.includes("✗") && !line.includes("⚠")) {
-      category = line.replace(":", "").trim();
-      continue;
-    }
-
-    let status: "ok" | "error" | "warn";
-    let text: string;
-    let fix: string | undefined;
-
-    if (line.startsWith("✓")) {
-      status = "ok";
-      text = line.substring(1).trim();
-    } else if (line.startsWith("✗")) {
-      status = "error";
-      text = line.substring(1).trim();
-      overall = overall === "ok" ? "error" : overall;
-    } else if (line.startsWith("⚠")) {
-      status = "warn";
-      text = line.substring(1).trim();
-      overall = overall === "ok" ? "warn" : overall;
-    } else if (line.startsWith("→")) {
-      fix = line.substring(1).trim();
-      if (checks.length > 0) checks[checks.length - 1].fix = fix;
-      continue;
-    } else continue;
-
-    const iconMatch = text.match(/^([\w\s-]+):\s*(.+)$/);
-    const icon = iconMatch ? iconMatch[1].trim() : category;
-    const displayText = iconMatch ? iconMatch[2].trim() : text;
-    checks.push({ status, icon, text: displayText });
-  }
-
-  return { overall, checks };
-}
-
-function reportText(data: { report: string | DoctorReportPayload; text?: string } | undefined): string {
-  if (!data) return "";
-  if (typeof data.report === "string") return data.report;
-  return data.text ?? "";
-}
-
-function structuredReportChecks(data: { report: string | DoctorReportPayload; text?: string } | undefined): CheckItem[] {
-  if (!data || typeof data.report === "string" || data.text) return [];
-  return data.report.issues.map((issue) => ({
-    status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
-    icon: issue.target || issue.issue_type,
-    text: issue.message,
-    fix: typeof issue.context?.hint === "string" ? issue.context.hint : undefined,
-  }));
-}
-
-function countLabel(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  key: string,
-  count: number,
-): string {
-  return t(count === 1 ? key : `${key}_plural`, { count });
-}
-
-function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): {
-  changed: number;
-  missing: number;
-  untracked: number;
-  extra: number;
-} {
-  const summary = workspaceData?.runtime_sync?.summary;
-  return {
-    changed: summary?.changed || 0,
-    missing: summary?.missing || 0,
-    untracked: summary?.untracked || 0,
-    extra: summary?.extra || 0,
-  };
-}
-
-const StatusDot = memo(function StatusDot({ status }: { status: "ok" | "error" | "warn" }) {
+const StatusDot = memo(function StatusDot({ status }: { status: DoctorStatus }) {
   if (status === "ok")
     return <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />;
   if (status === "error")
@@ -110,11 +19,28 @@ const StatusDot = memo(function StatusDot({ status }: { status: "ok" | "error" |
   return <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0 mt-0.5" />;
 });
 
-const CHECK_STATUS_PRIORITY: Record<CheckItem["status"], number> = {
-  error: 0,
-  warn: 1,
-  ok: 2,
+const METRIC_STYLES = {
+  issue: {
+    icon: "text-[var(--danger)]",
+    active: "bg-[var(--danger-bg)]",
+  },
+  warning: {
+    icon: "text-[var(--warning)]",
+    active: "bg-[var(--warning-bg)]",
+  },
+  passed: {
+    icon: "text-[var(--success)]",
+    active: "success-bg",
+  },
 };
+
+function metricCardClass(active: boolean, activeClass: string): string {
+  return `rounded-md px-3 py-2 flex items-center gap-2 ${active ? activeClass : "bg-[var(--bg-hover)]/35"}`;
+}
+
+function metricIconClass(active: boolean, activeClass: string): string {
+  return `w-4 h-4 shrink-0 ${active ? activeClass : "text-tertiary"}`;
+}
 
 export default function DoctorView({ projectPath, configPath }: DoctorViewProps) {
   const { t } = useI18n();
@@ -123,39 +49,10 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
   const { data: configData } = useConfig(scope);
   const { data: workspaceData } = useWorkspace(scope, false);
 
-  const parsed = useMemo(() => {
-    const text = reportText(data);
-    return text ? parseReport(text) : null;
-  }, [data]);
-
-  const structuredChecks = useMemo(() => structuredReportChecks(data), [data]);
-
-  const productChecks = useMemo<CheckItem[]>(() => {
-    const checks: CheckItem[] = [];
-    const configIssues = visibleConfigIssues(configData?.issues);
-    for (const issue of configIssues) {
-      checks.push({
-        status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
-        icon: t("configuration"),
-        text: issue.message,
-      });
-    }
-
-    if (workspaceData?.status === "invalid_config") {
-      checks.push({
-        status: "error",
-        icon: t("workspaceProfileShort"),
-        text: workspaceData.error || t("errorLoading"),
-      });
-    }
-
-    const { changed, missing, untracked, extra } = actionableRuntimeDrift(workspaceData);
-    if (changed > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeChangedPending", { count: changed }) });
-    if (missing > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeMissingPending", { count: missing }) });
-    if (untracked > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeUntracked", { count: untracked }) });
-    if (extra > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeExtraPanes", { count: extra }) });
-    return checks;
-  }, [configData?.issues, t, workspaceData]);
+  const model = useMemo(
+    () => buildDoctorViewModel({ data, configIssues: configData?.issues, workspaceData, t }),
+    [configData?.issues, data, t, workspaceData],
+  );
 
   if (isLoading) {
     return (
@@ -202,18 +99,18 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
     );
   }
 
-  const checks = [...(parsed?.checks ?? []), ...structuredChecks, ...productChecks];
-  const issueCount = checks.filter((check) => check.status === "error").length;
-  const warningCount = checks.filter((check) => check.status === "warn").length;
-  const passedCount = checks.filter((check) => check.status === "ok").length;
-  const visibleChecks = [...checks].sort((a, b) => CHECK_STATUS_PRIORITY[a.status] - CHECK_STATUS_PRIORITY[b.status]);
-  const overall = issueCount > 0 ? "error" : warningCount > 0 ? "warn" : parsed?.overall ?? "ok";
-  const overallLabel =
-    overall === "ok"
-      ? t("checksPassed")
-      : overall === "warn"
-      ? t("checksWarnings")
-      : t("checksIssues");
+  const {
+    issueCount,
+    warningCount,
+    passedCount,
+    issueCountLabel,
+    warningCountLabel,
+    passedCountLabel,
+    visibleChecks,
+    overall,
+    overallLabel,
+    summaryText,
+  } = model;
   const overallColor =
     overall === "ok"
       ? "text-[var(--success)]"
@@ -226,13 +123,6 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
       : overall === "warn"
       ? "bg-[var(--warning-bg)] text-[var(--warning)]"
       : "danger-bg danger";
-
-  const summaryText =
-    issueCount > 0
-      ? t("checksActionNeeded")
-      : warningCount > 0
-      ? t("checksWarningsOnly")
-      : t("checksAllClear");
 
   return (
     <div className="page-shell space-y-4">
@@ -266,25 +156,25 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-            <XCircle className="w-4 h-4 text-[var(--danger)] shrink-0" />
+          <div className={metricCardClass(issueCount > 0, METRIC_STYLES.issue.active)}>
+            <XCircle className={metricIconClass(issueCount > 0, METRIC_STYLES.issue.icon)} />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksIssues")}</p>
-              <p className="text-[13px] font-semibold text-primary">{countLabel(t, "issueCount", issueCount)}</p>
+              <p className="text-[13px] font-semibold text-primary">{issueCountLabel}</p>
             </div>
           </div>
-          <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0" />
+          <div className={metricCardClass(warningCount > 0, METRIC_STYLES.warning.active)}>
+            <AlertTriangle className={metricIconClass(warningCount > 0, METRIC_STYLES.warning.icon)} />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksWarnings")}</p>
-              <p className="text-[13px] font-semibold text-primary">{countLabel(t, "warningCount", warningCount)}</p>
+              <p className="text-[13px] font-semibold text-primary">{warningCountLabel}</p>
             </div>
           </div>
-          <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0" />
+          <div className={metricCardClass(passedCount > 0, METRIC_STYLES.passed.active)}>
+            <CheckCircle2 className={metricIconClass(passedCount > 0, METRIC_STYLES.passed.icon)} />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksPassed")}</p>
-              <p className="text-[13px] font-semibold text-primary">{t("passedCount", { count: passedCount })}</p>
+              <p className="text-[13px] font-semibold text-primary">{passedCountLabel}</p>
             </div>
           </div>
         </div>
