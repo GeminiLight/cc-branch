@@ -706,6 +706,22 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_api_config_returns_json_for_invalid_yaml(self):
+        """Broken YAML should still produce a structured config payload."""
+        self.config_path.write_text("version: [\n", encoding="utf-8")
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/config", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertEqual(data["status"], "ready")
+            self.assertEqual(data["content"], "version: [\n")
+            self.assertEqual(data["issues"][0]["issue_type"], "invalid_yaml")
+            self.assertEqual(data["issues"][0]["severity"], "error")
+        finally:
+            self._stop_test_server(server)
+
     def test_api_save_config_rejects_stale_base_version(self):
         """Saving should not silently overwrite config changes made elsewhere."""
         from urllib.error import HTTPError

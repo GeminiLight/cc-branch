@@ -1326,6 +1326,19 @@ class ConfigWorkflowTests(unittest.TestCase):
             self.assertEqual(issues[0].target, "config")
             self.assertEqual(issues[1].target, "slot:dev")
 
+    def test_collect_config_issues_reports_yaml_parse_errors(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues("version: [\n", root / ".cc-branch/config.yaml")
+
+            self.assertEqual(len(issues), 1)
+            self.assertEqual(issues[0].issue_type, "invalid_yaml")
+            self.assertEqual(issues[0].severity, "error")
+            self.assertEqual(issues[0].target, "config")
+            self.assertIn("Invalid YAML", issues[0].message)
+
     def test_collect_config_issues_errors_for_invalid_enums(self):
         from cc_branch.application.config_validation import collect_config_issues
 

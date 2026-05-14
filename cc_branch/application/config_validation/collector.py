@@ -34,7 +34,17 @@ def collect_config_issues(content: str, path: Path) -> list[Issue]:
         ]
     if yaml is None:  # pragma: no cover
         return [Issue("missing_yaml_dependency", "error", "YAML support requires PyYAML", target="config")]
-    data = yaml.safe_load(content) or {}
+    try:
+        data = yaml.safe_load(content) or {}
+    except yaml.YAMLError as error:
+        return [
+            Issue(
+                "invalid_yaml",
+                "error",
+                f"Invalid YAML: {error}",
+                target="config",
+            )
+        ]
     if not isinstance(data, dict):
         return [Issue("invalid_config_shape", "error", "workspace config must deserialize to a mapping", target="config")]
 
