@@ -4,6 +4,7 @@ type Translate = (key: string, vars?: Record<string, string | number>) => string
 
 export interface DashboardRuntimeSummary {
   runningCount: number;
+  totalTabs: number;
   totalPanes: number;
   hasTmuxSlots: boolean;
   tmuxRuntimeUnavailable: boolean;
@@ -41,6 +42,24 @@ export function tabPaneCount(slot: SlotInfo): number {
   return Math.max(slot.windows.length, 1);
 }
 
+function tabGroupName(slot: SlotInfo): string {
+  return slot.split_group || slot.name;
+}
+
+export function workspaceTabCount(slots: SlotInfo[]): number {
+  return new Set(slots.map(tabGroupName)).size;
+}
+
+export function runningWorkspaceTabCount(slots: SlotInfo[]): number {
+  const runningTabs = new Set<string>();
+  for (const slot of slots) {
+    if (slot.status === "running") {
+      runningTabs.add(tabGroupName(slot));
+    }
+  }
+  return runningTabs.size;
+}
+
 export function workspaceCountLabel(t: Translate, tabs: number, panes: number): string {
   const tabLabel = t(tabs === 1 ? "tabCountOne" : "tabCount", { count: tabs });
   const paneLabel = t(panes === 1 ? "workspacePaneCountOne" : "workspacePaneCount", { count: panes });
@@ -57,9 +76,11 @@ export function buildDashboardRuntimeSummary(data: WorkspaceStatus): DashboardRu
   const syncCount = Math.max(driftCount, summaryActionCount);
   const hasTmuxSlots = data.slots.some((slot) => slot.runtime === "tmux");
   const tmuxRuntimeUnavailable = hasTmuxSlots && data.runtimes?.tmux?.available === false;
+  const totalTabs = workspaceTabCount(data.slots);
 
   return {
-    runningCount: data.slots.filter((slot) => slot.status === "running").length,
+    runningCount: runningWorkspaceTabCount(data.slots),
+    totalTabs,
     totalPanes: data.slots.reduce((count, slot) => count + tabPaneCount(slot), 0),
     hasTmuxSlots,
     tmuxRuntimeUnavailable,

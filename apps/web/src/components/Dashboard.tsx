@@ -721,6 +721,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
 
   const {
     runningCount,
+    totalTabs,
     totalPanes,
     tmuxRuntimeUnavailable,
     changedCount,
@@ -797,7 +798,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
               <div className="mt-2 grid grid-cols-3 gap-1.5 w-full max-w-[460px]">
                 <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceRunning")}</p>
-                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{runningCount}/{data.slots.length}</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{runningCount}/{totalTabs}</p>
                 </div>
                 <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceNeedsAction")}</p>
@@ -907,7 +908,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             </span>
           )}
         </div>
-        <span className="text-[11px] text-muted">{workspaceCountLabel(t, data.slots.length, totalPanes)}</span>
+        <span className="text-[11px] text-muted">{workspaceCountLabel(t, totalTabs, totalPanes)}</span>
       </div>
       {runtimeSyncNotices.length > 0 && (
         <div

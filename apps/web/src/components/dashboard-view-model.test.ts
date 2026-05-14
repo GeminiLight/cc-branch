@@ -5,6 +5,7 @@ import {
   buildDashboardRuntimeSummary,
   isActionableSyncStatus,
   tabPaneCount,
+  workspaceTabCount,
   workspaceCountLabel,
 } from "./dashboard-view-model";
 
@@ -51,6 +52,26 @@ describe("dashboard-view-model", () => {
 
   it("counts tmux tabs as one dashboard pane", () => {
     expect(tabPaneCount(terminalSlot({ runtime: "tmux", windows: [terminalSlot().windows[0], terminalSlot().windows[0]] }))).toBe(1);
+  });
+
+  it("counts internal split slots as one user-visible dashboard tab", () => {
+    const data = workspace([
+      terminalSlot({ name: "dev", runtime: "terminal", split_group: "dev", status: "running" }),
+      terminalSlot({ name: "dev-agents", runtime: "tmux", split_group: "dev", status: "running" }),
+      terminalSlot({ name: "docs", runtime: "terminal", split_group: "docs", status: "stopped" }),
+    ], {
+      changed: 0,
+      current: 0,
+      external: 0,
+      extra: 0,
+      missing: 0,
+      orphaned: 0,
+      untracked: 0,
+    });
+
+    expect(workspaceTabCount(data.slots)).toBe(2);
+    expect(buildDashboardRuntimeSummary(data).runningCount).toBe(1);
+    expect(buildDashboardRuntimeSummary(data).totalTabs).toBe(2);
   });
 
   it("formats dashboard workspace counts with natural singular labels", () => {

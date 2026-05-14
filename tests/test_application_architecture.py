@@ -518,6 +518,49 @@ class RuntimeBoundaryTests(unittest.TestCase):
             ("dev:ui", "npm run dev", "dev"),
         ])
 
+    def test_workspace_status_exposes_public_tab_split_groups(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "ui"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            command: "codex"
+                          - name: "review"
+                            command: "claude"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            status = build_workspace_status(
+                workspace,
+                plan,
+                state,
+                config_path=root / ".cc-branch/config.yaml",
+                state_path=root / ".cc-branch/state.yaml",
+                session_exists=lambda _session: False,
+                window_exists=lambda _session, _window: False,
+            )
+
+        self.assertEqual([(slot["name"], slot["runtime"], slot.get("split_group")) for slot in status["slots"]], [
+            ("dev", "terminal", "dev"),
+            ("dev-agents", "tmux", "dev"),
+        ])
+
     def _write(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")

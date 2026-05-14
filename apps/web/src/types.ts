@@ -32,6 +32,7 @@ export interface SlotInfo {
   name: string;
   runtime: string;
   layout?: string;
+  split_group?: string | null;
   status: "running" | "stopped" | "external";
   session_name: string;
   windows: WindowInfo[];

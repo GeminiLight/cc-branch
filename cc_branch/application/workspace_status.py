@@ -135,6 +135,7 @@ def build_workspace_status(
                 "name": slot.name,
                 "runtime": slot.runtime,
                 "layout": slot.layout,
+                "split_group": slot.split_group,
                 "session_name": slot.tmux_session,
                 "status": slot_status,
                 "windows": windows,
