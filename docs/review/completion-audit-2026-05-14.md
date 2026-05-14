@@ -31,6 +31,7 @@
 | 优化 Doctor 阅读顺序和产品语义 | `apps/web/src/components/DoctorView.tsx`、`apps/web/src/i18n/index.tsx`、`DoctorView.test.tsx` | 已推进：标题从 Health Check 收敛为 Workspace diagnosis，详细列表改为问题/警告优先，避免用户先读到通过项再看到待处理问题。 |
 | 拆分 Doctor view model | `apps/web/src/components/doctor-view-model.ts`、`doctor-view-model.test.ts`、`DoctorView.tsx` | 已推进：文本 report 解析、结构化 issue 映射、配置 issue 过滤、runtime drift 汇总、整体健康态和计数文案从 React 组件抽成纯 view model，并补单元测试。 |
 | 降低 Doctor 空状态视觉噪音 | `apps/web/src/components/DoctorView.tsx` | 已优化：摘要卡片只有在对应数量大于 0 时使用错误/警告/通过强调色；0 项状态用中性图标和弱背景，减少误导。 |
+| 清理 Doctor 通过项提示噪音 | `apps/web/src/components/doctor-view-model.ts`、`doctor-view-model.test.ts`、截图 `tmp/review-pass/doctor-view-2026-05-14-after.png` | 已修复：结构化 info 级 doctor issue 和文本 report 的通过项即使携带 hint，也不再显示“修复提示”。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |
@@ -88,7 +89,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  24 passed (24)
-Tests  177 passed (177)
+Tests  179 passed (179)
 ```
 
 ```bash
@@ -105,7 +106,19 @@ cd apps/web && npm test -- DoctorView.test.tsx doctor-view-model.test.ts
 
 ```text
 Test Files  2 passed (2)
-Tests  10 passed (10)
+Tests  12 passed (12)
+```
+
+```bash
+/Users/geminilight/opt/anaconda3/bin/python - <<'PY'
+# Playwright smoke: open Doctor tab and assert passing checks do not show "Check your configuration" remediation hints.
+PY
+```
+
+结果：
+
+```text
+screenshot tmp/review-pass/doctor-view-2026-05-14-after.png
 ```
 
 ```bash

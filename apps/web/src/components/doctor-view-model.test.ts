@@ -38,6 +38,12 @@ describe("doctor-view-model", () => {
     ]);
   });
 
+  it("does not attach text-report remediation hints to passing checks", () => {
+    const parsed = parseReport(["doctor: demo", "✓ tmux ok", "→ Check your configuration"].join("\n"));
+
+    expect(parsed.checks).toEqual([{ status: "ok", icon: "", text: "tmux ok" }]);
+  });
+
   it("lets configuration issues and runtime drift drive the overall diagnosis", () => {
     const data: DoctorReport = {
       report: "Workspace:\n✓ config: found\n",
@@ -141,6 +147,33 @@ describe("doctor-view-model", () => {
       icon: "tmux",
       text: "tmux is missing",
       fix: "brew install tmux",
+    });
+  });
+
+  it("does not render remediation hints for passing structured checks", () => {
+    const data: DoctorReport = {
+      report: {
+        project: "demo",
+        issues: [
+          {
+            issue_type: "agent_ok",
+            severity: "info",
+            message: "codex: ok",
+            target: "agent:codex",
+            context: { hint: "Check your configuration" },
+            fixable: false,
+          },
+        ],
+      },
+    };
+
+    const model = buildDoctorViewModel({ data, configIssues: undefined, workspaceData: undefined, t });
+
+    expect(model.visibleChecks[0]).toMatchObject({
+      status: "ok",
+      icon: "agent:codex",
+      text: "codex: ok",
+      fix: undefined,
     });
   });
 });

@@ -71,7 +71,7 @@ export function parseReport(report: string): { overall: DoctorStatus; checks: Ch
       overall = overall === "ok" ? "warn" : overall;
     } else if (line.startsWith("→")) {
       fix = line.substring(1).trim();
-      if (checks.length > 0) checks[checks.length - 1].fix = fix;
+      if (checks.length > 0 && checks[checks.length - 1].status !== "ok") checks[checks.length - 1].fix = fix;
       continue;
     } else continue;
 
@@ -96,7 +96,10 @@ function structuredReportChecks(data: DoctorReport | undefined): CheckItem[] {
     status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
     icon: issue.target || issue.issue_type,
     text: issue.message,
-    fix: typeof issue.context?.hint === "string" ? issue.context.hint : undefined,
+    fix:
+      issue.severity !== "info" && typeof issue.context?.hint === "string"
+        ? issue.context.hint
+        : undefined,
   }));
 }
 
