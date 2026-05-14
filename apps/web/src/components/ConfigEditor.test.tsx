@@ -195,6 +195,36 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByText('Generated YAML')).not.toBeInTheDocument()
   }, 10000)
 
+  it('keeps invalid YAML in YAML mode instead of replacing the form with defaults', async () => {
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'YAML' }))
+    fireEvent.change(screen.getByLabelText('Configuration editor'), {
+      target: { value: 'version: [\n' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Form' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Configuration editor')).toBeInTheDocument()
+    })
+    expect(screen.queryByDisplayValue('my-project')).not.toBeInTheDocument()
+  })
+
+  it('validates YAML synchronously before saving', async () => {
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'YAML' }))
+    fireEvent.change(screen.getByLabelText('Configuration editor'), {
+      target: { value: 'version: [\n' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(mocks.saveConfig).not.toHaveBeenCalled()
+      expect(screen.getByLabelText('Configuration editor')).toBeInTheDocument()
+    })
+  })
+
   it('does not repeat form sections as summary tags', () => {
     renderConfigEditor()
 

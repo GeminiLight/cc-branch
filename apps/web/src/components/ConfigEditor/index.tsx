@@ -52,6 +52,10 @@ function issueTone(issues: ConfigIssue[]): IssueTone {
   return "info";
 }
 
+function yamlErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function ConfigEditor({
   projectPath,
   configPath,
@@ -217,12 +221,14 @@ export default function ConfigEditor({
         setYamlError(null);
       } else {
         try {
+          YAML.load(yamlContent);
           const parsed = parseConfigYaml(yamlContent);
           setFormData(parsed);
           setFormErrors(validateConfigForm(parsed, t));
           setYamlError(null);
-        } catch {
-          // Keep current form data if YAML is invalid
+        } catch (e: unknown) {
+          setYamlError(yamlErrorMessage(e));
+          return;
         }
       }
       setMode(newMode);
@@ -249,6 +255,16 @@ export default function ConfigEditor({
     if (formErrors.length > 0 && mode === "form") {
       toast.error(formErrors[0]);
       return;
+    }
+    if (mode === "yaml") {
+      try {
+        YAML.load(contentToSave);
+      } catch (e: unknown) {
+        const message = yamlErrorMessage(e);
+        setYamlError(message);
+        toast.error(message);
+        return;
+      }
     }
     try {
       const result = await saveMutation.mutateAsync({
