@@ -18,6 +18,17 @@ import { useToast } from "./ui/Toast";
 import { useAgents, useProfiles, useSaveConfig } from "../hooks";
 import type { Profile } from "../types";
 import Dropdown from "./ui/Dropdown";
+import {
+  cloneTemplate,
+  defaultProfileId,
+  profileOrder,
+  projectNameFromPath,
+  selectedAgentForPane,
+  templateSpecs,
+  templateStats,
+  yamlForTemplate,
+  type TemplateSpec,
+} from "./config-wizard-model";
 
 interface ConfigWizardProps {
   projectPath?: string;
@@ -28,23 +39,6 @@ interface ConfigWizardProps {
 }
 
 type Step = "select" | "done";
-
-interface PreviewPane {
-  name: string;
-  preferredAgents: string[];
-  agent?: string;
-}
-
-interface PreviewTab {
-  name: string;
-  layoutBackend: "tmux" | "direct";
-  panes: PreviewPane[];
-}
-
-interface TemplateSpec {
-  id: string;
-  tabs: PreviewTab[];
-}
 
 const profileIcons: Record<string, React.ReactNode> = {
   development: <Code2 className="w-4 h-4" />,
@@ -64,114 +58,11 @@ const profileDescriptionKeys: Record<string, string> = {
   minimal: "profileMinimalDesc",
 };
 
-const templateSpecs: Record<string, TemplateSpec> = {
-  development: {
-    id: "development",
-    tabs: [
-      {
-        name: "development",
-        layoutBackend: "tmux",
-        panes: [
-          { name: "frontend", preferredAgents: ["codex", "claude", "gemini"] },
-          { name: "backend", preferredAgents: ["codex", "gemini", "claude"] },
-          { name: "algorithm", preferredAgents: ["gemini", "codex", "claude"] },
-          { name: "docs", preferredAgents: ["claude", "gemini", "codex"] },
-        ],
-      },
-    ],
-  },
-  design: {
-    id: "design",
-    tabs: [
-      {
-        name: "product",
-        layoutBackend: "tmux",
-        panes: [
-          { name: "discussion", preferredAgents: ["claude", "gemini", "codex"] },
-          { name: "implementation", preferredAgents: ["codex", "claude", "gemini"] },
-        ],
-      },
-      {
-        name: "design",
-        layoutBackend: "tmux",
-        panes: [
-          { name: "directions", preferredAgents: ["claude", "gemini", "codex"] },
-          { name: "review", preferredAgents: ["claude", "codex", "gemini"] },
-        ],
-      },
-    ],
-  },
-  minimal: {
-    id: "minimal",
-    tabs: [
-      {
-        name: "main",
-        layoutBackend: "tmux",
-        panes: [
-          { name: "agent", preferredAgents: ["codex", "claude", "gemini"] },
-        ],
-      },
-    ],
-  },
-};
-
-const profileOrder = ["development", "design", "minimal"] as const;
-const defaultProfileId = "development";
 const fallbackProfiles: Profile[] = [
   { id: "development", description: "" },
   { id: "design", description: "" },
   { id: "minimal", description: "" },
 ];
-
-function projectNameFromPath(projectPath?: string): string {
-  return projectPath?.split(/[\\/]/).filter(Boolean).pop() || "workspace";
-}
-
-function agentForPane(pane: PreviewPane, availableAgents: string[]): string {
-  return pane.preferredAgents.find((agent) => availableAgents.includes(agent)) || pane.preferredAgents[0] || "shell";
-}
-
-function selectedAgentForPane(pane: PreviewPane, availableAgents: string[]): string {
-  return pane.agent || agentForPane(pane, availableAgents);
-}
-
-function yamlForTemplate(spec: TemplateSpec, projectName: string, availableAgents: string[]): string {
-  const lines = [
-    "version: 2",
-    `project: "${projectName}"`,
-    'root: "."',
-    'openWith: "auto-terminal"',
-    "",
-    "display:",
-    '  mode: "grid"',
-    "  columns: 2",
-    "  dashboard: true",
-    "",
-    "tabs:",
-  ];
-
-  for (const tab of spec.tabs) {
-    lines.push(`  - name: "${tab.name}"`);
-    if (tab.layoutBackend === "tmux") {
-      lines.push('    layoutBackend: "tmux"');
-    }
-    lines.push('    cwd: "."');
-    lines.push("    panes:");
-
-    if (tab.layoutBackend === "direct") {
-      lines.push(`      - name: "${tab.name}"`);
-      lines.push('        command: "$SHELL"');
-      continue;
-    }
-
-    for (const pane of tab.panes) {
-      lines.push(`      - name: "${pane.name}"`);
-      lines.push(`        agent: "${selectedAgentForPane(pane, availableAgents)}"`);
-    }
-  }
-
-  return lines.join("\n");
-}
 
 function WorkspacePreview({
   spec,
@@ -276,28 +167,6 @@ function WorkspacePreview({
       })}
     </div>
   );
-}
-
-function templateStats(spec: TemplateSpec): { tabs: number; panes: number; tmuxTabs: number; directTabs: number } {
-  return spec.tabs.reduce(
-    (stats, tab) => ({
-      tabs: stats.tabs + 1,
-      panes: stats.panes + (tab.layoutBackend === "direct" ? 1 : Math.max(tab.panes.length, 1)),
-      tmuxTabs: stats.tmuxTabs + (tab.layoutBackend === "tmux" ? 1 : 0),
-      directTabs: stats.directTabs + (tab.layoutBackend === "direct" ? 1 : 0),
-    }),
-    { tabs: 0, panes: 0, tmuxTabs: 0, directTabs: 0 }
-  );
-}
-
-function cloneTemplate(spec: TemplateSpec): TemplateSpec {
-  return {
-    id: spec.id,
-    tabs: spec.tabs.map((tab) => ({
-      ...tab,
-      panes: tab.panes.map((pane) => ({ ...pane, preferredAgents: [...pane.preferredAgents] })),
-    })),
-  };
 }
 
 export default function ConfigWizard({ projectPath, configPath, isOpen, onClose, onCreated }: ConfigWizardProps) {

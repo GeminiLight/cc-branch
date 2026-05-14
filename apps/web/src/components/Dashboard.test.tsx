@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
+import YAML from 'js-yaml'
 import Dashboard from './Dashboard'
 import { I18nProvider } from '../i18n'
 import { ToastProvider } from './ui/Toast'
@@ -899,9 +900,10 @@ describe('Dashboard actions', () => {
       expect(mocks.saveConfigMutateAsync).toHaveBeenCalled()
     })
     const saved = mocks.saveConfigMutateAsync.mock.calls[0][0]
-    expect(saved.content).toContain('name: "main"')
-    expect(saved.content).toContain('name: "agent"')
-    expect(saved.content).not.toContain('name: "directions"')
+    const savedYaml = YAML.load(saved.content) as { tabs?: Array<{ name?: string; panes?: Array<{ name?: string }> }> }
+    expect(savedYaml.tabs?.[0]?.name).toBe('main')
+    expect(savedYaml.tabs?.[0]?.panes?.[0]?.name).toBe('agent')
+    expect(saved.content).not.toContain('directions')
     expect(saved.scope).toEqual({
       projectPath: '/tmp/demo',
       configPath: undefined,
