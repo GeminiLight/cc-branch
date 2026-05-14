@@ -69,31 +69,20 @@ export default function WorkspaceCanvas({
         <Terminal className="w-5 h-5 text-tertiary mx-auto mb-1.5" />
         <p className="text-[12px] text-secondary">{t("noTabsYet")}</p>
         <p className="text-[11px] text-tertiary mt-0.5">{t("addTabHint")}</p>
+        <button
+          type="button"
+          onClick={onAddTab}
+          className="mt-3 control-touch px-3 rounded-md text-[12px] font-medium surface-card border border-default hover:border-[var(--border-strong)] text-secondary hover:text-primary transition-colors inline-flex items-center gap-1.5"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {t("addTab")}
+        </button>
       </div>
     );
   }
 
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-default bg-[var(--bg-elevated)]">
-      <div className="px-3 py-2.5 border-b border-subtle flex items-center justify-between gap-3 bg-[var(--bg-card)]">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-primary">{t("workspaceTabs")}</p>
-          <p className="text-[11px] text-tertiary truncate">
-            {t("configSlotSummary", {
-              slots: slots.length,
-              windows: slots.reduce((count, slot) => count + paneCount(slot), 0),
-            })}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onAddTab}
-          className="control-touch px-3 rounded-md text-[12px] font-medium surface-card border border-default hover:border-[var(--border-strong)] text-secondary hover:text-primary transition-colors flex items-center gap-1.5 shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {t("addTab")}
-        </button>
-      </div>
       <div className="workspace-matrix-surface relative p-3 min-h-[300px]">
         <div
           className="absolute inset-0 opacity-[0.10] pointer-events-none"

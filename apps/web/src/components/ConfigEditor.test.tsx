@@ -108,11 +108,12 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByText('Invalid runtime: docker')).toBeInTheDocument()
   })
 
-  it('keeps the workspace canvas header compact without duplicate summary tiles', () => {
+  it('keeps the workspace canvas chrome compact without duplicate summary rows', () => {
     renderConfigEditor()
 
     expect(screen.getAllByText('Space canvas')).toHaveLength(1)
-    expect(screen.getByText('Tabs')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Add tab' })).toHaveLength(1)
+    expect(screen.queryByText('Tabs: 1 / panes: 1')).not.toBeInTheDocument()
     expect(screen.queryByText('Workspace layout')).not.toBeInTheDocument()
   })
 
@@ -498,7 +499,7 @@ describe('ConfigEditor diagnostics', () => {
     expect(group).toBeInTheDocument()
     expect(group).toHaveAttribute('draggable', 'true')
     expect(screen.getByText('Tmux group')).toBeInTheDocument()
-    expect(screen.getAllByText('Tabs: 1 / panes: 1').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Tabs: 1 / panes: 1')).not.toBeInTheDocument()
     expect(screen.getAllByText('3 tmux windows')).not.toHaveLength(0)
     expect(screen.getByText('main')).toBeInTheDocument()
     expect(screen.getByText('worker')).toBeInTheDocument()
