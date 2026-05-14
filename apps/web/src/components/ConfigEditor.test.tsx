@@ -737,6 +737,46 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByRole('button', { name: 'Edit pane terminal' })).toBeInTheDocument()
   })
 
+  it('moves an implicit terminal pane to another tab from the inspector', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: shell',
+          '    command: zsh',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane shell' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
+    fireEvent.click(screen.getByRole('option', { name: /dev/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+
+    await waitFor(() => {
+      const paneLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^Edit pane /)))
+
+      expect(paneLabels).toEqual(['Edit pane ui', 'Edit pane shell'])
+      expect(screen.queryByRole('button', { name: 'Edit tab shell' })).not.toBeInTheDocument()
+    })
+  })
+
   it('reorders terminal panes inside the same tab by dragging on the workspace matrix', async () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {

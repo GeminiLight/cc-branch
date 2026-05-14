@@ -124,7 +124,15 @@ export default function SlotsSection({
   }, [moveTarget, moveTargetOptions]);
 
   const selectedMoveTargetIndex = moveTarget === "" ? -1 : Number(moveTarget);
-  const selectedMovablePane = normalizedSelection.target === "pane" && Boolean(selectedWindow || selectedTmuxGroup);
+  const selectedImplicitTerminalPane = Boolean(
+    selectedSlot &&
+    normalizedSelection.target === "pane" &&
+    selectedSlot.runtime === "terminal" &&
+    selectedSlot.windows.length === 0
+  );
+  const selectedMovablePane = normalizedSelection.target === "pane" && Boolean(
+    selectedWindow || selectedTmuxGroup || selectedImplicitTerminalPane
+  );
   const canMovePaneToSelectedTab = Boolean(
     selectedMovablePane &&
     selectedMoveTargetIndex >= 0 &&
