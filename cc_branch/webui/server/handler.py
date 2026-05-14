@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -346,24 +346,3 @@ class WebUIHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self._set_cors()
         self.end_headers()
-def start_server(
-    config_path: Path,
-    state_path: Path,
-    host: str = "127.0.0.1",
-    port: int = 8080,
-    token: str | None = None,
-) -> None:
-    """Start the web UI server."""
-    from functools import partial
-    handler = partial(WebUIHandler, config_path, state_path, token=token)
-    server = HTTPServer((host, port), handler)
-    print(f"Starting cc-branch Web UI at http://{host}:{port}")
-    if token:
-        print("Authentication enabled (token required for Web UI and API access)")
-        print(f"Open once with: http://{host}:{port}/?token={token}")
-    print("Press Ctrl+C to stop")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopping server...")
-        server.shutdown()
