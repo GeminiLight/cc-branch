@@ -431,8 +431,8 @@ class OpenerTests(unittest.TestCase):
 
             self.assertEqual(list(workspace_dir.glob("*.code-workspace")), [])
 
-    def test_vscode_workspace_open_preserves_existing_user_tasks(self):
-        """Existing user-owned .vscode/tasks.json must never be overwritten."""
+    def test_vscode_workspace_open_merges_existing_user_tasks(self):
+        """Existing user-owned .vscode/tasks.json should keep user tasks and run cc-branch tasks."""
         import tempfile
 
         from cc_branch.openers import open_workspace_file
@@ -456,6 +456,79 @@ class OpenerTests(unittest.TestCase):
                 )
 
             self.assertEqual(popen.call_args.args[0], ["/usr/local/bin/code", "-n", str(root.resolve())])
+            payload = json.loads(user_tasks.read_text(encoding="utf-8"))
+            self.assertEqual([task["label"] for task in payload["tasks"]], ["user task", "cc-branch: dev"])
+            self.assertEqual(payload["tasks"][0]["command"], "echo user")
+            self.assertEqual(payload["tasks"][1]["command"], "cc-branch attach dev")
+            self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
+
+    def test_vscode_workspace_open_replaces_previous_generated_tasks_in_user_tasks(self):
+        """Regenerating project tasks should not duplicate old cc-branch task entries."""
+        import tempfile
+
+        from cc_branch.openers import open_workspace_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            user_tasks = root / ".vscode" / "tasks.json"
+            user_tasks.parent.mkdir()
+            user_tasks.write_text(
+                json.dumps(
+                    {
+                        "version": "2.0.0",
+                        "tasks": [
+                            {"label": "user task", "type": "shell", "command": "echo user"},
+                            {"label": "cc-branch: old", "type": "shell", "command": "old"},
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors._popen"),
+            ):
+                open_workspace_file(
+                    "vscode",
+                    cwd=root,
+                    commands=[
+                        OpenCommandSpec("dev:ui", root, "npm run dev"),
+                        OpenCommandSpec("dev:api", root, "python api.py"),
+                    ],
+                )
+
+            payload = json.loads(user_tasks.read_text(encoding="utf-8"))
+            self.assertEqual([task["label"] for task in payload["tasks"]], [
+                "user task",
+                "cc-branch: dev:ui",
+                "cc-branch: dev:api",
+            ])
+
+    def test_vscode_workspace_open_leaves_unparseable_user_tasks_untouched(self):
+        """JSONC or broken user tasks are left untouched instead of being rewritten."""
+        import tempfile
+
+        from cc_branch.openers import open_workspace_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            user_tasks = root / ".vscode" / "tasks.json"
+            user_tasks.parent.mkdir()
+            user_content = '{\n  // user comment\n  "version": "2.0.0",\n  "tasks": []\n}\n'
+            user_tasks.write_text(user_content, encoding="utf-8")
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors._popen"),
+            ):
+                open_workspace_file(
+                    "vscode",
+                    cwd=root,
+                    commands=[
+                        OpenCommandSpec("dev", root, "cc-branch attach dev"),
+                    ],
+                )
+
             self.assertEqual(user_tasks.read_text(encoding="utf-8"), user_content)
             self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
 

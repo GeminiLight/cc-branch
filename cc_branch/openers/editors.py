@@ -116,6 +116,7 @@ class EditorWorkspaceOpener:
         bridge = cwd / ".vscode" / "tasks.json"
         if bridge.exists() or bridge.is_symlink():
             if not self.is_cc_branch_tasks_bridge(bridge, sidecar):
+                self.merge_project_tasks_bridge(bridge, commands)
                 return
             bridge.unlink()
         bridge.parent.mkdir(parents=True, exist_ok=True)
@@ -147,6 +148,37 @@ class EditorWorkspaceOpener:
         if not isinstance(tasks, list) or not tasks:
             return False
         return all(isinstance(task, dict) and str(task.get("label", "")).startswith("cc-branch: ") for task in tasks)
+
+    def merge_project_tasks_bridge(self, bridge: Path, commands: list[OpenCommandSpec]) -> bool:
+        """Append generated cc-branch tasks to an existing user-owned tasks.json."""
+        try:
+            payload = json.loads(bridge.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(payload, dict):
+            return False
+        existing_tasks = payload.get("tasks")
+        if existing_tasks is None:
+            existing_tasks = []
+        if not isinstance(existing_tasks, list):
+            return False
+
+        generated_tasks = self.tasks_payload(commands)["tasks"]
+        preserved_tasks = [
+            task
+            for task in existing_tasks
+            if not (isinstance(task, dict) and str(task.get("label", "")).startswith("cc-branch: "))
+        ]
+        next_payload = {
+            **payload,
+            "version": str(payload.get("version") or "2.0.0"),
+            "tasks": [*preserved_tasks, *generated_tasks],
+        }
+        try:
+            bridge.write_text(json.dumps(next_payload, indent=2) + "\n", encoding="utf-8")
+        except OSError:
+            return False
+        return True
 
     def open_workspace_file(self, opener_id: str, info: OpenerInfo, workspace_file: Path) -> None:
         executable = info.executable
