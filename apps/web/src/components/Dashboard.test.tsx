@@ -214,6 +214,55 @@ describe('Dashboard actions', () => {
     expect(screen.queryByRole('heading', { name: 'Tab 1' })).not.toBeInTheDocument()
   })
 
+  it('groups split slots under one user-visible dashboard tab', () => {
+    const result = readyWorkspaceResult()
+    const splitSlots = [
+      {
+        name: 'dev',
+        split_group: 'dev',
+        runtime: 'terminal',
+        status: 'running',
+        session_name: 'demo-dev',
+        windows: [
+          {
+            name: 'ui',
+            agent: 'codex',
+            command: 'npm run dev',
+            session_id: '',
+            label: 'demo/dev/ui',
+            cwd: '/tmp/demo',
+          },
+        ],
+      },
+      {
+        name: 'dev-agents',
+        split_group: 'dev',
+        runtime: 'tmux',
+        status: 'running',
+        session_name: 'demo-dev-agents',
+        windows: [
+          {
+            name: 'planner',
+            agent: 'codex',
+            command: 'codex',
+            session_id: '',
+            label: 'demo/dev/planner',
+            cwd: '/tmp/demo',
+          },
+        ],
+      },
+    ]
+    result.data.slots = splitSlots
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    const tabGroup = screen.getByRole('group', { name: 'Tab dev' })
+    expect(within(tabGroup).getByRole('heading', { name: 'dev' })).toBeInTheDocument()
+    expect(within(tabGroup).getByRole('heading', { name: 'Terminal' })).toBeInTheDocument()
+    expect(within(tabGroup).getByRole('heading', { name: 'agents' })).toBeInTheDocument()
+  })
+
   it('opens the project directory with the system file manager', async () => {
     renderDashboard()
 

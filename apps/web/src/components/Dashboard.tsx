@@ -32,6 +32,7 @@ import {
   tabPaneCount,
   workspaceCountLabel,
 } from "./dashboard-view-model";
+import { workspaceTabGroups } from "./workspace-status-view-model";
 
 interface DashboardProps {
   api?: unknown;
@@ -229,6 +230,8 @@ function shortSessionId(sessionId: string): string {
 const SlotCard = memo(function SlotCard({
   slot,
   index,
+  displayLabel,
+  displayName,
   onRunAction,
   onSyncTarget,
   onEditTarget,
@@ -238,6 +241,8 @@ const SlotCard = memo(function SlotCard({
 }: {
   slot: SlotInfo;
   index: number;
+  displayLabel?: string;
+  displayName?: string;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
   onSyncTarget: (target: string) => void;
   onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
@@ -253,7 +258,7 @@ const SlotCard = memo(function SlotCard({
   const paneActionClassName = "icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50";
   const primaryWindow = slot.windows[0];
   const paneCount = tabPaneCount(slot);
-  const tabName = slot.name || tabDisplayName(t, index);
+  const tabName = displayName || slot.name || tabDisplayName(t, index);
   const terminalPanes = slot.windows.length > 0 ? slot.windows : [];
   const hasMultipleTerminalPanes = slot.runtime === "terminal" && terminalPanes.length > 1;
   const internalWindowCount = slot.runtime === "tmux" ? slot.windows.length : 0;
@@ -281,7 +286,7 @@ const SlotCard = memo(function SlotCard({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-tertiary">
-                {t("tabLabel")}
+                {displayLabel || t("tabLabel")}
               </span>
               <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">
                 {tabName}
@@ -507,6 +512,17 @@ const SlotCard = memo(function SlotCard({
     </div>
   );
 });
+
+function groupedSlotDisplayName(t: (key: string) => string, slot: SlotInfo, groupName: string): string {
+  if (slot.name === groupName) {
+    return slot.runtime === "terminal" ? t("terminalLabel") : t("tmuxPane");
+  }
+  const prefix = `${groupName}-`;
+  if (slot.name.startsWith(prefix)) {
+    return slot.name.slice(prefix.length) || slot.name;
+  }
+  return slot.name;
+}
 
 function DashboardLoading() {
   return (
@@ -774,6 +790,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
       description: t("syncTargetConfirmDescription", { target }),
     });
   };
+  const tabGroups = workspaceTabGroups(data.slots);
 
   const runProjectOpen = () => {
     if (!projectDirectoryOpener || !openerSupports(projectDirectoryOpener, "open_project")) return;
@@ -931,20 +948,63 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
           </div>
         </div>
       )}
-      {data.slots.map((slot, i) => (
-        <div key={slot.name} className="animate-stagger" style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}>
-          <SlotCard
-            slot={slot}
-            index={i}
-            onRunAction={runAction}
-            onEditTarget={onEditTarget}
-            busy={actionMutation.isPending}
-            openerId={selectedOpener.id}
-            onSyncTarget={requestSync}
-            tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
-          />
-        </div>
-      ))}
+      {tabGroups.map((group, i) => {
+        const isSplitGroup = group.slots.length > 1;
+        if (!isSplitGroup) {
+          const slot = group.slots[0];
+          return (
+            <div key={group.name} className="animate-stagger" style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}>
+              <SlotCard
+                slot={slot}
+                index={i}
+                onRunAction={runAction}
+                onEditTarget={onEditTarget}
+                busy={actionMutation.isPending}
+                openerId={selectedOpener.id}
+                onSyncTarget={requestSync}
+                tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={group.name}
+            role="group"
+            aria-label={`${t("tabLabel")} ${group.name}`}
+            className="animate-stagger rounded-lg border-l-2 border-[var(--accent-border)] pl-3 py-1 space-y-2"
+            style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="rounded bg-[var(--accent-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--accent)]">
+                  {t("tabLabel")}
+                </span>
+                <h3 className="text-[14px] font-semibold text-primary leading-tight truncate">{group.name}</h3>
+              </div>
+              <span className="text-[11px] text-muted">{paneCountLabel(t, group.paneCount)}</span>
+            </div>
+            <div className="space-y-2">
+              {group.slots.map((slot, slotIndex) => (
+                <SlotCard
+                  key={slot.name}
+                  slot={slot}
+                  index={slotIndex}
+                  displayLabel={t("pane")}
+                  displayName={groupedSlotDisplayName(t, slot, group.name)}
+                  onRunAction={runAction}
+                  onEditTarget={onEditTarget}
+                  busy={actionMutation.isPending}
+                  openerId={selectedOpener.id}
+                  onSyncTarget={requestSync}
+                  tmuxRuntimeUnavailable={tmuxRuntimeUnavailable}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       {/* Stop Modal */}
       <Modal
