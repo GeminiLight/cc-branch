@@ -35,6 +35,32 @@ describe("HTTPClient workspace scope", () => {
     await expect(new HTTPClient().getStatus()).rejects.toThrow("HTTP 502");
   });
 
+  it("does not expose browser JSON parser errors from response mocks", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new HTTPClient().getStatus()).rejects.toThrow("Invalid JSON response from API (200)");
+  });
+
+  it("keeps HTTP status errors when a json-only error response has an empty body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new HTTPClient().getStatus()).rejects.toThrow("HTTP 502");
+  });
+
   it("normalizes missing workspace arrays from older status payloads", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

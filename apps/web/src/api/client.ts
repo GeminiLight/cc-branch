@@ -113,7 +113,12 @@ type JsonResponse = Record<string, any>;
 
 async function readJsonResponse(res: Response): Promise<JsonResponse> {
   if (typeof res.text !== "function" && typeof res.json === "function") {
-    return await res.json() as JsonResponse;
+    try {
+      return await res.json() as JsonResponse;
+    } catch {
+      if (!res.ok || res.status === 204) return {};
+      throw new Error(`Invalid JSON response from API (${res.status})`);
+    }
   }
   const text = await res.text();
   if (!text.trim()) return {};
