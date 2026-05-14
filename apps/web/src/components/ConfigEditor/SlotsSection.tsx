@@ -387,7 +387,9 @@ export default function SlotsSection({
                     <section className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("pane")}</p>
-                        <span className="text-[10px] text-tertiary">{runtimeLabel(t, selectedSlot.runtime)}</span>
+                        <span className="text-[10px] text-tertiary">
+                          {selectedTmuxGroup ? t("runtimeTmux") : runtimeLabel(t, selectedSlot.runtime)}
+                        </span>
                       </div>
                       {selectedSlot.runtime === "terminal" && !selectedTmuxGroup ? (
                         <TerminalPaneEditor

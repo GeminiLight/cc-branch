@@ -753,7 +753,7 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('tmux is not available on this machine. Tmux-managed panes cannot start here.')).toBeInTheDocument()
+    expect(screen.getByText('tmux is not available on this machine. Tmux groups cannot start here.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sync runtime' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start in background' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument()
