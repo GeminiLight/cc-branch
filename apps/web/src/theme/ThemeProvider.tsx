@@ -24,9 +24,34 @@ const ThemeContext = createContext<ThemeCtx>({
 });
 
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+  const stored = readStoredTheme();
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return systemPrefersDark() ? "dark" : "light";
+}
+
+function readStoredTheme(): Theme | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    return stored === "light" || stored === "dark" ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistTheme(theme: Theme) {
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // Storage can be unavailable in private or embedded browser contexts.
+  }
+}
+
+function systemPrefersDark(): boolean {
+  try {
+    return Boolean(window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  } catch {
+    return false;
+  }
 }
 
 function applyTheme(theme: Theme) {
@@ -44,26 +69,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for system theme changes
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => {
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq) return;
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
       // Only auto-switch if user hasn't explicitly set a preference
-      if (!localStorage.getItem(STORAGE_KEY)) {
+      if (!readStoredTheme()) {
         setThemeState(e.matches ? "dark" : "light");
       }
     };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+    if (typeof mq.addListener === "function") {
+      mq.addListener(handler);
+      return () => mq.removeListener?.(handler);
+    }
   }, []);
 
   const setTheme = useCallback((t: Theme) => {
-    localStorage.setItem(STORAGE_KEY, t);
+    persistTheme(t);
     setThemeState(t);
   }, []);
 
   const toggle = useCallback(() => {
     setThemeState((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      localStorage.setItem(STORAGE_KEY, next);
+      persistTheme(next);
       return next;
     });
   }, []);
