@@ -23,6 +23,7 @@
 | 修复 Dashboard runtime 计数一致性 | `apps/web/src/components/dashboard-view-model.ts`、`dashboard-view-model.test.ts`、`Dashboard.tsx` | 已修复：当 runtime drift 只出现在 `runtime_sync.summary` 而 pane/slot 上没有同步状态时，仪表盘不再显示“0 runtime update(s)”同时又展示 warning；计数现在取 pane-level drift 与 summary changed/untracked 的较大值，并加上 extra / tmux unavailable。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
 | 优化 Project config 信息架构 | `apps/web/src/components/ConfigEditor/ProjectSection.tsx`、`apps/web/src/i18n/index.tsx`、`ConfigEditor.test.tsx` | 已推进：项目配置页拆成 Workspace identity 和 Launch defaults 两组，默认启动工具、默认窗格类型和默认 Shell 不再藏在 `Advanced defaults` 原生折叠区里。 |
+| 降低 Project config 首屏负担 | `apps/web/src/components/ConfigEditor/index.tsx`、`ConfigEditor.test.tsx`、截图 `tmp/review-live-2026-05-14/project-agent-collapsed.png` | 已优化：低频的 Agent overrides 默认收起，只保留摘要和 Add 入口，避免进入项目配置时先看到一长串高级 agent 覆盖项。 |
 | 收敛新建配置向导模型 | `apps/web/src/components/config-wizard-model.ts`、`config-wizard-model.test.ts`、`ConfigWizard.tsx` | 已推进：模板规格、agent 选择、统计、YAML 生成从 React 组件抽成纯模型；向导 YAML 现在复用主配置编辑器 serializer，不再手工拼字符串，特殊字符会由 `js-yaml` 正确转义。 |
 | 修复项目级 Agent 覆盖默认模板 | `apps/web/src/components/ConfigEditor/AgentsSection.tsx`、`AgentsSection.test.tsx` | 已修复：新增自定义 agent 时默认 `create_template` 使用官方 `{session_id}` 模板语法，不再生成 `{{session_id}}`。 |
 | 防止双花括号模板生成坏命令 | `cc_branch/templates.py`、`tests/test_templates.py`、`tests/test_cli.py` | 已修复：模板渲染现在优先处理 `{{session_id}}`，再处理 `{session_id}`；CLI resume 场景确认不会再输出 `claude resume {uuid}` 或残留 `{session_id}`。 |
@@ -108,7 +109,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  27 passed (27)
-Tests  196 passed (196)
+Tests  197 passed (197)
 ```
 
 ```bash

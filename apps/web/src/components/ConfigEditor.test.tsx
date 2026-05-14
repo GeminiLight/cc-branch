@@ -201,6 +201,37 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByText('Advanced defaults')).not.toBeInTheDocument()
   })
 
+  it('keeps agent overrides collapsed by default on project config', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'agents:',
+          '  codex:',
+          '    command: codex',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: main',
+          '        command: zsh',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor('project')
+
+    expect(screen.getByRole('button', { name: /Expand agent overrides section/ })).toBeInTheDocument()
+    expect(screen.getAllByText('1 override(s)').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Usually leave this empty. Built-in Codex, Claude, Gemini, and terminal profiles are already available.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Command: codex')).not.toBeInTheDocument()
+  })
+
   it('shows terminal commands as shell commands only when no agent is selected', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {

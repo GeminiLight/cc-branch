@@ -80,7 +80,7 @@ export default function ConfigEditor({
   // Section expand/collapse state
   const [expandedSections, setExpandedSections] = useState(() => ({
     project: view === "project",
-    agents: view === "project",
+    agents: false,
     slots: view === "workspace",
   }));
 
