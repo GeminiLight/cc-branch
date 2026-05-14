@@ -10,12 +10,15 @@ const mocks = vi.hoisted(() => ({
   configResult: {
     current: { data: { issues: [] } } as unknown,
   },
+  workspaceResult: {
+    current: { data: { runtime_sync: { summary: {} } } } as unknown,
+  },
 }))
 
 vi.mock('../hooks', () => ({
   useDoctor: () => mocks.doctorResult.current,
   useConfig: () => mocks.configResult.current,
-  useWorkspace: () => ({ data: { runtime_sync: { summary: {} } } }),
+  useWorkspace: () => mocks.workspaceResult.current,
 }))
 
 function renderDoctorView() {
@@ -45,6 +48,7 @@ describe('DoctorView summary', () => {
       refetch: vi.fn(),
     }
     mocks.configResult.current = { data: { issues: [] } }
+    mocks.workspaceResult.current = { data: { runtime_sync: { summary: {} } } }
   })
 
   it('summarizes blocking issues and warnings before the detailed checks', () => {
@@ -171,5 +175,28 @@ describe('DoctorView summary', () => {
     expect(screen.getByText('tmux is missing')).toBeInTheDocument()
     expect(screen.getByText('→ Install tmux with brew install tmux')).toBeInTheDocument()
     expect(screen.getByText('1 issue')).toBeInTheDocument()
+  })
+
+  it('includes missing runtime panes in the workspace diagnosis', () => {
+    mocks.doctorResult.current = {
+      data: { report: 'Workspace:\n✓ config: .cc-branch/config.yaml found\n' },
+      error: null,
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }
+    mocks.workspaceResult.current = {
+      data: {
+        runtime_sync: {
+          summary: { missing: 2 },
+        },
+      },
+    }
+
+    renderDoctorView()
+
+    expect(screen.getByText('Warnings found; workspace can run, but the setup needs attention.')).toBeInTheDocument()
+    expect(screen.getByText('2 tmux-managed pane(s) are not started.')).toBeInTheDocument()
+    expect(screen.getByText('1 warning')).toBeInTheDocument()
   })
 })

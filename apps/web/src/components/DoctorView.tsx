@@ -87,10 +87,16 @@ function countLabel(
   return t(count === 1 ? key : `${key}_plural`, { count });
 }
 
-function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): { changed: number; untracked: number; extra: number } {
+function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): {
+  changed: number;
+  missing: number;
+  untracked: number;
+  extra: number;
+} {
   const summary = workspaceData?.runtime_sync?.summary;
   return {
     changed: summary?.changed || 0,
+    missing: summary?.missing || 0,
     untracked: summary?.untracked || 0,
     extra: summary?.extra || 0,
   };
@@ -143,8 +149,9 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
       });
     }
 
-    const { changed, untracked, extra } = actionableRuntimeDrift(workspaceData);
+    const { changed, missing, untracked, extra } = actionableRuntimeDrift(workspaceData);
     if (changed > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeChangedPending", { count: changed }) });
+    if (missing > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeMissingPending", { count: missing }) });
     if (untracked > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeUntracked", { count: untracked }) });
     if (extra > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeExtraPanes", { count: extra }) });
     return checks;
