@@ -23,6 +23,18 @@
     <script>
       (function () {
         try {
+          var storedLang = localStorage.getItem("cc-branch-lang");
+          var browserLangs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+          var lang =
+            storedLang === "zh" || storedLang === "en"
+              ? storedLang
+              : browserLangs.some(function (candidate) {
+                  return String(candidate || "").toLowerCase().indexOf("zh") === 0;
+                })
+                ? "zh"
+                : "en";
+          document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+
           var stored = localStorage.getItem("cc-branch-theme");
           var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
           var theme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";

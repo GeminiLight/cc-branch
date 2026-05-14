@@ -207,6 +207,20 @@ describe('Dashboard actions', () => {
     })
   })
 
+  it('localizes built-in opener labels without changing the opener id', async () => {
+    window.localStorage.setItem('cc-branch-lang', 'zh')
+    renderDashboard()
+
+    expect(screen.getByText('系统终端')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '在 系统终端 启动工作空间' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+        opener: 'auto-terminal',
+      }))
+    })
+  })
+
   it('uses the configured slot name as the dashboard tab label', () => {
     renderDashboard()
 

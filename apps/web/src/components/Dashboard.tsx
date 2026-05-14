@@ -86,11 +86,21 @@ function canOfferWorkspaceOpen(opener: OpenerInfo | undefined): boolean {
 }
 
 function workspaceOpenLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
-  return t("launchWorkspaceIn", { app: opener.label });
+  return t("launchWorkspaceIn", { app: openerDisplayLabel(t, opener) });
 }
 
 function workspaceOpenButtonLabel(t: (key: string, vars?: Record<string, string | number>) => string): string {
   return t("launch");
+}
+
+function openerDisplayLabel(t: (key: string, vars?: Record<string, string | number>) => string, opener: OpenerInfo): string {
+  if (opener.id === "auto-terminal" || opener.label === "System Terminal") {
+    return t("systemTerminal");
+  }
+  if (opener.id === "system-file-manager") {
+    return t("systemFileManager");
+  }
+  return opener.label;
 }
 
 function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: SlotInfo["status"] }) {
@@ -763,11 +773,15 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     || DEFAULT_OPENER;
   const projectDirectoryOpener = availableOpeners.find((opener) => opener.id === "system-file-manager");
   const openerItems = workspaceOpeners.map((opener) => ({
-    label: opener.label,
+    label: openerDisplayLabel(t, opener),
     value: opener.id,
     disabled: !opener.available,
     description: opener.reason,
   }));
+  const selectedOpenerLabel = openerDisplayLabel(t, selectedOpener);
+  const projectDirectoryOpenerLabel = projectDirectoryOpener
+    ? openerDisplayLabel(t, projectDirectoryOpener)
+    : "";
 
   const setDefaultOpener = (value: string) => {
     setSelectedOpenerId(value);
@@ -850,7 +864,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                   title={projectDirectoryOpener
                     ? (openerSupports(projectDirectoryOpener, "open_project")
                       ? t("openProjectDirectory")
-                      : t("toolCannotOpenProject", { app: projectDirectoryOpener.label }))
+                      : t("toolCannotOpenProject", { app: projectDirectoryOpenerLabel }))
                     : t("systemFileManagerUnavailable")}
                   aria-label={t("openProjectDirectory")}
                   className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed"
@@ -879,10 +893,10 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                   value={selectedOpener.id}
                   items={openerItems}
                   onChange={setDefaultOpener}
-                  ariaLabel={t("selectedTool", { app: selectedOpener.label })}
+                  ariaLabel={t("selectedTool", { app: selectedOpenerLabel })}
                   trigger={
                     <span className="control-touch w-[136px] sm:w-[168px] min-w-0 px-2.5 rounded-l-md rounded-r-none surface-card border border-default border-r-0 text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors flex items-center justify-between gap-2">
-                      <span className="min-w-0 flex-1 truncate text-left text-[12px] font-medium">{selectedOpener.label}</span>
+                      <span className="min-w-0 flex-1 truncate text-left text-[12px] font-medium">{selectedOpenerLabel}</span>
                       <ChevronDown className="ml-auto w-3 h-3 shrink-0 opacity-70" />
                     </span>
                   }
@@ -892,7 +906,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                   onClick={runWorkspaceOpen}
                   disabled={actionMutation.isPending || !canOpenWorkspace(selectedOpener)}
                   className="control-touch min-w-[96px] px-3 rounded-r-md rounded-l-none text-[13px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] border border-[var(--accent)] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
-                  title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpener.label }) : workspaceOpenLabel(t, selectedOpener)}
+                  title={!canOpenWorkspace(selectedOpener) ? t("toolCannotOpenWorkspace", { app: selectedOpenerLabel }) : workspaceOpenLabel(t, selectedOpener)}
                   aria-label={workspaceOpenLabel(t, selectedOpener)}
                 >
                   {actionMutation.isPending ? (

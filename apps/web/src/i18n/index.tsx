@@ -10,6 +10,38 @@ import { createContext, useContext, useState, useCallback, useEffect } from "rea
 export type Lang = "en" | "zh";
 
 const STORAGE_KEY = "cc-branch-lang";
+const SUPPORTED_LANGS: Lang[] = ["en", "zh"];
+
+function normalizeLang(value: string | null | undefined): Lang | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (SUPPORTED_LANGS.includes(normalized as Lang)) return normalized as Lang;
+  if (normalized.startsWith("zh")) return "zh";
+  if (normalized.startsWith("en")) return "en";
+  return null;
+}
+
+function detectBrowserLang(): Lang {
+  if (typeof navigator === "undefined") return "en";
+  const candidates = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    navigator.language,
+  ];
+  for (const candidate of candidates) {
+    const lang = normalizeLang(candidate);
+    if (lang) return lang;
+  }
+  return "en";
+}
+
+function getInitialLang(): Lang {
+  try {
+    const stored = normalizeLang(localStorage.getItem(STORAGE_KEY));
+    return stored || detectBrowserLang();
+  } catch {
+    return detectBrowserLang();
+  }
+}
 
 function interpolate(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? `{${key}}`));
@@ -88,6 +120,8 @@ const dict: Record<Lang, Record<string, string>> = {
     toolCannotOpenWorkspace: "{app} cannot open a workspace.",
     toolCannotOpenProject: "{app} cannot open this directory.",
     systemFileManagerUnavailable: "System file manager is unavailable.",
+    systemFileManager: "System file manager",
+    systemTerminal: "System Terminal",
     startOnly: "Start in background",
     restart: "Restart",
     restartNoRunning: "No running tmux-managed panes to restart.",
@@ -563,6 +597,8 @@ const dict: Record<Lang, Record<string, string>> = {
     toolCannotOpenWorkspace: "{app} 不能打开工作空间。",
     toolCannotOpenProject: "{app} 不能打开目录。",
     systemFileManagerUnavailable: "系统文件管理器不可用。",
+    systemFileManager: "系统文件管理器",
+    systemTerminal: "系统终端",
     startOnly: "后台启动",
     restart: "重启",
     restartNoRunning: "没有正在运行的 tmux 窗格可重启。",
@@ -1019,7 +1055,7 @@ const dict: Record<Lang, Record<string, string>> = {
 };
 
 export function t(lang: Lang, key: string, vars?: Record<string, string | number>): string {
-  const template = dict[lang][key] || key;
+  const template = dict[lang]?.[key] || key;
   return vars ? interpolate(template, vars) : template;
 }
 
@@ -1036,9 +1072,7 @@ const I18nContext = createContext<I18nCtx>({
 });
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, _setLang] = useState<Lang>(
-    () => (localStorage.getItem(STORAGE_KEY) as Lang) || "en"
-  );
+  const [lang, _setLang] = useState<Lang>(getInitialLang);
 
   const setLang = useCallback((l: Lang) => {
     localStorage.setItem(STORAGE_KEY, l);

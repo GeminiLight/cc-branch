@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { I18nProvider, useI18n } from './index'
 
@@ -19,6 +19,10 @@ describe('i18n', () => {
     localStorage.removeItem('cc-branch-lang')
   })
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('renders with default language', () => {
     render(
       <I18nProvider>
@@ -27,6 +31,31 @@ describe('i18n', () => {
     )
     expect(screen.getByTestId('lang').textContent).toBe('en')
     expect(screen.getByTestId('title').textContent).toBe('CC Branch')
+  })
+
+  it('uses the browser language when no preference is stored', () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      language: 'zh-CN',
+      languages: ['zh-CN', 'en-US'],
+    })
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+    expect(screen.getByTestId('lang').textContent).toBe('zh')
+    expect(document.documentElement.lang).toBe('zh-CN')
+  })
+
+  it('ignores invalid stored languages', () => {
+    localStorage.setItem('cc-branch-lang', 'broken')
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+    expect(screen.getByTestId('lang').textContent).toBe('en')
   })
 
   it('switches language', () => {
