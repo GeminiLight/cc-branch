@@ -50,7 +50,7 @@ export function workspacePaneGridStyle(slot: LayoutOwner, paneLength: number): C
     const columns = count <= 4 ? 2 : 3;
     return { gridTemplateColumns: `repeat(${columns}, minmax(112px, 1fr))` };
   }
-  return { gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" };
+  return { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` };
 }
 
 export function workspacePaneCellStyle(
