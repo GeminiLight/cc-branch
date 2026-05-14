@@ -12,6 +12,7 @@ function t(key: string, vars?: Record<string, string | number>): string {
     runtimeMissingPending: "{count} missing",
     runtimeUntracked: "{count} untracked",
     runtimeExtraPanes: "{count} extra",
+    runtimeOrphanedState: "{count} orphaned",
     checksPassed: "All checks passed",
     checksWarnings: "Warnings found",
     checksIssues: "Issues found",
@@ -69,11 +70,11 @@ describe("doctor-view-model", () => {
           external: 0,
           extra: 1,
           missing: 2,
-          orphaned: 0,
+          orphaned: 3,
           untracked: 0,
         },
         slots: [],
-        orphaned_state: [],
+        orphaned_state: [{ key: "dev.old" }],
         historical_sessions: [],
       },
     } satisfies WorkspaceStatus;
@@ -82,12 +83,13 @@ describe("doctor-view-model", () => {
 
     expect(model.overall).toBe("error");
     expect(model.issueCount).toBe(1);
-    expect(model.warningCount).toBe(2);
-    expect(model.visibleChecks.map((check) => check.status)).toEqual(["error", "warn", "warn", "ok"]);
-    expect(model.actionableChecks.map((check) => check.status)).toEqual(["error", "warn", "warn"]);
+    expect(model.warningCount).toBe(3);
+    expect(model.visibleChecks.map((check) => check.status)).toEqual(["error", "warn", "warn", "warn", "ok"]);
+    expect(model.actionableChecks.map((check) => check.status)).toEqual(["error", "warn", "warn", "warn"]);
     expect(model.passingChecks.map((check) => check.status)).toEqual(["ok"]);
     expect(model.visibleChecks.map((check) => check.text)).toContain("2 missing");
     expect(model.visibleChecks.map((check) => check.text)).toContain("1 extra");
+    expect(model.visibleChecks.map((check) => check.text)).toContain("3 orphaned");
   });
 
   it("keeps stale canonical-field warnings out while preserving real config issues", () => {

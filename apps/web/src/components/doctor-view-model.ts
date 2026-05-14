@@ -114,6 +114,7 @@ function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): {
   missing: number;
   untracked: number;
   extra: number;
+  orphaned: number;
 } {
   const summary = workspaceData?.runtime_sync?.summary;
   return {
@@ -121,6 +122,7 @@ function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): {
     missing: summary?.missing || 0,
     untracked: summary?.untracked || 0,
     extra: summary?.extra || 0,
+    orphaned: Math.max(summary?.orphaned || 0, workspaceData?.runtime_sync?.orphaned_state?.length || 0),
   };
 }
 
@@ -146,11 +148,12 @@ function productChecks(
     });
   }
 
-  const { changed, missing, untracked, extra } = actionableRuntimeDrift(workspaceData);
+  const { changed, missing, untracked, extra, orphaned } = actionableRuntimeDrift(workspaceData);
   if (changed > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeChangedPending", { count: changed }) });
   if (missing > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeMissingPending", { count: missing }) });
   if (untracked > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeUntracked", { count: untracked }) });
   if (extra > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeExtraPanes", { count: extra }) });
+  if (orphaned > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeOrphanedState", { count: orphaned }) });
   return checks;
 }
 

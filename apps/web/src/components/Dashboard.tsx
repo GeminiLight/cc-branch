@@ -725,6 +725,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     changedCount,
     untrackedCount,
     extraCount,
+    orphanedCount,
     syncCount,
     issueCount,
   } = buildDashboardRuntimeSummary(data);
@@ -733,6 +734,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
     untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
     extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
+    orphanedCount > 0 ? t("runtimeOrphanedState", { count: orphanedCount }) : null,
   ].filter((notice): notice is string => Boolean(notice));
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";

@@ -22,6 +22,7 @@ export interface DashboardRuntimeSummary {
   changedCount: number;
   untrackedCount: number;
   extraCount: number;
+  orphanedCount: number;
   driftCount: number;
   syncCount: number;
   issueCount: number;
@@ -59,6 +60,7 @@ export function buildDashboardRuntimeSummary(data: WorkspaceStatus): DashboardRu
   const changedCount = syncSummary?.changed || 0;
   const untrackedCount = syncSummary?.untracked || 0;
   const extraCount = syncSummary?.extra || 0;
+  const orphanedCount = Math.max(syncSummary?.orphaned || 0, data.runtime_sync?.orphaned_state?.length || 0);
   const driftCount = actionableRuntimeDriftCount(data.slots);
   const summaryActionCount = changedCount + untrackedCount;
   const syncCount = Math.max(driftCount, summaryActionCount);
@@ -75,8 +77,9 @@ export function buildDashboardRuntimeSummary(data: WorkspaceStatus): DashboardRu
     changedCount,
     untrackedCount,
     extraCount,
+    orphanedCount,
     driftCount,
     syncCount,
-    issueCount: syncCount + extraCount + (tmuxRuntimeUnavailable ? 1 : 0),
+    issueCount: syncCount + extraCount + orphanedCount + (tmuxRuntimeUnavailable ? 1 : 0),
   };
 }

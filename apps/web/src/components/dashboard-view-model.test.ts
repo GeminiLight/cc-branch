@@ -134,4 +134,21 @@ describe("dashboard-view-model", () => {
 
     expect(buildDashboardRuntimeSummary(data).issueCount).toBe(1);
   });
+
+  it("counts orphaned local state as a dashboard issue", () => {
+    const data = workspace([terminalSlot()], {
+      changed: 0,
+      current: 1,
+      external: 0,
+      extra: 0,
+      missing: 0,
+      orphaned: 2,
+      untracked: 0,
+    });
+
+    const summary = buildDashboardRuntimeSummary(data);
+
+    expect(summary.orphanedCount).toBe(2);
+    expect(summary.issueCount).toBe(2);
+  });
 });

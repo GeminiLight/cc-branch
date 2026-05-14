@@ -706,7 +706,7 @@ describe('Dashboard actions', () => {
   it('shows every runtime sync notice instead of hiding mixed states', () => {
     const result = readyWorkspaceResult()
     ;(result.data as Record<string, unknown>).runtime_sync = {
-      summary: { current: 0, changed: 1, missing: 2, extra: 3, orphaned: 0, untracked: 4, external: 0 },
+      summary: { current: 0, changed: 1, missing: 2, extra: 3, orphaned: 2, untracked: 4, external: 0 },
       slots: [],
       orphaned_state: [],
       historical_sessions: [],
@@ -718,7 +718,8 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('1 running tmux-managed pane(s) use an older launch command.')).toBeInTheDocument()
     expect(screen.getByText('4 running pane(s) were not launched from the current config.')).toBeInTheDocument()
     expect(screen.getByText('3 extra tmux-managed pane(s) are running outside the config.')).toBeInTheDocument()
-    expect(screen.getByText('8 runtime update(s)')).toBeInTheDocument()
+    expect(screen.getByText('2 stale session record(s) no longer match the current config.')).toBeInTheDocument()
+    expect(screen.getByText('10 runtime update(s)')).toBeInTheDocument()
   })
 
   it('summarizes extra tmux panes without exposing a destructive header action', () => {
