@@ -505,8 +505,8 @@ class OpenerTests(unittest.TestCase):
                 "cc-branch: dev:api",
             ])
 
-    def test_vscode_workspace_open_leaves_unparseable_user_tasks_untouched(self):
-        """JSONC or broken user tasks are left untouched instead of being rewritten."""
+    def test_vscode_workspace_open_merges_jsonc_user_tasks(self):
+        """VS Code JSONC tasks should still receive cc-branch folder-open tasks."""
         import tempfile
 
         from cc_branch.openers import open_workspace_file
@@ -515,7 +515,44 @@ class OpenerTests(unittest.TestCase):
             root = Path(tmp)
             user_tasks = root / ".vscode" / "tasks.json"
             user_tasks.parent.mkdir()
-            user_content = '{\n  // user comment\n  "version": "2.0.0",\n  "tasks": []\n}\n'
+            user_content = """{
+  // VS Code accepts JSONC here.
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "user task", "type": "shell", "command": "echo http://example.test"},
+  ],
+}
+"""
+            user_tasks.write_text(user_content, encoding="utf-8")
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors._popen"),
+            ):
+                open_workspace_file(
+                    "vscode",
+                    cwd=root,
+                    commands=[
+                        OpenCommandSpec("dev", root, "cc-branch attach dev"),
+                    ],
+                )
+
+            payload = json.loads(user_tasks.read_text(encoding="utf-8"))
+            self.assertEqual([task["label"] for task in payload["tasks"]], ["user task", "cc-branch: dev"])
+            self.assertEqual(payload["tasks"][0]["command"], "echo http://example.test")
+            self.assertEqual(payload["tasks"][1]["command"], "cc-branch attach dev")
+            self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
+
+    def test_vscode_workspace_open_leaves_broken_user_tasks_untouched(self):
+        """Truly broken user tasks are left untouched instead of being guessed."""
+        import tempfile
+
+        from cc_branch.openers import open_workspace_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            user_tasks = root / ".vscode" / "tasks.json"
+            user_tasks.parent.mkdir()
+            user_content = '{\n  "version": "2.0.0",\n  "tasks": [\n}\n'
             user_tasks.write_text(user_content, encoding="utf-8")
             with (
                 patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),

@@ -141,7 +141,7 @@ class EditorWorkspaceOpener:
             except OSError:
                 return False
         try:
-            payload = json.loads(bridge.read_text(encoding="utf-8"))
+            payload = _loads_tasks_json(bridge.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return False
         tasks = payload.get("tasks")
@@ -152,7 +152,7 @@ class EditorWorkspaceOpener:
     def merge_project_tasks_bridge(self, bridge: Path, commands: list[OpenCommandSpec]) -> bool:
         """Append generated cc-branch tasks to an existing user-owned tasks.json."""
         try:
-            payload = json.loads(bridge.read_text(encoding="utf-8"))
+            payload = _loads_tasks_json(bridge.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return False
         if not isinstance(payload, dict):
@@ -191,6 +191,95 @@ class EditorWorkspaceOpener:
 
 
 editor_workspace_opener = EditorWorkspaceOpener()
+
+
+def _loads_tasks_json(content: str) -> dict:
+    """Load VS Code tasks JSON, accepting the JSONC syntax VS Code writes."""
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        payload = json.loads(_strip_jsonc(content))
+    if not isinstance(payload, dict):
+        raise json.JSONDecodeError("tasks payload must be an object", content, 0)
+    return payload
+
+
+def _strip_jsonc(content: str) -> str:
+    return _strip_trailing_commas(_strip_jsonc_comments(content))
+
+
+def _strip_jsonc_comments(content: str) -> str:
+    output: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+    while i < len(content):
+        char = content[i]
+        next_char = content[i + 1] if i + 1 < len(content) else ""
+        if in_string:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            i += 1
+            continue
+        if char == '"':
+            in_string = True
+            output.append(char)
+            i += 1
+            continue
+        if char == "/" and next_char == "/":
+            i += 2
+            while i < len(content) and content[i] not in "\r\n":
+                i += 1
+            continue
+        if char == "/" and next_char == "*":
+            i += 2
+            while i + 1 < len(content) and not (content[i] == "*" and content[i + 1] == "/"):
+                output.append("\n" if content[i] in "\r\n" else " ")
+                i += 1
+            i += 2 if i + 1 < len(content) else 0
+            continue
+        output.append(char)
+        i += 1
+    return "".join(output)
+
+
+def _strip_trailing_commas(content: str) -> str:
+    output: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+    while i < len(content):
+        char = content[i]
+        if in_string:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            i += 1
+            continue
+        if char == '"':
+            in_string = True
+            output.append(char)
+            i += 1
+            continue
+        if char == ",":
+            j = i + 1
+            while j < len(content) and content[j].isspace():
+                j += 1
+            if j < len(content) and content[j] in "]}":
+                i += 1
+                continue
+        output.append(char)
+        i += 1
+    return "".join(output)
 
 
 def _editor_workspace_file_path(opener_id: str, cwd: Path, commands: list[OpenCommandSpec]) -> Path:
