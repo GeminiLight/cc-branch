@@ -5,6 +5,7 @@ import {
   buildDashboardRuntimeSummary,
   isActionableSyncStatus,
   tabPaneCount,
+  workspaceCountLabel,
 } from "./dashboard-view-model";
 
 function terminalSlot(overrides: Partial<SlotInfo> = {}): SlotInfo {
@@ -50,6 +51,21 @@ describe("dashboard-view-model", () => {
 
   it("counts tmux tabs as one dashboard pane", () => {
     expect(tabPaneCount(terminalSlot({ runtime: "tmux", windows: [terminalSlot().windows[0], terminalSlot().windows[0]] }))).toBe(1);
+  });
+
+  it("formats dashboard workspace counts with natural singular labels", () => {
+    const t = (key: string, vars?: Record<string, string | number>) => {
+      const templates: Record<string, string> = {
+        tabCountOne: "{count} tab",
+        tabCount: "{count} tabs",
+        workspacePaneCountOne: "{count} pane",
+        workspacePaneCount: "{count} panes",
+      };
+      return (templates[key] || key).replace("{count}", String(vars?.count));
+    };
+
+    expect(workspaceCountLabel(t, 1, 1)).toBe("1 tab · 1 pane");
+    expect(workspaceCountLabel(t, 2, 3)).toBe("2 tabs · 3 panes");
   });
 
   it("counts slot-level drift only when child panes are not already counted", () => {

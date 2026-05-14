@@ -186,6 +186,38 @@
 - `apps/web/src/components/ConfigEditor.test.tsx`
   - 覆盖 3 个 tmux windows 仍显示为 1 个 pane。
 
+### 8. Dashboard 计数文案仍有 `1 tabs / 1 panes`
+
+问题：
+
+- Dashboard 的标签页摘要直接使用 `{total} tabs · {windows} panes`。
+- 当 `research-projects` 这类单标签、单外部 pane 的工作空间打开时，会显示 `1 tabs · 1 panes`。
+
+影响：
+
+- 这是很小但很可见的精致度问题。
+- 用户会感到 UI 仍像内部调试面板，没有经过最终产品打磨。
+
+修复：
+
+- `apps/web/src/components/dashboard-view-model.ts`
+  - 新增 `workspaceCountLabel()`，把 Dashboard 计数格式从组件中抽到 view model。
+- `apps/web/src/i18n/index.tsx`
+  - 新增英文单复数 key：`tabCountOne`、`workspacePaneCountOne`、`workspacePaneCount`。
+  - 中文仍保持 `{count} 个标签页 / {count} 个窗格`。
+- `apps/web/src/components/Dashboard.tsx`
+  - Dashboard 摘要改用 `workspaceCountLabel()`。
+- `apps/web/src/components/dashboard-view-model.test.ts` 和 `Dashboard.test.tsx`
+  - 覆盖 `1 tab · 1 pane`，防止回退成 `1 tabs · 1 panes`。
+
+验证：
+
+- 浏览器截图：
+  - `tmp/review-live-2026-05-14/research-dashboard-counts-fixed.png`
+- 断言：
+  - 页面包含 `1 tab · 1 pane`。
+  - 页面不包含 `1 tabs · 1 panes`。
+
 ## 仍需后续处理的风险
 
 ### 1. 配置概念仍然复杂

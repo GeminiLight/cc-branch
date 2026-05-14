@@ -30,6 +30,7 @@ import {
   isActionableSyncStatus,
   isActionableWindowSync,
   tabPaneCount,
+  workspaceCountLabel,
 } from "./dashboard-view-model";
 
 interface DashboardProps {
@@ -906,7 +907,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             </span>
           )}
         </div>
-        <span className="text-[11px] text-muted">{t("workspaceCounts", { total: data.slots.length, windows: totalPanes })}</span>
+        <span className="text-[11px] text-muted">{workspaceCountLabel(t, data.slots.length, totalPanes)}</span>
       </div>
       {runtimeSyncNotices.length > 0 && (
         <div

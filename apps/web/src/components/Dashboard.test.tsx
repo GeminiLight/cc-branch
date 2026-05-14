@@ -574,6 +574,13 @@ describe('Dashboard actions', () => {
     expect(screen.queryByText('tmux pane group')).not.toBeInTheDocument()
   })
 
+  it('uses singular wording for one dashboard tab and one pane', () => {
+    renderDashboard()
+
+    expect(screen.getByText('1 tab · 1 pane')).toBeInTheDocument()
+    expect(screen.queryByText('1 tabs · 1 panes')).not.toBeInTheDocument()
+  })
+
   it('uses edit actions instead of copy buttons for tabs and panes', () => {
     const onEditTarget = vi.fn()
 

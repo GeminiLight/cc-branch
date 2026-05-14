@@ -1,5 +1,7 @@
 import type { SlotInfo, SyncStatus, WindowInfo, WorkspaceStatus } from "../types";
 
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
 export interface DashboardRuntimeSummary {
   runningCount: number;
   totalPanes: number;
@@ -37,6 +39,12 @@ export function actionableRuntimeDriftCount(slots: SlotInfo[]): number {
 export function tabPaneCount(slot: SlotInfo): number {
   if (slot.runtime === "tmux") return 1;
   return Math.max(slot.windows.length, 1);
+}
+
+export function workspaceCountLabel(t: Translate, tabs: number, panes: number): string {
+  const tabLabel = t(tabs === 1 ? "tabCountOne" : "tabCount", { count: tabs });
+  const paneLabel = t(panes === 1 ? "workspacePaneCountOne" : "workspacePaneCount", { count: panes });
+  return `${tabLabel} · ${paneLabel}`;
 }
 
 export function buildDashboardRuntimeSummary(data: WorkspaceStatus): DashboardRuntimeSummary {

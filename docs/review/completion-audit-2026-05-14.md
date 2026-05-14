@@ -19,6 +19,7 @@
 | 审查配置 v2 公共字段 | `apps/web/src/utils/configIssues.ts`、`configIssues.test.ts`、`ConfigEditor`、`DoctorView` | 已修复：`openWith` / `layoutBackend` 不再通过旧缓存路径误报 unknown field；过滤逻辑现在会检查 target，避免隐藏 agent/window 等非法位置里的真实 unknown-field 问题。 |
 | 审查 YAML round-trip 风险 | `apps/web/src/components/ConfigEditor/yaml-utils.test.ts` | 已补保护：普通 pane + tmux group 混合 tab 可以 parse / serialize / reparse。 |
 | 审查 Dashboard 主动作区 | `apps/web/src/components/Dashboard.tsx`、截图 `tmp/review-pass/*` | 已局部修复：工具选择、打开目录、刷新、启动按钮不再明显截断或换行。 |
+| 审查 Dashboard 计数精致度 | `apps/web/src/components/dashboard-view-model.ts`、`Dashboard.tsx`、`i18n/index.tsx`、`Dashboard.test.tsx`、截图 `tmp/review-live-2026-05-14/research-dashboard-counts-fixed.png` | 已修复：单标签、单窗格工作空间显示 `1 tab · 1 pane`，不再出现 `1 tabs · 1 panes`。 |
 | 优化 Dashboard runtime 状态解释 | `apps/web/src/components/Dashboard.tsx`、`Dashboard.test.tsx` | 已修复：runtime changed / untracked / extra 等状态不再只藏在 `sr-only` 中；用户能在标签页区域直接看到紧凑的可见原因提示。 |
 | 修复 Dashboard runtime 计数一致性 | `apps/web/src/components/dashboard-view-model.ts`、`dashboard-view-model.test.ts`、`Dashboard.tsx` | 已修复：当 runtime drift 只出现在 `runtime_sync.summary` 而 pane/slot 上没有同步状态时，仪表盘不再显示“0 runtime update(s)”同时又展示 warning；计数现在取 pane-level drift 与 summary changed/untracked 的较大值，并加上 extra / tmux unavailable。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
@@ -155,6 +156,17 @@ cd apps/web && npm test -- DoctorView.test.tsx
 ```text
 Test Files  1 passed (1)
 Tests  5 passed (5)
+```
+
+```bash
+cd apps/web && npm test -- Dashboard.test.tsx dashboard-view-model.test.ts
+```
+
+结果：
+
+```text
+Test Files  2 passed (2)
+Tests  40 passed (40)
 ```
 
 ```bash
