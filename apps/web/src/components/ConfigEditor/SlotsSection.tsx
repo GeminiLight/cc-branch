@@ -45,6 +45,14 @@ import {
 } from "./workspace-model";
 import { paneCount } from "./workspace-display";
 import { useWorkspaceDrag } from "./workspace-drag";
+import {
+  canMoveSelectedPaneToTarget,
+  isSelectedPaneMovable,
+  moveTargetOptionsForSelection,
+  selectedMoveTargetIndex,
+  selectedPaneOrderState,
+  selectedTmuxGroupPositionState,
+} from "./workspace-inspector-model";
 import { deriveWorkspaceSelection } from "./workspace-selection";
 import { validateWorkspaceNames } from "./workspace-validation";
 
@@ -70,6 +78,7 @@ export default function SlotsSection({
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
   const [moveTarget, setMoveTarget] = useState("0");
 
+  const selectionState = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
   const {
     normalizedSelection,
     selectedSlot,
@@ -77,7 +86,7 @@ export default function SlotsSection({
     selectedTerminalWindow,
     selectedTmuxGroup,
     editingPane,
-  } = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
+  } = selectionState;
 
   useEffect(() => {
     if (
@@ -103,15 +112,8 @@ export default function SlotsSection({
   ];
 
   const moveTargetOptions = useMemo(() => {
-    if (!selectedSlot || normalizedSelection.target !== "pane") return [];
-    return slots
-      .map((slot, index) => ({ slot, index }))
-      .filter(({ index }) => index !== normalizedSelection.slotIndex)
-      .map(({ slot, index }) => ({
-        value: String(index),
-        label: `${slot.name || t("unnamed")} · ${t("tabSummaryPanes", { count: paneCount(slot) })}`,
-      }));
-  }, [normalizedSelection.slotIndex, normalizedSelection.target, selectedSlot, slots, t]);
+    return moveTargetOptionsForSelection(slots, selectionState, t);
+  }, [selectionState, slots, t]);
 
   useEffect(() => {
     if (moveTargetOptions.length === 0) {
@@ -123,21 +125,9 @@ export default function SlotsSection({
     }
   }, [moveTarget, moveTargetOptions]);
 
-  const selectedMoveTargetIndex = moveTarget === "" ? -1 : Number(moveTarget);
-  const selectedImplicitTerminalPane = Boolean(
-    selectedSlot &&
-    normalizedSelection.target === "pane" &&
-    selectedSlot.runtime === "terminal" &&
-    selectedSlot.windows.length === 0
-  );
-  const selectedMovablePane = normalizedSelection.target === "pane" && Boolean(
-    selectedWindow || selectedTmuxGroup || selectedImplicitTerminalPane
-  );
-  const canMovePaneToSelectedTab = Boolean(
-    selectedMovablePane &&
-    selectedMoveTargetIndex >= 0 &&
-    selectedMoveTargetIndex !== normalizedSelection.slotIndex
-  );
+  const selectedMoveTarget = selectedMoveTargetIndex(moveTarget);
+  const selectedMovablePane = isSelectedPaneMovable(selectionState);
+  const canMovePaneToSelectedTab = canMoveSelectedPaneToTarget(selectionState, selectedMoveTarget);
 
   function updateSlot(index: number, patch: Partial<SlotConfig>) {
     const next = [...slots];
@@ -237,7 +227,7 @@ export default function SlotsSection({
 
   function movePaneToTab() {
     if (!selectedSlot || !selectedMovablePane) return;
-    const targetIndex = selectedMoveTargetIndex;
+    const targetIndex = selectedMoveTarget;
     const target = slots[targetIndex];
     if (!target || targetIndex === normalizedSelection.slotIndex) return;
     const mutation = movePaneBetweenSlots(
@@ -293,19 +283,15 @@ export default function SlotsSection({
   }
 
   const workspaceValidation = useMemo(() => validateWorkspaceNames(slots), [slots]);
-  const canMoveSelectedPaneUp = Boolean(selectedSlot && selectedSlot.windows.length > 0 && (normalizedSelection.windowIndex ?? 0) > 0);
-  const canMoveSelectedPaneDown = Boolean(
-    selectedSlot &&
-    selectedSlot.windows.length > 0 &&
-    (normalizedSelection.windowIndex ?? 0) < selectedSlot.windows.length - 1
-  );
-  const selectedTmuxGroupIsLegacy = Boolean(selectedTmuxGroup && isLegacyTmuxSlot(selectedSlot));
-  const canMoveSelectedGroupUp = selectedTmuxGroupIsLegacy
-    ? normalizedSelection.slotIndex > 0
-    : Boolean(selectedTmuxGroup && (normalizedSelection.windowIndex ?? 0) > 0);
-  const canMoveSelectedGroupDown = selectedTmuxGroupIsLegacy
-    ? normalizedSelection.slotIndex < slots.length - 1
-    : Boolean(selectedSlot && selectedTmuxGroup && (normalizedSelection.windowIndex ?? 0) < selectedSlot.windows.length - 1);
+  const {
+    canMoveUp: canMoveSelectedPaneUp,
+    canMoveDown: canMoveSelectedPaneDown,
+  } = selectedPaneOrderState(selectionState);
+  const {
+    isLegacy: selectedTmuxGroupIsLegacy,
+    canMoveUp: canMoveSelectedGroupUp,
+    canMoveDown: canMoveSelectedGroupDown,
+  } = selectedTmuxGroupPositionState(slots, selectionState);
 
   function moveSelectedTmuxGroup(dir: number) {
     if (selectedTmuxGroupIsLegacy) {

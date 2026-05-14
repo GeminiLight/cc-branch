@@ -211,6 +211,8 @@ Dashboard 主动作区已经修过，但 Space canvas / Project config 的整体
 - tmux group 的信息层级。
 - Project config 中全局配置和工作空间配置的区分。
 
+架构上，`SlotsSection.tsx` 已继续把 inspector 的调度派生逻辑抽成 `workspace-inspector-model.ts`。后续剩余重点是表单 patch 与 action wiring，而不是继续让组件承载业务规则。
+
 ## 验证记录
 
 已通过：

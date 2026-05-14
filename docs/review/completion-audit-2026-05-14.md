@@ -59,6 +59,7 @@
 | 拆分窗格新增/复制/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：pane add / duplicate / delete 的 legacy tmux 转换、隐式 terminal tab 复制/删除、显式 pane 插入/删除和无效索引保护已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 504 行。 |
 | 拆分 tmux 内部 window mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：legacy tmux tab 和显式 tmux group 内部 window 的 add / update / move / delete 已抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 483 行。 |
 | 加固 pane 移动 mutation 的异常索引处理 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已修复：同标签页移动、跨标签页移动、legacy tmux group 移动都会拒绝负数和越界 source pane index，避免异常拖拽 payload 触发 `splice(-1)` 误移动最后一个窗格。 |
+| 拆分 inspector 调度派生模型 | `apps/web/src/components/ConfigEditor/workspace-inspector-model.ts`、`workspace-inspector-model.test.ts`、`SlotsSection.tsx` | 已推进：移动目标列表、可移动窗格判断、pane 上下移动能力、tmux group 位置能力从 React 组件抽成纯模型；`SlotsSection.tsx` 进一步降到 472 行。 |
 | 避免 UI 自动生成重复名称 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已修复：新增/复制 tab、pane、tmux window 时会基于 trim 后名称生成唯一名称，避免 UI 自己制造随后被校验挡住的重复名。 |
 | 拆分工作空间名称校验 | `apps/web/src/components/ConfigEditor/workspace-validation.ts`、`workspace-validation.test.ts`、`SlotsSection.tsx`、`yaml-utils.ts` | 已推进：标签页/窗格空名称和重复标签页名称校验从组件中抽成纯函数，并复用于保存前 `validateConfigForm`；重复名会先 trim，避免 `dev` 和 ` dev ` 逃过校验，`SlotsSection.tsx` 进一步降到 478 行。 |
 | 对齐后端名称重复校验 | `cc_branch/application/config_validation/validators.py`、`cc_branch/doctor/checks.py`、`tests/test_application_architecture.py`、`tests/test_doctor.py` | 已修复：raw config validation 和 doctor 现在也会先 trim 名称再判断重复，避免 UI 保存前校验和后端诊断结果不一致。 |
@@ -238,7 +239,7 @@ d1273b0 Verify workspace drag save persistence
 剩余不确定性：
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
-- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器、drag/drop coordination、selection 派生状态、tab mutation、主要 pane mutation 和 tmux internal window mutation，但仍然承担少量选择态、表单 patch 和 action wiring。
+- 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器、drag/drop coordination、selection 派生状态、inspector 调度派生模型、tab mutation、主要 pane mutation 和 tmux internal window mutation，但仍然承担少量表单 patch 和 action wiring。
 - Doctor 已开始从“检查日志列表”收敛为 workspace health diagnosis：主列表优先展示 actionable findings，通过项默认折叠；但更深层的修复操作编排、启动阻塞原因归因仍未完全产品化。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
@@ -275,6 +276,6 @@ d1273b0 Verify workspace drag save persistence
 
 下一步最值得继续的方向：
 
-1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor、detail editors、drag/drop coordination、selection derivation、tab add/delete mutations、主要 pane mutations 和 tmux internal window mutations，下一步应继续收敛表单 patch/action wiring。
+1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor、detail editors、drag/drop coordination、selection derivation、inspector scheduling model、tab add/delete mutations、主要 pane mutations 和 tmux internal window mutations，下一步应继续收敛表单 patch/action wiring。
 2. 继续扩大 workspace canvas 浏览器级交互验证，重点覆盖拖拽态视觉反馈、失败态和更多布局组合。
 3. 继续重构 Doctor 的信息架构，把 actionable diagnosis 和可执行修复路径做得更像 workspace health，而不是环境检查报告。
