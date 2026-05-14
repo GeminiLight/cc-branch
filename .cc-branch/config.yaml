@@ -4,34 +4,6 @@ root: .
 openWith: auto-terminal
 display:
   dashboard: true
-agents:
-  claude:
-    command: claude
-    resume_mode: flag
-    resume_template: '-r {session_id}'
-    create_mode: generated_uuid
-    create_template: claude --session-id {session_id}
-    label_template: '{project}/{tab}/{pane}'
-  codex:
-    command: codex
-    resume_mode: flag
-    resume_template: resume {session_id}
-    label_template: '{project}/{tab}/{pane}'
-  gemini:
-    command: gemini
-    resume_mode: flag
-    resume_template: '--session {session_id}'
-    label_template: '{project}/{tab}/{pane}'
-  cursor:
-    command: cursor
-    resume_mode: flag
-    resume_template: '--resume {session_id}'
-    label_template: '{project}/{tab}/{pane}'
-  kimi:
-    command: kimi
-    resume_mode: flag
-    resume_template: '--session-id {session_id}'
-    label_template: '{project}/{tab}/{pane}'
 tabs:
   - name: codex-spec
     cwd: .
