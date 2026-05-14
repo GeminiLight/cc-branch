@@ -5,17 +5,20 @@ import type { APIClient } from "../api/client";
 import { I18nProvider } from "../i18n";
 import Sidebar from "./Sidebar";
 import type { ProjectItem } from "../stores/projectStore";
+import type { WorkspaceStatus } from "../types";
 
 function renderSidebar({
   onOpenSettings,
   projects = [],
   activeProjectId = null,
   seedWorkspaceStatus = false,
+  workspaceStatus,
 }: {
   onOpenSettings?: () => void;
   projects?: ProjectItem[];
   activeProjectId?: string | null;
   seedWorkspaceStatus?: boolean;
+  workspaceStatus?: WorkspaceStatus;
 } = {}) {
   const resolvedOnOpenSettings = onOpenSettings ?? vi.fn(() => undefined);
   const client = new QueryClient({
@@ -33,7 +36,7 @@ function renderSidebar({
   } as unknown as APIClient;
 
   if (seedWorkspaceStatus) {
-    client.setQueryData(["workspace", "status", "/tmp/active", undefined], {
+    client.setQueryData(["workspace", "status", "/tmp/active", undefined], workspaceStatus ?? {
       status: "ready",
       config_path: "",
       state_path: "",
@@ -102,6 +105,27 @@ describe("Sidebar", () => {
 
     expect(await screen.findByText("1/2 · running")).toBeInTheDocument();
     expect(screen.queryByText(/undefined\/undefined/)).not.toBeInTheDocument();
+  });
+
+  it("counts split slot groups as one user-visible sidebar tab", async () => {
+    renderSidebar({
+      activeProjectId: "active",
+      seedWorkspaceStatus: true,
+      workspaceStatus: {
+        status: "ready",
+        config_path: "",
+        state_path: "",
+        slots: [
+          { name: "dev", split_group: "dev", runtime: "terminal", status: "running", session_name: "demo-dev", windows: [] },
+          { name: "dev-agents", split_group: "dev", runtime: "tmux", status: "running", session_name: "demo-dev-agents", windows: [] },
+        ],
+      },
+      projects: [
+        { id: "active", name: "Active", path: "/tmp/active" },
+      ],
+    });
+
+    expect(await screen.findByText("1/1 · running")).toBeInTheDocument();
   });
 
   it("shows a stable path subtitle for inactive projects instead of placeholder dots", () => {

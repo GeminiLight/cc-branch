@@ -6,6 +6,7 @@ import type { WorkspaceStatus } from "../types";
 import type { ProjectItem } from "../stores/projectStore";
 import { useI18n } from "../i18n";
 import logoUrl from "../assets/logo/logo.svg";
+import { runningWorkspaceTabCount, workspaceTabCount } from "./workspace-status-view-model";
 
 interface SidebarProps {
   api: APIClient;
@@ -70,12 +71,12 @@ function statusFromWorkspace(data: WorkspaceStatus | undefined): ProjectStatus |
   }
 
   const slots = Array.isArray(data.slots) ? data.slots : [];
-  const running = slots.filter((s) => s.status === "running").length;
-  const external = slots.filter((s) => s.status === "external").length;
+  const running = runningWorkspaceTabCount(slots);
+  const external = slots.some((s) => s.status === "external");
   return {
-    status: running > 0 ? "running" : external > 0 ? "external" : "stopped",
+    status: running > 0 ? "running" : external ? "external" : "stopped",
     runningCount: running,
-    totalCount: slots.length,
+    totalCount: workspaceTabCount(slots),
   };
 }
 
