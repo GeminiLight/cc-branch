@@ -289,6 +289,39 @@
 - `python3.11 -m unittest tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_layout_opener_opens_all_slots tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_vscode_opens_workspace_file tests.test_webui.WebUIHandlerTests.test_action_open_mixed_workspace_with_vscode_opens_workspace_file tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_vscode_generates_tasks tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_warp_keeps_tmux_slot_as_one_layout_pane tests.test_webui.WebUIHandlerTests.test_action_open_slot_with_vscode_opens_workspace_file tests.test_webui.WebUIHandlerTests.test_action_open_target_with_vscode_opens_workspace_file tests.test_application_architecture.WorkspaceActionsTests.test_open_workspace_layout_opener_keeps_tmux_slot_as_one_external_pane`
 - `python3.11 -m unittest tests.test_webui tests.test_application_architecture`
 
+### 11. Mixed tab 被内部 slot 拆分后丢失外部分组
+
+问题：
+
+- Public v2 config 允许一个 `tabs[]` 同时包含普通终端 pane 和 tmux group pane。
+- 后端为了保持现有运行模型，会把这种 mixed tab 拆成两个内部 slot：
+  - terminal slot：`dev`
+  - tmux slot：`dev-agents`
+- 拆分后 layout opener 只能看到两个不同 slot name，因此 Warp / VS Code 会把它们当成两个外部 Tab 分组。
+
+影响：
+
+- 用户在空间画布里看到的是一个 `dev` Tab 下的两个 panes。
+- 实际打开时会变成两个外部标签页或两个不相关 split group。
+- 这会让 “Tab 是容器，Pane 才是运行单元” 的产品心智继续错位。
+
+修复：
+
+- `cc_branch/models/config.py`
+  - `SlotConfig` 增加内部 `split_group`。
+  - 从 public `tabs[]` 拆出的 terminal slot 和 tmux slot 都保留原始 tab 名作为 `split_group`。
+- `cc_branch/models/plan.py` 和 `cc_branch/planner/workspace.py`
+  - `SlotPlan` 透传 `split_group`。
+- `cc_branch/application/workspace_actions/command_specs.py`
+  - `OpenCommandSpec.split_group` 优先使用计划中的 `slot.split_group`，没有时才回退到 `slot.name`。
+- `tests/test_application_architecture.py`
+  - 覆盖 mixed tab 生成 `dev` / `dev-agents` 两个内部 slot，但外部 command specs 都带 `split_group=dev`。
+
+验证：
+
+- `python3.11 -m unittest tests.test_application_architecture.RuntimeBoundaryTests.test_public_mixed_tab_preserves_original_tab_split_group tests.test_application_architecture.RuntimeBoundaryTests.test_workspace_command_specs_carry_tab_split_group tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_warp_keeps_tmux_slot_as_one_layout_pane`
+- `python3.11 -m unittest tests.test_application_architecture tests.test_webui`
+
 ## 仍需后续处理的风险
 
 ### 1. 配置概念仍然复杂

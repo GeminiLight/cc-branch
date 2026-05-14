@@ -101,6 +101,7 @@ class SlotConfig:
     runtime: str = "tmux"
     layout: str = "auto"
     opener: str | None = None
+    split_group: str | None = None
     cwd: str = "."
     env: dict[str, Any] = field(default_factory=dict)
     windows: list[WindowConfig] = field(default_factory=list)
@@ -121,6 +122,7 @@ class SlotConfig:
             runtime=data.get("runtime", "tmux"),
             layout=data.get("layout", "auto"),
             opener=data.get("opener"),
+            split_group=data.get("split_group"),
             cwd=data.get("cwd", "."),
             env=dict(data.get("env") or {}),
             windows=windows,
@@ -206,6 +208,7 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                     runtime="terminal",
                     layout=tab_layout,
                     opener=tab_opener if isinstance(tab_opener, str) else None,
+                    split_group=tab_name,
                     cwd=tab_cwd,
                     env=tab_env,
                     session=str(direct_panes[0].get("session")) if len(direct_panes) == 1 and direct_panes[0].get("session") is not None else None,
@@ -238,6 +241,7 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                     runtime="tmux",
                     layout=str(tmux_panes[0].get("layout") or tab_layout) if tmux_panes else tab_layout,
                     opener=str(tmux_panes[0].get("opener") or tab_opener) if tmux_panes and (tmux_panes[0].get("opener") or tab_opener) else (tab_opener if isinstance(tab_opener, str) else None),
+                    split_group=tab_name,
                     cwd=str(tmux_panes[0].get("cwd") or tab_cwd) if tmux_panes else tab_cwd,
                     env={**tab_env, **dict(tmux_panes[0].get("env") or {})} if tmux_panes else tab_env,
                     session=str(tmux_panes[0].get("session")) if tmux_panes and tmux_panes[0].get("session") is not None else None,

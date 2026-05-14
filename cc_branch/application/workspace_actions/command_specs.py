@@ -13,28 +13,33 @@ from ...runtime.capabilities import is_external_process_runtime
 class WorkspaceCommandSpecs:
     """Builds terminal/editor command specifications from planned slots and windows."""
 
+    def split_group(self, slot) -> str:
+        return getattr(slot, "split_group", None) or slot.name
+
     def terminal_command_specs(self, slots, *, windows=None) -> list[OpenCommandSpec]:
         specs: list[OpenCommandSpec] = []
         if windows is not None and len(slots) == 1:
             slot = slots[0]
+            split_group = self.split_group(slot)
             for window in windows:
                 specs.append(
                     OpenCommandSpec(
                         title=f"{slot.name}:{window.name}",
                         cwd=Path(window.cwd),
                         command=window.launch_command,
-                        split_group=slot.name,
+                        split_group=split_group,
                     )
                 )
             return specs
         for slot in slots:
+            split_group = self.split_group(slot)
             for window in slot.windows:
                 specs.append(
                     OpenCommandSpec(
                         title=f"{slot.name}:{window.name}",
                         cwd=Path(window.cwd),
                         command=window.launch_command,
-                        split_group=slot.name,
+                        split_group=split_group,
                     )
                 )
         return specs
@@ -45,7 +50,7 @@ class WorkspaceCommandSpecs:
                 title=slot.name,
                 cwd=Path(slot.cwd),
                 command=f"{cli} attach {slot.name}",
-                split_group=slot.name,
+                split_group=self.split_group(slot),
             )
             for slot in slots
         ]
@@ -56,6 +61,7 @@ class WorkspaceCommandSpecs:
             if not slot.windows:
                 specs.extend(self.tmux_slot_attach_specs([slot], cli))
                 continue
+            split_group = self.split_group(slot)
             for window in slot.windows:
                 target = f"{slot.name}:{window.name}"
                 specs.append(
@@ -63,7 +69,7 @@ class WorkspaceCommandSpecs:
                         title=target,
                         cwd=Path(window.cwd),
                         command=f"{cli} attach {target}",
-                        split_group=slot.name,
+                        split_group=split_group,
                     )
                 )
         return specs
@@ -78,7 +84,7 @@ class WorkspaceCommandSpecs:
                     title=target,
                     cwd=Path(window.cwd),
                     command=f"{cli} attach {target}",
-                    split_group=slot.name,
+                    split_group=self.split_group(slot),
                 )
             ]
         return self.tmux_slot_attach_specs([slot], cli)

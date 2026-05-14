@@ -26,6 +26,7 @@
 | 优化 Project config 信息架构 | `apps/web/src/components/ConfigEditor/ProjectSection.tsx`、`apps/web/src/i18n/index.tsx`、`ConfigEditor.test.tsx` | 已推进：项目配置页拆成 Project identity 和 Workspace launch 两组，项目身份与工作区启动行为不再混在同一个卡片里；默认启动工具、默认窗格类型和默认 Shell 不再藏在 `Advanced defaults` 原生折叠区里。 |
 | 修复 Project config 默认启动工具 id 不一致 | `ProjectSection.tsx`、`yaml-utils.ts`、`cc_branch/models/config.py`、`ConfigEditor.test.tsx`、`yaml-utils.test.ts`、`tests/test_config.py` | 已修复：前端保存注册表 id `terminal-app` / `iterm2`；前后端读取旧 `terminal` / `iterm` 时会归一化，避免保存后启动器 dispatch 到不存在的 opener。 |
 | 对齐 tmux group 的外部打开语义 | `cc_branch/application/workspace_actions/open.py`、`command_specs.py`、`tests/test_webui.py`、`tests/test_application_architecture.py` | 已修复：打开整个 workspace 或整个 tab 时，tmux slot 在 Warp / VS Code / Cursor 等外部工具里只占一个 pane；只有明确打开 `tab:window` 时才 attach 到具体 tmux window。 |
+| 保持 mixed tab 的外部 split group | `cc_branch/models/config.py`、`models/plan.py`、`planner/workspace.py`、`command_specs.py`、`tests/test_application_architecture.py` | 已修复：public mixed tab 被拆成 terminal slot 和 tmux slot 后，仍会共享原始 tab 名作为外部分组，Warp / VS Code 不再把一个画布 tab 打开成两个外部 tab group。 |
 | 降低 Project config 首屏负担 | `apps/web/src/components/ConfigEditor/index.tsx`、`ConfigEditor.test.tsx`、截图 `tmp/review-live-2026-05-14/project-agent-collapsed.png` | 已优化：低频的 Agent overrides 默认收起，只保留摘要和 Add 入口，避免进入项目配置时先看到一长串高级 agent 覆盖项。 |
 | 收敛新建配置向导模型 | `apps/web/src/components/config-wizard-model.ts`、`config-wizard-model.test.ts`、`ConfigWizard.tsx` | 已推进：模板规格、agent 选择、统计、YAML 生成从 React 组件抽成纯模型；向导 YAML 现在复用主配置编辑器 serializer，不再手工拼字符串，特殊字符会由 `js-yaml` 正确转义。 |
 | 修复项目级 Agent 覆盖默认模板 | `apps/web/src/components/ConfigEditor/AgentsSection.tsx`、`AgentsSection.test.tsx` | 已修复：新增自定义 agent 时默认 `create_template` 使用官方 `{session_id}` 模板语法，不再生成 `{{session_id}}`。 |
@@ -94,7 +95,7 @@ python3.11 -m unittest discover tests
 结果：
 
 ```text
-Ran 392 tests in 47.136s
+Ran 393 tests in 47.362s
 OK
 ```
 
@@ -212,6 +213,28 @@ python3.11 -m unittest tests.test_webui tests.test_application_architecture
 
 ```text
 Ran 175 tests in 46.275s
+OK
+```
+
+```bash
+python3.11 -m unittest tests.test_application_architecture.RuntimeBoundaryTests.test_public_mixed_tab_preserves_original_tab_split_group tests.test_application_architecture.RuntimeBoundaryTests.test_workspace_command_specs_carry_tab_split_group tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_warp_keeps_tmux_slot_as_one_layout_pane
+```
+
+结果：
+
+```text
+Ran 3 tests in 0.647s
+OK
+```
+
+```bash
+python3.11 -m unittest tests.test_application_architecture tests.test_webui
+```
+
+结果：
+
+```text
+Ran 176 tests in 46.271s
 OK
 ```
 

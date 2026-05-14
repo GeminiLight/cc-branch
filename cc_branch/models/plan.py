@@ -59,12 +59,13 @@ class SlotPlan:
     runtime: str
     layout: str
     opener: str | None
+    split_group: str | None
     tmux_session: str
     cwd: str
     windows: list[WindowPlan] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "name": self.name,
             "runtime": self.runtime,
             "layout": self.layout,
@@ -73,6 +74,9 @@ class SlotPlan:
             "cwd": self.cwd,
             "windows": [w.to_dict() for w in self.windows],
         }
+        if self.split_group:
+            payload["split_group"] = self.split_group
+        return payload
 
 
 @dataclass
@@ -153,6 +157,7 @@ class WorkspacePlan:
                     runtime=slot.get("runtime", "tmux"),
                     layout=slot.get("layout", "auto"),
                     opener=slot.get("opener"),
+                    split_group=slot.get("split_group"),
                     tmux_session=slot.get("tmux_session", ""),
                     cwd=slot.get("cwd", "."),
                     windows=windows,

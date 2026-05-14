@@ -24,6 +24,7 @@ def plan_workspace(
             runtime=slot.runtime,
             layout=slot.layout,
             opener=slot.opener,
+            split_group=slot.split_group,
             tmux_session=tmux_session_name(workspace.project, slot.name),
             cwd=str((Path(workspace.root) / slot.cwd).resolve()),
         )

@@ -472,6 +472,52 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertEqual([spec.title for spec in specs], ["dev:frontend", "dev:backend", "docs:writer"])
         self.assertEqual([spec.split_group for spec in specs], ["dev", "dev", "docs"])
 
+    def test_public_mixed_tab_preserves_original_tab_split_group(self):
+        from cc_branch.application.workspace_actions.command_specs import WorkspaceCommandSpecs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    layout: "horizontal"
+                    panes:
+                      - name: "ui"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            command: "codex"
+                          - name: "review"
+                            command: "claude"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            plan = plan_workspace(workspace, load_state(root / ".cc-branch/state.yaml"), bootstrap_missing=False)
+            tmux_slots = [slot for slot in plan.slots if slot.runtime == "tmux"]
+            terminal_slots = [slot for slot in plan.slots if slot.runtime == "terminal"]
+            specs = [
+                *WorkspaceCommandSpecs().tmux_slot_attach_specs(tmux_slots, "cc-branch"),
+                *WorkspaceCommandSpecs().terminal_command_specs(terminal_slots),
+            ]
+
+        self.assertEqual([(slot.name, slot.runtime, slot.split_group) for slot in plan.slots], [
+            ("dev", "terminal", "dev"),
+            ("dev-agents", "tmux", "dev"),
+        ])
+        self.assertEqual([(spec.title, spec.command, spec.split_group) for spec in specs], [
+            ("dev-agents", "cc-branch attach dev-agents", "dev"),
+            ("dev:ui", "npm run dev", "dev"),
+        ])
+
     def _write(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
