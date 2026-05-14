@@ -45,4 +45,53 @@ describe("validateWorkspaceNames", () => {
       hasEmptyPaneNames: true,
     });
   });
+
+  it("detects empty names inside nested tmux group windows", () => {
+    const workspace = slot("dev", ["agents"]);
+    workspace.windows[0].layoutBackend = "tmux";
+    workspace.windows[0].windows = [
+      {
+        name: "frontend",
+        agent: null,
+        command: "zsh",
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+      {
+        name: " ",
+        agent: null,
+        command: "zsh",
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+    ];
+
+    expect(validateWorkspaceNames([workspace])).toMatchObject({
+      duplicateTabNames: [],
+      hasEmptyTabNames: false,
+      hasEmptyPaneNames: true,
+    });
+  });
 });

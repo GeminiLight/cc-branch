@@ -1,9 +1,13 @@
-import type { SlotConfig } from "./types";
+import type { SlotConfig, WindowConfig } from "./types";
 
 export interface WorkspaceNameValidation {
   duplicateTabNames: string[];
   hasEmptyTabNames: boolean;
   hasEmptyPaneNames: boolean;
+}
+
+function hasEmptyWindowName(window: WindowConfig): boolean {
+  return window.name.trim().length === 0 || Boolean(window.windows?.some(hasEmptyWindowName));
 }
 
 export function validateWorkspaceNames(slots: SlotConfig[]): WorkspaceNameValidation {
@@ -13,6 +17,6 @@ export function validateWorkspaceNames(slots: SlotConfig[]): WorkspaceNameValida
   return {
     duplicateTabNames,
     hasEmptyTabNames: slots.some((slot) => slot.name.trim().length === 0),
-    hasEmptyPaneNames: slots.some((slot) => slot.windows.some((win) => win.name.trim().length === 0)),
+    hasEmptyPaneNames: slots.some((slot) => slot.windows.some(hasEmptyWindowName)),
   };
 }
