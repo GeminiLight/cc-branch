@@ -84,6 +84,8 @@ describe("doctor-view-model", () => {
     expect(model.issueCount).toBe(1);
     expect(model.warningCount).toBe(2);
     expect(model.visibleChecks.map((check) => check.status)).toEqual(["error", "warn", "warn", "ok"]);
+    expect(model.actionableChecks.map((check) => check.status)).toEqual(["error", "warn", "warn"]);
+    expect(model.passingChecks.map((check) => check.status)).toEqual(["ok"]);
     expect(model.visibleChecks.map((check) => check.text)).toContain("2 missing");
     expect(model.visibleChecks.map((check) => check.text)).toContain("1 extra");
   });

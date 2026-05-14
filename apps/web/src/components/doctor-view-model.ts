@@ -22,6 +22,8 @@ interface BuildDoctorViewModelInput {
 export interface DoctorViewModel {
   checks: CheckItem[];
   visibleChecks: CheckItem[];
+  actionableChecks: CheckItem[];
+  passingChecks: CheckItem[];
   issueCount: number;
   warningCount: number;
   passedCount: number;
@@ -169,6 +171,8 @@ export function buildDoctorViewModel({
   const warningCount = checks.filter((check) => check.status === "warn").length;
   const passedCount = checks.filter((check) => check.status === "ok").length;
   const visibleChecks = [...checks].sort((a, b) => CHECK_STATUS_PRIORITY[a.status] - CHECK_STATUS_PRIORITY[b.status]);
+  const actionableChecks = visibleChecks.filter((check) => check.status !== "ok");
+  const passingChecks = visibleChecks.filter((check) => check.status === "ok");
   const overall = issueCount > 0 ? "error" : warningCount > 0 ? "warn" : parsed?.overall ?? "ok";
   const overallLabel =
     overall === "ok"
@@ -186,6 +190,8 @@ export function buildDoctorViewModel({
   return {
     checks,
     visibleChecks,
+    actionableChecks,
+    passingChecks,
     issueCount,
     warningCount,
     passedCount,

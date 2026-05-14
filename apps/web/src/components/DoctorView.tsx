@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, XCircle } from "lu
 import { useI18n } from "../i18n";
 import { useConfig, useDoctor, useWorkspace } from "../hooks";
 import type { DoctorStatus } from "./doctor-view-model";
+import type { CheckItem } from "./doctor-view-model";
 import { buildDoctorViewModel } from "./doctor-view-model";
 import EmptyState from "./ui/EmptyState";
 
@@ -40,6 +41,35 @@ function metricCardClass(active: boolean, activeClass: string): string {
 
 function metricIconClass(active: boolean, activeClass: string): string {
   return `w-4 h-4 shrink-0 ${active ? activeClass : "text-tertiary"}`;
+}
+
+function FindingRow({ check, compact = false }: { check: CheckItem; compact?: boolean }) {
+  return (
+    <div
+      className={`rounded-md flex items-start gap-2.5 ${
+        compact
+          ? "px-2.5 py-2"
+          : `px-3 py-3 ${
+              check.status === "error"
+                ? "bg-[var(--danger-bg)]"
+                : check.status === "warn"
+                  ? "bg-[var(--warning-bg)]"
+                  : "hover:bg-[var(--bg-hover)]/35"
+            }`
+      }`}
+    >
+      <StatusDot status={check.status} />
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">{check.icon}</p>
+        <p className={`${compact ? "text-[12px]" : "text-[13px]"} text-primary mt-px`}>{check.text}</p>
+        {check.fix && (
+          <p className="text-[11px] text-tertiary mt-1 font-mono bg-[var(--bg-hover)] px-2 py-1 rounded inline-block">
+            → {check.fix}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function DoctorView({ projectPath, configPath }: DoctorViewProps) {
@@ -106,7 +136,8 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
     issueCountLabel,
     warningCountLabel,
     passedCountLabel,
-    visibleChecks,
+    actionableChecks,
+    passingChecks,
     overall,
     overallLabel,
     summaryText,
@@ -123,6 +154,7 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
       : overall === "warn"
       ? "bg-[var(--warning-bg)] text-[var(--warning)]"
       : "danger-bg danger";
+  const hasActionableFindings = issueCount > 0 || warningCount > 0;
 
   return (
     <div className="page-shell space-y-4">
@@ -155,29 +187,39 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className={metricCardClass(issueCount > 0, METRIC_STYLES.issue.active)}>
-            <XCircle className={metricIconClass(issueCount > 0, METRIC_STYLES.issue.icon)} />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksIssues")}</p>
-              <p className="text-[13px] font-semibold text-primary">{issueCountLabel}</p>
+        {hasActionableFindings ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className={metricCardClass(issueCount > 0, METRIC_STYLES.issue.active)}>
+              <XCircle className={metricIconClass(issueCount > 0, METRIC_STYLES.issue.icon)} />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksIssues")}</p>
+                <p className="text-[13px] font-semibold text-primary">{issueCountLabel}</p>
+              </div>
+            </div>
+            <div className={metricCardClass(warningCount > 0, METRIC_STYLES.warning.active)}>
+              <AlertTriangle className={metricIconClass(warningCount > 0, METRIC_STYLES.warning.icon)} />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksWarnings")}</p>
+                <p className="text-[13px] font-semibold text-primary">{warningCountLabel}</p>
+              </div>
+            </div>
+            <div className={metricCardClass(passedCount > 0, METRIC_STYLES.passed.active)}>
+              <CheckCircle2 className={metricIconClass(passedCount > 0, METRIC_STYLES.passed.icon)} />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksPassed")}</p>
+                <p className="text-[13px] font-semibold text-primary">{passedCountLabel}</p>
+              </div>
             </div>
           </div>
-          <div className={metricCardClass(warningCount > 0, METRIC_STYLES.warning.active)}>
-            <AlertTriangle className={metricIconClass(warningCount > 0, METRIC_STYLES.warning.icon)} />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksWarnings")}</p>
-              <p className="text-[13px] font-semibold text-primary">{warningCountLabel}</p>
-            </div>
-          </div>
-          <div className={metricCardClass(passedCount > 0, METRIC_STYLES.passed.active)}>
-            <CheckCircle2 className={metricIconClass(passedCount > 0, METRIC_STYLES.passed.icon)} />
+        ) : (
+          <div className="inline-flex max-w-max items-center gap-2 rounded-md success-bg px-3 py-2">
+            <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0" />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksPassed")}</p>
               <p className="text-[13px] font-semibold text-primary">{passedCountLabel}</p>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Checks */}
@@ -189,30 +231,35 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
           </div>
           <span className={`text-[11px] font-semibold ${overallColor}`}>{overallLabel}</span>
         </div>
-        <div className="p-1.5 space-y-1">
-          {visibleChecks.map((check, i) => (
-            <div
-              key={i}
-              className={`rounded-md px-3 py-3 flex items-start gap-2.5 ${
-                check.status === "error"
-                  ? "bg-[var(--danger-bg)]"
-                  : check.status === "warn"
-                    ? "bg-[var(--warning-bg)]"
-                    : "hover:bg-[var(--bg-hover)]/35"
-              }`}
-            >
-              <StatusDot status={check.status} />
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">{check.icon}</p>
-                <p className="text-[13px] text-primary mt-px">{check.text}</p>
-                {check.fix && (
-                  <p className="text-[11px] text-tertiary mt-1 font-mono bg-[var(--bg-hover)] px-2 py-1 rounded inline-block">
-                    → {check.fix}
-                  </p>
-                )}
+        <div className="p-1.5 space-y-1.5">
+          {actionableChecks.length > 0 ? (
+            actionableChecks.map((check, i) => <FindingRow key={`${check.status}-${check.icon}-${i}`} check={check} />)
+          ) : (
+            <div className="rounded-md px-3 py-3 flex items-start gap-2.5 success-bg">
+              <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-primary">{t("doctorReadyFinding")}</p>
+                <p className="text-[12px] text-secondary mt-0.5">{summaryText}</p>
               </div>
             </div>
-          ))}
+          )}
+
+          {passingChecks.length > 0 && (
+            <details className="group rounded-md border border-subtle bg-[var(--bg-hover)]/25">
+              <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-tertiary hover:text-secondary">
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[var(--success)]" />
+                  {passedCountLabel}
+                </span>
+                <span className="text-[10px] font-medium normal-case tracking-normal">{t("showDetails")}</span>
+              </summary>
+              <div className="border-t border-subtle p-1 space-y-1">
+                {passingChecks.map((check, i) => (
+                  <FindingRow key={`passed-${check.icon}-${i}`} check={check} compact />
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
     </div>

@@ -68,6 +68,26 @@ describe('DoctorView summary', () => {
     const passed = screen.getByText('.cc-branch/config.yaml found')
 
     expect(issue.compareDocumentPosition(passed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByText('1 passed').length).toBeGreaterThan(0)
+    expect(screen.getByText('Show details')).toBeInTheDocument()
+  })
+
+  it('uses a compact ready finding instead of listing passed checks as primary findings', () => {
+    mocks.doctorResult.current = {
+      data: { report: 'Workspace:\n✓ config: .cc-branch/config.yaml found\n' },
+      error: null,
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }
+
+    renderDoctorView()
+
+    expect(screen.getByText('Ready to launch')).toBeInTheDocument()
+    expect(screen.getAllByText('Workspace checks are clear.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('1 passed').length).toBeGreaterThan(0)
+    expect(screen.queryByText('0 issues')).not.toBeInTheDocument()
+    expect(screen.queryByText('0 warnings')).not.toBeInTheDocument()
   })
 
   it('does not surface stale unknown-field warnings for canonical v2 fields', () => {

@@ -40,6 +40,7 @@
 | 拆分 Doctor view model | `apps/web/src/components/doctor-view-model.ts`、`doctor-view-model.test.ts`、`DoctorView.tsx` | 已推进：文本 report 解析、结构化 issue 映射、配置 issue 过滤、runtime drift 汇总、整体健康态和计数文案从 React 组件抽成纯 view model，并补单元测试。 |
 | 降低 Doctor 空状态视觉噪音 | `apps/web/src/components/DoctorView.tsx` | 已优化：摘要卡片只有在对应数量大于 0 时使用错误/警告/通过强调色；0 项状态用中性图标和弱背景，减少误导。 |
 | 清理 Doctor 通过项提示噪音 | `apps/web/src/components/doctor-view-model.ts`、`doctor-view-model.test.ts`、截图 `tmp/review-pass/doctor-view-2026-05-14-after.png` | 已修复：结构化 info 级 doctor issue 和文本 report 的通过项即使携带 hint，也不再显示“修复提示”。 |
+| 降低 Doctor 主列表噪音 | `apps/web/src/components/DoctorView.tsx`、`doctor-view-model.ts`、`DoctorView.test.tsx`、`doctor-view-model.test.ts`、截图 `tmp/review-live-2026-05-14/doctor-actionable-first.png` | 已优化：诊断页主列表默认只展示需要处理的错误/警告；通过项折到低权重详情区；全通过状态不再显示 `0 issues / 0 warnings`。 |
 | 审查 agent 图标显示一致性 | `apps/web/src/components/ui/AgentMark.tsx`、`Dashboard.tsx`、`SlotsSection.tsx` | 已收敛：Dashboard 和配置画布不再各自复制 Codex / Claude / Gemini / Cursor / Kimi 的识别与 icon 样式。 |
 | 拆分 workspace canvas 渲染职责 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`workspace-display.ts`、`SlotsSection.tsx` | 已推进：画布 JSX、pane 样式投影和展示摘要从 `SlotsSection.tsx` 拆出，`SlotsSection.tsx` 从 1666 行降到 1352 行。 |
 | 拆分 session 选择器职责 | `apps/web/src/components/ConfigEditor/SessionInput.tsx`、`SlotsSection.tsx` | 已推进：agent session 加载、resume/fresh/auto 状态和下拉选择逻辑从 workspace 编辑器中抽出，`SlotsSection.tsx` 进一步降到 1205 行。 |
@@ -109,7 +110,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  27 passed (27)
-Tests  197 passed (197)
+Tests  198 passed (198)
 ```
 
 ```bash
@@ -237,7 +238,7 @@ d1273b0 Verify workspace drag save persistence
 
 - 配置模型仍存在 `slots/windows` 存储术语与 `tabs/panes/tmux groups` 产品术语的映射层。
 - 前端 `SlotsSection.tsx` 已抽出更多纯模型逻辑、跨 tab 移动逻辑、agent icon 显示逻辑、canvas rendering、session 选择器、layout picker、inspector 动作区、tmux group 编辑器、tab/terminal pane/agent pane 编辑器、drag/drop coordination、selection 派生状态、tab mutation、主要 pane mutation 和 tmux internal window mutation，但仍然承担少量选择态、表单 patch 和 action wiring。
-- Doctor 仍偏 CLI 环境检查，尚未完全产品化为 workspace health diagnosis。
+- Doctor 已开始从“检查日志列表”收敛为 workspace health diagnosis：主列表优先展示 actionable findings，通过项默认折叠；但更深层的修复操作编排、启动阻塞原因归因仍未完全产品化。
 
 ### 2. “任何潜在功能 bug”无法用当前证据宣称全部发现
 
@@ -259,7 +260,7 @@ d1273b0 Verify workspace drag save persistence
 - Space canvas 还可以继续降低配置编辑器感，更像真实 workspace 预览。
 - 选中态、拖拽态、跨 tab 移动的反馈还可以更精细。
 - Project config 仍需要继续区分“项目级信息”和“工作空间布局信息”。
-- Doctor 需要更贴近用户问题，而不是只列环境检查。
+- Doctor 已降低通过项噪音，但还需要更贴近用户问题，例如把“为什么启动不了 / 应该先处理哪个配置或运行态差异”继续做成更直接的产品诊断。
 
 ## 审计结论
 
@@ -275,4 +276,4 @@ d1273b0 Verify workspace drag save persistence
 
 1. 继续拆分 `SlotsSection.tsx` 的职责；本轮已抽出更多 workspace model、pane movement、canvas rendering、session selector、layout picker、inspector actions、tmux group editor、detail editors、drag/drop coordination、selection derivation、tab add/delete mutations、主要 pane mutations 和 tmux internal window mutations，下一步应继续收敛表单 patch/action wiring。
 2. 继续扩大 workspace canvas 浏览器级交互验证，重点覆盖拖拽态视觉反馈、失败态和更多布局组合。
-3. 重构 Doctor 的信息架构，让它从环境检查升级为 workspace health diagnosis。
+3. 继续重构 Doctor 的信息架构，把 actionable diagnosis 和可执行修复路径做得更像 workspace health，而不是环境检查报告。
