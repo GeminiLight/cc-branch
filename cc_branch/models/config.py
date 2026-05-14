@@ -167,6 +167,17 @@ def _runtime_for_layout_backend(layout_backend: str) -> str:
     return "tmux" if layout_backend == "tmux" else "terminal"
 
 
+def _unique_slot_name(base: Any, used: set[str]) -> str:
+    raw = str(base or "tab").strip() or "tab"
+    name = raw
+    suffix = 1
+    while name in used:
+        name = f"{raw}-{suffix}"
+        suffix += 1
+    used.add(name)
+    return name
+
+
 def _pane_layout_backend(data: dict[str, Any], default: str) -> str:
     if "layoutBackend" in data:
         return _layout_backend(data.get("layoutBackend"), default)
@@ -204,16 +215,7 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
         panes = raw_tab.get("panes") or []
         raw_panes = [pane for pane in panes if isinstance(pane, dict)] if isinstance(panes, list) else []
 
-        direct_panes = [
-            pane for pane in raw_panes
-            if _pane_layout_backend(pane, tab_layout_backend) == "direct"
-        ]
-        tmux_panes = [
-            pane for pane in raw_panes
-            if _pane_layout_backend(pane, tab_layout_backend) == "tmux"
-        ]
-
-        if direct_panes or (not raw_panes and tab_layout_backend == "direct"):
+        if not raw_panes and tab_layout_backend == "direct":
             slots.append(
                 SlotConfig(
                     name=tab_name,
@@ -223,10 +225,33 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                     split_group=tab_name,
                     cwd=tab_cwd,
                     env=tab_env,
-                    session=str(direct_panes[0].get("session")) if len(direct_panes) == 1 and direct_panes[0].get("session") is not None else None,
-                    windows=[_pane_to_window(pane) for pane in direct_panes],
+                    windows=[],
                 )
             )
+            continue
+        if not raw_panes and tab_layout_backend == "tmux":
+            slots.append(
+                SlotConfig(
+                    name=tab_name,
+                    runtime="tmux",
+                    layout=tab_layout,
+                    opener=tab_opener if isinstance(tab_opener, str) else None,
+                    split_group=tab_name,
+                    cwd=tab_cwd,
+                    env=tab_env,
+                    windows=[],
+                )
+            )
+            continue
+
+        direct_panes = [
+            pane for pane in raw_panes
+            if _pane_layout_backend(pane, tab_layout_backend) == "direct"
+        ]
+        tmux_panes = [
+            pane for pane in raw_panes
+            if _pane_layout_backend(pane, tab_layout_backend) == "tmux"
+        ]
 
         plain_tmux_tab = (
             tab_layout_backend == "tmux"
@@ -248,8 +273,51 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                     windows=[WindowConfig.from_dict(pane) for pane in tmux_panes],
                 )
             )
-        elif tmux_panes:
-            for index, pane in enumerate(tmux_panes):
+            continue
+
+        if not tmux_panes:
+            slots.append(
+                SlotConfig(
+                    name=tab_name,
+                    runtime="terminal",
+                    layout=tab_layout,
+                    opener=tab_opener if isinstance(tab_opener, str) else None,
+                    split_group=tab_name,
+                    cwd=tab_cwd,
+                    env=tab_env,
+                    session=str(direct_panes[0].get("session")) if len(direct_panes) == 1 and direct_panes[0].get("session") is not None else None,
+                    windows=[_pane_to_window(pane) for pane in direct_panes],
+                )
+            )
+            continue
+
+        if tmux_panes:
+            used_slot_names: set[str] = set()
+            emitted_for_tab = 0
+            direct_chunk: list[dict[str, Any]] = []
+
+            def append_direct_chunk(chunk: list[dict[str, Any]], fallback_index: int) -> None:
+                nonlocal emitted_for_tab
+                if not chunk:
+                    return
+                base_name = tab_name if emitted_for_tab == 0 else f"{tab_name}-{chunk[0].get('name') or fallback_index}"
+                slots.append(
+                    SlotConfig(
+                        name=_unique_slot_name(base_name, used_slot_names),
+                        runtime="terminal",
+                        layout=tab_layout,
+                        opener=tab_opener if isinstance(tab_opener, str) else None,
+                        split_group=tab_name,
+                        cwd=tab_cwd,
+                        env=tab_env,
+                        session=str(chunk[0].get("session")) if len(chunk) == 1 and chunk[0].get("session") is not None else None,
+                        windows=[_pane_to_window(pane) for pane in chunk],
+                    )
+                )
+                emitted_for_tab += 1
+
+            def append_tmux_pane(pane: dict[str, Any], index: int) -> None:
+                nonlocal emitted_for_tab
                 raw_windows = pane.get("windows") or []
                 if isinstance(raw_windows, list) and raw_windows:
                     windows = [
@@ -261,14 +329,14 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                     windows = [WindowConfig.from_dict(pane)]
                 explicit_group = _is_explicit_tmux_group_pane(pane, tab_layout_backend)
                 pane_name = str(pane.get("name") or "tmux") if explicit_group else None
-                slot_name = (
+                base_name = (
                     tab_name
                     if not direct_panes and len(tmux_panes) == 1
                     else f"{tab_name}-{pane_name or pane.get('name') or index + 1}"
                 )
                 slots.append(
                     SlotConfig(
-                        name=slot_name,
+                        name=_unique_slot_name(base_name, used_slot_names),
                         runtime="tmux",
                         layout=str(pane.get("layout") or tab_layout),
                         opener=str(pane.get("opener") or tab_opener) if pane.get("opener") or tab_opener else None,
@@ -280,19 +348,16 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                         windows=windows,
                     )
                 )
-        elif not raw_panes and tab_layout_backend == "tmux":
-            slots.append(
-                SlotConfig(
-                    name=tab_name,
-                    runtime="tmux",
-                    layout=tab_layout,
-                    opener=tab_opener if isinstance(tab_opener, str) else None,
-                    split_group=tab_name,
-                    cwd=tab_cwd,
-                    env=tab_env,
-                    windows=[],
-                )
-            )
+                emitted_for_tab += 1
+
+            for index, pane in enumerate(raw_panes):
+                if _pane_layout_backend(pane, tab_layout_backend) == "direct":
+                    direct_chunk.append(pane)
+                    continue
+                append_direct_chunk(direct_chunk, index)
+                direct_chunk = []
+                append_tmux_pane(pane, index)
+            append_direct_chunk(direct_chunk, len(raw_panes))
     return slots
 
 

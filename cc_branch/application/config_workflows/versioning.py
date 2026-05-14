@@ -45,7 +45,7 @@ def base_version_matches(
 def _float_or_zero(value: object | None) -> float:
     if value is None:
         return 0.0
-    if isinstance(value, str | bytes | bytearray | int | float):
+    if isinstance(value, (str, bytes, bytearray, int, float)):
         return float(value)
     try:
         return float(str(value))

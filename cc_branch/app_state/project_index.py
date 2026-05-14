@@ -264,7 +264,7 @@ def _normalize_path(value: object | None) -> str:
 def _int_or_default(value: object | None, default: int) -> int:
     if value is None:
         return default
-    if isinstance(value, str | bytes | bytearray | int | float):
+    if isinstance(value, (str, bytes, bytearray, int, float)):
         return int(value)
     try:
         return int(str(value))

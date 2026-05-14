@@ -342,6 +342,39 @@ class ConfigTests(unittest.TestCase):
                 ["planner", "review"],
             )
 
+    def test_workspace_to_dict_preserves_interleaved_mixed_public_tab_order(self):
+        """Direct panes around a tmux group should keep their visual canvas order."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "frontend"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                      - name: "docs"
+                        command: "npm run docs"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            panes = serialized["tabs"][0]["panes"]
+            self.assertEqual([pane["name"] for pane in panes], ["frontend", "agents", "docs"])
+            self.assertEqual(panes[1]["layoutBackend"], "tmux")
+            self.assertEqual(panes[1]["windows"][0]["name"], "planner")
+
     def test_workspace_to_dict_preserves_single_tmux_group_pane(self):
         """A tmux group pane should not be flattened into tab-level tmux panes."""
         with tempfile.TemporaryDirectory() as tmp:
