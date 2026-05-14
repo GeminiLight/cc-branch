@@ -20,6 +20,7 @@ describe('i18n', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -97,5 +98,28 @@ describe('i18n', () => {
       </I18nProvider>
     )
     expect(screen.getByText('Stop "test-slot"?')).toBeInTheDocument()
+  })
+
+  it('keeps tmux window labels localized in Chinese', () => {
+    localStorage.setItem('cc-branch-lang', 'zh')
+
+    function TmuxLabelTest() {
+      const { t } = useI18n()
+      return (
+        <div>
+          <span>{t('tmuxWindowGroupSummary_one', { count: 1 })}</span>
+          <span>{t('tmuxWindowCount', { count: 2 })}</span>
+        </div>
+      )
+    }
+
+    render(
+      <I18nProvider>
+        <TmuxLabelTest />
+      </I18nProvider>
+    )
+
+    expect(screen.getByText('内含 1 个 tmux 窗口')).toBeInTheDocument()
+    expect(screen.getByText('2 个 tmux 窗口')).toBeInTheDocument()
   })
 })
