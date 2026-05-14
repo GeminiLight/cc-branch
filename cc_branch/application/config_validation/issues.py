@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...models import Issue
+from ...targets import TARGET_SEPARATORS
 
 
 def unknown_field(field: str, target: str) -> Issue:
@@ -53,7 +54,7 @@ def reserved_name_separator(target: str, scope: str, name: str) -> Issue:
         "error",
         f"{scope.capitalize()} name cannot contain ':' or '.'",
         target=target,
-        context={"field": "name", "scope": scope, "name": name, "separators": [":", "."]},
+        context={"field": "name", "scope": scope, "name": name, "separators": list(TARGET_SEPARATORS)},
     )
 
 

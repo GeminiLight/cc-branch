@@ -7,6 +7,7 @@ from ..models import DoctorReport, Issue, WorkspaceConfig, WorkspacePlan
 from ..runtime import which
 from ..runtime.capabilities import is_managed_runtime
 from ..runtime.shells import tmux_install_hint
+from ..targets import reserved_target_separators
 from .messages import _get_install_suggestion
 
 
@@ -22,10 +23,6 @@ def _duplicate_names(values: list[str]) -> list[str]:
         else:
             seen.add(name)
     return sorted(duplicates)
-
-
-def _reserved_target_separators(value: str) -> list[str]:
-    return [separator for separator in (":", ".") if separator in value]
 
 
 def _valid_env_key(key: str) -> bool:
@@ -100,7 +97,7 @@ def _build_slot_issues(plan: WorkspacePlan) -> list[Issue]:
 
     seen_sessions: set[str] = set()
     for slot in plan.slots:
-        slot_separators = _reserved_target_separators(slot.name)
+        slot_separators = reserved_target_separators(slot.name)
         if slot_separators:
             issues.append(
                 Issue(
@@ -128,7 +125,7 @@ def _build_slot_issues(plan: WorkspacePlan) -> list[Issue]:
                 )
             )
         for window in slot.windows:
-            window_separators = _reserved_target_separators(window.name)
+            window_separators = reserved_target_separators(window.name)
             if window_separators:
                 issues.append(
                     Issue(

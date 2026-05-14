@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from .exceptions import ConfigError
 
+TARGET_SEPARATORS = (":", ".")
+
 
 @dataclass(frozen=True)
 class Target:
@@ -37,14 +39,15 @@ def parse_target(value: str) -> Target:
     if not target:
         raise ConfigError("target cannot be empty")
 
-    has_colon = ":" in target
-    has_dot = "." in target
+    primary_separator, legacy_separator = TARGET_SEPARATORS
+    has_colon = primary_separator in target
+    has_dot = legacy_separator in target
     if has_colon and has_dot:
         raise ConfigError(
             f"invalid target '{value}': use slot or slot:window, not mixed separators"
         )
 
-    separator = ":" if has_colon else "." if has_dot else None
+    separator = primary_separator if has_colon else legacy_separator if has_dot else None
     if separator is None:
         slot, window = target, None
     else:
@@ -61,3 +64,8 @@ def parse_target(value: str) -> Target:
 def target_key(value: str) -> str:
     """Return the internal state key for a public target."""
     return parse_target(value).key
+
+
+def reserved_target_separators(value: str) -> list[str]:
+    """Return target separators that make a config name ambiguous."""
+    return [separator for separator in TARGET_SEPARATORS if separator in value]

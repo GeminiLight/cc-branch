@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from ...models import Issue
+from ...targets import reserved_target_separators
 from .issues import (
     empty_name,
     invalid_enum,
@@ -72,7 +73,7 @@ def reserved_name_separator_issue(data: dict, target: str, scope: str) -> Issue 
     value = data.get("name")
     if isinstance(value, str):
         name = value.strip()
-        if name and (":" in name or "." in name):
+        if name and reserved_target_separators(name):
             return reserved_name_separator(target, scope, name)
     return None
 
