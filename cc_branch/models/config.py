@@ -102,6 +102,7 @@ class SlotConfig:
     layout: str = "auto"
     opener: str | None = None
     split_group: str | None = None
+    pane_name: str | None = None
     cwd: str = "."
     env: dict[str, Any] = field(default_factory=dict)
     windows: list[WindowConfig] = field(default_factory=list)
@@ -123,6 +124,7 @@ class SlotConfig:
             layout=data.get("layout", "auto"),
             opener=data.get("opener"),
             split_group=data.get("split_group"),
+            pane_name=data.get("pane_name"),
             cwd=data.get("cwd", "."),
             env=dict(data.get("env") or {}),
             windows=windows,
@@ -242,6 +244,7 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                     layout=str(tmux_panes[0].get("layout") or tab_layout) if tmux_panes else tab_layout,
                     opener=str(tmux_panes[0].get("opener") or tab_opener) if tmux_panes and (tmux_panes[0].get("opener") or tab_opener) else (tab_opener if isinstance(tab_opener, str) else None),
                     split_group=tab_name,
+                    pane_name=pane_name,
                     cwd=str(tmux_panes[0].get("cwd") or tab_cwd) if tmux_panes else tab_cwd,
                     env={**tab_env, **dict(tmux_panes[0].get("env") or {})} if tmux_panes else tab_env,
                     session=str(tmux_panes[0].get("session")) if tmux_panes and tmux_panes[0].get("session") is not None else None,
@@ -266,6 +269,79 @@ def _slot_to_tab(slot: SlotConfig, default_layout_backend: str) -> dict[str, Any
         tab["layoutBackend"] = slot_layout_backend
     tab["panes"] = [_as_legacy_dict(window) for window in slot.windows]
     return tab
+
+
+def _tab_group_name(slot: SlotConfig) -> str:
+    return slot.split_group or slot.name
+
+
+def _tmux_group_pane(slot: SlotConfig) -> dict[str, Any]:
+    pane: dict[str, Any] = {
+        "name": slot.pane_name or slot.name,
+        "layoutBackend": "tmux",
+        "windows": [_as_legacy_dict(window) for window in slot.windows],
+    }
+    if slot.layout != "auto":
+        pane["layout"] = slot.layout
+    if slot.opener is not None:
+        pane["opener"] = slot.opener
+    if slot.cwd != ".":
+        pane["cwd"] = slot.cwd
+    if slot.env:
+        pane["env"] = slot.env
+    if slot.session is not None:
+        pane["session"] = slot.session
+    return pane
+
+
+def _terminal_panes(slot: SlotConfig, default_layout_backend: str) -> list[dict[str, Any]]:
+    panes = [_as_legacy_dict(window) for window in slot.windows]
+    if default_layout_backend != "direct":
+        for pane in panes:
+            pane["layoutBackend"] = "direct"
+    return panes
+
+
+def _merged_tab_from_group(slots: list[SlotConfig], default_layout_backend: str) -> dict[str, Any]:
+    first = slots[0]
+    tab: dict[str, Any] = {
+        "name": _tab_group_name(first),
+        "layout": first.layout,
+        "cwd": first.cwd,
+    }
+    if first.opener is not None:
+        tab["opener"] = first.opener
+    if first.env:
+        tab["env"] = first.env
+
+    panes: list[dict[str, Any]] = []
+    for slot in slots:
+        if slot.runtime == "tmux":
+            panes.append(_tmux_group_pane(slot))
+        else:
+            panes.extend(_terminal_panes(slot, default_layout_backend))
+    tab["panes"] = panes
+    return tab
+
+
+def _slots_to_tabs(slots: list[SlotConfig], default_layout_backend: str) -> list[dict[str, Any]]:
+    tabs: list[dict[str, Any]] = []
+    grouped: dict[str, list[SlotConfig]] = {}
+    ordered_groups: list[str] = []
+    for slot in slots:
+        group = _tab_group_name(slot)
+        if group not in grouped:
+            grouped[group] = []
+            ordered_groups.append(group)
+        grouped[group].append(slot)
+
+    for group in ordered_groups:
+        group_slots = grouped[group]
+        if len(group_slots) == 1:
+            tabs.append(_slot_to_tab(group_slots[0], default_layout_backend))
+        else:
+            tabs.append(_merged_tab_from_group(group_slots, default_layout_backend))
+    return tabs
 
 
 @dataclass
@@ -331,7 +407,7 @@ class WorkspaceConfig:
             "display": self.display.to_dict(),
             "agents": {k: _as_legacy_dict(v) for k, v in self.agents.items()},
             "openers": {k: _as_legacy_dict(v) for k, v in self.openers.items()},
-            "tabs": [_slot_to_tab(s, self.layout_backend) for s in self.slots],
+            "tabs": _slots_to_tabs(self.slots, self.layout_backend),
             "_config_path": self._config_path,
         }
         if self.default_opener:
@@ -355,3 +431,7 @@ class WorkspaceConfig:
             if slot.name == name:
                 return slot
         return None
+
+    def public_tab_count(self) -> int:
+        """Return the user-visible tab count after internal split slots are grouped."""
+        return len({_tab_group_name(slot) for slot in self.slots})

@@ -301,6 +301,47 @@ class ConfigTests(unittest.TestCase):
             self.assertNotIn("windows", serialized["tabs"][0]["panes"][0])
             self.assertEqual(serialized["tabs"][0]["panes"][1]["shell"], "zsh")
 
+    def test_workspace_to_dict_preserves_mixed_public_tab_shape(self):
+        """A mixed direct/tmux public tab should not reserialize as two tabs."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                tabs:
+                  - name: "dev"
+                    layout: "horizontal"
+                    panes:
+                      - name: "ui"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                          - name: "review"
+                            agent: "claude"
+                  - name: "docs"
+                    panes:
+                      - name: "writer"
+                        agent: "gemini"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            self.assertEqual([tab["name"] for tab in serialized["tabs"]], ["dev", "docs"])
+            self.assertEqual([pane["name"] for pane in serialized["tabs"][0]["panes"]], ["ui", "agents"])
+            self.assertEqual(serialized["tabs"][0]["panes"][1]["layoutBackend"], "tmux")
+            self.assertEqual(
+                [window["name"] for window in serialized["tabs"][0]["panes"][1]["windows"]],
+                ["planner", "review"],
+            )
+
     def test_load_workspace_normalizes_legacy_open_with_ids(self):
         """Older Web UI opener ids should normalize to registered opener ids."""
         with tempfile.TemporaryDirectory() as tmp:

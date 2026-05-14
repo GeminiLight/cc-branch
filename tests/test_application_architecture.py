@@ -1120,6 +1120,39 @@ class ConfigWorkflowTests(unittest.TestCase):
             self.assertEqual(result.payload["project_name"], "demo")
             self.assertEqual(result.payload["slots"], 1)
 
+    def test_probe_project_counts_public_tabs_not_internal_split_slots(self):
+        from cc_branch.application.config_workflows import probe_project
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "ui"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                          - name: "review"
+                            agent: "claude"
+                """,
+            )
+
+            result = probe_project(root)
+
+            self.assertTrue(result.ok)
+            self.assertEqual(result.payload["status"], "ready")
+            self.assertEqual(result.payload["slots"], 1)
+
     def test_initialize_workspace_returns_web_payload_shape(self):
         from unittest.mock import Mock, patch
 

@@ -322,6 +322,34 @@
 - `python3.11 -m unittest tests.test_application_architecture.RuntimeBoundaryTests.test_public_mixed_tab_preserves_original_tab_split_group tests.test_application_architecture.RuntimeBoundaryTests.test_workspace_command_specs_carry_tab_split_group tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_warp_keeps_tmux_slot_as_one_layout_pane`
 - `python3.11 -m unittest tests.test_application_architecture tests.test_webui`
 
+### 10. Mixed tab 在项目探测和配置序列化里仍会裂成内部 slot
+
+发现：
+
+- Public v2 允许一个 `tabs[]` 里同时放普通 terminal pane 和 `layoutBackend: tmux` 的 tmux group。
+- 后端内部会把它拆成 direct slot 和 tmux slot，这对 runtime 是合理的。
+- 但 `probe_project()` 使用 `len(workspace.slots)`，会把一个用户可见 tab 计成两个。
+- `WorkspaceConfig.to_dict()` 也按内部 slot 直接序列化，导致 round-trip 后一个 public tab 变成两个 tabs。
+
+影响：
+
+- 侧边栏 / 项目探测可能显示比用户配置更多的“标签页”。
+- 后续如果有任何接口或工具依赖 `to_dict()` 作为 public schema 输出，会把用户的 workspace canvas 语义破坏掉。
+
+修复：
+
+- `SlotConfig` 增加内部 `pane_name`，保留 public tmux group pane 的名字。
+- `WorkspaceConfig.to_dict()` 改为先按 `split_group` 合并内部 slots，再输出 public `tabs[]`。
+- `WorkspaceConfig.public_tab_count()` 统一表达用户可见 tab 数。
+- `probe_project()` 改用 `public_tab_count()`。
+
+验证：
+
+- `python3.11 -m unittest tests.test_config.ConfigTests.test_workspace_to_dict_preserves_mixed_public_tab_shape tests.test_config.ConfigTests.test_workspace_to_dict_serializes_canonical_terms`
+- `python3.11 -m unittest tests.test_application_architecture.RuntimeBoundaryTests.test_public_mixed_tab_preserves_original_tab_split_group tests.test_application_architecture.ConfigWorkflowTests.test_probe_project_counts_public_tabs_not_internal_split_slots tests.test_application_architecture.ConfigWorkflowTests.test_probe_project_reports_ready_workspace_summary`
+- `python3.11 -m unittest tests.test_config tests.test_application_architecture tests.test_webui`
+- `python3.11 -m mypy cc_branch`
+
 ## 仍需后续处理的风险
 
 ### 1. 配置概念仍然复杂

@@ -72,7 +72,7 @@ def probe_project(project_dir: Path) -> ActionResult:
         try:
             workspace = workflows.load_workspace(config_path)
             project_name = workspace.project or project_name
-            slot_count = len(workspace.slots)
+            slot_count = workspace.public_tab_count()
             status = "ready"
         except Exception:
             status = "invalid_config"

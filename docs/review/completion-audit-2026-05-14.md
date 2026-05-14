@@ -325,6 +325,37 @@ d1273b0 Verify workspace drag save persistence
 3949149 Cover tmux group browser drag QA
 ```
 
+## 追加审查：public tab 语义
+
+发现：
+
+- Public v2 的一个 `tabs[]` 可以同时包含 direct pane 和 tmux group pane。
+- Runtime 内部会拆成多个 slot，但用户心智里仍然是一个 tab。
+- `probe_project()` 曾直接统计内部 slot，导致项目摘要 tab 数可能偏大。
+- `WorkspaceConfig.to_dict()` 曾直接把内部 slots 写回 public `tabs[]`，导致 mixed tab round-trip 后裂成多个 tab。
+
+修复证据：
+
+- `cc_branch/models/config.py`
+  - 增加 `SlotConfig.pane_name` 保留 public tmux group pane 名称。
+  - 增加 `_slots_to_tabs()`，按 `split_group` 合并内部 slots 后再输出 public schema。
+  - 增加 `WorkspaceConfig.public_tab_count()`。
+- `cc_branch/application/config_workflows/read.py`
+  - `probe_project()` 改用 `workspace.public_tab_count()`。
+- `tests/test_config.py`
+  - `test_workspace_to_dict_preserves_mixed_public_tab_shape` 覆盖 mixed tab 不被裂成两个 public tabs。
+- `tests/test_application_architecture.py`
+  - `test_probe_project_counts_public_tabs_not_internal_split_slots` 覆盖项目探测按用户可见 tab 计数。
+
+验证：
+
+```bash
+python3.11 -m unittest tests.test_config.ConfigTests.test_workspace_to_dict_preserves_mixed_public_tab_shape tests.test_config.ConfigTests.test_workspace_to_dict_serializes_canonical_terms
+python3.11 -m unittest tests.test_application_architecture.RuntimeBoundaryTests.test_public_mixed_tab_preserves_original_tab_split_group tests.test_application_architecture.ConfigWorkflowTests.test_probe_project_counts_public_tabs_not_internal_split_slots tests.test_application_architecture.ConfigWorkflowTests.test_probe_project_reports_ready_workspace_summary
+python3.11 -m unittest tests.test_config tests.test_application_architecture tests.test_webui
+python3.11 -m mypy cc_branch
+```
+
 ## 未完全覆盖的要求
 
 ### 1. “整体架构更专业、更高质量、更可维护”尚未完全证明
