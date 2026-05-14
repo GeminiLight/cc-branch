@@ -32,6 +32,7 @@ def normalize_raw_config(data: dict, path: Path) -> dict:
     data.setdefault("project", project_dir.name)
     data.setdefault("display", {})
     raw_agents = data.get("agents", {})
+    data["_agent_overrides"] = raw_agents if isinstance(raw_agents, dict) else {}
     data["agents"] = effective_agent_profiles(raw_agents, project_dir)
     if "tabs" not in data and "slots" not in data:
         data["tabs"] = []

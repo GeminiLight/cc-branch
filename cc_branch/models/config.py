@@ -466,6 +466,7 @@ class WorkspaceConfig:
     display: DisplayConfig = field(default_factory=DisplayConfig)
     defaults: WorkspaceDefaults = field(default_factory=WorkspaceDefaults)
     agents: dict[str, AgentSpec] = field(default_factory=dict)
+    agent_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     openers: dict[str, OpenerSpec] = field(default_factory=dict)
     default_opener: str | None = None
     layout_backend: str = "direct"
@@ -476,6 +477,12 @@ class WorkspaceConfig:
     def from_dict(cls, data: dict[str, Any]) -> WorkspaceConfig:
         raw_agents = data.get("agents", {})
         agents = {k: AgentSpec.from_dict(v) for k, v in raw_agents.items()} if raw_agents else {}
+        raw_agent_overrides = data.get("_agent_overrides", raw_agents)
+        agent_overrides = {
+            k: dict(v)
+            for k, v in raw_agent_overrides.items()
+            if isinstance(v, dict)
+        } if isinstance(raw_agent_overrides, dict) else {}
         raw_openers = data.get("openers", {})
         default_opener = data.get("default_opener")
         if isinstance(raw_openers, dict) and (
@@ -503,6 +510,7 @@ class WorkspaceConfig:
             display=DisplayConfig.from_dict(data.get("display") or {}),
             defaults=WorkspaceDefaults.from_dict(data.get("defaults") or {}),
             agents=agents,
+            agent_overrides=agent_overrides,
             openers=openers,
             default_opener=default_opener,
             layout_backend=layout_backend,
@@ -517,11 +525,12 @@ class WorkspaceConfig:
             "project": self.project,
             "root": self.root,
             "display": self.display.to_dict(),
-            "agents": {k: _as_legacy_dict(v) for k, v in self.agents.items()},
             "openers": {k: _as_legacy_dict(v) for k, v in self.openers.items()},
             "tabs": _slots_to_tabs(self.slots, self.layout_backend),
             "_config_path": self._config_path,
         }
+        if self.agent_overrides:
+            out["agents"] = {k: _as_legacy_dict(v) for k, v in self.agent_overrides.items()}
         if self.default_opener:
             out["openWith"] = self.default_opener
         if self.layout_backend != "direct":

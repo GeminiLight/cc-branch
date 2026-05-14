@@ -92,6 +92,7 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(workspace.agents["codex"].command, "codex")
             self.assertEqual(workspace.agents["codex"].resume_mode, "flag")
             self.assertEqual(workspace.agents["codex"].resume_template, "resume {session_id}")
+            self.assertNotIn("agents", workspace.to_dict())
 
     def test_load_workspace_agent_overrides_merge_with_registry_defaults(self):
         """Project agent overrides should not require copying every default field."""
@@ -124,6 +125,10 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(workspace.agents["codex"].resume_mode, "flag")
             self.assertEqual(workspace.agents["codex"].resume_template, "resume {session_id}")
             self.assertEqual(workspace.agents["codex"].label_template, "{project}/{tab}/{pane}")
+            self.assertEqual(
+                workspace.to_dict()["agents"],
+                {"codex": {"command": "codex --sandbox read-only"}},
+            )
 
     def test_load_workspace_reads_workspace_local_agent_registry(self):
         """Workspace-local registry files should add agents without bloating .cc-branch/config.yaml."""
