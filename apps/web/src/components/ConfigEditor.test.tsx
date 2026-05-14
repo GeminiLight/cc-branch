@@ -108,6 +108,14 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.getByText('Invalid runtime: docker')).toBeInTheDocument()
   })
 
+  it('keeps the workspace canvas header compact without duplicate summary tiles', () => {
+    renderConfigEditor()
+
+    expect(screen.getAllByText('Space canvas')).toHaveLength(1)
+    expect(screen.getByText('Tabs')).toBeInTheDocument()
+    expect(screen.queryByText('Workspace layout')).not.toBeInTheDocument()
+  })
+
   it('suppresses stale unknown-field warnings for canonical v2 fields', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {

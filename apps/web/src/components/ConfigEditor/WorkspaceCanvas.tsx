@@ -77,7 +77,7 @@ export default function WorkspaceCanvas({
     <div className="min-w-0 overflow-hidden rounded-lg border border-default bg-[var(--bg-elevated)]">
       <div className="px-3 py-2.5 border-b border-subtle flex items-center justify-between gap-3 bg-[var(--bg-card)]">
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-primary">{t("matrixCanvas")}</p>
+          <p className="text-[13px] font-semibold text-primary">{t("workspaceTabs")}</p>
           <p className="text-[11px] text-tertiary truncate">
             {t("configSlotSummary", {
               slots: slots.length,

@@ -15,9 +15,7 @@ import {
   LayoutList,
   Code2,
   AlertTriangle,
-  Layers,
   Bot,
-  Monitor,
 } from "lucide-react";
 import { APIRequestError } from "../../api/client";
 import type { ConfigIssue } from "../../types";
@@ -29,7 +27,6 @@ import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData } from "./types";
 import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
-import { configuredPaneCount } from "./workspace-model";
 import ProjectSection from "./ProjectSection";
 import AgentsSection from "./AgentsSection";
 import SlotsSection from "./SlotsSection";
@@ -347,13 +344,6 @@ export default function ConfigEditor({
         ? "border-[var(--warning)]/20 bg-[var(--warning-bg)] text-[var(--warning)]"
         : "border-default bg-[var(--bg-hover)] text-secondary";
   const validationErrors = mode === "form" ? formErrors : yamlError ? [yamlError] : [];
-  const slotCount = formData.slots.length;
-  const terminalCount = formData.slots.filter((slot) => slot.runtime === "terminal").length;
-  const tmuxCount = slotCount - terminalCount;
-  const configuredWindowCount = formData.slots.reduce(
-    (count, slot) => count + configuredPaneCount(slot),
-    0
-  );
   const agentOverrideCount = Object.keys(formData.agents).length;
   const configStatusLabel = validationErrors.length > 0
     ? t("checksIssues")
@@ -374,7 +364,8 @@ export default function ConfigEditor({
     ...Object.keys(formData.agents),
     ...referencedAgents,
   ]));
-  const title = view === "project" ? t("projectConfig") : t("workspaceCanvas");
+  const isWorkspaceView = view === "workspace";
+  const title = isWorkspaceView ? t("workspaceCanvas") : t("projectConfig");
   const HeaderIcon = view === "project" ? Bot : FileCode2;
 
   return (
@@ -392,10 +383,10 @@ export default function ConfigEditor({
         }}
       />
       {/* Summary */}
-      <div className="mb-4 surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4">
-        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">
+      <div className={`surface-command border border-default rounded-lg px-4 sm:px-5 flex flex-col gap-3 ${isWorkspaceView ? "mb-3 py-3" : "mb-4 py-4"}`}>
+        <div className={`flex flex-col xl:flex-row justify-between gap-3 ${isWorkspaceView ? "xl:items-center" : "xl:items-start"}`}>
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
+            <div className={`${isWorkspaceView ? "w-8 h-8" : "w-9 h-9"} rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0`}>
               <HeaderIcon className="w-4 h-4 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
@@ -477,28 +468,7 @@ export default function ConfigEditor({
           </div>
         </div>
 
-        {view === "workspace" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[var(--accent)] shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("slotsTitle")}</p>
-                <p className="text-[13px] font-semibold text-primary">
-                  {t("configSlotSummary", { slots: slotCount, windows: configuredWindowCount })}
-                </p>
-              </div>
-            </div>
-            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-              <Monitor className="w-4 h-4 text-[var(--accent)] shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("runtime")}</p>
-                <p className="text-[13px] font-semibold text-primary">
-                  {t("configRuntimeSummary", { tmux: tmuxCount, terminal: terminalCount })}
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
+        {!isWorkspaceView && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
               <FileCode2 className="w-4 h-4 text-[var(--accent)] shrink-0" />
