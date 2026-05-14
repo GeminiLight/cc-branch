@@ -24,6 +24,22 @@ describe("HTTPClient workspace scope", () => {
     );
   });
 
+  it("normalizes network failures into a product-level API error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(new HTTPClient().getStatus()).rejects.toThrow(
+      "Cannot reach cc-branch API. Make sure the backend server is running and try again."
+    );
+  });
+
+  it("preserves request aborts for query cancellation", async () => {
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
+
+    await expect(new HTTPClient().getStatus()).rejects.toBe(abortError);
+  });
+
   it("reports HTTP errors when the API returns an empty body", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
