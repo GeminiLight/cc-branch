@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SlotConfig, WindowConfig } from "./types";
 import {
   canMoveSelectedPaneToTarget,
+  inspectorSelectionSubtitle,
   isSelectedPaneMovable,
   moveTargetOptionsForSelection,
   selectedMoveTargetIndex,
@@ -125,5 +126,20 @@ describe("workspace inspector model", () => {
       canMoveUp: true,
       canMoveDown: false,
     });
+  });
+
+  it("labels explicit tmux group selections with the group name", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        windows: [
+          windowConfig({ name: "shell" }),
+          windowConfig({ name: "services", layoutBackend: "tmux", windows: [windowConfig({ name: "api" })] }),
+        ],
+      }),
+    ];
+    const state = deriveWorkspaceSelection(slots, { slotIndex: 0, target: "pane", windowIndex: 1 });
+
+    expect(inspectorSelectionSubtitle(state, t)).toBe("services");
   });
 });

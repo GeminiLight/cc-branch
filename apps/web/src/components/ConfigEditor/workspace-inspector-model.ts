@@ -11,6 +11,20 @@ export function selectedMoveTargetIndex(value: string): number {
   return value === "" ? -1 : Number(value);
 }
 
+export function inspectorSelectionSubtitle(
+  state: WorkspaceSelectionState,
+  t: Translate,
+): string {
+  const slot = state.selectedSlot;
+  if (!slot) return t("unnamed");
+  if (!state.editingPane) return slot.name || t("unnamed");
+  if (state.selectedTmuxGroup) {
+    if (isLegacyTmuxSlot(slot)) return slot.name || t("unnamed");
+    return state.selectedWindow?.name || slot.name || t("unnamed");
+  }
+  return state.selectedWindow?.name || slot.title || slot.name || t("unnamed");
+}
+
 export function isSelectedPaneMovable(state: WorkspaceSelectionState): boolean {
   return state.normalizedSelection.target === "pane" && Boolean(
     state.selectedWindow || state.selectedTmuxGroup || state.selectedTerminalPane,

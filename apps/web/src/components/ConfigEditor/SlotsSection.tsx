@@ -47,6 +47,7 @@ import { paneCount } from "./workspace-display";
 import { useWorkspaceDrag } from "./workspace-drag";
 import {
   canMoveSelectedPaneToTarget,
+  inspectorSelectionSubtitle,
   isSelectedPaneMovable,
   moveTargetOptionsForSelection,
   selectedMoveTargetIndex,
@@ -127,6 +128,7 @@ export default function SlotsSection({
 
   const selectedMoveTarget = selectedMoveTargetIndex(moveTarget);
   const selectedMovablePane = isSelectedPaneMovable(selectionState);
+  const selectedInspectorSubtitle = inspectorSelectionSubtitle(selectionState, t);
   const canMovePaneToSelectedTab = canMoveSelectedPaneToTarget(selectionState, selectedMoveTarget);
 
   function updateSlot(index: number, patch: Partial<SlotConfig>) {
@@ -363,11 +365,7 @@ export default function SlotsSection({
                           {editingPane ? t("selectedPane") : t("selectedTab")}
                         </h3>
                         <p className="mt-0.5 truncate text-[11px] text-tertiary">
-                          {editingPane
-                            ? selectedTmuxGroup
-                              ? selectedSlot.name || t("unnamed")
-                              : selectedWindow?.name ?? selectedSlot.title ?? selectedSlot.name
-                            : selectedSlot.name || t("unnamed")}
+                          {selectedInspectorSubtitle}
                         </p>
                       </div>
                       <span className="inline-flex shrink-0 items-center rounded-md border border-default bg-[var(--bg-hover)] px-2 py-1 text-[10px] font-semibold text-tertiary">
