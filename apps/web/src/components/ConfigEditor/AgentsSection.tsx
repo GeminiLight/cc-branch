@@ -335,7 +335,7 @@ export default function AgentsSection({
             addAgent();
             if (!expanded) onToggle();
           }}
-          className="control-touch px-3 rounded-md text-[12px] font-medium bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 shrink-0"
+          className="control-touch px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5 shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           {t("add")}
