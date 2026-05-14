@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
 
 export type Lang = "en" | "zh";
 
@@ -35,12 +36,8 @@ function detectBrowserLang(): Lang {
 }
 
 function getInitialLang(): Lang {
-  try {
-    const stored = normalizeLang(localStorage.getItem(STORAGE_KEY));
-    return stored || detectBrowserLang();
-  } catch {
-    return detectBrowserLang();
-  }
+  const stored = normalizeLang(getLocalStorageItem(STORAGE_KEY));
+  return stored || detectBrowserLang();
 }
 
 function interpolate(template: string, vars: Record<string, string | number>): string {
@@ -1079,7 +1076,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, _setLang] = useState<Lang>(getInitialLang);
 
   const setLang = useCallback((l: Lang) => {
-    localStorage.setItem(STORAGE_KEY, l);
+    setLocalStorageItem(STORAGE_KEY, l);
     _setLang(l);
   }, []);
 

@@ -5,6 +5,7 @@ import type { APIClient } from "../api/client";
 import type { WorkspaceStatus } from "../types";
 import type { ProjectItem } from "../stores/projectStore";
 import { useI18n } from "../i18n";
+import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
 import logoUrl from "../assets/logo/logo.svg";
 import { runningWorkspaceTabCount, workspaceTabCount } from "./workspace-status-view-model";
 
@@ -131,17 +132,14 @@ export default function Sidebar({
 }: SidebarProps) {
   const { t } = useI18n();
   const [storedCollapsed, setStoredCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+    return getLocalStorageItem(SIDEBAR_COLLAPSED_KEY) === "true";
   });
   const collapsed = forceExpanded ? false : storedCollapsed;
 
   const toggleCollapsed = useCallback(() => {
     setStoredCollapsed((prev) => {
       const next = !prev;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
-      }
+      setLocalStorageItem(SIDEBAR_COLLAPSED_KEY, String(next));
       return next;
     });
   }, []);

@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
 
 export type Theme = "light" | "dark";
 
@@ -30,20 +31,12 @@ function getInitialTheme(): Theme {
 }
 
 function readStoredTheme(): Theme | null {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    return stored === "light" || stored === "dark" ? stored : null;
-  } catch {
-    return null;
-  }
+  const stored = getLocalStorageItem(STORAGE_KEY) as Theme | null;
+  return stored === "light" || stored === "dark" ? stored : null;
 }
 
 function persistTheme(theme: Theme) {
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // Storage can be unavailable in private or embedded browser contexts.
-  }
+  setLocalStorageItem(STORAGE_KEY, theme);
 }
 
 function systemPrefersDark(): boolean {

@@ -26,6 +26,7 @@ import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
 import AgentMark from "./ui/AgentMark";
 import { workspacePaneCellStyle, workspacePaneGridStyle } from "./workspace-layout";
+import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
 import {
   buildDashboardRuntimeSummary,
   isActionableSyncStatus,
@@ -572,10 +573,9 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [lastActionMessage, setLastActionMessage] = useState<string | null>(null);
   const [selectedOpenerId, setSelectedOpenerId] = useState<string>(() => {
-    if (typeof window === "undefined") return "auto-terminal";
     return (
-      window.localStorage.getItem(openerStorageKey(projectPath, configPath)) ||
-      window.localStorage.getItem(`cc-branch.open.tool.${projectPath || "current"}`) ||
+      getLocalStorageItem(openerStorageKey(projectPath, configPath)) ||
+      getLocalStorageItem(`cc-branch.open.tool.${projectPath || "current"}`) ||
       "auto-terminal"
     );
   });
@@ -757,9 +757,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
 
   const setDefaultOpener = (value: string) => {
     setSelectedOpenerId(value);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(openerStorageKey(projectPath, configPath), value);
-    }
+    setLocalStorageItem(openerStorageKey(projectPath, configPath), value);
   };
 
   const runWorkspaceOpen = () => {

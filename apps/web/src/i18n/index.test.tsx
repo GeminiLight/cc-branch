@@ -70,6 +70,22 @@ describe('i18n', () => {
     expect(document.documentElement.lang).toBe('zh-CN')
   })
 
+  it('still switches language when storage writes fail', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked')
+    })
+
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+
+    fireEvent.click(screen.getByText('Switch'))
+    expect(screen.getByTestId('lang').textContent).toBe('zh')
+    expect(document.documentElement.lang).toBe('zh-CN')
+  })
+
   it('interpolates variables', () => {
     function InterpolationTest() {
       const { t } = useI18n()
