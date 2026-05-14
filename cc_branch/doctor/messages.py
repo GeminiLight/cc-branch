@@ -22,6 +22,7 @@ def _get_fix_suggestion(issue_type: str, context: dict) -> str:
         "duplicate_tmux_session": "Rename one of the slots to avoid tmux session name collision",
         "duplicate_slot": f"Rename duplicate slot '{context.get('slot', 'unknown')}'",
         "duplicate_window": f"Rename duplicate window in slot '{context.get('slot', 'unknown')}'",
+        "reserved_name_separator": "Rename it using letters, numbers, hyphens, or underscores; ':' and '.' are reserved for targets",
         "unknown_agent": f"Add agent '{context.get('agent', 'unknown')}' to the 'agents' section in your config",
         "missing_session_id": "Run: cc-branch plan --write-state",
         "missing_command": f"Install the required command: {context.get('command', 'unknown')}",
@@ -40,6 +41,10 @@ def _describe_issue(issue_type: str, context: dict) -> str:
         return f"duplicate slot '{context.get('slot', 'unknown')}'"
     if issue_type == "duplicate_window":
         return f"duplicate window '{context.get('window', 'unknown')}'"
+    if issue_type == "reserved_name_separator":
+        scope = context.get("scope", "name")
+        name = context.get("name", "unknown")
+        return f"{scope} name '{name}' uses reserved target separator"
     if issue_type == "unknown_agent":
         return f"unknown agent '{context.get('agent', 'unknown')}'"
     if issue_type == "missing_session_id":

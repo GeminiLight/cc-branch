@@ -238,6 +238,39 @@ class DoctorTests(unittest.TestCase):
 
             self.assertIn("duplicate window", report.lower())
 
+    def test_doctor_reports_reserved_target_separators_in_names(self):
+        """Doctor should flag names that cannot be addressed by target syntax."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                slots:
+                  - name: "dev:ui"
+                    runtime: "terminal"
+                    windows:
+                      - name: "editor.shell"
+                        command: "echo"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            structured = collect_doctor_report(workspace, plan)
+            report = render_doctor_report(structured).lower()
+
+            issues = [issue for issue in structured.issues if issue.issue_type == "reserved_name_separator"]
+            self.assertCountEqual(
+                [(issue.context["scope"], issue.context["name"]) for issue in issues],
+                [("slot", "dev:ui"), ("window", "editor.shell")],
+            )
+            self.assertIn("reserved target separator", report)
+
     def test_doctor_reports_invalid_env_keys(self):
         """Test that doctor reports invalid environment variable keys."""
         with tempfile.TemporaryDirectory() as tmp:

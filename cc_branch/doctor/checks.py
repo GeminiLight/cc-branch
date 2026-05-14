@@ -24,6 +24,10 @@ def _duplicate_names(values: list[str]) -> list[str]:
     return sorted(duplicates)
 
 
+def _reserved_target_separators(value: str) -> list[str]:
+    return [separator for separator in (":", ".") if separator in value]
+
+
 def _valid_env_key(key: str) -> bool:
     return re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key) is not None
 
@@ -96,6 +100,52 @@ def _build_slot_issues(plan: WorkspacePlan) -> list[Issue]:
 
     seen_sessions: set[str] = set()
     for slot in plan.slots:
+        slot_separators = _reserved_target_separators(slot.name)
+        if slot_separators:
+            issues.append(
+                Issue(
+                    "reserved_name_separator",
+                    "error",
+                    f"Slot name cannot contain ':' or '.': {slot.name}",
+                    target=f"slot:{slot.name}",
+                    context={
+                        "scope": "slot",
+                        "name": slot.name,
+                        "separators": slot_separators,
+                    },
+                )
+            )
+
+        duplicate_windows = _duplicate_names([w.name for w in slot.windows])
+        for name in duplicate_windows:
+            issues.append(
+                Issue(
+                    "duplicate_window",
+                    "error",
+                    f"Duplicate window '{name}' in slot '{slot.name}'",
+                    target=f"slot:{slot.name}",
+                    context={"slot": slot.name, "window": name},
+                )
+            )
+        for window in slot.windows:
+            window_separators = _reserved_target_separators(window.name)
+            if window_separators:
+                issues.append(
+                    Issue(
+                        "reserved_name_separator",
+                        "error",
+                        f"Window name cannot contain ':' or '.': {window.name}",
+                        target=f"{slot.name}.{window.name}",
+                        context={
+                            "scope": "window",
+                            "slot": slot.name,
+                            "name": window.name,
+                            "window": window.name,
+                            "separators": window_separators,
+                        },
+                    )
+                )
+
         if not is_managed_runtime(slot.runtime):
             continue
         if slot.tmux_session in seen_sessions:
@@ -110,18 +160,6 @@ def _build_slot_issues(plan: WorkspacePlan) -> list[Issue]:
             )
         else:
             seen_sessions.add(slot.tmux_session)
-
-        duplicate_windows = _duplicate_names([w.name for w in slot.windows])
-        for name in duplicate_windows:
-            issues.append(
-                Issue(
-                    "duplicate_window",
-                    "error",
-                    f"Duplicate window '{name}' in slot '{slot.name}'",
-                    target=f"slot:{slot.name}",
-                    context={"slot": slot.name, "window": name},
-                )
-            )
     return issues
 
 
