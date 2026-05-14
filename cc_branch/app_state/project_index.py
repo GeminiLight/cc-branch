@@ -118,12 +118,14 @@ class ProjectIndexStore:
         data = self._load()
         projects = _project_list(data)
         normalized_config = _normalize_path(selected_config_path) if selected_config_path else None
+        previous_active_id = str(data.get("active_project_id") or "").strip()
 
         same_path_idx = next(
             (idx for idx, item in enumerate(projects) if _normalize_path(item.get("path", "")) == normalized_path),
             -1,
         )
         current_idx = next((idx for idx, item in enumerate(projects) if item.get("id") == "current"), -1)
+        same_path_id = str(projects[same_path_idx].get("id") or "") if same_path_idx >= 0 else ""
 
         if same_path_idx >= 0:
             project = dict(projects[same_path_idx])
@@ -154,7 +156,12 @@ class ProjectIndexStore:
             projects.insert(0, project)
 
         data["projects"] = projects
-        data["active_project_id"] = "current"
+        data["active_project_id"] = _active_after_current_injection(
+            projects,
+            previous_active_id=previous_active_id,
+            injected_path=normalized_path,
+            replaced_project_id=same_path_id,
+        )
         self._save(data)
         return self.payload()
 
@@ -279,3 +286,26 @@ def _generate_project_id(projects: list[dict[str, object]]) -> str:
         if candidate not in existing and candidate != "current":
             return candidate
     raise RuntimeError("could not allocate a unique project id")
+
+
+def _active_after_current_injection(
+    projects: list[dict[str, object]],
+    *,
+    previous_active_id: str,
+    injected_path: str,
+    replaced_project_id: str,
+) -> str | None:
+    """Preserve the user's selected project when merely ensuring current exists."""
+    if not projects:
+        return None
+    if not previous_active_id:
+        return "current"
+    if previous_active_id == "current" or previous_active_id == replaced_project_id:
+        return "current"
+
+    for project in projects:
+        if project.get("id") == previous_active_id:
+            if _normalize_path(project.get("path")) == injected_path:
+                return "current"
+            return previous_active_id
+    return "current"

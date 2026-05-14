@@ -65,6 +65,22 @@ class ProjectIndexStoreTests(unittest.TestCase):
             str(Path("/tmp/demo/.cc-branch/config.yaml").resolve(strict=False)),
         )
 
+    def test_inject_current_preserves_different_active_project(self):
+        first = self.store.add_project("/tmp/current")
+        current_project_id = first["projects"][0]["id"]
+        second = self.store.add_project("/tmp/research")
+        research_project_id = second["projects"][1]["id"]
+        self.store.activate_project(research_project_id)
+
+        payload = self.store.inject_current_project(
+            "/tmp/current",
+            selected_config_path="/tmp/current/.cc-branch/config.yaml",
+        )
+
+        self.assertEqual(payload["active_project_id"], research_project_id)
+        self.assertEqual(payload["projects"][0]["id"], "current")
+        self.assertNotIn(current_project_id, {item["id"] for item in payload["projects"]})
+
     def test_set_project_config_updates_record(self):
         self.store.add_project("/tmp/demo")
 

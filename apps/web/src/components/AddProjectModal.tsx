@@ -12,6 +12,10 @@ interface AddProjectModalProps {
   onAdd: (path: string) => Promise<void> | void;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProjectModalProps) {
   const { t } = useI18n();
   const toast = useToast();
@@ -56,7 +60,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
         slots: 0,
         status: "missing",
       });
-      toast.error(String(e));
+      toast.error(errorMessage(e));
     } finally {
       if (reqId === latestRequest.current) {
         setScanning(false);
@@ -74,7 +78,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
       await handleScan(selected);
     } catch (e: unknown) {
       if (reqId !== latestRequest.current) return;
-      toast.error(String(e));
+      toast.error(errorMessage(e));
     } finally {
       if (reqId === latestRequest.current) {
         setPicking(false);
@@ -251,7 +255,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
                 type="button"
                 onClick={() => {
                   setPath(currentDir);
-                  setScanResult(null);
+                  void handleScan(currentDir);
                 }}
                 className="h-6 px-2 rounded text-[11px] font-medium text-secondary hover:text-primary surface-hover transition-colors border border-default flex items-center gap-1"
               >
