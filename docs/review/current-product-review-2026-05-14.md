@@ -238,6 +238,7 @@ cd apps/web && npm test
 ```bash
 uv run --with mypy --with types-PyYAML mypy cc_branch
 python3.11 -m mypy --platform linux cc_branch
+python3.11 -m mypy --platform win32 cc_branch
 ```
 
 结果：

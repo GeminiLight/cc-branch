@@ -118,7 +118,10 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Typecheck Python
-        run: python -m mypy cc_branch
+        run: |
+          python -m mypy cc_branch
+          python -m mypy --platform linux cc_branch
+          python -m mypy --platform win32 cc_branch
 
   package:
     name: Python package
