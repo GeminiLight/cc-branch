@@ -2271,6 +2271,22 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_root_supports_head_request(self):
+        """Health checks should inspect the Web UI root without downloading HTML."""
+        from urllib.request import Request
+
+        server, port = self._start_test_server()
+        try:
+            request = Request(f"http://127.0.0.1:{port}/", method="HEAD")
+            with urlopen(request, timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                self.assertIn("text/html", response.headers.get("Content-Type", ""))
+                self.assertEqual(response.headers.get("Cache-Control"), "no-store")
+                self.assertGreater(int(response.headers.get("Content-Length", "0")), 0)
+                self.assertEqual(response.read(), b"")
+        finally:
+            self._stop_test_server(server)
+
     def test_static_binary_file_served_without_text_decoding(self):
         """Test binary static assets are served exactly as bytes."""
         expected = (files("cc_branch.webui.static") / "favicon.png").read_bytes()
@@ -2281,6 +2297,23 @@ slots:
                 self.assertEqual(response.headers.get("Content-Type"), "image/png")
                 self.assertEqual(response.headers.get("Cache-Control"), "no-cache")
                 self.assertEqual(response.read(), expected)
+        finally:
+            self._stop_test_server(server)
+
+    def test_static_binary_file_supports_head_request(self):
+        """HEAD for static assets should expose metadata without streaming body bytes."""
+        from urllib.request import Request
+
+        expected = (files("cc_branch.webui.static") / "favicon.png").read_bytes()
+        server, port = self._start_test_server()
+        try:
+            request = Request(f"http://127.0.0.1:{port}/favicon.png", method="HEAD")
+            with urlopen(request, timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.headers.get("Content-Type"), "image/png")
+                self.assertEqual(response.headers.get("Cache-Control"), "no-cache")
+                self.assertEqual(int(response.headers.get("Content-Length", "0")), len(expected))
+                self.assertEqual(response.read(), b"")
         finally:
             self._stop_test_server(server)
 

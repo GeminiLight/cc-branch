@@ -51,15 +51,20 @@ class WebUIHandler(BaseHTTPRequestHandler):
         """Suppress default request logging."""
         pass
 
+    def _should_write_body(self) -> bool:
+        return getattr(self, "command", "GET") != "HEAD"
+
     def _send_json(self, data: Any, status: int = 200) -> None:
         payload = json.dumps(data).encode()
         try:
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(payload)))
             self._set_cors()
             self.end_headers()
-            self.wfile.write(payload)
+            if self._should_write_body():
+                self.wfile.write(payload)
         except _CLIENT_DISCONNECT_ERRORS:
             return
 
@@ -93,10 +98,12 @@ class WebUIHandler(BaseHTTPRequestHandler):
         try:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
             for name, value in (extra_headers or {}).items():
                 self.send_header(name, value)
             self.end_headers()
-            self.wfile.write(payload)
+            if self._should_write_body():
+                self.wfile.write(payload)
         except _CLIENT_DISCONNECT_ERRORS:
             return
 
@@ -115,8 +122,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self.send_header("Cache-Control", "public, max-age=31536000, immutable" if filename.startswith("assets/") else "no-cache")
+            self.send_header("Content-Length", str(len(content)))
             self.end_headers()
-            self.wfile.write(content)
+            if self._should_write_body():
+                self.wfile.write(content)
         except _CLIENT_DISCONNECT_ERRORS:
             return
 
@@ -149,7 +158,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
         self.send_header("Access-Control-Allow-Origin", origin or self._cors_origin())
         self.send_header("Vary", "Origin")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def _check_auth(self) -> bool:
@@ -257,6 +266,9 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 api.api_projects(self)
         else:
             self.send_error(404)
+
+    def do_HEAD(self) -> None:
+        self.do_GET()
 
     def _serve_index(self) -> None:
         try:
