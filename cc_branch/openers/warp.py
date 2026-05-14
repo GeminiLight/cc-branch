@@ -12,6 +12,12 @@ from .types import OpenCommandSpec
 
 
 @dataclass(frozen=True)
+class WarpCommandGroup:
+    title: str
+    commands: list[OpenCommandSpec]
+
+
+@dataclass(frozen=True)
 class WarpLauncher:
     """Builds Warp launch configurations and opens them through Warp URIs."""
 
@@ -27,6 +33,7 @@ class WarpLauncher:
         return _launch_name(name)
 
     def layout_yaml(self, name: str, commands: list[OpenCommandSpec]) -> str:
+        groups = self.command_groups(name, commands)
         lines = [
             "---",
             f"name: {_yaml_string(name)}",
@@ -34,27 +41,49 @@ class WarpLauncher:
             "windows:",
             "  - active_tab_index: 0",
             "    tabs:",
-            f"      - title: {_yaml_string(name)}",
-            "        layout:",
         ]
+        for group in groups:
+            lines.extend([
+                f"      - title: {_yaml_string(group.title)}",
+                "        layout:",
+            ])
+            lines.extend(self.layout_lines(group.commands, indent=10))
+            lines.extend([
+                "        color: blue",
+                "",
+            ])
+        return "\n".join(lines)
+
+    def command_groups(self, name: str, commands: list[OpenCommandSpec]) -> list[WarpCommandGroup]:
+        """Group commands into Warp tabs using the public workspace tab key."""
+        if not any(spec.split_group for spec in commands):
+            return [WarpCommandGroup(name, commands)]
+
+        groups: dict[str, WarpCommandGroup] = {}
+        for spec in commands:
+            title = (spec.split_group or "").strip() or spec.title
+            group = groups.get(title)
+            if group is None:
+                group = WarpCommandGroup(title, [])
+                groups[title] = group
+            group.commands.append(spec)
+        return list(groups.values())
+
+    def layout_lines(self, commands: list[OpenCommandSpec], *, indent: int) -> list[str]:
+        spaces = " " * indent
+        command_indent = " " * (indent + 2)
         if len(commands) == 1:
             spec = commands[0]
-            lines.extend([
-                f"          cwd: {_yaml_string(str(spec.cwd))}",
-                "          commands:",
-                f"            - exec: {_yaml_string(spec.command)}",
-            ])
-        else:
-            lines.extend([
-                "          split_direction: vertical",
-                "          panes:",
-            ])
-            lines.extend(self.pane_lines(commands, indent=12, depth=0, focus_first=True))
-        lines.extend([
-            "        color: blue",
-            "",
-        ])
-        return "\n".join(lines)
+            return [
+                f"{spaces}cwd: {_yaml_string(str(spec.cwd))}",
+                f"{spaces}commands:",
+                f"{command_indent}- exec: {_yaml_string(spec.command)}",
+            ]
+        return [
+            f"{spaces}split_direction: vertical",
+            f"{spaces}panes:",
+            *self.pane_lines(commands, indent=indent + 2, depth=0, focus_first=True),
+        ]
 
     def leaf_lines(self, spec: OpenCommandSpec, *, indent: int, focused: bool) -> list[str]:
         spaces = " " * indent

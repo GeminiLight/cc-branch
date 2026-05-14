@@ -707,6 +707,42 @@ class OpenerTests(unittest.TestCase):
             content,
         )
 
+    def test_warp_layout_renders_split_groups_as_separate_tabs(self):
+        """Workspace tabs should become Warp tabs, with panes only split inside the same tab."""
+        from cc_branch.openers.warp import _warp_layout_yaml
+
+        specs = [
+            OpenCommandSpec("dev:frontend", Path("/tmp/demo"), "npm run dev", split_group="dev"),
+            OpenCommandSpec("dev:backend", Path("/tmp/demo"), "python api.py", split_group="dev"),
+            OpenCommandSpec("docs:writer", Path("/tmp/demo"), "codex", split_group="docs"),
+        ]
+
+        content = _warp_layout_yaml("CC Branch demo", specs)
+
+        self.assertIn('      - title: "dev"', content)
+        self.assertIn('      - title: "docs"', content)
+        self.assertLess(content.index('      - title: "dev"'), content.index('      - title: "docs"'))
+        self.assertEqual(content.count("      - title:"), 2)
+        self.assertEqual(content.count('exec: "npm run dev"'), 1)
+        self.assertEqual(content.count('exec: "python api.py"'), 1)
+        self.assertEqual(content.count('exec: "codex"'), 1)
+        dev_tab = content.split('      - title: "docs"', 1)[0]
+        docs_tab = content.split('      - title: "docs"', 1)[1]
+        self.assertIn("panes:", dev_tab)
+        self.assertIn('exec: "npm run dev"', dev_tab)
+        self.assertIn('exec: "python api.py"', dev_tab)
+        self.assertNotIn('exec: "codex"', dev_tab)
+        self.assertNotIn("panes:", docs_tab)
+        self.assertIn(
+            """      - title: "docs"
+        layout:
+          cwd: "/tmp/demo"
+          commands:
+            - exec: "codex"
+        color: blue""",
+            content,
+        )
+
     def test_warp_layout_uses_stable_project_name_and_removes_legacy_hash_configs(self):
         """Repeated Warp opens should reuse a stable launch config instead of visible cache hashes."""
         import tempfile
