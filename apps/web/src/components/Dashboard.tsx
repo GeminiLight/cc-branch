@@ -745,7 +745,6 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
     untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
     extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
-    orphanedCount > 0 ? t("runtimeOrphanedState", { count: orphanedCount }) : null,
   ].filter((notice): notice is string => Boolean(notice));
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
@@ -923,7 +922,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
       <div ref={slotsSectionRef} className="flex items-center justify-between gap-2 px-0.5 pt-1 scroll-mt-24">
         <div className="flex items-center gap-2 min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceTabs")}</p>
-          {runtimeSyncNotices.length > 0 && (
+          {issueCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
               <AlertTriangle className="w-3 h-3" />
               {t("workspaceSyncNeedsAction", { count: issueCount })}
@@ -949,16 +948,26 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 </span>
               ))}
             </div>
-            {orphanedCount > 0 && (
-              <button
-                type="button"
-                onClick={requestPruneState}
-                disabled={actionMutation.isPending}
-                className="h-6 self-start sm:self-center rounded-md border border-[var(--warning)]/20 bg-[var(--bg-card)]/80 px-2 text-[11px] font-semibold text-[var(--warning)] hover:border-[var(--warning)]/35 hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-              >
-                {t("clearStaleState")}
-              </button>
-            )}
+          </div>
+        </div>
+      )}
+      {orphanedCount > 0 && (
+        <div className="rounded-md border border-default bg-[var(--bg-card)] px-2.5 py-1.5" aria-live="polite">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Wand2 className="w-3.5 h-3.5 text-tertiary shrink-0" />
+              <span className="text-[11px] font-medium text-secondary truncate">
+                {t("runtimeOrphanedState", { count: orphanedCount })}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={requestPruneState}
+              disabled={actionMutation.isPending}
+              className="h-6 self-start sm:self-center rounded-md border border-default bg-[var(--bg-elevated)] px-2 text-[11px] font-semibold text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors disabled:opacity-50"
+            >
+              {t("clearStaleState")}
+            </button>
           </div>
         </div>
       )}

@@ -2456,6 +2456,48 @@ class WorkspaceActionsTests(unittest.TestCase):
             updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
 
+    def test_attach_workspace_normalizes_legacy_split_group_alias(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "research-projects"
+                root: "."
+
+                tabs:
+                  - name: "development"
+                    layoutBackend: "tmux"
+                    panes:
+                      - name: "frontend"
+                        command: "codex"
+                      - name: "backend"
+                        command: "codex"
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            from cc_branch.application.workspace_actions import attach_workspace
+
+            with patch("cc_branch.application.workspace_actions.attach_slot") as attach_slot:
+                result = attach_workspace(
+                    workspace,
+                    plan,
+                    state,
+                    root / ".cc-branch/state.yaml",
+                    target="development-frontend",
+                )
+
+            self.assertTrue(result.ok)
+            attach_slot.assert_called_once()
+            self.assertEqual(attach_slot.call_args.args[1], "development")
+            self.assertEqual(plan.slots[0].name, "development")
+
     def test_open_terminal_target_uses_command_layout_without_attach_terminal(self):
         from unittest.mock import patch
 

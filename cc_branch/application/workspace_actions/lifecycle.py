@@ -33,6 +33,7 @@ class WorkspaceLifecycleActions:
         *,
         target: str | None = None,
     ) -> ActionResult:
+        target = self.targets.normalize_action_target(plan, target)
         target_slots = self.targets.target_slots(plan, target) if target else []
         managed_targets = self.targets.managed_action_targets(plan, target) if target else []
         if target and not target_slots:
@@ -68,6 +69,7 @@ class WorkspaceLifecycleActions:
         target: str | None = None,
         detach: bool = True,
     ) -> ActionResult:
+        target = self.targets.normalize_action_target(plan, target)
         target_slots = self.targets.target_slots(plan, target) if target else []
         managed_targets = self.targets.managed_action_targets(plan, target) if target else []
         if target and not target_slots:
@@ -139,6 +141,7 @@ class WorkspaceLifecycleActions:
         *,
         target: str | None = None,
     ) -> ActionResult:
+        target = self.targets.normalize_action_target(plan, target)
         target_slots = self.targets.target_slots(plan, target) if target else []
         managed_targets = self.targets.managed_action_targets(plan, target) if target else []
         if target and not target_slots:
@@ -211,6 +214,7 @@ class WorkspaceLifecycleActions:
         *,
         target: str,
     ) -> ActionResult:
+        target = self.targets.normalize_action_target(plan, target) or target
         slot = self.targets.target_slot(plan, target)
         if slot is None:
             return ActionResult(

@@ -15,6 +15,7 @@ from ...runtime.sync import (
 from ..results import ActionResult
 from .dependencies import WorkspaceActionDependencies
 from .persistence import AppliedResultPersistence, applied_result_persistence
+from .targets import WorkspaceTargetResolver, target_resolver
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class WorkspaceSyncActions:
 
     dependencies: WorkspaceActionDependencies
     persistence: AppliedResultPersistence = applied_result_persistence
+    targets: WorkspaceTargetResolver = target_resolver
 
     def sync_workspace(
         self,
@@ -35,6 +37,7 @@ class WorkspaceSyncActions:
         stop_removed: bool = False,
         apply_changes: bool = True,
     ) -> ActionResult:
+        target = self.targets.normalize_action_target(plan, target)
         report = build_runtime_sync_report(workspace, plan, state)
         targets = tuple(reconcilable_targets(report, target))
         extra_targets = tuple(extra_window_targets(report, target)) if stop_removed else ()

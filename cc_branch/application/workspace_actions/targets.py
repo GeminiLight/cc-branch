@@ -79,9 +79,21 @@ class WorkspaceTargetResolver:
         """Accept public targets plus older tmux session names from previous UIs."""
         if not target:
             return None
+        if plan.get_slot(target) is not None:
+            return target
+        split_groups = {slot.split_group for slot in plan.slots if slot.split_group}
+        if target in split_groups:
+            return target
         for slot in plan.slots:
             if target == slot.tmux_session:
                 return slot.name
+        for slot in plan.slots:
+            split_group = slot.split_group or slot.name
+            if not split_group or not slot.windows:
+                continue
+            first_window = slot.windows[0].name
+            if first_window and target == f"{split_group}-{first_window}":
+                return split_group
         return target
 
     def resolve_open_intent(self, intent_name: str | None, public_target: str | None) -> OpenIntent:

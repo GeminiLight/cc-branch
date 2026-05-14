@@ -38,10 +38,13 @@ class WorkspaceOpenActions:
         target: str | None = None,
         intent: OpenIntent | None = None,
     ) -> ActionResult:
+        target = self.targets.normalize_action_target(plan, target)
         custom_openers = plan.openers
         opener_name = self.dependencies.opener_label(opener, custom_openers)
         if intent is None:
             intent = OpenIntent(kind="attach_target", target=target) if target else OpenIntent(kind="workspace_dashboard")
+        elif intent.kind == "attach_target":
+            intent = OpenIntent(kind="attach_target", target=target)
 
         if intent.kind == "project_folder":
             self.dependencies.open_with(
