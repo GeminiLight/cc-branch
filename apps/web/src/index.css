@@ -397,8 +397,8 @@ code[class*="language-yaml"] .token.scalar { color: var(--prism-string); }
   50% { opacity: 0.5; }
 }
 @keyframes stagger-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes slide-in-left {
   from { opacity: 0; transform: translateX(-12px); }
