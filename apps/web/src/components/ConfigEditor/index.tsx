@@ -396,12 +396,12 @@ export default function ConfigEditor({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center bg-[var(--bg-hover)]/70 rounded-md p-0.5">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center w-full xl:w-auto">
+            <div className="col-span-2 flex items-center bg-[var(--bg-hover)]/70 rounded-md p-0.5 sm:col-span-1">
               <button
                 type="button"
                 onClick={() => switchMode("form")}
-                className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
+                className={`control-touch flex-1 sm:flex-none justify-center px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
                   mode === "form"
                     ? "bg-[var(--bg-card)] text-primary shadow-sm"
                     : "text-tertiary hover:text-secondary"
@@ -413,7 +413,7 @@ export default function ConfigEditor({
               <button
                 type="button"
                 onClick={() => switchMode("yaml")}
-                className={`control-touch px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
+                className={`control-touch flex-1 sm:flex-none justify-center px-3 rounded-md text-[12px] font-medium flex items-center gap-1.5 transition-colors ${
                   mode === "yaml"
                     ? "bg-[var(--bg-card)] text-primary shadow-sm"
                     : "text-tertiary hover:text-secondary"
@@ -427,7 +427,7 @@ export default function ConfigEditor({
             <button
               type="button"
               onClick={copy}
-              className="control-touch px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5"
+              className="control-touch w-full sm:w-auto justify-center px-3 rounded-md text-[12px] font-medium text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5"
             >
               {copied ? (
                 <>
@@ -446,7 +446,7 @@ export default function ConfigEditor({
               type="button"
               onClick={handleSave}
               disabled={saveMutation.isPending || !hasUnsavedChanges || (!!yamlError && mode === "yaml") || (formErrors.length > 0 && mode === "form")}
-              className="control-touch px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="control-touch w-full sm:w-auto justify-center px-3 rounded-md text-[12px] font-semibold bg-[var(--accent)] text-[var(--text-on-accent)] hover:bg-[var(--accent-light)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {saveMutation.isPending ? (
                 <div className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
