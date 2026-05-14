@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ...models import WorkspacePlan
+from ...models import SlotPlan, WindowPlan, WorkspacePlan
 from ...openers import OpenerError, OpenIntent
 from ...runtime.capabilities import external_process_slots, managed_slots
 from ...targets import parse_target
@@ -14,20 +14,59 @@ from ...targets import parse_target
 class WorkspaceTargetResolver:
     """Resolves user-facing workspace targets against a planned workspace."""
 
-    def target_slot(self, plan: WorkspacePlan, target: str | None):
+    def target_slot(self, plan: WorkspacePlan, target: str | None) -> SlotPlan | None:
         if not target:
             return None
-        slot, window = self.resolve_target(plan, target)
-        if slot is None:
-            return None
-        if window is None:
-            return slot
-        return slot
+        slots = self.target_slots(plan, target)
+        managed = managed_slots(slots)
+        if managed:
+            return managed[0]
+        if slots:
+            return slots[0]
+        return None
 
-    def resolve_target(self, plan: WorkspacePlan, target: str):
+    def target_slots(self, plan: WorkspacePlan, target: str | None) -> list[SlotPlan]:
+        if not target:
+            return []
+
+        parsed = parse_target(target)
+        if parsed.window is not None:
+            slot, _window = self.resolve_target(plan, target)
+            return [slot] if slot is not None else []
+
+        grouped_slots = [slot for slot in plan.slots if slot.split_group == parsed.slot]
+        if grouped_slots:
+            return grouped_slots
+
+        slot = plan.get_slot(parsed.slot)
+        return [slot] if slot is not None else []
+
+    def managed_action_targets(self, plan: WorkspacePlan, target: str | None) -> list[str]:
+        if not target:
+            return [slot.name for slot in managed_slots(plan.slots)]
+
+        parsed = parse_target(target)
+        if parsed.window is not None:
+            slot, window = self.resolve_target(plan, target)
+            if slot is None or window is None or not managed_slots([slot]):
+                return []
+            return [f"{slot.name}:{window.name}"]
+
+        return [slot.name for slot in managed_slots(self.target_slots(plan, target))]
+
+    def resolve_target(
+        self, plan: WorkspacePlan, target: str
+    ) -> tuple[SlotPlan | None, WindowPlan | None]:
         parsed = parse_target(target)
         slot = plan.get_slot(parsed.slot)
         if slot is None:
+            grouped_slots = [candidate for candidate in plan.slots if candidate.split_group == parsed.slot]
+            if parsed.window is None:
+                return (grouped_slots[0], None) if grouped_slots else (None, None)
+            for candidate in grouped_slots:
+                for window in candidate.windows:
+                    if window.name == parsed.window:
+                        return candidate, window
             return None, None
         if parsed.window is None:
             return slot, None

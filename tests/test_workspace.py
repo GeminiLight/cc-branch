@@ -479,6 +479,42 @@ class WorkspacePlannerTests(unittest.TestCase):
             check=True,
         )
 
+    def test_stop_workspace_accepts_public_tab_split_group_target(self) -> None:
+        from cc_branch.runtime import stop_workspace
+
+        workspace = WorkspaceConfig.from_dict({"project": "demo"})
+        plan = WorkspacePlan.from_dict({
+            "slots": [
+                {
+                    "name": "dev",
+                    "runtime": "terminal",
+                    "split_group": "dev",
+                    "tmux_session": "demo-dev",
+                    "windows": [{"name": "ui"}],
+                },
+                {
+                    "name": "dev-agents",
+                    "runtime": "tmux",
+                    "split_group": "dev",
+                    "tmux_session": "demo-dev-agents",
+                    "windows": [{"name": "planner"}],
+                },
+            ]
+        })
+
+        with (
+            patch("cc_branch.runtime.which", return_value="/usr/bin/tmux"),
+            patch("cc_branch.runtime.execution._kill_dashboard"),
+            patch("cc_branch.runtime.execution.tmux_has_session", return_value=True),
+            patch("cc_branch.runtime.subprocess.run") as run_mock,
+        ):
+            stop_workspace(workspace, plan, "dev")
+
+        run_mock.assert_called_once_with(
+            ["tmux", "kill-session", "-t", "=demo-dev-agents"],
+            check=True,
+        )
+
     def test_restart_workspace_recreates_slot_detached(self) -> None:
         from cc_branch.runtime import restart_workspace
 
@@ -509,6 +545,47 @@ class WorkspacePlannerTests(unittest.TestCase):
             check=True,
         )
         ensure_slot_mock.assert_called_once_with(plan.slots[0], created_action="recreated")
+        attach_slot_mock.assert_not_called()
+
+    def test_restart_workspace_accepts_public_tab_with_multiple_tmux_groups(self) -> None:
+        from cc_branch.runtime import restart_workspace
+
+        workspace = WorkspaceConfig.from_dict({"project": "demo"})
+        plan = WorkspacePlan.from_dict({
+            "slots": [
+                {
+                    "name": "dev-agents-a",
+                    "runtime": "tmux",
+                    "split_group": "dev",
+                    "tmux_session": "demo-dev-agents-a",
+                    "windows": [{"name": "planner"}],
+                },
+                {
+                    "name": "dev-agents-b",
+                    "runtime": "tmux",
+                    "split_group": "dev",
+                    "tmux_session": "demo-dev-agents-b",
+                    "windows": [{"name": "review"}],
+                },
+            ]
+        })
+
+        with (
+            patch("cc_branch.runtime.which", return_value="/usr/bin/tmux"),
+            patch("cc_branch.runtime.execution._kill_dashboard"),
+            patch("cc_branch.runtime.execution.tmux_has_session", return_value=True),
+            patch("cc_branch.runtime.execution.ensure_slot", side_effect=lambda slot, **kwargs: [slot.name]) as ensure_slot_mock,
+            patch("cc_branch.runtime.execution.attach_slot") as attach_slot_mock,
+            patch("cc_branch.runtime.subprocess.run") as run_mock,
+        ):
+            results = restart_workspace(workspace, plan, "dev", detach=True)
+
+        self.assertEqual(results, ["dev-agents-a", "dev-agents-b"])
+        self.assertEqual(
+            [call.args[0] for call in ensure_slot_mock.call_args_list],
+            plan.slots,
+        )
+        self.assertEqual(run_mock.call_count, 2)
         attach_slot_mock.assert_not_called()
 
     def test_dashboard_layout_uses_display_mode_and_columns(self) -> None:

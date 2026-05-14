@@ -41,6 +41,7 @@ from .status import (
 )
 from .targets import get_window as _get_window
 from .targets import resolve_target as _resolve_target
+from .targets import resolve_target_slots as _resolve_target_slots
 from .windows import (
     ensure_slot,
 )
@@ -63,6 +64,7 @@ __all__ = [
     "_kill_dashboard",
     "_list_window_names",
     "_resolve_target",
+    "_resolve_target_slots",
     "apply_workspace",
     "attach_slot",
     "build_status_data",

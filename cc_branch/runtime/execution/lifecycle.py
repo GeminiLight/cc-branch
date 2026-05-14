@@ -72,19 +72,23 @@ def stop_workspace(
 
     execution._kill_dashboard(workspace)
 
-    slot, window = execution._resolve_target(plan, target)
-    if slot is None:
+    slots, window = execution._resolve_target_slots(plan, target)
+    if not slots:
         for planned_slot in stoppable_slots:
             if execution.tmux_has_session(planned_slot.tmux_session):
                 execution.get_backend().kill_session(planned_slot.tmux_session)
         return
 
-    if not supports_stop(slot.runtime):
+    if window is None:
+        for slot in slots:
+            if not supports_stop(slot.runtime):
+                continue
+            if execution.tmux_has_session(slot.tmux_session):
+                execution.get_backend().kill_session(slot.tmux_session)
         return
 
-    if window is None:
-        if execution.tmux_has_session(slot.tmux_session):
-            execution.get_backend().kill_session(slot.tmux_session)
+    slot = slots[0]
+    if not supports_stop(slot.runtime):
         return
 
     if execution.tmux_has_window(slot.tmux_session, window.name):
@@ -117,9 +121,9 @@ def restart_workspace(
     if restartable_slots and not execution.get_backend().available():
         raise RuntimeError("tmux is required for workspace restart")
 
-    slot, window = execution._resolve_target(plan, target)
+    slots, window = execution._resolve_target_slots(plan, target)
 
-    if slot is None:
+    if not slots:
         execution.stop_workspace(workspace, plan)
         results = execution.apply_workspace(plan, detach=True)
         if not detach and plan.slots:
@@ -131,19 +135,27 @@ def restart_workspace(
 
     execution._kill_dashboard(workspace)
     if window is None:
-        if is_external_process_runtime(slot.runtime):
-            return execution.ensure_slot(
-                slot,
-                custom_openers=plan.openers,
-                default_opener=plan.default_opener,
-            )
-        if execution.tmux_has_session(slot.tmux_session):
-            execution.get_backend().kill_session(slot.tmux_session)
-        results = execution.ensure_slot(slot, created_action="recreated")
+        results = []
+        for slot in slots:
+            if is_external_process_runtime(slot.runtime):
+                results.extend(
+                    execution.ensure_slot(
+                        slot,
+                        custom_openers=plan.openers,
+                        default_opener=plan.default_opener,
+                    )
+                )
+                continue
+            if execution.tmux_has_session(slot.tmux_session):
+                execution.get_backend().kill_session(slot.tmux_session)
+            results.extend(execution.ensure_slot(slot, created_action="recreated"))
         if not detach:
-            execution.attach_slot(plan, slot.name)
+            attachable_slot = next((slot for slot in slots if supports_attach(slot.runtime)), None)
+            if attachable_slot is not None:
+                execution.attach_slot(plan, attachable_slot.name)
         return results
 
+    slot = slots[0]
     if is_external_process_runtime(slot.runtime):
         execution.open_command(
             opener_id=window.opener or slot.opener or plan.default_opener or "auto-terminal",

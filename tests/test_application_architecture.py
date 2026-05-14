@@ -1964,6 +1964,41 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual(result.message, "Stopped dev")
             runtime_stop.assert_called_once_with(workspace, plan, "dev")
 
+    def test_stop_workspace_public_mixed_tab_targets_managed_slot_group(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "ui"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            command: "codex"
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            with patch("cc_branch.application.workspace_actions._stop_runtime_workspace") as runtime_stop:
+                result = stop_workspace(workspace, plan, state, root / ".cc-branch/state.yaml", target="dev")
+
+            self.assertTrue(result.ok)
+            self.assertEqual(result.code, "stop_applied")
+            runtime_stop.assert_called_once_with(workspace, plan, "dev-agents")
+
     def test_stop_workspace_rejects_unknown_target_before_runtime(self):
         from unittest.mock import patch
 
@@ -2047,6 +2082,97 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertIn("dev.planner", updated.windows)
             self.assertEqual(updated.windows["dev.planner"].managed_runtime, "tmux")
 
+    def test_restart_workspace_single_target_does_not_double_attach(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace, plan, state = self._workspace_plan_state(root)
+
+            with (
+                patch("cc_branch.application.workspace_actions._restart_runtime_workspace", return_value=[]) as runtime_restart,
+                patch("cc_branch.application.workspace_actions.attach_slot") as attach_slot,
+            ):
+                result = restart_workspace(
+                    workspace,
+                    plan,
+                    state,
+                    root / ".cc-branch/state.yaml",
+                    target="dev",
+                    detach=False,
+                )
+
+            self.assertTrue(result.ok)
+            runtime_restart.assert_called_once_with(workspace, plan, "dev", detach=False)
+            attach_slot.assert_not_called()
+
+    def test_restart_workspace_public_tab_restarts_all_managed_groups(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "agents-a"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            command: "codex"
+                      - name: "agents-b"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "review"
+                            command: "claude"
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            def restart_payload(_workspace, _plan, target, *, detach):
+                slot = "dev-agents-a" if target == "dev-agents-a" else "dev-agents-b"
+                window = "planner" if target == "dev-agents-a" else "review"
+                return [
+                    AppliedWindowResult(
+                        slot=slot,
+                        window=window,
+                        key=f"{slot}.{window}",
+                        runtime="tmux",
+                        tmux_session=f"demo-{slot}",
+                        action="recreated",
+                    )
+                ]
+
+            with patch(
+                "cc_branch.application.workspace_actions._restart_runtime_workspace",
+                side_effect=restart_payload,
+            ) as runtime_restart:
+                result = restart_workspace(
+                    workspace,
+                    plan,
+                    state,
+                    root / ".cc-branch/state.yaml",
+                    target="dev",
+                    detach=True,
+                )
+
+            self.assertTrue(result.ok)
+            self.assertEqual(
+                [call.args[2] for call in runtime_restart.call_args_list],
+                ["dev-agents-a", "dev-agents-b"],
+            )
+            updated = load_state(root / ".cc-branch/state.yaml")
+            self.assertIn("dev-agents-a.planner", updated.windows)
+            self.assertIn("dev-agents-b.review", updated.windows)
+
     def test_restart_workspace_rejects_background_terminal_only_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2125,6 +2251,56 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
             updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
+
+    def test_launch_workspace_public_mixed_tab_starts_managed_slot_group(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "ui"
+                        command: "npm run dev"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            command: "codex"
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            result_payload = [
+                AppliedWindowResult(
+                    slot="dev-agents",
+                    window="planner",
+                    key="dev-agents.planner",
+                    runtime="tmux",
+                    tmux_session="demo-dev-agents",
+                    action="created",
+                )
+            ]
+
+            with patch(
+                "cc_branch.application.workspace_actions.ensure_slot",
+                return_value=result_payload,
+            ) as ensure_slot:
+                result = launch_workspace(workspace, plan, state, root / ".cc-branch/state.yaml", target="dev")
+
+            self.assertTrue(result.ok)
+            self.assertEqual(result.code, "launch_applied")
+            self.assertEqual(ensure_slot.call_args.args[0].name, "dev-agents")
+            updated = load_state(root / ".cc-branch/state.yaml")
+            self.assertIn("dev-agents.planner", updated.windows)
 
     def test_launch_workspace_rejects_background_terminal_only_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -33,15 +33,16 @@ class WorkspaceLifecycleActions:
         *,
         target: str | None = None,
     ) -> ActionResult:
-        slot = self.targets.target_slot(plan, target)
-        if target and slot is None:
+        target_slots = self.targets.target_slots(plan, target) if target else []
+        managed_targets = self.targets.managed_action_targets(plan, target) if target else []
+        if target and not target_slots:
             return ActionResult(
                 ok=False,
                 code="target_not_found",
                 message=f"Cannot stop target: {target}",
                 exit_code=1,
             )
-        if slot is not None and is_external_process_runtime(slot.runtime):
+        if target and not managed_targets:
             return ActionResult(
                 ok=False,
                 code="terminal_runtime_external",
@@ -49,7 +50,11 @@ class WorkspaceLifecycleActions:
                 exit_code=1,
             )
 
-        self.dependencies.stop_runtime_workspace(workspace, plan, target)
+        if target:
+            for action_target in managed_targets:
+                self.dependencies.stop_runtime_workspace(workspace, plan, action_target)
+        else:
+            self.dependencies.stop_runtime_workspace(workspace, plan, target)
         label = target or "workspace"
         return ActionResult(ok=True, code="stop_applied", message=f"Stopped {label}")
 
@@ -63,15 +68,16 @@ class WorkspaceLifecycleActions:
         target: str | None = None,
         detach: bool = True,
     ) -> ActionResult:
-        slot = self.targets.target_slot(plan, target)
-        if target and slot is None:
+        target_slots = self.targets.target_slots(plan, target) if target else []
+        managed_targets = self.targets.managed_action_targets(plan, target) if target else []
+        if target and not target_slots:
             return ActionResult(
                 ok=False,
                 code="target_not_found",
                 message=f"Cannot restart target: {target}",
                 exit_code=1,
             )
-        if slot is not None and is_external_process_runtime(slot.runtime):
+        if target and not managed_targets:
             return ActionResult(
                 ok=False,
                 code="terminal_runtime_external",
@@ -80,8 +86,20 @@ class WorkspaceLifecycleActions:
             )
 
         if target:
-            results = self.dependencies.restart_runtime_workspace(workspace, plan, target, detach=detach)
+            results = []
+            runtime_detach = True if len(managed_targets) > 1 else detach
+            for action_target in managed_targets:
+                results.extend(
+                    self.dependencies.restart_runtime_workspace(
+                        workspace,
+                        plan,
+                        action_target,
+                        detach=runtime_detach,
+                    )
+                )
             self.persistence.persist(state_path, workspace, plan, results)
+            if not detach and len(managed_targets) > 1:
+                self.dependencies.attach_slot(plan, managed_targets[0])
             return ActionResult(
                 ok=True,
                 code="restart_applied",
@@ -121,15 +139,16 @@ class WorkspaceLifecycleActions:
         *,
         target: str | None = None,
     ) -> ActionResult:
-        slot = self.targets.target_slot(plan, target)
-        if target and slot is None:
+        target_slots = self.targets.target_slots(plan, target) if target else []
+        managed_targets = self.targets.managed_action_targets(plan, target) if target else []
+        if target and not target_slots:
             return ActionResult(
                 ok=False,
                 code="target_not_found",
                 message=f"Cannot launch target: {target}",
                 exit_code=1,
             )
-        if slot is not None and is_external_process_runtime(slot.runtime):
+        if target and not managed_targets:
             return ActionResult(
                 ok=False,
                 code="terminal_runtime_external",
@@ -137,7 +156,7 @@ class WorkspaceLifecycleActions:
                 exit_code=1,
             )
 
-        slots = [slot] if slot is not None else managed_slots(plan.slots)
+        slots = managed_slots(target_slots) if target else managed_slots(plan.slots)
         if not slots:
             return ActionResult(
                 ok=False,
