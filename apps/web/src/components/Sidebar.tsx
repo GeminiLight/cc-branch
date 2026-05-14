@@ -25,12 +25,30 @@ interface ProjectStatus {
 }
 
 function statusLabel(t: (key: string) => string, status: ProjectStatus["status"] | undefined): string {
-  if (!status) return "…";
+  if (!status) return t("notChecked");
   if (status === "running") return t("running");
   if (status === "external") return t("openOnDemand");
   if (status === "stopped") return t("stopped");
   if (status === "no_config") return t("noConfigShort");
   return t("errorLoading");
+}
+
+function compactProjectPath(path: string): string {
+  const normalized = path.trim().replace(/\\/g, "/");
+  if (!normalized) return "";
+  const homePath = normalized.match(/^\/Users\/[^/]+(\/.*)?$/);
+  if (homePath) return `~${homePath[1] || ""}`;
+  if (normalized.length <= 34) return normalized;
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length >= 2) return `…/${parts.slice(-2).join("/")}`;
+  return normalized;
+}
+
+function projectSubtitle(t: (key: string) => string, project: ProjectItem, status: ProjectStatus | undefined): string {
+  if (status) {
+    return `${status.runningCount}/${status.totalCount} · ${statusLabel(t, status.status)}`;
+  }
+  return compactProjectPath(project.path) || t("notChecked");
 }
 
 function statusDotClass(status: ProjectStatus["status"] | undefined): string {
@@ -207,7 +225,7 @@ export default function Sidebar({
       >
         {projects.length === 0 && (
           <div className={`py-8 text-center ${collapsed ? "px-0" : "px-3"}`}>
-            <p className="text-[12px] text-tertiary">{collapsed ? "..." : t("noProjects")}</p>
+            <p className="text-[12px] text-tertiary">{collapsed ? "…" : t("noProjects")}</p>
             {!collapsed && <p className="text-[11px] text-muted mt-1">{t("addProjectHint")}</p>}
           </div>
         )}
@@ -262,9 +280,7 @@ export default function Sidebar({
                         )}
                       </div>
                       <p className="text-[10px] text-tertiary truncate mt-0.5 leading-tight">
-                        {st
-                          ? `${st.runningCount}/${st.totalCount} · ${statusLabel(t, st.status)}`
-                          : "..."}
+                        {projectSubtitle(t, p, st)}
                       </p>
                     </div>
                   </>

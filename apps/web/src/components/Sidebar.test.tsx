@@ -103,4 +103,17 @@ describe("Sidebar", () => {
     expect(await screen.findByText("1/2 · running")).toBeInTheDocument();
     expect(screen.queryByText(/undefined\/undefined/)).not.toBeInTheDocument();
   });
+
+  it("shows a stable path subtitle for inactive projects instead of placeholder dots", () => {
+    renderSidebar({
+      activeProjectId: "active",
+      projects: [
+        { id: "active", name: "Active", path: "/Users/demo/code/active" },
+        { id: "idle", name: "Idle", path: "/Users/demo/code/research-projects" },
+      ],
+    });
+
+    expect(screen.getByText("~/code/research-projects")).toBeInTheDocument();
+    expect(screen.queryByText("...")).not.toBeInTheDocument();
+  });
 });
