@@ -17,6 +17,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { useApiClient, useConfigOptions, useKeyboardShortcuts } from "./hooks";
 import { useProjectStore, getActiveProject } from "./stores/projectStore";
 import { useUIStore } from "./stores/uiStore";
+import { appTabFromHash, appTabHash, type AppTab } from "./utils/tabRoute";
 import Sidebar from "./components/Sidebar";
 const AddProjectModal = lazy(() => import("./components/AddProjectModal"));
 const ConfigEditor = lazy(() => import("./components/ConfigEditor"));
@@ -30,7 +31,7 @@ import Tooltip from "./components/ui/Tooltip";
 import Dashboard from "./components/Dashboard";
 import ConfigSelector from "./components/ConfigSelector";
 
-type Tab = "dashboard" | "workspace" | "project" | "doctor";
+type Tab = AppTab;
 
 const tabs: { id: Tab; labelKey: string; icon: typeof LayoutGrid }[] = [
   { id: "dashboard", labelKey: "dashboard", icon: LayoutGrid },
@@ -44,6 +45,20 @@ const langItems = [
   { label: "中文", value: "zh", icon: <Globe className="w-3.5 h-3.5" /> },
 ];
 
+function initialTab(): Tab {
+  if (typeof window === "undefined") return "dashboard";
+  return appTabFromHash(window.location.hash) || "dashboard";
+}
+
+function syncTabHash(tab: Tab, replace = false) {
+  if (typeof window === "undefined") return;
+  const nextHash = appTabHash(tab);
+  if (window.location.hash === nextHash) return;
+  const url = new URL(window.location.href);
+  url.hash = nextHash;
+  window.history[replace ? "replaceState" : "pushState"](null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 function PanelLoading() {
   return (
     <div className="page-shell space-y-3 pt-1" aria-label="Loading panel">
@@ -56,7 +71,7 @@ function PanelLoading() {
 }
 
 function AppInner() {
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTabState] = useState<Tab>(initialTab);
   const { t, lang, setLang } = useI18n();
   const { theme, toggle } = useTheme();
   const client = useApiClient();
@@ -75,6 +90,19 @@ function AppInner() {
   const activeScope = activeProject ? { projectPath: activeProject.path, configPath: activeConfigPath } : undefined;
   const { data: configOptionsData } = useConfigOptions(activeScope);
   const selectedConfigPath = configOptionsData?.selected_config_path || activeConfigPath;
+
+  const setTab = useCallback((next: Tab, replace = false) => {
+    setTabState(next);
+    syncTabHash(next, replace);
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setTabState(appTabFromHash(window.location.hash) || "dashboard");
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Hydrate global projects index and inject current workspace on mount.
   useEffect(() => {
@@ -113,10 +141,10 @@ function AppInner() {
         .catch(() => {
           // keep current UI selection if activation fails.
         });
-      setTab("dashboard");
+      setTab("dashboard", true);
       setMobileSidebarOpen(false);
     },
-    [client, setMobileSidebarOpen, setSnapshot]
+    [client, setMobileSidebarOpen, setSnapshot, setTab]
   );
 
   const handleRemoveProject = useCallback(
@@ -131,7 +159,7 @@ function AppInner() {
     [client, setSnapshot]
   );
 
-  const handleSetTab = useCallback((id: Tab) => setTab(id), []);
+  const handleSetTab = useCallback((id: Tab) => setTab(id), [setTab]);
   const handleSelectConfig = useCallback(
     (path: string) => {
       if (!activeProject?.path) return;
@@ -190,7 +218,7 @@ function AppInner() {
 
   const handleEditWorkspaceTarget = useCallback(() => {
     setTab("workspace");
-  }, []);
+  }, [setTab]);
 
   const handleOpenSettings = useCallback(() => {
     setMobileSidebarOpen(false);

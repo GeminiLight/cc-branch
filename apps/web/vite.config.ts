@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import svgr from 'vite-plugin-svgr'
 
 // https://vite.dev/config/
-const apiTarget = process.env.CC_BRANCH_API_TARGET || 'http://127.0.0.1:5193'
+const apiTarget = process.env.CC_BRANCH_API_TARGET || 'http://127.0.0.1:5194'
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), svgr()],
