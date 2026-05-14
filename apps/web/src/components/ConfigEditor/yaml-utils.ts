@@ -26,10 +26,6 @@ function coerceOpenWith(value: unknown): string | null {
   return raw;
 }
 
-function runtimeForLayoutBackend(layoutBackend: "tmux" | "direct"): SlotConfig["runtime"] {
-  return layoutBackend === "tmux" ? "tmux" : "terminal";
-}
-
 function paneLayoutBackend(pane: Record<string, unknown>, fallback: "tmux" | "direct"): "tmux" | "direct" {
   if (pane.layoutBackend != null) return coerceLayoutBackend(pane.layoutBackend, fallback);
   if (pane.runtime != null) return coerceLayoutBackend(pane.runtime, fallback);
@@ -156,7 +152,7 @@ function coerceTabConfig(raw: unknown, defaultLayoutBackend: "tmux" | "direct"):
 
   return [{
     ...base,
-    runtime: runtimeForLayoutBackend(tabLayoutBackend),
+    runtime: "terminal",
     windows,
   }];
 }

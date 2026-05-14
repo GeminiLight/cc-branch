@@ -256,4 +256,38 @@ describe("ConfigEditor YAML session intent", () => {
       "backend",
     ]);
   });
+
+  it("parses mixed panes under a tmux default as a canvas tab container", () => {
+    const yaml = [
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "layoutBackend: tmux",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: ui",
+      "        layoutBackend: direct",
+      "        agent: codex",
+      "      - name: agents",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: planner",
+      "            agent: codex",
+      "",
+    ].join("\n");
+
+    const parsed = parseConfigYaml(yaml);
+    const serialized = serializeConfigForm(parsed);
+
+    expect(parsed.layoutBackend).toBe("tmux");
+    expect(parsed.slots).toHaveLength(1);
+    expect(parsed.slots[0].runtime).toBe("terminal");
+    expect(parsed.slots[0].windows.map((window) => window.name)).toEqual(["ui", "agents"]);
+    expect(parsed.slots[0].windows[0].layoutBackend).toBe("direct");
+    expect(parsed.slots[0].windows[1].layoutBackend).toBe("tmux");
+    expect(serialized).toContain("layoutBackend: tmux");
+    expect(serialized).toContain("layoutBackend: direct");
+    expect(serialized).toContain("windows:");
+  });
 });
