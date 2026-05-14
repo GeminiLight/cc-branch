@@ -1577,6 +1577,49 @@ class ConfigWorkflowTests(unittest.TestCase):
                 ],
             )
 
+    def test_collect_config_issues_errors_for_empty_names(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+
+                    tabs:
+                      - name: " "
+                        panes:
+                          - name: " "
+                            command: "zsh"
+                          - name: "agents"
+                            windows:
+                              - name: " "
+                                command: "zsh"
+
+                    slots:
+                      - name: " "
+                        windows:
+                          - name: " "
+                            command: "zsh"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            errors = [issue for issue in issues if issue.issue_type == "empty_name"]
+            self.assertCountEqual(
+                [(issue.context["scope"], issue.target) for issue in errors],
+                [
+                    ("tab", "tab:tab[0]"),
+                    ("pane", "pane:tab[0]:pane[0]"),
+                    ("window", "window:agents:window[0]"),
+                    ("slot", "slot:slot[0]"),
+                    ("window", "window:slot[0]:window[0]"),
+                ],
+            )
+
     def test_collect_config_issues_accepts_v2_tabs_and_validates_panes(self):
         from cc_branch.application.config_validation import collect_config_issues
 

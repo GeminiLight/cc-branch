@@ -29,6 +29,7 @@ from .constants import (
 from .issues import duplicate_issue, invalid_type, missing_launch_command, unknown_field
 from .validators import (
     duplicated_names,
+    empty_name_issue,
     enum_issue,
     env_issues,
     mapping,
@@ -110,6 +111,9 @@ def window_issues(raw_windows: Any, slot_name: str) -> list[Issue]:
         target = f"window:{slot_name}:{window_name}"
         issues.extend(unknown_fields(raw_window, WINDOW_FIELDS, target))
         issues.extend(string_type_issues(raw_window, WINDOW_STRING_FIELDS, target))
+        issue = empty_name_issue(raw_window, target, "window")
+        if issue is not None:
+            issues.append(issue)
         issues.extend(env_issues(raw_window, target))
         if raw_window.get("command") is None and raw_window.get("agent") is None:
             issues.append(missing_launch_command(target))
@@ -141,6 +145,9 @@ def slot_issues(raw_slots: Any) -> list[Issue]:
         target = f"slot:{slot_name}"
         issues.extend(unknown_fields(raw_slot, SLOT_FIELDS, target))
         issues.extend(string_type_issues(raw_slot, SLOT_STRING_FIELDS, target))
+        issue = empty_name_issue(raw_slot, target, "slot")
+        if issue is not None:
+            issues.append(issue)
         issues.extend(env_issues(raw_slot, target))
         issue = enum_issue(raw_slot, "runtime", RUNTIMES, target)
         if issue is not None:
@@ -170,6 +177,9 @@ def pane_issues(raw_panes: Any, tab_name: str) -> list[Issue]:
         target = f"pane:{tab_name}:{pane_name}"
         issues.extend(unknown_fields(raw_pane, PANE_FIELDS, target))
         issues.extend(string_type_issues(raw_pane, PANE_STRING_FIELDS, target))
+        issue = empty_name_issue(raw_pane, target, "pane")
+        if issue is not None:
+            issues.append(issue)
         issues.extend(env_issues(raw_pane, target))
         issue = enum_issue(raw_pane, "runtime", RUNTIMES, target)
         if issue is not None:
@@ -211,6 +221,9 @@ def tab_issues(raw_tabs: Any) -> list[Issue]:
         target = f"tab:{tab_name}"
         issues.extend(unknown_fields(raw_tab, TAB_FIELDS, target))
         issues.extend(string_type_issues(raw_tab, TAB_STRING_FIELDS, target))
+        issue = empty_name_issue(raw_tab, target, "tab")
+        if issue is not None:
+            issues.append(issue)
         issues.extend(env_issues(raw_tab, target))
         issue = enum_issue(raw_tab, "layoutBackend", LAYOUT_BACKENDS, target)
         if issue is not None:

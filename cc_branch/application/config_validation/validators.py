@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from ...models import Issue
-from .issues import invalid_enum, invalid_env_key, invalid_type, unknown_field
+from .issues import empty_name, invalid_enum, invalid_env_key, invalid_type, unknown_field
 
 
 def mapping(value: Any) -> dict:
@@ -52,6 +52,13 @@ def name_or_fallback(data: dict, fallback: str) -> str:
         return fallback
     name = value.strip()
     return name or fallback
+
+
+def empty_name_issue(data: dict, target: str, scope: str) -> Issue | None:
+    value = data.get("name")
+    if isinstance(value, str) and not value.strip():
+        return empty_name(target, scope)
+    return None
 
 
 def duplicated_names(items: list[dict]) -> set[str]:

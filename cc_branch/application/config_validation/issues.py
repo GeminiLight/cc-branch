@@ -37,6 +37,16 @@ def invalid_type(field: str, value: Any, target: str, expected: str) -> Issue:
     )
 
 
+def empty_name(target: str, scope: str) -> Issue:
+    return Issue(
+        "empty_name",
+        "error",
+        f"{scope.capitalize()} name cannot be empty",
+        target=target,
+        context={"field": "name", "scope": scope},
+    )
+
+
 def invalid_env_key(key: str, target: str) -> Issue:
     return Issue(
         "invalid_env_key",
