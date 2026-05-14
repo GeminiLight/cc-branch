@@ -375,6 +375,45 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(panes[1]["layoutBackend"], "tmux")
             self.assertEqual(panes[1]["windows"][0]["name"], "planner")
 
+    def test_load_workspace_keeps_mixed_tab_direct_panes_as_individual_visual_panes(self):
+        """Mixed tabs should expose each direct pane as a separate split-group member."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "test"
+                root: "."
+                tabs:
+                  - name: "dev"
+                    panes:
+                      - name: "frontend"
+                        command: "npm run dev"
+                      - name: "backend"
+                        command: "python api.py"
+                      - name: "agents"
+                        layoutBackend: "tmux"
+                        windows:
+                          - name: "planner"
+                            agent: "codex"
+                """,
+            )
+
+            workspace = load_workspace(config_path)
+            serialized = workspace.to_dict()
+
+            self.assertEqual(
+                [(slot.name, slot.runtime, slot.split_group, [window.name for window in slot.windows]) for slot in workspace.slots],
+                [
+                    ("dev", "terminal", "dev", ["frontend"]),
+                    ("dev-backend", "terminal", "dev", ["backend"]),
+                    ("dev-agents", "tmux", "dev", ["planner"]),
+                ],
+            )
+            self.assertEqual([pane["name"] for pane in serialized["tabs"][0]["panes"]], ["frontend", "backend", "agents"])
+
     def test_workspace_to_dict_preserves_single_tmux_group_pane(self):
         """A tmux group pane should not be flattened into tab-level tmux panes."""
         with tempfile.TemporaryDirectory() as tmp:

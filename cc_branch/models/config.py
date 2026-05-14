@@ -300,21 +300,22 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                 nonlocal emitted_for_tab
                 if not chunk:
                     return
-                base_name = tab_name if emitted_for_tab == 0 else f"{tab_name}-{chunk[0].get('name') or fallback_index}"
-                slots.append(
-                    SlotConfig(
-                        name=_unique_slot_name(base_name, used_slot_names),
-                        runtime="terminal",
-                        layout=tab_layout,
-                        opener=tab_opener if isinstance(tab_opener, str) else None,
-                        split_group=tab_name,
-                        cwd=tab_cwd,
-                        env=tab_env,
-                        session=str(chunk[0].get("session")) if len(chunk) == 1 and chunk[0].get("session") is not None else None,
-                        windows=[_pane_to_window(pane) for pane in chunk],
+                for offset, pane in enumerate(chunk):
+                    base_name = tab_name if emitted_for_tab == 0 else f"{tab_name}-{pane.get('name') or fallback_index + offset}"
+                    slots.append(
+                        SlotConfig(
+                            name=_unique_slot_name(base_name, used_slot_names),
+                            runtime="terminal",
+                            layout=tab_layout,
+                            opener=tab_opener if isinstance(tab_opener, str) else None,
+                            split_group=tab_name,
+                            cwd=tab_cwd,
+                            env=tab_env,
+                            session=str(pane.get("session")) if pane.get("session") is not None else None,
+                            windows=[_pane_to_window(pane)],
+                        )
                     )
-                )
-                emitted_for_tab += 1
+                    emitted_for_tab += 1
 
             def append_tmux_pane(pane: dict[str, Any], index: int) -> None:
                 nonlocal emitted_for_tab
