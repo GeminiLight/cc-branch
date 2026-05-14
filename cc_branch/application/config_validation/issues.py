@@ -47,6 +47,16 @@ def empty_name(target: str, scope: str) -> Issue:
     )
 
 
+def reserved_name_separator(target: str, scope: str, name: str) -> Issue:
+    return Issue(
+        "reserved_name_separator",
+        "error",
+        f"{scope.capitalize()} name cannot contain ':' or '.'",
+        target=target,
+        context={"field": "name", "scope": scope, "name": name, "separators": [":", "."]},
+    )
+
+
 def invalid_env_key(key: str, target: str) -> Issue:
     return Issue(
         "invalid_env_key",

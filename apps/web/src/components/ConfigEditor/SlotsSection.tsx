@@ -348,6 +348,9 @@ export default function SlotsSection({
       {workspaceValidation.hasEmptyPaneNames && (
         <InlineError message={t("allWindowsMustHaveName")} />
       )}
+      {workspaceValidation.reservedTargetNames.length > 0 && (
+        <InlineError message={t("reservedTargetNameSeparators", { names: workspaceValidation.reservedTargetNames.join(", ") })} />
+      )}
 
       {slots.length === 0 ? (
         <WorkspaceCanvas {...canvasProps} />

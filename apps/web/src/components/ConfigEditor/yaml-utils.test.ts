@@ -20,6 +20,22 @@ describe("ConfigEditor YAML session intent", () => {
     expect(validateConfigForm(data)).toContain("Duplicate slot names: dev");
   });
 
+  it("validates target separators in tab and pane names", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev:ui",
+      "    panes:",
+      "      - name: main.shell",
+      "        command: zsh",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Names cannot contain ':' or '.': dev:ui, main.shell");
+  });
+
   it("parses canonical workspace terms and pane shell overrides", () => {
     const data = parseConfigYaml([
       "version: 2",

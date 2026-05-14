@@ -35,6 +35,7 @@ describe("validateWorkspaceNames", () => {
       duplicateTabNames: ["dev"],
       hasEmptyTabNames: false,
       hasEmptyPaneNames: false,
+      reservedTargetNames: [],
     });
   });
 
@@ -43,6 +44,7 @@ describe("validateWorkspaceNames", () => {
       duplicateTabNames: [],
       hasEmptyTabNames: true,
       hasEmptyPaneNames: true,
+      reservedTargetNames: [],
     });
   });
 
@@ -92,6 +94,39 @@ describe("validateWorkspaceNames", () => {
       duplicateTabNames: [],
       hasEmptyTabNames: false,
       hasEmptyPaneNames: true,
+      reservedTargetNames: [],
+    });
+  });
+
+  it("detects target separators in tab, pane, and nested tmux window names", () => {
+    const workspace = slot("dev:ui", ["main.shell", "agents"]);
+    workspace.windows[1].layoutBackend = "tmux";
+    workspace.windows[1].windows = [
+      {
+        name: "worker:1",
+        agent: null,
+        command: "zsh",
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+    ];
+
+    expect(validateWorkspaceNames([workspace])).toMatchObject({
+      duplicateTabNames: [],
+      hasEmptyTabNames: false,
+      hasEmptyPaneNames: false,
+      reservedTargetNames: ["dev:ui", "main.shell", "worker:1"],
     });
   });
 });

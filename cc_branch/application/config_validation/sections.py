@@ -34,6 +34,7 @@ from .validators import (
     env_issues,
     mapping,
     name_or_fallback,
+    reserved_name_separator_issue,
     string_type_issues,
     unknown_fields,
 )
@@ -114,6 +115,9 @@ def window_issues(raw_windows: Any, slot_name: str) -> list[Issue]:
         issue = empty_name_issue(raw_window, target, "window")
         if issue is not None:
             issues.append(issue)
+        issue = reserved_name_separator_issue(raw_window, target, "window")
+        if issue is not None:
+            issues.append(issue)
         issues.extend(env_issues(raw_window, target))
         if raw_window.get("command") is None and raw_window.get("agent") is None:
             issues.append(missing_launch_command(target))
@@ -148,6 +152,9 @@ def slot_issues(raw_slots: Any) -> list[Issue]:
         issue = empty_name_issue(raw_slot, target, "slot")
         if issue is not None:
             issues.append(issue)
+        issue = reserved_name_separator_issue(raw_slot, target, "slot")
+        if issue is not None:
+            issues.append(issue)
         issues.extend(env_issues(raw_slot, target))
         issue = enum_issue(raw_slot, "runtime", RUNTIMES, target)
         if issue is not None:
@@ -178,6 +185,9 @@ def pane_issues(raw_panes: Any, tab_name: str) -> list[Issue]:
         issues.extend(unknown_fields(raw_pane, PANE_FIELDS, target))
         issues.extend(string_type_issues(raw_pane, PANE_STRING_FIELDS, target))
         issue = empty_name_issue(raw_pane, target, "pane")
+        if issue is not None:
+            issues.append(issue)
+        issue = reserved_name_separator_issue(raw_pane, target, "pane")
         if issue is not None:
             issues.append(issue)
         issues.extend(env_issues(raw_pane, target))
@@ -222,6 +232,9 @@ def tab_issues(raw_tabs: Any) -> list[Issue]:
         issues.extend(unknown_fields(raw_tab, TAB_FIELDS, target))
         issues.extend(string_type_issues(raw_tab, TAB_STRING_FIELDS, target))
         issue = empty_name_issue(raw_tab, target, "tab")
+        if issue is not None:
+            issues.append(issue)
+        issue = reserved_name_separator_issue(raw_tab, target, "tab")
         if issue is not None:
             issues.append(issue)
         issues.extend(env_issues(raw_tab, target))

@@ -1620,6 +1620,49 @@ class ConfigWorkflowTests(unittest.TestCase):
                 ],
             )
 
+    def test_collect_config_issues_errors_for_reserved_target_separators_in_names(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+
+                    tabs:
+                      - name: "dev:ui"
+                        panes:
+                          - name: "main.shell"
+                            command: "zsh"
+                          - name: "agents"
+                            windows:
+                              - name: "worker:1"
+                                command: "zsh"
+
+                    slots:
+                      - name: "legacy.dev"
+                        windows:
+                          - name: "worker.1"
+                            command: "zsh"
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            errors = [issue for issue in issues if issue.issue_type == "reserved_name_separator"]
+            self.assertCountEqual(
+                [(issue.context["scope"], issue.context["name"]) for issue in errors],
+                [
+                    ("tab", "dev:ui"),
+                    ("pane", "main.shell"),
+                    ("window", "worker:1"),
+                    ("slot", "legacy.dev"),
+                    ("window", "worker.1"),
+                ],
+            )
+
     def test_collect_config_issues_accepts_v2_tabs_and_validates_panes(self):
         from cc_branch.application.config_validation import collect_config_issues
 

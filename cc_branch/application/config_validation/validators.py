@@ -6,7 +6,14 @@ import re
 from typing import Any
 
 from ...models import Issue
-from .issues import empty_name, invalid_enum, invalid_env_key, invalid_type, unknown_field
+from .issues import (
+    empty_name,
+    invalid_enum,
+    invalid_env_key,
+    invalid_type,
+    reserved_name_separator,
+    unknown_field,
+)
 
 
 def mapping(value: Any) -> dict:
@@ -58,6 +65,15 @@ def empty_name_issue(data: dict, target: str, scope: str) -> Issue | None:
     value = data.get("name")
     if isinstance(value, str) and not value.strip():
         return empty_name(target, scope)
+    return None
+
+
+def reserved_name_separator_issue(data: dict, target: str, scope: str) -> Issue | None:
+    value = data.get("name")
+    if isinstance(value, str):
+        name = value.strip()
+        if name and (":" in name or "." in name):
+            return reserved_name_separator(target, scope, name)
     return None
 
 
