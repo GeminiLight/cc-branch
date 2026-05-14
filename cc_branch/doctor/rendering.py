@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..models import DoctorReport, WorkspaceConfig, WorkspacePlan
+from ..models import DoctorReport, WorkspaceConfig, WorkspacePlan, WorkspaceState
 from .checks import collect_doctor_report
 from .messages import _describe_issue, _get_fix_suggestion
 
@@ -10,13 +10,17 @@ def render_doctor_report(report: DoctorReport) -> str:
     return _format_report(report)
 
 
-def build_doctor_report(workspace: WorkspaceConfig, plan: WorkspacePlan) -> str:
+def build_doctor_report(
+    workspace: WorkspaceConfig,
+    plan: WorkspacePlan,
+    state: WorkspaceState | None = None,
+) -> str:
     """Build a human-readable doctor report.
 
     Compatibility wrapper for existing callers. New code should use
     ``collect_doctor_report`` and render at the presentation edge.
     """
-    return render_doctor_report(collect_doctor_report(workspace, plan))
+    return render_doctor_report(collect_doctor_report(workspace, plan, state))
 
 
 def _format_report(report: DoctorReport) -> str:
@@ -42,7 +46,7 @@ def _format_report(report: DoctorReport) -> str:
         else:
             lines.append(f"{prefix} {desc}")
 
-        suggestion = _get_fix_suggestion(issue.issue_type, issue.context)
+        suggestion = _get_fix_suggestion(issue.issue_type, issue.context) if issue.severity != "info" else None
         if suggestion:
             lines.append(f"    → {suggestion}")
 
@@ -56,4 +60,3 @@ def _format_report(report: DoctorReport) -> str:
         lines.append("  Run: cc-branch start")
 
     return "\n".join(lines)
-

@@ -166,7 +166,7 @@ export interface ActionResult {
   message: string;
 }
 
-export type WorkspaceAction = "launch" | "restart" | "stop" | "open" | "sync";
+export type WorkspaceAction = "launch" | "restart" | "stop" | "open" | "sync" | "prune_state";
 export type OpenIntent = "workspace_dashboard" | "attach_target" | "project_folder";
 
 export interface WorkspaceActionRequest {

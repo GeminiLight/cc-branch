@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 import cc_branch
 from cc_branch.cli import build_parser, main, print_command_help, print_help
+from cc_branch.models import WindowState
+from cc_branch.state import load_state, save_state
 
 
 class CLITests(unittest.TestCase):
@@ -637,6 +639,43 @@ class CLITests(unittest.TestCase):
             self.assertIn("text", data)
             self.assertTrue(
                 any(issue["issue_type"] == "unknown_agent" for issue in data["report"]["issues"])
+            )
+
+    def test_doctor_format_json_includes_stale_state_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "demo"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "terminal"
+                    windows:
+                      - name: "current"
+                        command: "zsh"
+                """,
+            )
+            state_path = root / ".cc-branch/state.yaml"
+            state = load_state(state_path)
+            state.windows["dev.old"] = WindowState(slot="dev", window="old", agent="codex")
+            save_state(state_path, state)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--format", "json", "doctor"])
+
+            self.assertEqual(exit_code, 0)
+            data = json.loads(stdout.getvalue())
+            self.assertTrue(data["report"]["has_warnings"])
+            self.assertTrue(
+                any(issue["issue_type"] == "orphaned_state" for issue in data["report"]["issues"])
             )
 
     def test_session_alias_accepts_colon_target_for_inspect(self):

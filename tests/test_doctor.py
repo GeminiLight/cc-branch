@@ -11,7 +11,7 @@ from cc_branch.doctor import (
     collect_doctor_report,
     render_doctor_report,
 )
-from cc_branch.models import DoctorReport
+from cc_branch.models import DoctorReport, WindowState
 from cc_branch.planner import plan_workspace
 from cc_branch.state import load_state
 
@@ -90,6 +90,62 @@ class DoctorTests(unittest.TestCase):
             report = build_doctor_report(workspace, plan)
 
             self.assertNotIn("missing session_id", report.lower())
+
+    def test_doctor_reports_stale_local_state(self):
+        """Doctor should warn when state keeps windows no longer present in config."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "terminal"
+                    windows:
+                      - name: "current"
+                        command: "zsh"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            state.windows["dev.old"] = WindowState(slot="dev", window="old", agent="codex")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            report = collect_doctor_report(workspace, plan, state)
+
+            self.assertTrue(report.has_warnings)
+            self.assertTrue(any(issue.issue_type == "orphaned_state" for issue in report.issues))
+            self.assertIn("stale local session record", render_doctor_report(report).lower())
+
+    def test_doctor_does_not_render_fix_suggestions_for_passing_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "test"
+                root: "."
+
+                slots:
+                  - name: "dev"
+                    runtime: "terminal"
+                    windows:
+                      - name: "shell"
+                        command: "zsh"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            report = collect_doctor_report(workspace, plan, state)
+
+            self.assertNotIn("Check your configuration", render_doctor_report(report))
 
     def test_doctor_reports_unknown_agent(self):
         """Test that doctor reports unknown agent references."""

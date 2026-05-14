@@ -738,6 +738,34 @@ describe('Dashboard actions', () => {
     expect(screen.queryByRole('button', { name: 'Stop extra panes' })).not.toBeInTheDocument()
   })
 
+  it('offers a scoped action to clear stale local state records', async () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).runtime_sync = {
+      summary: { current: 0, changed: 0, missing: 0, extra: 0, orphaned: 2, untracked: 0, external: 0 },
+      slots: [],
+      orphaned_state: [{ key: 'dev.old' }, { key: 'dev.previous' }],
+      historical_sessions: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear records' }))
+    const dialog = screen.getByRole('dialog', { name: 'Clear records' })
+    expect(within(dialog).getByText('Clear 2 stale local session record(s). Running panes and config will not be changed.')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Clear records' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'prune_state',
+        target: undefined,
+        opener: undefined,
+        intent: undefined,
+        projectPath: '/tmp/demo',
+        stopRemoved: undefined,
+      })
+    })
+  })
+
   it('warns and disables tmux lifecycle actions when tmux is unavailable locally', () => {
     const result = readyWorkspaceResult()
     ;(result.data as Record<string, unknown>).runtimes = {

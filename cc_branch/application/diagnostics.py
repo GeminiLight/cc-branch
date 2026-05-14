@@ -6,15 +6,19 @@ from pathlib import Path
 
 from ..config import load_workspace, project_dir_for_config
 from ..doctor import collect_doctor_report, render_doctor_report
-from ..models import DoctorReport, WorkspaceConfig, WorkspacePlan
+from ..models import DoctorReport, WorkspaceConfig, WorkspacePlan, WorkspaceState
 from ..planner import plan_workspace
 from ..state import load_state
 from .results import ActionResult
 
 
-def get_doctor_report(workspace: WorkspaceConfig, plan: WorkspacePlan) -> DoctorReport:
+def get_doctor_report(
+    workspace: WorkspaceConfig,
+    plan: WorkspacePlan,
+    state: WorkspaceState | None = None,
+) -> DoctorReport:
     """Return structured diagnostics for a workspace plan."""
-    return collect_doctor_report(workspace, plan)
+    return collect_doctor_report(workspace, plan, state)
 
 
 def render_report(report: DoctorReport) -> str:
@@ -53,7 +57,7 @@ def get_doctor_payload(config_path: Path, state_path: Path) -> ActionResult:
         workspace = load_workspace(config_path)
         state = load_state(state_path)
         plan = plan_workspace(workspace, state, False)
-        report = get_doctor_report(workspace, plan)
+        report = get_doctor_report(workspace, plan, state)
         return ActionResult(
             ok=True,
             code="doctor_ready",

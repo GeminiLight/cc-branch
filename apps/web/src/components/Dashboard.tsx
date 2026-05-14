@@ -776,6 +776,12 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
       description: t("syncTargetConfirmDescription", { target }),
     });
   };
+  const requestPruneState = () => {
+    requestConfirmedAction("prune_state", undefined, t("clearStaleState"), {
+      confirmText: t("clearStaleState"),
+      description: t("clearStaleStateConfirmDescription", { count: orphanedCount }),
+    });
+  };
   const tabGroups = workspaceTabGroups(data.slots);
 
   const runProjectOpen = () => {
@@ -916,23 +922,34 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
         <span className="text-[11px] text-muted">{workspaceCountLabel(t, totalTabs, totalPanes)}</span>
       </div>
       {runtimeSyncNotices.length > 0 && (
-        <div
-          className="rounded-md border border-[var(--warning)]/25 bg-[var(--warning-bg)]/50 px-3 py-2 flex flex-col sm:flex-row sm:items-start gap-2"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-semibold text-[var(--warning)]">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {t("workspaceNeedsAction")}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {runtimeSyncNotices.map((notice) => (
-              <span
-                key={notice}
-                className="rounded bg-[var(--bg-card)]/70 px-2 py-0.5 text-[11px] font-medium text-secondary border border-[var(--warning)]/15"
+        <div className="rounded-md border border-[var(--warning)]/25 bg-[var(--warning-bg)]/50 px-3 py-2" aria-live="polite">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-semibold text-[var(--warning)]">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {t("workspaceNeedsAction")}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {runtimeSyncNotices.map((notice) => (
+                  <span
+                    key={notice}
+                    className="rounded bg-[var(--bg-card)]/70 px-2 py-0.5 text-[11px] font-medium text-secondary border border-[var(--warning)]/15"
+                  >
+                    {notice}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {orphanedCount > 0 && (
+              <button
+                type="button"
+                onClick={requestPruneState}
+                disabled={actionMutation.isPending}
+                className="h-6 self-start rounded-md border border-[var(--warning)]/20 bg-[var(--bg-card)]/80 px-2 text-[11px] font-semibold text-[var(--warning)] hover:border-[var(--warning)]/35 hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
               >
-                {notice}
-              </span>
-            ))}
+                {t("clearStaleState")}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1022,7 +1039,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             : t("confirmAction", { action: pendingAction?.action || "", name: pendingAction?.label || "" }))
         }
         icon={
-          pendingAction?.action === "sync" ? (
+          pendingAction?.action === "sync" || pendingAction?.action === "prune_state" ? (
             <Wand2 className="w-5 h-5 text-[var(--warning)]" />
           ) : (
             <AlertTriangle className="w-5 h-5 danger" />

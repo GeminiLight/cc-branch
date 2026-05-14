@@ -29,7 +29,7 @@ from cc_branch.runtime_capabilities import (
     supports_windows,
 )
 from cc_branch.runtime_sync import build_runtime_sync_report
-from cc_branch.state import load_state
+from cc_branch.state import load_state, save_state
 
 
 class FakeBackend:
@@ -2368,6 +2368,43 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual([(spec.title, spec.command) for spec in specs], [
                 ("scratch:main", "zsh"),
             ])
+
+    def test_execute_workspace_action_prunes_stale_state_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 1
+                project: "demo"
+                root: "."
+
+                slots:
+                  - name: "scratch"
+                    runtime: "terminal"
+                    windows:
+                      - name: "current"
+                        command: "zsh"
+                """,
+            )
+            state_path = root / ".cc-branch/state.yaml"
+            state = load_state(state_path)
+            state.windows["scratch.current"] = WindowState(slot="scratch", window="current")
+            state.windows["scratch.old"] = WindowState(slot="scratch", window="old")
+            save_state(state_path, state)
+
+            result = execute_workspace_action(
+                root / ".cc-branch/config.yaml",
+                state_path,
+                action="prune_state",
+            )
+
+            self.assertTrue(result.ok)
+            self.assertEqual(result.code, "orphaned_state_pruned")
+            self.assertEqual(result.changed_targets, ("scratch.old",))
+            updated = load_state(state_path)
+            self.assertIn("scratch.current", updated.windows)
+            self.assertNotIn("scratch.old", updated.windows)
 
     def test_editor_open_target_opens_workspace_file_with_tmux_state(self):
         from unittest.mock import patch

@@ -269,8 +269,13 @@ def prune_sessions(
     """
     removed: list[str] = []
     keys_to_remove: list[str] = []
+    plan_keys = {session_key(slot.name, window.name) for slot in plan.slots for window in slot.windows}
 
     for key, entry in list(state.windows.items()):
+        if key not in plan_keys:
+            keys_to_remove.append(key)
+            removed.append(key)
+            continue
         slot_name = entry.slot or key.split(".")[0] if "." in key else ""
         slot_plan = plan.get_slot(slot_name)
         if slot_plan is None:

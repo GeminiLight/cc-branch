@@ -8,6 +8,7 @@ function t(key: string, vars?: Record<string, string | number>): string {
     workspaceProfileShort: "Workspace",
     errorLoading: "Failed to load",
     runtime: "Runtime",
+    runtimeState: "Runtime state",
     runtimeChangedPending: "{count} changed",
     runtimeMissingPending: "{count} missing",
     runtimeUntracked: "{count} untracked",

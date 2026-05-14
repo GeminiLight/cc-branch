@@ -88,21 +88,32 @@ export function parseReport(report: string): { overall: DoctorStatus; checks: Ch
 
 function reportText(data: DoctorReport | undefined): string {
   if (!data) return "";
+  if (typeof data.report !== "string") return "";
   if (typeof data.report === "string") return data.report;
   return data.text ?? "";
 }
 
-function structuredReportChecks(data: DoctorReport | undefined): CheckItem[] {
-  if (!data || typeof data.report === "string" || data.text) return [];
+function structuredIssueIcon(issue: ConfigIssue, t: Translate): string {
+  if (issue.issue_type === "orphaned_state") return t("runtimeState");
+  return issue.target || issue.issue_type;
+}
+
+function structuredReportChecks(data: DoctorReport | undefined, t: Translate): CheckItem[] {
+  if (!data || typeof data.report === "string") return [];
   return (data.report as DoctorReportPayload).issues.map((issue) => ({
     status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
-    icon: issue.target || issue.issue_type,
+    icon: structuredIssueIcon(issue, t),
     text: issue.message,
     fix:
       issue.severity !== "info" && typeof issue.context?.hint === "string"
         ? issue.context.hint
         : undefined,
   }));
+}
+
+function reportIncludesIssue(data: DoctorReport | undefined, issueType: string): boolean {
+  if (!data || typeof data.report === "string") return false;
+  return (data.report as DoctorReportPayload).issues.some((issue) => issue.issue_type === issueType);
 }
 
 function countLabel(t: Translate, key: string, count: number): string {
@@ -130,6 +141,7 @@ function productChecks(
   configIssues: ConfigIssue[] | undefined | null,
   workspaceData: WorkspaceStatus | undefined,
   t: Translate,
+  options: { omitOrphanedState?: boolean } = {},
 ): CheckItem[] {
   const checks: CheckItem[] = [];
   for (const issue of visibleConfigIssues(configIssues)) {
@@ -149,12 +161,24 @@ function productChecks(
   }
 
   const { changed, missing, untracked, extra, orphaned } = actionableRuntimeDrift(workspaceData);
-  if (changed > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeChangedPending", { count: changed }) });
-  if (missing > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeMissingPending", { count: missing }) });
-  if (untracked > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeUntracked", { count: untracked }) });
-  if (extra > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeExtraPanes", { count: extra }) });
-  if (orphaned > 0) checks.push({ status: "warn", icon: t("runtime"), text: t("runtimeOrphanedState", { count: orphaned }) });
+  if (changed > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeChangedPending", { count: changed }) });
+  if (missing > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeMissingPending", { count: missing }) });
+  if (untracked > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeUntracked", { count: untracked }) });
+  if (extra > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeExtraPanes", { count: extra }) });
+  if (orphaned > 0 && !options.omitOrphanedState) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeOrphanedState", { count: orphaned }) });
   return checks;
+}
+
+function dedupeChecks(checks: CheckItem[]): CheckItem[] {
+  const seen = new Set<string>();
+  const result: CheckItem[] = [];
+  for (const check of checks) {
+    const key = `${check.status}:${check.icon}:${check.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(check);
+  }
+  return result;
 }
 
 export function buildDoctorViewModel({
@@ -165,11 +189,11 @@ export function buildDoctorViewModel({
 }: BuildDoctorViewModelInput): DoctorViewModel {
   const text = reportText(data);
   const parsed = text ? parseReport(text) : null;
-  const checks = [
+  const checks = dedupeChecks([
     ...(parsed?.checks ?? []),
-    ...structuredReportChecks(data),
-    ...productChecks(configIssues, workspaceData, t),
-  ];
+    ...structuredReportChecks(data, t),
+    ...productChecks(configIssues, workspaceData, t, { omitOrphanedState: reportIncludesIssue(data, "orphaned_state") }),
+  ]);
   const issueCount = checks.filter((check) => check.status === "error").length;
   const warningCount = checks.filter((check) => check.status === "warn").length;
   const passedCount = checks.filter((check) => check.status === "ok").length;

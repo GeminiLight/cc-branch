@@ -9,7 +9,8 @@ from ...config import load_workspace, project_dir_for_config
 from ...openers import OpenIntent
 from ...planner import plan_workspace
 from ...runtime.capabilities import is_external_process_runtime
-from ...state import load_state
+from ...runtime.sessions import prune_sessions
+from ...state import load_state, save_state
 from ..results import ActionResult
 from .command_specs import command_specs
 from .dependencies import WorkspaceActionDependencies
@@ -153,6 +154,22 @@ class WorkspaceActionExecutor:
             if result.code == "sync_noop":
                 return replace(result, message="No config changes to sync")
             return result
+
+        if action == "prune_state":
+            removed = prune_sessions(workspace, plan, state)
+            if removed:
+                save_state(state_path, state)
+                return ActionResult(
+                    ok=True,
+                    code="orphaned_state_pruned",
+                    message=f"Cleared {len(removed)} stale session record(s)",
+                    changed_targets=tuple(removed),
+                )
+            return ActionResult(
+                ok=True,
+                code="orphaned_state_clean",
+                message="No stale session records to clear",
+            )
 
         return ActionResult(
             ok=False,

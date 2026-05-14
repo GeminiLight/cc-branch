@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..models import DoctorReport, Issue, WorkspaceConfig, WorkspacePlan
+from ..models import DoctorReport, Issue, WorkspaceConfig, WorkspacePlan, WorkspaceState
 from ..runtime import which
 from ..runtime.capabilities import is_managed_runtime
 from ..runtime.shells import tmux_install_hint
@@ -255,12 +255,52 @@ def _build_window_issues(plan: WorkspacePlan) -> list[Issue]:
     return issues
 
 
+def _build_state_issues(plan: WorkspacePlan, state: WorkspaceState | None) -> list[Issue]:
+    if state is None:
+        return []
+
+    plan_keys = {window.key for slot in plan.slots for window in slot.windows}
+    stale_entries = [
+        {
+            "key": key,
+            "slot": entry.slot,
+            "window": entry.window,
+            "agent": entry.agent,
+            "session_id": entry.session_id,
+            "label": entry.label,
+            "tmux_session": entry.tmux_session,
+        }
+        for key, entry in sorted(state.windows.items())
+        if key not in plan_keys
+    ]
+    if not stale_entries:
+        return []
+    return [
+        Issue(
+            "orphaned_state",
+            "warning",
+            f"{len(stale_entries)} stale local session record(s) no longer match the current config",
+            target="state",
+            context={
+                "count": len(stale_entries),
+                "keys": [entry["key"] for entry in stale_entries],
+                "entries": stale_entries,
+            },
+            fixable=True,
+        )
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Structured report builder
 # ---------------------------------------------------------------------------
 
 
-def collect_doctor_report(workspace: WorkspaceConfig, plan: WorkspacePlan) -> DoctorReport:
+def collect_doctor_report(
+    workspace: WorkspaceConfig,
+    plan: WorkspacePlan,
+    state: WorkspaceState | None = None,
+) -> DoctorReport:
     """Build a structured doctor report."""
     issues: list[Issue] = []
 
@@ -271,5 +311,6 @@ def collect_doctor_report(workspace: WorkspaceConfig, plan: WorkspacePlan) -> Do
     issues.extend(_build_agent_issues(workspace))
     issues.extend(_build_slot_issues(plan))
     issues.extend(_build_window_issues(plan))
+    issues.extend(_build_state_issues(plan, state))
 
     return DoctorReport(project=workspace.project, issues=issues)

@@ -98,7 +98,7 @@ def main_impl(argv: list[str] | None = None) -> int:
     if args.command == "sync":
         return run_sync(ctx, args, workspace, plan, state)
     if args.command == "doctor":
-        return run_doctor(ctx, args, workspace, plan)
+        return run_doctor(ctx, args, workspace, plan, state)
     if args.command == "dashboard":
         return run_dashboard(ctx, workspace, plan, state)
     if args.command == "session":

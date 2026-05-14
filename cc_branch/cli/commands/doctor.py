@@ -9,11 +9,11 @@ from ...context import WorkspaceContext
 from ..output import output_format
 
 
-def run_doctor(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan) -> int:
+def run_doctor(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, state) -> int:
     """Render diagnostics and optionally apply safe fixes."""
     import cc_branch.cli as cli
 
-    report = cli.get_doctor_report(workspace, plan)
+    report = cli.get_doctor_report(workspace, plan, state)
     if output_format(args) == "json":
         print(json.dumps({"report": report.to_dict(), "text": cli.render_report(report)}, indent=2))
     else:

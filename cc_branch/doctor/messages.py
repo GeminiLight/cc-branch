@@ -30,6 +30,7 @@ def _get_fix_suggestion(issue_type: str, context: dict) -> str:
         "missing_cwd": f"Create directory: mkdir -p {context.get('cwd', 'unknown')}",
         "missing_launch_command": "Add a 'command' or 'agent' to this window",
         "missing_tmux": tmux_install_hint(),
+        "orphaned_state": "Run: cc-branch session prune",
     }
     return suggestions.get(issue_type, "Check your configuration")
 
@@ -59,4 +60,6 @@ def _describe_issue(issue_type: str, context: dict) -> str:
         return "missing launch command"
     if issue_type == "missing_tmux":
         return "missing tmux"
+    if issue_type == "orphaned_state":
+        return f"{context.get('count', 0)} stale local session record(s)"
     return issue_type.replace("_", " ")
