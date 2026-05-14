@@ -225,7 +225,7 @@ describe('ConfigEditor diagnostics', () => {
 
     renderConfigEditor('project')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Auto terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'System Terminal' }))
     fireEvent.click(screen.getByRole('option', { name: 'Terminal.app' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 

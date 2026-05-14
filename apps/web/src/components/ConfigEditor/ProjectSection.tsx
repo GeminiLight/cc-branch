@@ -93,7 +93,7 @@ export default function ProjectSection({
                     { value: "warp", label: "Warp" },
                     { value: "terminal-app", label: "Terminal.app" },
                     { value: "iterm2", label: "iTerm2" },
-                    { value: "auto-terminal", label: "Auto terminal" },
+                    { value: "auto-terminal", label: t("systemTerminal") },
                   ]}
                 />
               </div>
