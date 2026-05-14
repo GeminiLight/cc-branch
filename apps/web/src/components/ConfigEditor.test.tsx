@@ -710,6 +710,33 @@ describe('ConfigEditor diagnostics', () => {
     })
   })
 
+  it('keeps implicit terminal pane names aligned between the canvas and inspector', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: shell',
+          '    command: zsh',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit pane shell' }))
+    expect(screen.getByDisplayValue('shell')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByDisplayValue('shell'), { target: { value: 'terminal' } })
+    expect(screen.getByRole('button', { name: 'Edit pane terminal' })).toBeInTheDocument()
+  })
+
   it('reorders terminal panes inside the same tab by dragging on the workspace matrix', async () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {

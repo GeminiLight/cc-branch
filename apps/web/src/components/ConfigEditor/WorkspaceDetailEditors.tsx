@@ -71,13 +71,14 @@ export function TerminalPaneEditor({
 }) {
   const { t } = useI18n();
   const agent = window?.agent ?? slot.agent;
+  const titleValue = window?.name ?? slot.title ?? slot.name ?? "";
 
   return (
     <div className="space-y-2.5">
       <div>
         <FieldLabel>{t("title")}</FieldLabel>
         <TextInput
-          value={window?.name ?? slot.title ?? ""}
+          value={titleValue}
           onChange={(value) => {
             if (window) onWindowChange({ name: value });
             else onSlotChange({ title: value || undefined });

@@ -30,6 +30,7 @@
 | 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
 | 审查跨标签页拖拽语义 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`SlotsSection.tsx`、`workspace-model.test.ts` | 已修复：Tab 作为容器不再限制 pane/tmux group 移动；legacy tmux tab 拖入其它 tab 时会转换为目标 tab 中的 tmux group。 |
 | 修复隐式 terminal pane 跨标签拖拽 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`ConfigEditor.test.tsx` | 已修复：没有显式 `panes/windows` 的 terminal 标签页也能作为一个真实窗格拖入其它标签页，移动后源标签页会被移除。 |
+| 对齐隐式 terminal pane 的画布与详情 | `apps/web/src/components/ConfigEditor/WorkspaceDetailEditors.tsx`、`ConfigEditor.test.tsx` | 已修复：没有显式 `panes/windows` 的 terminal 标签页在画布中显示为隐式窗格时，右侧详情标题不再为空，而是回落到同一个标签页/窗格名；直接改名会同步更新画布。 |
 | 覆盖画布拖拽保存持久化 | `scripts/qa/verify-workspace-drag.py`、`tests/fixtures/browser-drag-project/.cc-branch/config.yaml` | 已补浏览器级保存验证：拖拽 terminal pane 和 tmux group 后点击 Save，再读取 YAML，确认目标 tab、pane 顺序、`zsh` 命令和 tmux nested windows 都被保存。 |
 | 避免 Web UI 动态数据陈旧 | `cc_branch/webui/server/handler.py`、`tests/test_webui.py` | 已修复：所有 API JSON 响应增加 `Cache-Control: no-store`，避免配置、诊断、状态被浏览器缓存成旧结果。 |
 | 审查 Doctor 整体健康态 | `apps/web/src/components/DoctorView.tsx`、`DoctorView.test.tsx` | 已修复：配置问题、运行时漂移、缺失的 tmux 托管窗格和结构化 doctor issues 会共同决定顶部健康态，不再出现下方有错误但顶部显示全部通过。 |
@@ -105,7 +106,7 @@ cd apps/web && npm test
 
 ```text
 Test Files  27 passed (27)
-Tests  191 passed (191)
+Tests  192 passed (192)
 ```
 
 ```bash
