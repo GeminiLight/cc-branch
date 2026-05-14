@@ -23,6 +23,7 @@
 | 修复 Dashboard runtime 计数一致性 | `apps/web/src/components/dashboard-view-model.ts`、`dashboard-view-model.test.ts`、`Dashboard.tsx` | 已修复：当 runtime drift 只出现在 `runtime_sync.summary` 而 pane/slot 上没有同步状态时，仪表盘不再显示“0 runtime update(s)”同时又展示 warning；计数现在取 pane-level drift 与 summary changed/untracked 的较大值，并加上 extra / tmux unavailable。 |
 | 审查 Project config 术语 | `apps/web/src/i18n/index.tsx` | 已修复：不再把 `Layout backend` 这种工程词直接暴露给用户。 |
 | 优化 Project config 信息架构 | `apps/web/src/components/ConfigEditor/ProjectSection.tsx`、`apps/web/src/i18n/index.tsx`、`ConfigEditor.test.tsx` | 已推进：项目配置页拆成 Workspace identity 和 Launch defaults 两组，默认启动工具、默认窗格类型和默认 Shell 不再藏在 `Advanced defaults` 原生折叠区里。 |
+| 修复项目级 Agent 覆盖默认模板 | `apps/web/src/components/ConfigEditor/AgentsSection.tsx`、`AgentsSection.test.tsx` | 已修复：新增自定义 agent 时默认 `create_template` 不再生成 `{{session_id}}`；后端模板渲染只支持 `{session_id}`，此前会导致真实命令残留 `{uuid}`。 |
 | 审查 tmux group 计数 | `ConfigEditor/index.tsx`、`SlotsSection.tsx`、`ConfigEditor.test.tsx` | 已修复：tmux group 在外部空间按 1 个 pane 计数，内部 tmux windows 不误算。 |
 | 收敛 workspace 术语模型 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts` | 已继续推进：tmux group / legacy tmux slot / pane count / canvas pane 投影 / fallback terminal pane / selection clamp 等纯逻辑已从组件中抽出并加测试。 |
 | 审查跨标签页拖拽语义 | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`SlotsSection.tsx`、`workspace-model.test.ts` | 已修复：Tab 作为容器不再限制 pane/tmux group 移动；legacy tmux tab 拖入其它 tab 时会转换为目标 tab 中的 tmux group。 |

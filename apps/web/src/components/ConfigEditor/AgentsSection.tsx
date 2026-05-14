@@ -252,7 +252,7 @@ export default function AgentsSection({
         resume_mode: "none",
         resume_template: "",
         create_mode: "generated_uuid",
-        create_template: `${name} --session-id {{session_id}}`,
+        create_template: `${name} --session-id {session_id}`,
         label_template: "{project}/{tab}/{pane}",
         label_mode: "metadata",
         rename_template: "",
