@@ -164,6 +164,9 @@ export interface DoctorReport {
 export interface ActionResult {
   success: boolean;
   message: string;
+  code?: string;
+  changed_targets?: string[];
+  warnings?: string[];
 }
 
 export type WorkspaceAction = "launch" | "restart" | "stop" | "open" | "sync" | "prune_state";

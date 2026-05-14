@@ -907,6 +907,41 @@ class CLITests(unittest.TestCase):
             self.assertIn("launch_fingerprint", state)
             self.assertIn('window: review', state)
 
+    def test_session_prune_only_removes_stale_local_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            self._write(
+                root / ".cc-branch/state.yaml",
+                """
+                version: 1
+                windows:
+                  dev.planner:
+                    session_id: "11111111-1111-1111-1111-111111111111"
+                    label: "demo/dev/planner"
+                    agent: "claude"
+                    slot: "dev"
+                    window: "planner"
+                  dev.old:
+                    session_id: "22222222-2222-2222-2222-222222222222"
+                    label: "demo/dev/old"
+                    agent: "claude"
+                    slot: "dev"
+                    window: "old"
+                """,
+            )
+
+            stdout = StringIO()
+            with patch("cc_branch.cli.Path.cwd", return_value=root), redirect_stdout(stdout):
+                exit_code = main(["session", "prune"])
+
+            self.assertEqual(exit_code, 0)
+            rendered = stdout.getvalue()
+            self.assertIn("stale local session record", rendered)
+            state = load_state(root / ".cc-branch/state.yaml")
+            self.assertIn("dev.planner", state.windows)
+            self.assertNotIn("dev.old", state.windows)
+
 
 class CLIHelpFormattingTests(unittest.TestCase):
     """Tests for CLI help formatting and display."""

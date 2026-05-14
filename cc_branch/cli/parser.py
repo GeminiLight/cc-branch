@@ -204,7 +204,11 @@ def _add_session_group(
     inspect_cmd = nested.add_parser("inspect", help="inspect a saved session entry", description="Inspect a saved session entry")
     inspect_cmd.add_argument("key", metavar="tab[:pane]", help="target such as dev:planner")
 
-    prune_cmd = nested.add_parser("prune", help="remove orphaned session entries", description="Remove orphaned session entries")
+    prune_cmd = nested.add_parser(
+        "prune",
+        help="remove stale local session records",
+        description="Remove stale local session records that no longer belong to the current config",
+    )
     prune_cmd.add_argument("--dry-run", action="store_true", help="show what would be removed")
 
     command_cmd = nested.add_parser("command", help="print the launch command for a target", description="Print the launch command for a target")

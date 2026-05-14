@@ -93,20 +93,20 @@ def _run_session_prune(ctx: WorkspaceContext, args: argparse.Namespace, workspac
     removed = cli.prune_sessions(workspace, plan, state, dry_run=args.dry_run)
     if args.dry_run:
         if removed:
-            cli.console.print(f"[dim]Would remove {len(removed)} session(s):[/dim]")
+            cli.console.print(f"[dim]Would remove {len(removed)} stale local session record(s):[/dim]")
             for key in removed:
                 cli.console.print(f"  [yellow]- {key}[/yellow]")
         else:
-            cli.console.print("[dim]No orphaned sessions to prune.[/dim]")
+            cli.console.print("[dim]No stale local session records to prune.[/dim]")
         return 0
 
     if removed:
         StateStore(ctx.state_path).save(state)
-        cli.console.print(f"[green]✓[/green] Pruned {len(removed)} orphaned session(s):")
+        cli.console.print(f"[green]✓[/green] Pruned {len(removed)} stale local session record(s):")
         for key in removed:
             cli.console.print(f"  [green]- {key}[/green]")
     else:
-        cli.console.print("[dim]No orphaned sessions to prune.[/dim]")
+        cli.console.print("[dim]No stale local session records to prune.[/dim]")
     return 0
 
 

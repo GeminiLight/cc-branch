@@ -105,6 +105,16 @@ function openerDisplayLabel(t: (key: string, vars?: Record<string, string | numb
   return opener.label;
 }
 
+function actionMessage(t: (key: string, vars?: Record<string, string | number>) => string, result: { code?: string; message: string; changed_targets?: string[] }): string {
+  if (result.code === "orphaned_state_pruned") {
+    return t("staleStateCleared", { count: result.changed_targets?.length || 0 });
+  }
+  if (result.code === "orphaned_state_clean") {
+    return t("staleStateClean");
+  }
+  return result.message;
+}
+
 function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: SlotInfo["status"] }) {
   const { t } = useI18n();
   if (!status || status === "current" || status === "external") return null;
@@ -236,7 +246,7 @@ const SlotCard = memo(function SlotCard({
   const slotTarget = slot.name;
   const slotRuntimeUnavailable = slot.runtime === "tmux" && tmuxRuntimeUnavailable;
   const primaryActionLabel = t("open");
-  const paneActionClassName = "icon-touch sm:min-h-8 sm:min-w-8 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50";
+  const paneActionClassName = "icon-touch sm:min-h-7 sm:min-w-7 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50";
   const primaryWindow = slot.windows[0];
   const paneCount = tabPaneCount(slot);
   const tabName = displayName || slot.name || tabDisplayName(t, index);
@@ -249,13 +259,13 @@ const SlotCard = memo(function SlotCard({
   return (
     <div
       className={`relative grid grid-cols-1 surface-card border rounded-lg overflow-hidden transition-all duration-200 ease-out ${
-        compact ? "" : "lg:grid-cols-[154px_minmax(0,1fr)]"
+        compact ? "" : "lg:grid-cols-[136px_minmax(0,1fr)]"
       } ${
         slotNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_3px_var(--warning-bg)]" : isRunning ? "border-[var(--accent-border)]" : "border-default"
       }`}
     >
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${isRunning ? "bg-[var(--success)]" : "bg-[var(--border-subtle)]"}`} aria-hidden="true" />
-      <div className={`bg-[var(--bg-card)]/70 px-4 py-3 border-subtle ${compact ? "border-b" : "border-b lg:border-b-0 lg:border-r"}`}>
+      <div className={`bg-[var(--bg-card)]/70 px-3 py-2.5 border-subtle ${compact ? "border-b" : "border-b lg:border-b-0 lg:border-r"}`}>
         <div className={`flex gap-3 min-w-0 ${compact ? "" : "lg:flex-col"}`}>
           <div
             className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 ${
@@ -295,7 +305,7 @@ const SlotCard = memo(function SlotCard({
 
       <div className="bg-[var(--bg-card)] p-3">
         {slot.runtime === "terminal" ? (
-          <div className="grid gap-2" style={workspacePaneGridStyle(slot, paneCount)}>
+          <div className="grid gap-1.5" style={workspacePaneGridStyle(slot, paneCount)}>
             {(terminalPanes.length > 0 ? terminalPanes : [primaryWindow]).filter(Boolean).map((window, paneIndex) => {
               const paneTarget = hasMultipleTerminalPanes ? `${slot.name}:${window.name}` : slotTarget;
               const paneNeedsAction = isActionableWindowSync(window, slot) || (!hasMultipleTerminalPanes && primaryWindowNeedsAction);
@@ -303,7 +313,7 @@ const SlotCard = memo(function SlotCard({
                 <div
                   key={window.name || paneIndex}
                   style={workspacePaneCellStyle(slot, paneCount, paneIndex)}
-                  className={`min-h-[76px] rounded-md border bg-[var(--bg-elevated)] px-2.5 py-2 ${
+                  className={`min-h-[58px] rounded-md border bg-[var(--bg-elevated)] px-2.5 py-1.5 ${
                     paneNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
                   }`}
                 >
@@ -371,15 +381,15 @@ const SlotCard = memo(function SlotCard({
           }`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
-                  <Monitor className="w-4 h-4 shrink-0" />
+                <div className="w-6 h-6 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                  <Monitor className="w-3.5 h-3.5 shrink-0" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[13px] font-semibold text-primary">{t("tmuxPane")}</span>
                     <PaneStatus status={slot.status} />
                   </div>
-                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-tertiary">
+                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-tertiary">
                     <span>{t("tmuxSession")}</span>
                     <span className="text-muted">·</span>
                     <span className="truncate font-mono" title={slot.session_name}>{slot.session_name}</span>
@@ -424,7 +434,7 @@ const SlotCard = memo(function SlotCard({
             </div>
 
             <div className="mt-2 rounded-md border border-subtle bg-[var(--bg-card)]">
-              <div className="flex items-center justify-between gap-2 border-b border-subtle px-2.5 py-1.5">
+              <div className="flex items-center justify-between gap-2 border-b border-subtle px-2.5 py-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("tmuxWindows")}</p>
                 <span className="text-[10px] text-muted">{countText(t, "tmuxWindowCount_one", "tmuxWindowCount", slot.windows.length)}</span>
               </div>
@@ -435,7 +445,7 @@ const SlotCard = memo(function SlotCard({
                   return (
                     <div
                       key={w.name}
-                      className={`flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-2.5 py-2 ${
+                      className={`flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-2.5 py-1.5 ${
                         windowNeedsAction ? "bg-[var(--warning-bg)]/45 ring-1 ring-inset ring-[var(--warning)]/25" : ""
                       }`}
                     >
@@ -617,14 +627,15 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
         ...(configPath ? { configPath } : {}),
         stopRemoved,
       });
-      toast.success(result.message);
-      setLastActionMessage(result.message);
+      const message = actionMessage(t, result);
+      toast.success(message);
+      setLastActionMessage(message);
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = setTimeout(() => refetch(), 500);
     } catch (e: unknown) {
       toast.error(String(e));
     }
-  }, [projectPath, configPath, actionMutation, toast, refetch]);
+  }, [projectPath, configPath, actionMutation, toast, refetch, t]);
 
   const confirmAction = useCallback(async () => {
     if (!pendingAction) return;
@@ -792,11 +803,11 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   return (
     <div className="page-shell space-y-3">
       {/* Project summary */}
-      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-3">
-        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
+      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-3 flex flex-col gap-2.5">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
-              <FolderGit2 className="w-4 h-4 text-[var(--accent)]" />
+            <div className="w-7 h-7 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
+              <FolderGit2 className="w-3.5 h-3.5 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -804,12 +815,12 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                   {data.project || data.project_name}
                 </p>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5 w-full max-w-[460px]">
-                <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
+              <div className="mt-1.5 grid grid-cols-3 gap-1.5 w-full max-w-[420px]">
+                <div className="rounded-md bg-[var(--bg-hover)]/45 px-2 py-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceRunning")}</p>
                   <p className="mt-0.5 text-[13px] font-semibold text-primary">{runningCount}/{totalTabs}</p>
                 </div>
-                <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
+                <div className="rounded-md bg-[var(--bg-hover)]/45 px-2 py-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceNeedsAction")}</p>
                   <div className="mt-0.5 flex items-center gap-1.5">
                     <p className={`text-[13px] font-semibold ${issueCount > 0 ? "text-[var(--warning)]" : "text-primary"}`}>{issueCount}</p>
@@ -825,7 +836,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                     )}
                   </div>
                 </div>
-                <div className="rounded-md bg-[var(--bg-hover)]/55 px-2.5 py-1.5">
+                <div className="rounded-md bg-[var(--bg-hover)]/45 px-2 py-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceWindows")}</p>
                   <p className="mt-0.5 text-[13px] font-semibold text-primary">{totalPanes}</p>
                 </div>
@@ -922,30 +933,28 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
         <span className="text-[11px] text-muted">{workspaceCountLabel(t, totalTabs, totalPanes)}</span>
       </div>
       {runtimeSyncNotices.length > 0 && (
-        <div className="rounded-md border border-[var(--warning)]/25 bg-[var(--warning-bg)]/50 px-3 py-2" aria-live="polite">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-            <div className="flex flex-col sm:flex-row sm:items-start gap-2 min-w-0">
-              <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-semibold text-[var(--warning)]">
-                <AlertTriangle className="w-3.5 h-3.5" />
+        <div className="rounded-md border border-[var(--warning)]/25 bg-[var(--warning-bg)]/45 px-2.5 py-1.5" aria-live="polite">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span className="inline-flex items-center gap-1 shrink-0 text-[11px] font-semibold text-[var(--warning)]">
+                <AlertTriangle className="w-3 h-3" />
                 {t("workspaceNeedsAction")}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {runtimeSyncNotices.map((notice) => (
-                  <span
-                    key={notice}
-                    className="rounded bg-[var(--bg-card)]/70 px-2 py-0.5 text-[11px] font-medium text-secondary border border-[var(--warning)]/15"
-                  >
-                    {notice}
-                  </span>
-                ))}
-              </div>
+              </span>
+              {runtimeSyncNotices.map((notice) => (
+                <span
+                  key={notice}
+                  className="rounded bg-[var(--bg-card)]/70 px-1.5 py-0.5 text-[11px] font-medium text-secondary border border-[var(--warning)]/15"
+                >
+                  {notice}
+                </span>
+              ))}
             </div>
             {orphanedCount > 0 && (
               <button
                 type="button"
                 onClick={requestPruneState}
                 disabled={actionMutation.isPending}
-                className="h-6 self-start rounded-md border border-[var(--warning)]/20 bg-[var(--bg-card)]/80 px-2 text-[11px] font-semibold text-[var(--warning)] hover:border-[var(--warning)]/35 hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
+                className="h-6 self-start sm:self-center rounded-md border border-[var(--warning)]/20 bg-[var(--bg-card)]/80 px-2 text-[11px] font-semibold text-[var(--warning)] hover:border-[var(--warning)]/35 hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
               >
                 {t("clearStaleState")}
               </button>
