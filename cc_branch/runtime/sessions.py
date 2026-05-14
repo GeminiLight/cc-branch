@@ -263,7 +263,7 @@ def prune_sessions(
     state: WorkspaceState,
     dry_run: bool = False,
 ) -> list[str]:
-    """Remove orphaned session entries from *state*.
+    """Remove state entries that no longer belong to the current plan.
 
     Returns the list of keys that were (or would be) removed.
     """
@@ -271,20 +271,8 @@ def prune_sessions(
     keys_to_remove: list[str] = []
     plan_keys = {session_key(slot.name, window.name) for slot in plan.slots for window in slot.windows}
 
-    for key, entry in list(state.windows.items()):
+    for key in list(state.windows):
         if key not in plan_keys:
-            keys_to_remove.append(key)
-            removed.append(key)
-            continue
-        slot_name = entry.slot or key.split(".")[0] if "." in key else ""
-        slot_plan = plan.get_slot(slot_name)
-        if slot_plan is None:
-            keys_to_remove.append(key)
-            removed.append(key)
-            continue
-        if not is_managed_runtime(slot_plan.runtime):
-            continue
-        if not tmux_has_session(slot_plan.tmux_session):
             keys_to_remove.append(key)
             removed.append(key)
 

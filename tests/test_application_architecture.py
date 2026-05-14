@@ -2370,6 +2370,8 @@ class WorkspaceActionsTests(unittest.TestCase):
             ])
 
     def test_execute_workspace_action_prunes_stale_state_entries(self):
+        from unittest.mock import patch
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write(
@@ -2381,7 +2383,7 @@ class WorkspaceActionsTests(unittest.TestCase):
 
                 slots:
                   - name: "scratch"
-                    runtime: "terminal"
+                    runtime: "tmux"
                     windows:
                       - name: "current"
                         command: "zsh"
@@ -2393,11 +2395,12 @@ class WorkspaceActionsTests(unittest.TestCase):
             state.windows["scratch.old"] = WindowState(slot="scratch", window="old")
             save_state(state_path, state)
 
-            result = execute_workspace_action(
-                root / ".cc-branch/config.yaml",
-                state_path,
-                action="prune_state",
-            )
+            with patch("cc_branch.runtime.sessions.tmux_has_session", return_value=False):
+                result = execute_workspace_action(
+                    root / ".cc-branch/config.yaml",
+                    state_path,
+                    action="prune_state",
+                )
 
             self.assertTrue(result.ok)
             self.assertEqual(result.code, "orphaned_state_pruned")
