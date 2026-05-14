@@ -1339,10 +1339,10 @@ slots:
                 self.assertEqual(ensure_slot.call_args.args[0].name, "dev")
                 self.assertEqual(open_command_layout.call_args.args[0], "warp")
                 specs = open_command_layout.call_args.args[1]
-                self.assertEqual([spec.title for spec in specs], ["dev:planner", "dev:review", "scratch:main"])
+                self.assertEqual([spec.title for spec in specs], ["dev", "scratch:main"])
                 self.assertEqual(
                     [spec.command for spec in specs],
-                    ["cc-branch attach dev:planner", "cc-branch attach dev:review", "npm run dev"],
+                    ["cc-branch attach dev", "npm run dev"],
                 )
                 open_with.assert_not_called()
         finally:
@@ -1990,8 +1990,7 @@ slots:
                 self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
                 specs = open_workspace_file.call_args.kwargs["commands"]
                 self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev:coder", "cc-branch attach dev:coder"),
-                    ("dev:terminal", "cc-branch attach dev:terminal"),
+                    ("dev", "cc-branch attach dev"),
                 ])
         finally:
             self._stop_test_server(server)
@@ -2045,8 +2044,7 @@ slots:
                 self.assertEqual(open_workspace_file.call_args.args[0], "vscode")
                 specs = open_workspace_file.call_args.kwargs["commands"]
                 self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev:shell", "cc-branch attach dev:shell"),
-                    ("dev:window-2", "cc-branch attach dev:window-2"),
+                    ("dev", "cc-branch attach dev"),
                     ("scratch:hi", "zsh"),
                 ])
         finally:
@@ -2082,13 +2080,13 @@ slots:
                 open_with.assert_not_called()
                 open_workspace_file.assert_called_once()
                 specs = open_workspace_file.call_args.kwargs["commands"]
-                self.assertEqual(specs[0].title, "dev:coder")
-                self.assertIn("attach dev:coder", specs[0].command)
+                self.assertEqual(specs[0].title, "dev")
+                self.assertTrue(specs[0].command.endswith(" attach dev"))
         finally:
             self._stop_test_server(server)
 
-    def test_action_open_workspace_with_warp_expands_tmux_windows_for_layout(self):
-        """Warp workspace opens should render tmux windows as separate layout panes."""
+    def test_action_open_workspace_with_warp_keeps_tmux_slot_as_one_layout_pane(self):
+        """Warp workspace opens should render a tmux slot as one external layout pane."""
         from unittest.mock import patch
 
         self.config_path.write_text("""version: 1
@@ -2137,13 +2135,11 @@ slots:
                 self.assertEqual(open_command_layout.call_args.args[0], "warp")
                 specs = open_command_layout.call_args.args[1]
                 self.assertEqual([spec.title for spec in specs], [
-                    "dev:planner",
-                    "dev:review",
+                    "dev",
                     "scratch:main",
                 ])
                 self.assertEqual([spec.command for spec in specs], [
-                    f"{expected_cli} attach dev:planner",
-                    f"{expected_cli} attach dev:review",
+                    f"{expected_cli} attach dev",
                     "npm run dev",
                 ])
         finally:
@@ -2220,8 +2216,7 @@ slots:
                 open_with.assert_not_called()
                 specs = open_workspace_file.call_args.kwargs["commands"]
                 self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                    ("dev:coder", "cc-branch attach dev:coder"),
-                    ("dev:terminal", "cc-branch attach dev:terminal"),
+                    ("dev", "cc-branch attach dev"),
                 ])
         finally:
             self._stop_test_server(server)

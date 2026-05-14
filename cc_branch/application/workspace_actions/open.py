@@ -172,7 +172,7 @@ class WorkspaceOpenActions:
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_window_attach_specs(tmux_slots, cli),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, cli),
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
@@ -181,7 +181,7 @@ class WorkspaceOpenActions:
         if self.dependencies.opener_supports(opener, "workspace_file", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_window_attach_specs(tmux_slots, cli),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, cli),
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_workspace_file(opener, cwd=cwd, commands=specs, custom_openers=custom_openers)

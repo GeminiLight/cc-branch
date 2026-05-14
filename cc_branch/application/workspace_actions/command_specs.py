@@ -81,7 +81,7 @@ class WorkspaceCommandSpecs:
                     split_group=slot.name,
                 )
             ]
-        return self.tmux_window_attach_specs([slot], cli)
+        return self.tmux_slot_attach_specs([slot], cli)
 
 
 command_specs = WorkspaceCommandSpecs()

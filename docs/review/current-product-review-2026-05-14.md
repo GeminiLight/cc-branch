@@ -256,6 +256,39 @@
 - 浏览器截图：
   - `tmp/review-live-2026-05-14/project-opener-selector-fixed.png`
 
+### 10. Layout opener 把 tmux 内部窗口误展开成外部窗格
+
+问题：
+
+- 当前概念里，Tmux group 在外部 terminal/editor 里应该只占一个 Pane。
+- 但打开整个 workspace 时，`WorkspaceOpenActions` 仍使用 `tmux_window_attach_specs()`。
+- Warp / VS Code / Cursor 这类 layout 或 workspace-file opener 会收到每个 tmux window 一条命令：
+  - `cc-branch attach dev:planner`
+  - `cc-branch attach dev:review`
+- 这会把 tmux 内部窗口展开成多个外部 terminal pane。
+
+影响：
+
+- 用户在空间画布里看到的是 “1 个 tmux 窗格组”，实际打开却变成多个外部窗格。
+- Warp 自动布局会出现不必要的 1/2、1/4、1/8 分割，越开越碎。
+- VS Code / Cursor 的任务 fallback 也会生成多个外部 terminal，而不是一个承载 tmux session 的 terminal。
+
+修复：
+
+- `cc_branch/application/workspace_actions/open.py`
+  - workspace 级 layout opener / workspace-file opener 改用 `tmux_slot_attach_specs()`。
+  - 打开整个工作空间时生成 `cc-branch attach dev`，让 tmux 内部管理 windows。
+- `cc_branch/application/workspace_actions/command_specs.py`
+  - slot 级 attach target 也改为 `cc-branch attach <tab>`。
+  - window 级 target 仍保留 `cc-branch attach <tab>:<window>`。
+- `tests/test_webui.py` 和 `tests/test_application_architecture.py`
+  - 更新并覆盖 Warp / VS Code / mixed workspace 的新语义。
+
+验证：
+
+- `python3.11 -m unittest tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_layout_opener_opens_all_slots tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_vscode_opens_workspace_file tests.test_webui.WebUIHandlerTests.test_action_open_mixed_workspace_with_vscode_opens_workspace_file tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_vscode_generates_tasks tests.test_webui.WebUIHandlerTests.test_action_open_workspace_with_warp_keeps_tmux_slot_as_one_layout_pane tests.test_webui.WebUIHandlerTests.test_action_open_slot_with_vscode_opens_workspace_file tests.test_webui.WebUIHandlerTests.test_action_open_target_with_vscode_opens_workspace_file tests.test_application_architecture.WorkspaceActionsTests.test_open_workspace_layout_opener_keeps_tmux_slot_as_one_external_pane`
+- `python3.11 -m unittest tests.test_webui tests.test_application_architecture`
+
 ## 仍需后续处理的风险
 
 ### 1. 配置概念仍然复杂

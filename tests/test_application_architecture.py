@@ -2081,7 +2081,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             ])
             open_with.assert_not_called()
 
-    def test_open_workspace_layout_opener_expands_tmux_windows(self):
+    def test_open_workspace_layout_opener_keeps_tmux_slot_as_one_external_pane(self):
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -2127,7 +2127,7 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertTrue(result.ok)
             specs = open_command_layout.call_args.args[1]
             self.assertEqual([(spec.title, spec.command) for spec in specs], [
-                ("dev:planner", "cc-branch attach dev:planner"),
+                ("dev", "cc-branch attach dev"),
                 ("scratch:main", "zsh"),
             ])
 
