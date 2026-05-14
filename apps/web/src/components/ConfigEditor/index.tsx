@@ -6,7 +6,6 @@
  */
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import YAML from "js-yaml";
 import {
   FileCode2,
   Save,
@@ -25,7 +24,7 @@ import LineEditor from "../ui/LineEditor";
 import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
 import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData } from "./types";
-import { parseConfigYaml, serializeConfigForm, validateConfigForm } from "./yaml-utils";
+import { parseConfigYaml, parseConfigYamlStrict, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
 import ProjectSection from "./ProjectSection";
 import AgentsSection from "./AgentsSection";
@@ -198,14 +197,12 @@ export default function ConfigEditor({
       if (yamlValidateTimerRef.current) clearTimeout(yamlValidateTimerRef.current);
       yamlValidateTimerRef.current = setTimeout(() => {
         try {
-          YAML.load(value);
+          const parsed = parseConfigYamlStrict(value, t("configurationYamlMustBeObject"));
           setYamlError(null);
-          // Also sync to form data if valid
-          const parsed = parseConfigYaml(value);
           setFormData(parsed);
           setFormErrors(validateConfigForm(parsed, t));
         } catch (e: unknown) {
-          setYamlError(String(e));
+          setYamlError(yamlErrorMessage(e));
         }
       }, 200);
     },
@@ -221,8 +218,7 @@ export default function ConfigEditor({
         setYamlError(null);
       } else {
         try {
-          YAML.load(yamlContent);
-          const parsed = parseConfigYaml(yamlContent);
+          const parsed = parseConfigYamlStrict(yamlContent, t("configurationYamlMustBeObject"));
           setFormData(parsed);
           setFormErrors(validateConfigForm(parsed, t));
           setYamlError(null);
@@ -258,7 +254,7 @@ export default function ConfigEditor({
     }
     if (mode === "yaml") {
       try {
-        YAML.load(contentToSave);
+        parseConfigYamlStrict(contentToSave, t("configurationYamlMustBeObject"));
       } catch (e: unknown) {
         const message = yamlErrorMessage(e);
         setYamlError(message);
@@ -352,14 +348,15 @@ export default function ConfigEditor({
       : displayedIssueTone === "warning"
         ? "border-[var(--warning)]/20 bg-[var(--warning-bg)] text-[var(--warning)]"
         : "border-default bg-[var(--bg-hover)] text-secondary";
-  const validationErrors = mode === "form" ? formErrors : yamlError ? [yamlError] : [];
+  const validationErrors = mode === "form" ? formErrors : [];
+  const hasValidationErrors = mode === "form" ? formErrors.length > 0 : Boolean(yamlError);
   const agentOverrideCount = Object.keys(formData.agents).length;
-  const configStatusLabel = validationErrors.length > 0
+  const configStatusLabel = hasValidationErrors
     ? t("checksIssues")
     : hasUnsavedChanges
       ? t("unsaved")
       : t("configReady");
-  const configStatusClass = validationErrors.length > 0
+  const configStatusClass = hasValidationErrors
     ? "danger-bg danger"
     : hasUnsavedChanges
       ? "bg-[var(--warning-bg)] text-[var(--warning)]"

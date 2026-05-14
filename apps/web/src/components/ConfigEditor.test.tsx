@@ -210,6 +210,22 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByDisplayValue('my-project')).not.toBeInTheDocument()
   })
 
+  it('keeps non-object YAML in YAML mode instead of replacing the form with defaults', async () => {
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'YAML' }))
+    fireEvent.change(screen.getByLabelText('Configuration editor'), {
+      target: { value: '[]\n' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Form' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Configuration editor')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Configuration YAML must be an object with keys like version, project, root, and tabs.')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('my-project')).not.toBeInTheDocument()
+  })
+
   it('validates YAML synchronously before saving', async () => {
     renderConfigEditor()
 
@@ -222,6 +238,21 @@ describe('ConfigEditor diagnostics', () => {
     await waitFor(() => {
       expect(mocks.saveConfig).not.toHaveBeenCalled()
       expect(screen.getByLabelText('Configuration editor')).toBeInTheDocument()
+    })
+  })
+
+  it('blocks saving YAML that is valid syntax but not a config object', async () => {
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'YAML' }))
+    fireEvent.change(screen.getByLabelText('Configuration editor'), {
+      target: { value: '[]\n' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(mocks.saveConfig).not.toHaveBeenCalled()
+      expect(screen.getAllByText('Configuration YAML must be an object with keys like version, project, root, and tabs.').length).toBeGreaterThan(0)
     })
   })
 

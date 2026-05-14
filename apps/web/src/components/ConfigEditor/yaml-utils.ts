@@ -157,41 +157,51 @@ function coerceTabConfig(raw: unknown, defaultLayoutBackend: "tmux" | "direct"):
   }];
 }
 
+function coerceConfigDocument(doc: Record<string, unknown>): ConfigFormData {
+  const agents: Record<string, AgentConfig> = {};
+  if (doc.agents && typeof doc.agents === "object" && !Array.isArray(doc.agents)) {
+    for (const [key, val] of Object.entries(doc.agents as Record<string, unknown>)) {
+      agents[key] = coerceAgentConfig(val);
+    }
+  }
+
+  const layoutBackend = coerceLayoutBackend(doc.layoutBackend);
+  const defaults = doc.defaults && typeof doc.defaults === "object" && !Array.isArray(doc.defaults)
+    ? { shell: coerceShellSpec((doc.defaults as Record<string, unknown>).shell) }
+    : { shell: null };
+
+  return {
+    version: Number(doc.version ?? 2),
+    project: String(doc.project ?? "my-project"),
+    root: String(doc.root ?? "."),
+    openWith: coerceOpenWith(doc.openWith ?? doc.default_opener),
+    layoutBackend,
+    defaults,
+    display: {
+      mode: ["grid", "list"].includes(String((doc.display as Record<string, unknown>)?.mode))
+        ? (String((doc.display as Record<string, unknown>)?.mode) as "grid" | "list")
+        : "grid",
+      columns: Number((doc.display as Record<string, unknown>)?.columns ?? 2),
+      dashboard: Boolean((doc.display as Record<string, unknown>)?.dashboard ?? false),
+    },
+    agents,
+    slots: Array.isArray(doc.tabs) ? doc.tabs.flatMap((tab) => coerceTabConfig(tab, layoutBackend)) : [],
+  };
+}
+
+export function parseConfigYamlStrict(yaml: string, invalidRootMessage = "Configuration YAML must be a mapping/object."): ConfigFormData {
+  if (!yaml.trim()) return createDefaultConfig();
+  const doc = YAML.load(yaml);
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
+    throw new Error(invalidRootMessage);
+  }
+  return coerceConfigDocument(doc as Record<string, unknown>);
+}
+
 export function parseConfigYaml(yaml: string): ConfigFormData {
   if (!yaml.trim()) return createDefaultConfig();
   try {
-    const doc = YAML.load(yaml) as Record<string, unknown>;
-    if (!doc || typeof doc !== "object") return createDefaultConfig();
-
-    const agents: Record<string, AgentConfig> = {};
-    if (doc.agents && typeof doc.agents === "object") {
-      for (const [key, val] of Object.entries(doc.agents as Record<string, unknown>)) {
-        agents[key] = coerceAgentConfig(val);
-      }
-    }
-
-    const layoutBackend = coerceLayoutBackend(doc.layoutBackend);
-    const defaults = doc.defaults && typeof doc.defaults === "object"
-      ? { shell: coerceShellSpec((doc.defaults as Record<string, unknown>).shell) }
-      : { shell: null };
-
-    return {
-      version: Number(doc.version ?? 2),
-      project: String(doc.project ?? "my-project"),
-      root: String(doc.root ?? "."),
-      openWith: coerceOpenWith(doc.openWith ?? doc.default_opener),
-      layoutBackend,
-      defaults,
-      display: {
-        mode: ["grid", "list"].includes(String((doc.display as Record<string, unknown>)?.mode))
-          ? (String((doc.display as Record<string, unknown>)?.mode) as "grid" | "list")
-          : "grid",
-        columns: Number((doc.display as Record<string, unknown>)?.columns ?? 2),
-        dashboard: Boolean((doc.display as Record<string, unknown>)?.dashboard ?? false),
-      },
-      agents,
-      slots: Array.isArray(doc.tabs) ? doc.tabs.flatMap((tab) => coerceTabConfig(tab, layoutBackend)) : [],
-    };
+    return parseConfigYamlStrict(yaml);
   } catch {
     return createDefaultConfig();
   }
