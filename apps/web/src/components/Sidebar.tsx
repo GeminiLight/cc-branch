@@ -233,6 +233,7 @@ export default function Sidebar({
           const active = activeProjectId === p.id;
           const st = statuses[p.id];
           const monogram = projectMonogram(p.name);
+          const canRemove = p.id !== "current";
 
           return (
             <div
@@ -253,7 +254,7 @@ export default function Sidebar({
                 type="button"
                 onClick={() => onSelectProject(p.id)}
                 className={`w-full min-w-0 text-left rounded-md flex items-center ${
-                  collapsed ? "justify-center px-1 py-1.5" : "gap-2.5 py-2.5 pl-2.5 pr-16"
+                  collapsed ? "justify-center px-1 py-1.5" : `gap-2.5 py-2.5 pl-2.5 ${canRemove ? "pr-16" : "pr-7"}`
                 }`}
                 aria-current={active ? "page" : undefined}
                 aria-label={collapsed ? p.name : undefined}
@@ -296,7 +297,7 @@ export default function Sidebar({
               />
 
               {/* Delete button */}
-              {!collapsed && p.id !== "current" && (
+              {!collapsed && canRemove && (
                 <button
                   type="button"
                   onClick={(e) => {
