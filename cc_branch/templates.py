@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 
-def render_template(template: str | None, context: dict[str, object]) -> str:
+
+def render_template(template: str | None, context: Mapping[str, object]) -> str:
     if not template:
         return ""
 

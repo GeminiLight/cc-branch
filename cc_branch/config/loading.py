@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ..models import WorkspaceConfig
 from .normalization import normalize_raw_config
 
+_yaml: Any | None
 try:
-    import yaml
+    import yaml as _yaml
 except ModuleNotFoundError:  # pragma: no cover
-    yaml = None
+    _yaml = None
+
+yaml: Any | None = _yaml
 
 
 def load_config_data(path: Path) -> dict:

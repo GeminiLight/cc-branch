@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ...models import Issue
 from .constants import DISPLAY_FIELDS, LAYOUT_BACKENDS, TOP_LEVEL_FIELDS, TOP_LEVEL_STRING_FIELDS
@@ -10,10 +11,13 @@ from .issues import invalid_type
 from .sections import agent_issues, defaults_issues, opener_issues, slot_issues, tab_issues
 from .validators import enum_issue, string_type_issues, unknown_fields
 
+_yaml: Any | None
 try:
-    import yaml
+    import yaml as _yaml
 except ModuleNotFoundError:  # pragma: no cover
-    yaml = None
+    _yaml = None
+
+yaml: Any | None = _yaml
 
 
 def collect_config_issues(content: str, path: Path) -> list[Issue]:

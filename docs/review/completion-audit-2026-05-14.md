@@ -65,6 +65,7 @@
 | 对齐后端名称重复校验 | `cc_branch/application/config_validation/validators.py`、`cc_branch/doctor/checks.py`、`tests/test_application_architecture.py`、`tests/test_doctor.py` | 已修复：raw config validation 和 doctor 现在也会先 trim 名称再判断重复，避免 UI 保存前校验和后端诊断结果不一致。 |
 | 审查中英文文案一致性 | `apps/web/src/i18n/index.tsx` | 已修复：tmux windows / tmux group 文案不再中英文混杂。 |
 | 审查本地生成物污染提交视图 | `.gitignore` | 已修复：忽略 `.cc-branch/.generated/` 和 `tmp/`。 |
+| 补 Python 静态类型质量门槛 | `pyproject.toml`、`.github/workflows/ci.yml`、`cc_branch/*` | 已推进：`dev` extra 增加 `mypy` 和 `types-PyYAML`；CI 增加 Python typecheck job；当前 `cc_branch` 150 个源码文件通过本机和 Linux platform mypy。 |
 | 审查结果可追踪 | `docs/review/current-product-review-2026-05-14.md` | 已落文档：记录本轮发现、修复、验证和剩余风险。 |
 
 ## 验证记录
@@ -164,6 +165,17 @@ cd apps/web && npm test -- yaml-utils.test.ts workspace-validation.test.ts Confi
 ```text
 Test Files  3 passed (3)
 Tests  32 passed (32)
+```
+
+```bash
+uv run --with mypy --with types-PyYAML mypy cc_branch
+python3.11 -m mypy --platform linux cc_branch
+```
+
+结果：
+
+```text
+Success: no issues found in 150 source files
 ```
 
 ```bash

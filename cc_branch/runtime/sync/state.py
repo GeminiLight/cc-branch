@@ -47,6 +47,10 @@ def record_applied_results(
             continue
 
         existing = next_state.windows.get(window.key)
+        session_id: str | None
+        binding_status: str | None
+        binding_source: str | None
+        binding_updated_at: str | None
         if window.session_mode == "fresh":
             session_id = None
             binding_status = "fresh"

@@ -6,16 +6,20 @@ import secrets
 import shutil
 import time
 from pathlib import Path
+from typing import Any
 
 from .paths import projects_index_path
 
+_yaml: Any | None
 try:
-    import yaml
+    import yaml as _yaml
 except ModuleNotFoundError:  # pragma: no cover
-    yaml = None
+    _yaml = None
+
+yaml: Any | None = _yaml
 
 
-_EMPTY_INDEX = {
+_EMPTY_INDEX: dict[str, object] = {
     "version": 1,
     "active_project_id": None,
     "projects": [],
@@ -36,7 +40,7 @@ class ProjectIndexStore:
         """Return the current index payload with storage metadata."""
         data = self._load()
         return {
-            "version": int(data.get("version") or 1),
+            "version": _int_or_default(data.get("version"), 1),
             "active_project_id": data.get("active_project_id"),
             "projects": data.get("projects", []),
             "storage_path": str(self._path),
@@ -181,7 +185,7 @@ class ProjectIndexStore:
         if not self._path.exists():
             return dict(_EMPTY_INDEX)
         try:
-            raw = yaml.safe_load(self._path.read_text(encoding="utf-8")) or {}
+            raw: Any = yaml.safe_load(self._path.read_text(encoding="utf-8")) or {}
         except Exception:
             return dict(_EMPTY_INDEX)
         if not isinstance(raw, dict):
@@ -208,29 +212,32 @@ class ProjectIndexStore:
 
 def _normalize_data(raw: dict[str, object]) -> dict[str, object]:
     projects: list[dict[str, object]] = []
-    for item in raw.get("projects", []):
-        if not isinstance(item, dict):
-            continue
-        project_id = str(item.get("id") or "").strip()
-        project_path = _normalize_path(str(item.get("path") or ""))
-        if not project_id or not project_path:
-            continue
-        record: dict[str, object] = {
-            "id": project_id,
-            "name": str(item.get("name") or _project_name(project_path)),
-            "path": project_path,
-        }
-        selected = str(item.get("selected_config_path") or "").strip()
-        if selected:
-            record["selected_config_path"] = _normalize_path(selected)
-        projects.append(record)
+    raw_projects = raw.get("projects", [])
+    if isinstance(raw_projects, list):
+        for item in raw_projects:
+            if not isinstance(item, dict):
+                continue
+            project_id = str(item.get("id") or "").strip()
+            project_path = _normalize_path(item.get("path"))
+            if not project_id or not project_path:
+                continue
+            record: dict[str, object] = {
+                "id": project_id,
+                "name": str(item.get("name") or _project_name(project_path)),
+                "path": project_path,
+            }
+            selected = str(item.get("selected_config_path") or "").strip()
+            if selected:
+                record["selected_config_path"] = _normalize_path(selected)
+            projects.append(record)
 
-    active_project_id = raw.get("active_project_id")
+    active_raw = raw.get("active_project_id")
+    active_project_id = str(active_raw).strip() if active_raw is not None else None
     if active_project_id and not any(item["id"] == active_project_id for item in projects):
-        active_project_id = projects[0]["id"] if projects else None
+        active_project_id = str(projects[0]["id"]) if projects else None
 
     return {
-        "version": int(raw.get("version") or 1),
+        "version": _int_or_default(raw.get("version"), 1),
         "active_project_id": active_project_id,
         "projects": projects,
     }
@@ -247,11 +254,22 @@ def _project_name(path: str) -> str:
     return Path(path).name or "project"
 
 
-def _normalize_path(value: str) -> str:
+def _normalize_path(value: object | None) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
     return str(Path(raw).expanduser().resolve(strict=False))
+
+
+def _int_or_default(value: object | None, default: int) -> int:
+    if value is None:
+        return default
+    if isinstance(value, str | bytes | bytearray | int | float):
+        return int(value)
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _generate_project_id(projects: list[dict[str, object]]) -> str:

@@ -14,4 +14,4 @@ def get_profile_description(profile: str) -> str:
     """Return a profile description."""
     if profile not in PROFILES:
         raise ValueError(f"Unknown profile: {profile}")
-    return PROFILES[profile]["description"]
+    return str(PROFILES[profile]["description"])

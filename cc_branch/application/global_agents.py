@@ -47,10 +47,14 @@ def save_global_agents(
     """Validate and save the user-level agents file."""
     path = user_override_path()
     current_content = path.read_text(encoding="utf-8") if path.exists() else DEFAULT_GLOBAL_AGENTS
-    current_version = file_version_payload(path, current_content) if path.exists() else {
-        "mtime": None,
-        "content_hash": content_hash(current_content),
-    }
+    current_version: dict[str, object] = (
+        file_version_payload(path, current_content)
+        if path.exists()
+        else {
+            "mtime": None,
+            "content_hash": content_hash(current_content),
+        }
+    )
     if not base_version_matches(
         current_version,
         base_mtime=base_mtime,

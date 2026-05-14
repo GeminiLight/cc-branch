@@ -60,24 +60,24 @@ def _cache_dir() -> Path:
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Caches" / "cc-branch"
     if os.name == "nt":
-        root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-        return Path(root) / "cc-branch"
-    root = os.environ.get("XDG_CACHE_HOME")
-    return Path(root) / "cc-branch" if root else Path.home() / ".cache" / "cc-branch"
+        windows_root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        return Path(windows_root) / "cc-branch"
+    linux_root = os.environ.get("XDG_CACHE_HOME")
+    if linux_root:
+        return Path(linux_root) / "cc-branch"
+    return Path.home() / ".cache" / "cc-branch"
 
 
 def _warp_launch_config_dir() -> Path:
     if sys.platform == "darwin":
         return Path.home() / ".warp" / "launch_configurations"
     if os.name == "nt":
-        root = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-        return Path(root) / "warp" / "Warp" / "data" / "launch_configurations"
-    root = os.environ.get("XDG_DATA_HOME")
-    return (
-        Path(root) / "warp-terminal" / "launch_configurations"
-        if root
-        else Path.home() / ".local" / "share" / "warp-terminal" / "launch_configurations"
-    )
+        windows_root = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        return Path(windows_root) / "warp" / "Warp" / "data" / "launch_configurations"
+    linux_root = os.environ.get("XDG_DATA_HOME")
+    if linux_root:
+        return Path(linux_root) / "warp-terminal" / "launch_configurations"
+    return Path.home() / ".local" / "share" / "warp-terminal" / "launch_configurations"
 
 
 def _slug(value: str) -> str:

@@ -15,6 +15,8 @@ from ..targets import target_key
 from .capabilities import is_managed_runtime
 from .execution import tmux_has_session, tmux_has_window
 
+SessionStatus = Literal["running", "stopped", "orphaned"]
+
 
 @dataclass
 class SessionInfo:
@@ -26,7 +28,7 @@ class SessionInfo:
     agent: str | None
     session_id: str | None
     label: str | None
-    status: Literal["running", "stopped", "orphaned"]
+    status: SessionStatus
     launch_command: str | None = None
     session_intent: str = "auto"
     session_binding_status: str = "none"
@@ -171,12 +173,14 @@ def inspect_session(
     if slot_plan is None:
         return None
 
+    status: SessionStatus
+
     # Check if the key exists in state
     entry = state.get_window(key)
     if entry is not None:
         window_plan = plan.get_window(slot_name, window_name)
         if not is_managed_runtime(slot_plan.runtime):
-            status: Literal["running", "stopped", "orphaned"] = "stopped"
+            status = "stopped"
             return SessionInfo(
                 key=key,
                 slot=slot_name,
@@ -193,7 +197,7 @@ def inspect_session(
             )
         session_exists = tmux_has_session(slot_plan.tmux_session)
         if not session_exists:
-            status: Literal["running", "stopped", "orphaned"] = "orphaned"
+            status = "orphaned"
         elif tmux_has_window(slot_plan.tmux_session, window_name):
             status = "running"
         else:

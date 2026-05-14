@@ -233,13 +233,18 @@ python3.11 -m unittest discover tests
 cd apps/web && npm test
 ```
 
-未运行：
+类型检查也已补跑并纳入 CI：
 
 ```bash
-python3.11 -m mypy cc_branch
+uv run --with mypy --with types-PyYAML mypy cc_branch
+python3.11 -m mypy --platform linux cc_branch
 ```
 
-原因：当前 Python 3.11 环境未安装 `mypy`。
+结果：
+
+```text
+Success: no issues found in 150 source files
+```
 
 当前后端接口验证：
 

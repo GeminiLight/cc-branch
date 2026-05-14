@@ -28,10 +28,10 @@ def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> W
     from .models import WindowState
 
     merged = WorkspaceState(version=state.version)
-    for key, entry in state.windows.items():
-        merged.windows[key] = entry
-    for key, entry in state.slots.items():
-        merged.slots[key] = entry
+    for key, window_entry in state.windows.items():
+        merged.windows[key] = window_entry
+    for key, slot_entry in state.slots.items():
+        merged.slots[key] = slot_entry
     for key, update in plan_state_updates.items():
         existing = merged.windows.get(key)
         if existing:

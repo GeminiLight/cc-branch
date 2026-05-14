@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ..results import ActionResult
 
@@ -43,6 +44,7 @@ def agent_options(config_path: Path) -> ActionResult:
     """Return effective agent definitions for a workspace or registry fallback."""
     import cc_branch.application.config_workflows as workflows
 
+    agents: dict[str, Any]
     if config_path.exists():
         workspace = workflows.load_workspace(config_path)
         agents = workspace.agents

@@ -22,15 +22,15 @@ def parse_agent_definitions(data: dict[str, Any]) -> dict[str, AgentDefinition]:
             continue
         result[name] = AgentDefinition(
             name=name,
-            command=spec.get("command", name),
-            install_hint=spec.get("install_hint", ""),
-            resume_mode=spec.get("resume_mode", "none"),
-            resume_template=spec.get("resume_template", ""),
-            create_mode=spec.get("create_mode", "none"),
-            create_template=spec.get("create_template", ""),
-            label_template=spec.get("label_template", ""),
-            label_mode=spec.get("label_mode", "metadata"),
-            rename_template=spec.get("rename_template", ""),
+            command=str(spec.get("command") or name),
+            install_hint=str(spec.get("install_hint") or ""),
+            resume_mode=str(spec.get("resume_mode") or "none"),
+            resume_template=str(spec.get("resume_template") or ""),
+            create_mode=str(spec.get("create_mode") or "none"),
+            create_template=str(spec.get("create_template") or ""),
+            label_template=str(spec.get("label_template") or ""),
+            label_mode=str(spec.get("label_mode") or "metadata"),
+            rename_template=str(spec.get("rename_template") or ""),
         )
     return result
 

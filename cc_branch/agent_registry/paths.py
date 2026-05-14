@@ -9,9 +9,7 @@ from ..constants import WORKSPACE_AGENT_REGISTRY
 
 def builtin_agents_path() -> Path:
     """Return the package path for built-in agent definitions."""
-    from importlib.resources import files
-
-    return files("cc_branch") / "agents.yaml"
+    return Path(__file__).resolve().parents[1] / "agents.yaml"
 
 
 def user_override_path() -> Path:

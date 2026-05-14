@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-PROFILES = {
+from typing import Any
+
+PROFILES: dict[str, dict[str, Any]] = {
     "development": {
         "description": "Development workspace with one tab for frontend, backend, algorithm, and docs panes",
         "tabs": [

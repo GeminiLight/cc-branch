@@ -120,9 +120,10 @@ def _parser_for_command(
     current = parser
     for part in command_path:
         action = _subparser_action(current)
-        current = action.choices.get(part)
-        if current is None:
+        next_parser = action.choices.get(part)
+        if not isinstance(next_parser, argparse.ArgumentParser):
             return None
+        current = next_parser
     return current
 
 
@@ -151,4 +152,3 @@ def _action_display(action: argparse.Action) -> str:
     if action.nargs == "?":
         return f"[{name}]"
     return f"<{name}>"
-
