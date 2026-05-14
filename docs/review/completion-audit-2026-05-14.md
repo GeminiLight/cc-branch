@@ -52,6 +52,7 @@
 | 补拖拽落点判断测试 | `apps/web/src/components/ConfigEditor/workspace-drag.test.ts` | 已补保护：横向、纵向、main-top/main-left/grid/auto 布局下的 drop midpoint 判断有纯函数测试覆盖。 |
 | 补画布内 pane 拖拽集成测试 | `apps/web/src/components/ConfigEditor.test.tsx` | 已补保护：同一 tab 内 terminal pane 可以通过 workspace matrix 拖拽重排，覆盖用户最常见的画布内调度路径。 |
 | 补真实浏览器拖拽验证 | `scripts/qa/verify-workspace-drag.py`、`tests/fixtures/browser-drag-project/.cc-branch/config.yaml` | 已验证：本地 `cc-branch serve` + Chromium Playwright 中，terminal pane 和 legacy tmux tab / tmux group 都可以真实拖入另一个标签页；源标签页被移除，目标标签页保留所有窗格。 |
+| 强化画布选中态和拖拽反馈 | `apps/web/src/components/ConfigEditor/WorkspaceCanvas.tsx`、`ConfigEditor.test.tsx`、截图 `tmp/review-live-2026-05-14/workspace-canvas-feedback.png` | 已优化：选中 tab/pane 有更明确的 ring；拖拽源和候选落点有可见状态，并有测试覆盖 `data-drag-source` / `data-drop-candidate` 状态。 |
 | 拆分 selection 派生状态 | `apps/web/src/components/ConfigEditor/workspace-selection.ts`、`workspace-selection.test.ts`、`SlotsSection.tsx` | 已推进：空工作区、空 terminal tab、普通 terminal pane、legacy tmux tab、显式 tmux group 的选中态判断从组件中抽出并加测试，`SlotsSection.tsx` 进一步降到 580 行。 |
 | 拆分标签页新增/删除 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：新增标签页的唯一命名、默认 terminal/tmux 初始化和删除后的选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 559 行。 |
 | 拆分同标签页窗格移动 mutation | `apps/web/src/components/ConfigEditor/workspace-model.ts`、`workspace-model.test.ts`、`SlotsSection.tsx` | 已推进：同一 tab 内按方向移动 pane 的边界判断、排序和选中态从组件中抽成纯 mutation，并补单元测试，`SlotsSection.tsx` 进一步降到 553 行。 |
@@ -258,7 +259,7 @@ d1273b0 Verify workspace drag save persistence
 本轮 UI/UX 从明显错误状态推进到更一致，但仍有可见风险：
 
 - Space canvas 还可以继续降低配置编辑器感，更像真实 workspace 预览。
-- 选中态、拖拽态、跨 tab 移动的反馈还可以更精细。
+- 选中态和拖拽候选落点已有更明确的 ring/outline 反馈；但复杂布局下的拖拽预览、失败态和落点方向提示还可以更精细。
 - Project config 仍需要继续区分“项目级信息”和“工作空间布局信息”。
 - Doctor 已降低通过项噪音，但还需要更贴近用户问题，例如把“为什么启动不了 / 应该先处理哪个配置或运行态差异”继续做成更直接的产品诊断。
 

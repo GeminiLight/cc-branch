@@ -141,6 +141,8 @@ export default function WorkspaceCanvas({
         <div className="relative space-y-2.5">
           {slots.map((slot, slotIndex) => {
             const selectedTab = slotIndex === selection.slotIndex;
+            const tabIsDragSource = tabDrag?.slotIndex === slotIndex;
+            const tabDropCandidate = Boolean(tabDrag && !tabIsDragSource);
             const slotName = slot.name || t("unnamed");
             const panes = slotToPanes(slot);
             const canvasPanes = slotToCanvasPanes(slot);
@@ -154,9 +156,13 @@ export default function WorkspaceCanvas({
                 onDragEnd={onTabDragEnd}
                 className={`group/tab rounded-lg border bg-[var(--bg-card)] transition-all overflow-hidden shadow-sm ${
                   selectedTab
-                    ? "border-[var(--accent-border)] shadow-[inset_3px_0_0_var(--accent)]"
+                    ? "border-[var(--accent-border)] ring-1 ring-[var(--accent-border)] shadow-[inset_3px_0_0_var(--accent)]"
                     : "border-default hover:border-[var(--border-strong)]"
-                } ${tabDrag?.slotIndex === slotIndex ? "opacity-55" : ""}`}
+                } ${tabIsDragSource ? "opacity-55 scale-[0.998]" : ""} ${
+                  tabDropCandidate ? "outline outline-1 outline-offset-2 outline-[var(--accent-border)]" : ""
+                }`}
+                data-drag-source={tabIsDragSource ? "true" : undefined}
+                data-drop-candidate={tabDropCandidate ? "true" : undefined}
               >
                 <div className="grid grid-cols-1 lg:grid-cols-[124px_minmax(0,1fr)]">
                   <button
@@ -246,6 +252,9 @@ export default function WorkspaceCanvas({
                           const cwdLabel = pane.cwd || slot.cwd || "";
                           const paneAgent = pane.agent ?? null;
                           const paneIsDraggable = canDragPane(slot);
+                          const paneIsDragSource =
+                            paneDrag?.slotIndex === slotIndex && paneDrag.paneIndex === paneIndex;
+                          const paneDropCandidate = Boolean(paneDrag && !paneIsDragSource);
                           return (
                             <div
                               role="button"
@@ -265,13 +274,18 @@ export default function WorkspaceCanvas({
                               }}
                               className={`workspace-pane-card group/pane relative min-h-[68px] overflow-hidden rounded-md border p-2.5 text-left transition-all ${
                                 selectedPane
-                                  ? "border-[var(--accent-border)] bg-[var(--accent-bg)] shadow-[0_0_0_3px_var(--accent-bg),0_10px_24px_rgba(15,23,42,0.08)]"
+                                  ? "border-[var(--accent-border)] bg-[var(--accent-bg)] ring-1 ring-[var(--accent-border)] shadow-[0_0_0_3px_var(--accent-bg),0_10px_24px_rgba(15,23,42,0.08)]"
                                   : pane.kind === "tmux-group"
                                   ? "border-[var(--accent-border)] bg-[var(--accent-bg)]/35 hover:border-[var(--accent)]"
                                   : "border-default bg-[var(--bg-card)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]/45"
-                              } ${paneDrag?.slotIndex === slotIndex && paneDrag.paneIndex === paneIndex ? "opacity-55" : ""}`}
+                              } ${paneIsDragSource ? "opacity-55 scale-[0.99]" : ""} ${
+                                paneDropCandidate ? "outline outline-1 outline-offset-1 outline-[var(--accent-border)]" : ""
+                              }`}
                               style={paneCellStyle(slot, canvasPanes.length, paneIndex)}
                               aria-label={t("editWindowNamed", { name: paneName })}
+                              aria-current={selectedPane ? "true" : undefined}
+                              data-drag-source={paneIsDragSource ? "true" : undefined}
+                              data-drop-candidate={paneDropCandidate ? "true" : undefined}
                             >
                               {selectedPane && (
                                 <span

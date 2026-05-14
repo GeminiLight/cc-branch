@@ -673,6 +673,8 @@ describe('ConfigEditor diagnostics', () => {
     const dataTransfer = createDataTransfer()
     fireEvent.dragStart(shellPane, { dataTransfer })
     expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '1:0')
+    expect(shellPane).toHaveAttribute('data-drag-source', 'true')
+    expect(uiPane).toHaveAttribute('data-drop-candidate', 'true')
     fireEvent.dragOver(uiPane, { dataTransfer, clientX: 20, clientY: 20 })
     fireEvent.drop(uiPane, { dataTransfer, clientX: 20, clientY: 20 })
 
@@ -1017,6 +1019,8 @@ describe('ConfigEditor diagnostics', () => {
 
     const dataTransfer = createDataTransfer()
     fireEvent.dragStart(devRow, { dataTransfer })
+    expect(devRow).toHaveAttribute('data-drag-source', 'true')
+    expect(reviewRow).toHaveAttribute('data-drop-candidate', 'true')
     fireEvent.dragOver(reviewRow, { dataTransfer, clientX: 20, clientY: 80 })
     fireEvent.drop(reviewRow, { dataTransfer, clientX: 20, clientY: 80 })
 
