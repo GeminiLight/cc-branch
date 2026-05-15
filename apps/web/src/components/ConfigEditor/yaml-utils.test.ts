@@ -36,6 +36,31 @@ describe("ConfigEditor YAML session intent", () => {
     expect(validateConfigForm(data)).toContain("Names cannot contain ':' or '.': dev:ui, main.shell");
   });
 
+  it("validates duplicate pane and nested tmux window names", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: main",
+      "        agent: codex",
+      "      - name: \" main \"",
+      "        command: zsh",
+      "      - name: agents",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: api",
+      "            agent: codex",
+      "          - name: \" api \"",
+      "            command: zsh",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Duplicate pane/window names: dev/main, dev/agents/api");
+  });
+
   it("parses canonical workspace terms and pane shell overrides", () => {
     const data = parseConfigYaml([
       "version: 2",

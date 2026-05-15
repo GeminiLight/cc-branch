@@ -333,6 +333,9 @@ export default function SlotsSection({
       {workspaceValidation.duplicateTabNames.length > 0 && (
         <InlineError message={t("duplicateSlotNames", { names: workspaceValidation.duplicateTabNames.join(", ") })} />
       )}
+      {workspaceValidation.duplicatePaneNames.length > 0 && (
+        <InlineError message={t("duplicatePaneNames", { names: workspaceValidation.duplicatePaneNames.join(", ") })} />
+      )}
       {workspaceValidation.hasEmptyTabNames && (
         <InlineError message={t("allSlotsMustHaveName")} />
       )}

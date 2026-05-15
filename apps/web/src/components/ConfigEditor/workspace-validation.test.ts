@@ -98,6 +98,55 @@ describe("validateWorkspaceNames", () => {
     });
   });
 
+  it("detects duplicate pane names within each tab and tmux group scope", () => {
+    const workspace = slot("dev", ["main", " main ", "agents"]);
+    workspace.windows[2].layoutBackend = "tmux";
+    workspace.windows[2].windows = [
+      {
+        name: "worker",
+        agent: null,
+        command: "zsh",
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+      {
+        name: " worker ",
+        agent: null,
+        command: "zsh",
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+    ];
+    const other = slot("ops", ["main"]);
+
+    expect(validateWorkspaceNames([workspace, other]).duplicatePaneNames).toEqual([
+      "dev/main",
+      "dev/agents/worker",
+    ]);
+  });
+
   it("detects target separators in tab, pane, and nested tmux window names", () => {
     const workspace = slot("dev:ui", ["main.shell", "agents"]);
     workspace.windows[1].layoutBackend = "tmux";
