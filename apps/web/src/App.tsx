@@ -17,7 +17,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { useApiClient, useConfigOptions, useKeyboardShortcuts } from "./hooks";
 import { useProjectStore, getActiveProject } from "./stores/projectStore";
 import { useUIStore } from "./stores/uiStore";
-import { appTabFromHash, appTabHash, type AppTab } from "./utils/tabRoute";
+import { appTabFromHash, appTabFromUrl, appTabHash, type AppTab } from "./utils/tabRoute";
 import Sidebar from "./components/Sidebar";
 const AddProjectModal = lazy(() => import("./components/AddProjectModal"));
 const ConfigEditor = lazy(() => import("./components/ConfigEditor"));
@@ -47,15 +47,16 @@ const langItems = [
 
 function initialTab(): Tab {
   if (typeof window === "undefined") return "dashboard";
-  return appTabFromHash(window.location.hash) || "dashboard";
+  return appTabFromUrl(window.location.hash, window.location.search) || "dashboard";
 }
 
 function syncTabHash(tab: Tab, replace = false) {
   if (typeof window === "undefined") return;
   const nextHash = appTabHash(tab);
-  if (window.location.hash === nextHash) return;
   const url = new URL(window.location.href);
+  url.searchParams.delete("tab");
   url.hash = nextHash;
+  if (window.location.hash === nextHash && !new URL(window.location.href).searchParams.has("tab")) return;
   window.history[replace ? "replaceState" : "pushState"](null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
