@@ -859,6 +859,20 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
               {t("workspaceSyncNeedsAction", { count: issueCount })}
             </span>
           )}
+          {orphanedCount > 0 && (
+            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-medium text-secondary">
+              <Wand2 className="w-3 h-3 shrink-0 text-tertiary" />
+              <span className="truncate">{t("runtimeOrphanedState", { count: orphanedCount })}</span>
+              <button
+                type="button"
+                onClick={requestPruneState}
+                disabled={actionMutation.isPending}
+                className="rounded px-1 py-0.5 text-[10px] font-semibold text-secondary hover:bg-[var(--bg-hover)] hover:text-primary transition-colors disabled:opacity-50"
+              >
+                {t("clearStaleState")}
+              </button>
+            </span>
+          )}
         </div>
         <span className="text-[11px] text-muted">{workspaceCountLabel(t, totalTabs, totalPanes)}</span>
       </div>
@@ -879,26 +893,6 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 </span>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-      {orphanedCount > 0 && (
-        <div className="rounded-md border border-default bg-[var(--bg-card)] px-2.5 py-1.5" aria-live="polite">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Wand2 className="w-3.5 h-3.5 text-tertiary shrink-0" />
-              <span className="text-[11px] font-medium text-secondary truncate">
-                {t("runtimeOrphanedState", { count: orphanedCount })}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={requestPruneState}
-              disabled={actionMutation.isPending}
-              className="h-6 self-start sm:self-center rounded-md border border-default bg-[var(--bg-elevated)] px-2 text-[11px] font-semibold text-secondary hover:text-primary hover:border-[var(--border-strong)] transition-colors disabled:opacity-50"
-            >
-              {t("clearStaleState")}
-            </button>
           </div>
         </div>
       )}

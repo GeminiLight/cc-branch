@@ -15,8 +15,6 @@ import {
 } from "./workspace-model";
 import {
   countText,
-  paneCount,
-  paneCountText,
   paneSummary,
   tabSummary,
   terminalPaneSummary,
@@ -153,23 +151,7 @@ export default function WorkspaceCanvas({
                   </button>
 
                   <div className="min-w-0 p-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className={`text-[11px] font-medium text-tertiary truncate ${
-                            isLegacyTmuxSlot(slot) ? "" : "hidden sm:inline"
-                          }`}
-                        >
-                          {isLegacyTmuxSlot(slot)
-                            ? countText(t, "tmuxGroupCount_one", "tmuxGroupCount", 1)
-                            : paneCountText(t, paneCount(slot))}
-                        </span>
-                        {isLegacyTmuxSlot(slot) && (
-                          <span className="text-[11px] text-tertiary truncate">
-                            · {countText(t, "tmuxWindowCount_one", "tmuxWindowCount", panes.length)}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center justify-end gap-2 mb-1.5">
                       <div className="flex items-center gap-1.5 shrink-0 opacity-70 transition-opacity group-hover/tab:opacity-100 focus-within:opacity-100">
                         <button
                           type="button"

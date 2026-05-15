@@ -670,7 +670,7 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Runtime drift')).toBeInTheDocument()
+    expect(screen.getByText('Needs attention')).toBeInTheDocument()
     expect(screen.getByText('0')).toBeInTheDocument()
     expect(screen.queryByText(/runtime update/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sync item' })).not.toBeInTheDocument()
@@ -719,7 +719,7 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('4 running pane(s) were not launched from the current config.')).toBeInTheDocument()
     expect(screen.getByText('3 extra tmux-managed pane(s) are running outside the config.')).toBeInTheDocument()
     expect(screen.getByText('2 stale session record(s) no longer match the current config.')).toBeInTheDocument()
-    expect(screen.getByText('8 runtime update(s)')).toBeInTheDocument()
+    expect(screen.getByText('10 item(s) need attention')).toBeInTheDocument()
   })
 
   it('summarizes extra tmux panes without exposing a destructive header action', () => {

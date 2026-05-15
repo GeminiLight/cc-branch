@@ -191,7 +191,7 @@ describe("dashboard-view-model", () => {
     expect(buildDashboardRuntimeSummary(data).issueCount).toBe(1);
   });
 
-  it("keeps orphaned local state separate from primary dashboard issues", () => {
+  it("counts clearable orphaned local state as a dashboard issue", () => {
     const data = workspace([terminalSlot()], {
       changed: 0,
       current: 1,
@@ -205,6 +205,6 @@ describe("dashboard-view-model", () => {
     const summary = buildDashboardRuntimeSummary(data);
 
     expect(summary.orphanedCount).toBe(2);
-    expect(summary.issueCount).toBe(0);
+    expect(summary.issueCount).toBe(2);
   });
 });

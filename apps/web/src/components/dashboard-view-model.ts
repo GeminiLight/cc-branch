@@ -143,6 +143,6 @@ export function buildDashboardRuntimeSummary(data: WorkspaceStatus): DashboardRu
     orphanedCount,
     driftCount,
     syncCount,
-    issueCount: syncCount + extraCount + (tmuxRuntimeUnavailable ? 1 : 0),
+    issueCount: syncCount + extraCount + orphanedCount + (tmuxRuntimeUnavailable ? 1 : 0),
   };
 }
