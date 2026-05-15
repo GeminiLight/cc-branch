@@ -302,4 +302,13 @@ describe("TauriClient abort handling", () => {
       signal: controller.signal,
     });
   });
+
+  it("uses Tauri camelCase arguments for the native directory picker", async () => {
+    invokeMock.mockResolvedValue("/tmp/demo");
+
+    const picked = await new TauriClient().pickProjectDirectory("/tmp");
+
+    expect(picked).toBe("/tmp/demo");
+    expect(invokeMock).toHaveBeenCalledWith("pick_project_directory", { startingDir: "/tmp" });
+  });
 });

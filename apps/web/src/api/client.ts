@@ -489,7 +489,7 @@ export class TauriClient implements APIClient {
   }
 
   async pickProjectDirectory(startingDir?: string): Promise<string | null> {
-    const args = startingDir ? { starting_dir: startingDir } : undefined;
+    const args = startingDir ? { startingDir } : undefined;
     return this._invoke("pick_project_directory", args) as Promise<string | null>;
   }
 
