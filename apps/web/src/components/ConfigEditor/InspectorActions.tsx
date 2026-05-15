@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp, Copy, MoveRight, Plus, Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
-import { SelectInput } from "./FormPrimitives";
 
 type SelectOption = { value: string; label: string };
 
@@ -124,16 +123,10 @@ export function PaneSchedulingActions({
 
 export function MoveToTabActions({
   options,
-  value,
-  onChange,
-  onMove,
-  canMove,
+  onMoveTo,
 }: {
   options: SelectOption[];
-  value: string;
-  onChange: (value: string) => void;
-  onMove: () => void;
-  canMove: boolean;
+  onMoveTo: (value: string) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -143,21 +136,18 @@ export function MoveToTabActions({
         <MoveRight className="h-3.5 w-3.5 text-tertiary" />
       </div>
       {options.length > 0 ? (
-        <div className="grid grid-cols-[minmax(0,1fr)_76px] gap-1.5">
-          <SelectInput
-            value={value}
-            onChange={onChange}
-            options={options}
-            ariaLabel={t("moveToTab")}
-          />
-          <button
-            type="button"
-            onClick={onMove}
-            disabled={!canMove}
-            className="control-touch rounded-md bg-[var(--accent-bg)] text-[var(--accent)] text-[12px] font-semibold border border-[var(--accent-border)] disabled:opacity-40 flex items-center justify-center gap-1.5"
-          >
-            {t("move")}
-          </button>
+        <div className="grid gap-1.5">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onMoveTo(option.value)}
+              className="min-h-9 rounded-md border border-default bg-[var(--bg-card)] px-2.5 text-left text-[12px] font-medium text-secondary hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)] hover:text-primary transition-colors flex items-center justify-between gap-2"
+            >
+              <span className="min-w-0 truncate">{option.label}</span>
+              <MoveRight className="h-3.5 w-3.5 shrink-0 text-tertiary" />
+            </button>
+          ))}
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-default bg-[var(--bg-hover)]/35 px-3 py-2 text-[11px] text-tertiary">

@@ -51,7 +51,6 @@ import {
   inspectorSelectionSubtitle,
   isSelectedPaneMovable,
   moveTargetOptionsForSelection,
-  selectedMoveTargetIndex,
   selectedPaneOrderState,
   selectedTmuxGroupPositionState,
 } from "./workspace-inspector-model";
@@ -75,7 +74,6 @@ export default function SlotsSection({
 }) {
   const { t } = useI18n();
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
-  const [moveTarget, setMoveTarget] = useState("0");
 
   const selectionState = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
   const {
@@ -114,20 +112,8 @@ export default function SlotsSection({
     return moveTargetOptionsForSelection(slots, selectionState, t);
   }, [selectionState, slots, t]);
 
-  useEffect(() => {
-    if (moveTargetOptions.length === 0) {
-      if (moveTarget !== "") setMoveTarget("");
-      return;
-    }
-    if (!moveTargetOptions.some((option) => option.value === moveTarget)) {
-      setMoveTarget(moveTargetOptions[0].value);
-    }
-  }, [moveTarget, moveTargetOptions]);
-
-  const selectedMoveTarget = selectedMoveTargetIndex(moveTarget);
   const selectedMovablePane = isSelectedPaneMovable(selectionState);
   const selectedInspectorSubtitle = inspectorSelectionSubtitle(selectionState, t);
-  const canMovePaneToSelectedTab = canMoveSelectedPaneToTarget(selectionState, selectedMoveTarget);
 
   function updateSlot(index: number, patch: Partial<SlotConfig>) {
     const next = [...slots];
@@ -231,11 +217,11 @@ export default function SlotsSection({
     replaceSlots(mutation.slots, mutation.selection);
   }
 
-  function movePaneToTab() {
+  function movePaneToTab(targetValue: string) {
     if (!selectedSlot || !selectedMovablePane) return;
-    const targetIndex = selectedMoveTarget;
+    const targetIndex = Number(targetValue);
     const target = slots[targetIndex];
-    if (!target || targetIndex === normalizedSelection.slotIndex) return;
+    if (!target || !canMoveSelectedPaneToTarget(selectionState, targetIndex)) return;
     const mutation = movePaneBetweenSlots(
       slots,
       normalizedSelection.slotIndex,
@@ -460,10 +446,7 @@ export default function SlotsSection({
                     {editingPane && selectedMovablePane && slots.length > 1 ? (
                       <MoveToTabActions
                         options={moveTargetOptions}
-                        value={moveTarget}
-                        onChange={setMoveTarget}
-                        onMove={movePaneToTab}
-                        canMove={canMovePaneToSelectedTab}
+                        onMoveTo={movePaneToTab}
                       />
                     ) : null}
 

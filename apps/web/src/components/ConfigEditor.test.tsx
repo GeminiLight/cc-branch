@@ -721,9 +721,7 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit pane review' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
-    fireEvent.click(screen.getByRole('option', { name: /dev/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+    fireEvent.click(screen.getByRole('button', { name: /dev ·/ }))
 
     await waitFor(() => {
       const tabLabels = screen
@@ -765,9 +763,7 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit pane review' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
-    fireEvent.click(screen.getByRole('option', { name: /dev/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+    fireEvent.click(screen.getByRole('button', { name: /dev ·/ }))
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Edit tab dev' })).toBeInTheDocument()
@@ -944,9 +940,7 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit pane shell' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
-    fireEvent.click(screen.getByRole('option', { name: /dev/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+    fireEvent.click(screen.getByRole('button', { name: /dev ·/ }))
 
     await waitFor(() => {
       const paneLabels = screen
@@ -1048,11 +1042,9 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit pane spec' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
 
     expect(screen.queryByRole('option', { name: /dev/ })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('option', { name: /review/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+    fireEvent.click(screen.getByRole('button', { name: /review ·/ }))
 
     await waitFor(() => {
       const paneLabels = screen
@@ -1099,11 +1091,9 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit pane spec' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move to tab' }))
 
     expect(screen.queryByText('Add another tab first.')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('option', { name: /tmux-dev/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+    fireEvent.click(screen.getByRole('button', { name: /tmux-dev ·/ }))
 
     await waitFor(() => {
       const tmuxTab = screen.getByRole('button', { name: 'Edit tab tmux-dev' }).closest('section')!
