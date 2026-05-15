@@ -1,11 +1,12 @@
 import { useMemo, memo } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, XCircle } from "lucide-react";
 import { useI18n } from "../i18n";
-import { useConfig, useDoctor, useWorkspace } from "../hooks";
+import { useConfig, useDoctor, useWorkspace, useWorkspaceAction } from "../hooks";
 import type { DoctorStatus } from "./doctor-view-model";
 import type { CheckItem } from "./doctor-view-model";
 import { buildDoctorViewModel } from "./doctor-view-model";
 import EmptyState from "./ui/EmptyState";
+import { useToast } from "./ui/Toast";
 
 interface DoctorViewProps {
   projectPath?: string;
@@ -43,7 +44,19 @@ function metricIconClass(active: boolean, activeClass: string): string {
   return `w-4 h-4 shrink-0 ${active ? activeClass : "text-tertiary"}`;
 }
 
-function FindingRow({ check, compact = false }: { check: CheckItem; compact?: boolean }) {
+function FindingRow({
+  check,
+  compact = false,
+  actionLabel,
+  actionPending = false,
+  onAction,
+}: {
+  check: CheckItem;
+  compact?: boolean;
+  actionLabel?: string;
+  actionPending?: boolean;
+  onAction?: () => void;
+}) {
   return (
     <div
       className={`rounded-md flex items-start gap-2.5 ${
@@ -68,6 +81,16 @@ function FindingRow({ check, compact = false }: { check: CheckItem; compact?: bo
           </p>
         )}
       </div>
+      {check.action && actionLabel && onAction && !compact && (
+        <button
+          type="button"
+          onClick={onAction}
+          disabled={actionPending}
+          className="control-touch shrink-0 rounded-md border border-default bg-[var(--bg-card)] px-2.5 text-[12px] font-semibold text-secondary hover:text-primary hover:border-[var(--accent-border)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -78,6 +101,8 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
   const { data, error, isLoading, refetch, isFetching } = useDoctor(scope);
   const { data: configData } = useConfig(scope);
   const { data: workspaceData } = useWorkspace(scope, false);
+  const actionMutation = useWorkspaceAction();
+  const toast = useToast();
 
   const model = useMemo(
     () => buildDoctorViewModel({ data, configIssues: configData?.issues, workspaceData, t }),
@@ -155,6 +180,24 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
       ? "bg-[var(--warning-bg)] text-[var(--warning)]"
       : "danger-bg danger";
   const hasActionableFindings = issueCount > 0 || warningCount > 0;
+  const runFindingAction = async (check: CheckItem) => {
+    if (!projectPath || check.action !== "prune_state") return;
+    try {
+      await actionMutation.mutateAsync({
+        action: "prune_state",
+        target: undefined,
+        opener: undefined,
+        intent: undefined,
+        projectPath,
+        ...(configPath ? { configPath } : {}),
+      });
+      const count = check.actionCount || 0;
+      toast.success(count === 1 ? t("staleStateClearedOne", { count }) : t("staleStateCleared", { count }));
+      refetch();
+    } catch (e: unknown) {
+      toast.error(String(e));
+    }
+  };
 
   return (
     <div className="page-shell space-y-4">
@@ -229,7 +272,15 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
         </div>
         <div className="p-1.5 space-y-1.5">
           {actionableChecks.length > 0 ? (
-            actionableChecks.map((check, i) => <FindingRow key={`${check.status}-${check.icon}-${i}`} check={check} />)
+            actionableChecks.map((check, i) => (
+              <FindingRow
+                key={`${check.status}-${check.icon}-${i}`}
+                check={check}
+                actionLabel={check.action === "prune_state" ? t("clearStaleState") : undefined}
+                actionPending={actionMutation.isPending}
+                onAction={() => void runFindingAction(check)}
+              />
+            ))
           ) : passingChecks.length === 0 ? (
             <div className="rounded-md px-3 py-3 flex items-start gap-2.5 success-bg">
               <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />

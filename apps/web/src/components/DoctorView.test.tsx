@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DoctorView from './DoctorView'
 import { I18nProvider } from '../i18n'
 
@@ -13,12 +13,16 @@ const mocks = vi.hoisted(() => ({
   workspaceResult: {
     current: { data: { runtime_sync: { summary: {} } } } as unknown,
   },
+  actionMutation: {
+    current: { mutateAsync: vi.fn(), isPending: false } as unknown,
+  },
 }))
 
 vi.mock('../hooks', () => ({
   useDoctor: () => mocks.doctorResult.current,
   useConfig: () => mocks.configResult.current,
   useWorkspace: () => mocks.workspaceResult.current,
+  useWorkspaceAction: () => mocks.actionMutation.current,
 }))
 
 function renderDoctorView() {
@@ -49,6 +53,7 @@ describe('DoctorView summary', () => {
     }
     mocks.configResult.current = { data: { issues: [] } }
     mocks.workspaceResult.current = { data: { runtime_sync: { summary: {} } } }
+    mocks.actionMutation.current = { mutateAsync: vi.fn().mockResolvedValue({ code: 'orphaned_state_pruned' }), isPending: false }
   })
 
   it('summarizes blocking issues and warnings before the detailed checks', () => {
@@ -219,5 +224,45 @@ describe('DoctorView summary', () => {
     expect(screen.getByText('Warnings found; workspace can run, but the setup needs attention.')).toBeInTheDocument()
     expect(screen.getByText('2 tmux-managed panes are not started.')).toBeInTheDocument()
     expect(screen.getByText('1 warning')).toBeInTheDocument()
+  })
+
+  it('offers an inline cleanup action for stale local session records', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ code: 'orphaned_state_pruned' })
+    mocks.actionMutation.current = { mutateAsync, isPending: false }
+    mocks.doctorResult.current = {
+      data: {
+        report: {
+          project: 'demo',
+          has_errors: false,
+          issues: [
+            {
+              issue_type: 'orphaned_state',
+              severity: 'warning',
+              message: '2 stale local session records no longer match the current config',
+              target: 'state',
+              context: { count: 2 },
+              fixable: true,
+            },
+          ],
+        },
+      },
+      error: null,
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }
+
+    renderDoctorView()
+    fireEvent.click(screen.getByRole('button', { name: 'Clean up' }))
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        action: 'prune_state',
+        target: undefined,
+        opener: undefined,
+        intent: undefined,
+        projectPath: '/tmp/demo',
+      })
+    })
   })
 })

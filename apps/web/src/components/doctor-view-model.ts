@@ -8,6 +8,8 @@ export interface CheckItem {
   icon: string;
   text: string;
   fix?: string;
+  action?: "prune_state";
+  actionCount?: number;
 }
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
@@ -104,6 +106,11 @@ function structuredReportChecks(data: DoctorReport | undefined, t: Translate): C
     status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
     icon: structuredIssueIcon(issue, t),
     text: issue.message,
+    action: issue.issue_type === "orphaned_state" && issue.fixable ? "prune_state" : undefined,
+    actionCount:
+      issue.issue_type === "orphaned_state" && typeof issue.context?.count === "number"
+        ? issue.context.count
+        : undefined,
     fix:
       issue.severity !== "info" && typeof issue.context?.hint === "string"
         ? issue.context.hint
@@ -184,7 +191,15 @@ function productChecks(
   if (missing > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeMissingPendingOne", "runtimeMissingPending", missing) });
   if (untracked > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeUntrackedOne", "runtimeUntracked", untracked) });
   if (extra > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeExtraPanesOne", "runtimeExtraPanes", extra) });
-  if (orphaned > 0 && !options.omitOrphanedState) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeOrphanedStateOne", "runtimeOrphanedState", orphaned) });
+  if (orphaned > 0 && !options.omitOrphanedState) {
+    checks.push({
+      status: "warn",
+      icon: t("runtimeState"),
+      text: countText(t, "runtimeOrphanedStateOne", "runtimeOrphanedState", orphaned),
+      action: "prune_state",
+      actionCount: orphaned,
+    });
+  }
   return checks;
 }
 
