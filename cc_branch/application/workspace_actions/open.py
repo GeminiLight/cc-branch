@@ -152,7 +152,7 @@ class WorkspaceOpenActions:
         self.dependencies.open_with(
             opener_id=opener,
             cwd=cwd,
-            cli=cli,
+            cli=attach_cli,
             intent=OpenIntent(kind="attach_target", target=target),
             custom_openers=custom_openers,
         )
@@ -216,7 +216,7 @@ class WorkspaceOpenActions:
         self.dependencies.open_with(
             opener_id=opener,
             cwd=cwd,
-            cli=cli,
+            cli=attach_cli,
             intent=OpenIntent(kind="workspace_dashboard"),
             custom_openers=custom_openers,
         )
