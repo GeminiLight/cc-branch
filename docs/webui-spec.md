@@ -153,7 +153,7 @@ Action semantics:
 
 - `open` opens through a local opener. Without `opener`, it uses `auto-terminal`. Without `intent`, workspace opens infer `workspace_dashboard` and target opens infer `attach_target`.
 - `workspace_dashboard` runs `cc-branch dashboard` in a command-capable terminal opener.
-- `attach_target` opens the target through the selected opener. Terminal openers run `cc-branch attach <target>` or the direct-layout command. On macOS, VS Code and Cursor open the real project folder and create integrated terminals for the selected target via local UI automation.
+- `attach_target` opens the target through the selected opener. Terminal openers run `cc-branch attach <target>` or the direct-layout command. VS Code and Cursor open the real project folder and install folder-open tasks so the editor creates integrated terminals from `.vscode/tasks.json`.
 - `project_folder` opens the project directory without attaching tmux. The Web UI routes this to the system file manager so the user lands in a normal folder view.
 - `launch` starts tmux sessions and, when the selected opener can run commands, opens direct-layout panes in that opener.
 - `restart` recreates the workspace or target in the background.
@@ -163,9 +163,9 @@ Action semantics:
 GUI semantics:
 
 - The GUI has one tool selector and two primary buttons: "Open workspace" and "Open project directory".
-- "Open workspace" adapts to the selected tool. Terminal openers run dashboard or attach commands. Warp uses a stable Launch Configuration and can open one arranged layout. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
+- "Open workspace" adapts to the selected tool. Terminal openers run dashboard or attach commands. Warp uses a stable Launch Configuration and can open one arranged layout. VS Code and Cursor open the real project folder and install folder-open tasks for the workspace commands.
 - "Open project directory" always uses the system file manager. It is enabled only when the file manager opener is available.
-- Tab/pane-level "Open" buttons use the same selected tool as the workspace and project actions. Terminal openers run commands directly; on macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target.
+- Tab/pane-level "Open" buttons use the same selected tool as the workspace and project actions. Terminal openers run commands directly; VS Code and Cursor open the real project folder and use editor tasks to create an integrated terminal for that target.
 
 Runtime behavior:
 
@@ -173,7 +173,7 @@ Runtime behavior:
 - `layoutBackend: direct` is external and not reusable. Opening it starts a new visible process; stopping it means closing that terminal pane manually.
 - If a workspace has only direct-layout tabs, `open` uses the selected terminal opener to run those commands directly instead of opening a tmux dashboard.
 - Warp supports command execution through Launch Configurations. CC Branch attaches each tmux-backed tab once and lets tmux own its internal panes; direct-layout panes are added as separate Warp panes. For pure direct-layout workspaces, CC Branch writes one stable launch configuration per project-like layout so Warp can open a single arranged layout instead of many unrelated panes.
-- VS Code and Cursor workspace opens do not create temporary `.code-workspace` files. They open the real project folder. On macOS, local UI automation also creates integrated terminals. macOS may require Accessibility permission for the terminal or app running `cc-branch`.
+- VS Code and Cursor workspace opens do not create temporary `.code-workspace` files. They open the real project folder, write generated tasks to `.cc-branch/.generated/vscode-tasks.json`, and bridge them through `.vscode/tasks.json`. If `.vscode/tasks.json` already exists, CC Branch merges its generated tasks into the user file and preserves non-CC-Branch tasks. If that file cannot be parsed or updated, the open action fails clearly instead of opening an editor with no terminals.
 
 ### `GET /api/openers`
 

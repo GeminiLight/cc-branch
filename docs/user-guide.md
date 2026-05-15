@@ -424,13 +424,13 @@ cc-branch serve --host 0.0.0.0 --token "$CC_BRANCH_WEB_TOKEN"
 
 Web UI 中有一个工具选择器和两个主要动作：
 
-- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入稳定的 Launch Configuration 并打开一个布局；VS Code、Cursor 会正常打开项目目录，在 macOS 上还会通过本机 UI 自动化创建 integrated terminal 来运行对应命令。
-- “打开项目目录”使用同一个所选工具，但只有工具支持 `open_project` 时才可点击。它不会启动或 attach workspace；终端类工具会在项目目录打开一个交互 shell，编辑器类工具会打开项目文件夹。
-- Tab 或 pane 旁边的“打开”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 direct-layout 命令；在 macOS 上，VS Code、Cursor 会正常打开项目目录，并创建 integrated terminal 运行该目标命令。
+- “打开工作空间”会按所选工具适配：Terminal.app、iTerm2 等终端会运行 dashboard/attach 命令；Warp 会写入稳定的 Launch Configuration 并打开一个布局；VS Code、Cursor 会正常打开项目目录，并通过 `.vscode/tasks.json` 的 folder-open tasks 创建 integrated terminal 来运行对应命令。
+- “打开项目目录”固定使用系统文件管理器。它不会启动或 attach workspace，只是把项目目录作为普通文件夹打开。
+- Tab 或 pane 旁边的“打开”也使用同一个所选工具。Terminal/Warp 会直接运行 attach 或 direct-layout 命令；VS Code、Cursor 会正常打开项目目录，并通过同一个 task bridge 创建 integrated terminal 运行该目标命令。
 
 `layoutBackend: tmux` 是可复用的；即使之前已经在另一个 Terminal 或 Warp 窗口打开过，再次打开也会 attach 到同一组 tmux session。`layoutBackend: direct` 是外部进程，不能被复用或停止；再次打开会启动新的终端进程，需要用户手动关闭窗口。
 
-VS Code 和 Cursor 的 integrated terminal 自动打开依赖 macOS Accessibility 权限。如果系统阻止自动化，请给运行 `cc-branch` 的终端或桌面应用授予辅助功能权限后重试。
+VS Code 和 Cursor 的 integrated terminal 自动打开不依赖 macOS Accessibility。CC Branch 会写入 `.cc-branch/.generated/vscode-tasks.json`，再通过 `.vscode/tasks.json` 桥接给编辑器；如果用户已有 tasks 文件，会尽量合并并保留原任务。如果 tasks 文件无法解析或无法更新，打开动作会返回明确错误。
 
 Warp 通过 Launch Configuration 执行命令；当 opener 支持 layout 时，CC Branch 会把每个 tmux 标签页作为一个 attach 入口放进布局，标签页内部的多个 pane 由 tmux 自己管理和切换；direct 布局窗格会作为单独 pane 展开。如果想打开可见工作空间，使用“打开工作空间”或 `cc-branch open`。
 

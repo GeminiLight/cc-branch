@@ -160,7 +160,7 @@ cc-branch serve
 - 用同一个工具选择器打开工作空间或项目目录
 - 后台启动、重启、停止 tmux 工作空间或标签页
 
-Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用稳定的 Launch Configuration 打开布局；VS Code、Cursor 会正常打开项目目录，并在 macOS 上创建 integrated terminal 来运行 workspace 命令。打开项目目录始终用系统文件管理器，让用户进入普通文件夹视图。`layoutBackend: tmux` 的标签页可复用；从另一个 Terminal、Warp、VS Code 或 Cursor 再打开时会 attach 到同一组 session。`layoutBackend: direct` 的窗格是外部进程，再次打开就是新的本地进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
+Web UI 里有一个工具选择器和两个动作：“打开工作空间”和“打开项目目录”。打开工作空间会按工具适配：Terminal.app、iTerm2 等终端运行 dashboard/attach；Warp 使用稳定的 Launch Configuration 打开布局；VS Code、Cursor 会正常打开项目目录，并通过 `.vscode/tasks.json` 的 folder-open tasks 创建 integrated terminal 来运行 workspace 命令。打开项目目录始终用系统文件管理器，让用户进入普通文件夹视图。`layoutBackend: tmux` 的标签页可复用；从另一个 Terminal、Warp、VS Code 或 Cursor 再打开时会 attach 到同一组 session。`layoutBackend: direct` 的窗格是外部进程，再次打开就是新的本地进程。“后台启动”只创建 tmux 会话，不会弹出窗口。
 
 ## 8. 记住这两个文件
 

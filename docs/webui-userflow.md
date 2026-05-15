@@ -62,7 +62,7 @@ User selects a tool, then clicks "Open workspace"
   -> Backend adapts the workspace open to the selected tool
 ```
 
-Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
+Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder and install folder-open tasks through `.vscode/tasks.json`, so the editor creates integrated terminals for the workspace commands.
 
 The dashboard itself is still tmux-backed, so opening the same workspace from a different terminal attaches to the same reusable sessions.
 
@@ -75,7 +75,7 @@ User clicks "Open" on a tab
   -> The selected tool opens the target
 ```
 
-Terminal tools run `cc-branch attach <target>` or the direct-layout command. On macOS, VS Code and Cursor open the real project folder and create an integrated terminal for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or the OS blocks automation, the UI shows the returned error.
+Terminal tools run `cc-branch attach <target>` or the direct-layout command. VS Code and Cursor open the real project folder and use the same folder-open task bridge to create an integrated terminal for that target. The tool is opened by the local Python backend, not by the browser itself. If the backend cannot find a supported opener or cannot install the editor task bridge, the UI shows the returned error.
 
 ### 1.6 Open a project directory
 
@@ -88,7 +88,7 @@ User clicks "Open project directory"
 
 Project directory open is intentionally separate from workspace open. It uses the system file manager so the user always lands in a normal folder view instead of a terminal or editor-specific project mode.
 
-Workspace open still adapts to the selected tool. Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder; on macOS they also create integrated terminals for the workspace commands.
+Workspace open still adapts to the selected tool. Terminal tools run dashboard or attach commands. Warp writes a stable Launch Configuration under Warp's launch configuration directory and opens it with Warp's `warp://launch/...` app link. VS Code and Cursor open the real project folder and install folder-open tasks for the workspace commands.
 
 ### 1.6.1 Direct-layout workspace
 

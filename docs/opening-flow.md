@@ -80,8 +80,8 @@ layout
   当前主要是 Warp 使用。
 
 workspace_file
-  可以打开编辑器工作空间，并把多个命令做成编辑器任务或集成终端。
-  当前是 VS Code / Cursor 使用。
+  可以用编辑器机制承载多个命令。
+  当前是 VS Code / Cursor 使用；实现上打开真实项目目录，并通过 folder-open tasks 创建集成终端。
 
 run_command
   可以开一个终端并运行一条命令。
@@ -148,14 +148,28 @@ Warp pane
 
 VS Code / Cursor 支持 `workspace_file`。
 
-当前实现为了避免编辑器标题出现 `cli-workspace-vscode-<hash>.code-workspace` 这种临时工作空间名，会优先正常打开项目目录：
+当前实现不会生成 `.code-workspace` 临时文件。后端会先为本次工作空间生成 VS Code/Cursor tasks：
+
+```text
+.cc-branch/.generated/vscode-tasks.json
+  CC Branch 生成的任务源文件
+
+.vscode/tasks.json
+  编辑器实际读取的桥接文件
+```
+
+如果项目没有 `.vscode/tasks.json`，CC Branch 会创建桥接文件。
+如果用户已有自己的 `.vscode/tasks.json`，CC Branch 会合并自己的任务并保留用户任务。
+如果这个文件无法解析或无法更新，打开动作会直接失败并显示错误，避免“编辑器打开了但终端没有创建”的假成功。
+
+然后它正常打开真实项目目录：
 
 ```text
 code -n /path/to/project
 cursor -n /path/to/project
 ```
 
-在 macOS 上，随后会通过 AppleScript 在编辑器里创建集成终端，把命令粘贴进去并回车。
+编辑器在 folder open 时运行这些 tasks。tasks 使用 `runOptions.runOn = "folderOpen"` 自动启动，并用 `presentation.group` 表达同一个标签页下的 split terminal 分组。
 
 用户大概会看到：
 
@@ -180,22 +194,7 @@ VS Code / Cursor
 └───────────────────────────────────────────┘
 ```
 
-这依赖 macOS Accessibility 权限。没有权限时，项目目录可能已经打开，但集成终端创建会失败，并提示授予权限。
-
-在非 macOS 上，当前实现不再生成临时 `.code-workspace` 文件，也会打开真实项目目录：
-
-```text
-VS Code / Cursor
-┌───────────────────────────────────────────┐
-│ Explorer                                  │
-│   cli-workspace                           │
-│     .cc-branch                            │
-│     apps                                  │
-│     cc_branch                             │
-└───────────────────────────────────────────┘
-```
-
-目前只有 macOS 分支会自动创建集成终端；非 macOS 分支先保证不再污染编辑器标题和 Explorer 结构。
+这个路径不依赖 macOS Accessibility，也不通过 AppleScript 粘贴命令。只要 VS Code/Cursor 支持 folder-open tasks，macOS、Windows、Linux 都走同一个机制。
 
 ### 选择普通 Terminal 后点“打开工作空间”
 
@@ -264,6 +263,8 @@ Editor
 │ cc-branch attach dev         │
 └──────────────────────────────┘
 ```
+
+这同样通过 `.vscode/tasks.json` 的 folder-open task bridge 创建终端；如果 bridge 无法安装，后端会返回明确错误。
 
 普通 Terminal：
 
@@ -366,7 +367,7 @@ terminal slot/window:
 
 ## 当前可能需要继续校准的点
 
-1. VS Code / Cursor 现在统一正常打开项目目录；macOS 会继续自动创建集成终端，非 macOS 不再生成 `.code-workspace` 临时文件。
+1. VS Code / Cursor 现在统一正常打开项目目录，并通过 `.vscode/tasks.json` 的 folder-open task bridge 创建集成终端；不再生成 `.code-workspace` 临时文件，也不再依赖 AppleScript。
 2. Warp 的“打开工作空间”是一个稳定的 Warp launch config，多个命令在同一个 Warp tab/panes 里；tmux slot 本身只占一个 pane，tmux 内部再管理多个 window。
 3. 普通 terminal 没有统一多 pane 能力，所以多命令会开多个终端窗口。
 4. “打开项目目录”现在固定是系统文件管理器，不受上方选择的 Cursor/VS Code/Warp 影响。
