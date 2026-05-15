@@ -155,6 +155,34 @@ describe("doctor-view-model", () => {
     });
   });
 
+  it("does not duplicate config issues already returned by structured doctor", () => {
+    const issue: ConfigIssue = {
+      issue_type: "duplicate_pane",
+      severity: "error",
+      message: "Duplicate pane name main",
+      target: "pane:dev:main",
+      context: {},
+      fixable: false,
+    };
+    const data: DoctorReport = {
+      report: {
+        project: "demo",
+        has_errors: true,
+        issues: [issue],
+      },
+    };
+
+    const model = buildDoctorViewModel({ data, configIssues: [issue], workspaceData: undefined, t });
+
+    expect(model.issueCount).toBe(1);
+    expect(model.visibleChecks).toHaveLength(1);
+    expect(model.visibleChecks[0]).toMatchObject({
+      status: "error",
+      icon: "pane:dev:main",
+      text: "Duplicate pane name main",
+    });
+  });
+
   it("does not render remediation hints for passing structured checks", () => {
     const data: DoctorReport = {
       report: {

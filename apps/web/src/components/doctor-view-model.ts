@@ -111,6 +111,15 @@ function structuredReportChecks(data: DoctorReport | undefined, t: Translate): C
   }));
 }
 
+function issueSignature(issue: ConfigIssue): string {
+  return `${issue.issue_type}:${issue.target}:${issue.message}`;
+}
+
+function structuredReportIssueSignatures(data: DoctorReport | undefined): Set<string> {
+  if (!data || typeof data.report === "string") return new Set();
+  return new Set((data.report as DoctorReportPayload).issues.map(issueSignature));
+}
+
 function reportIncludesIssue(data: DoctorReport | undefined, issueType: string): boolean {
   if (!data || typeof data.report === "string") return false;
   return (data.report as DoctorReportPayload).issues.some((issue) => issue.issue_type === issueType);
@@ -141,10 +150,11 @@ function productChecks(
   configIssues: ConfigIssue[] | undefined | null,
   workspaceData: WorkspaceStatus | undefined,
   t: Translate,
-  options: { omitOrphanedState?: boolean } = {},
+  options: { omittedConfigIssueSignatures?: Set<string>; omitOrphanedState?: boolean } = {},
 ): CheckItem[] {
   const checks: CheckItem[] = [];
   for (const issue of visibleConfigIssues(configIssues)) {
+    if (options.omittedConfigIssueSignatures?.has(issueSignature(issue))) continue;
     checks.push({
       status: issue.severity === "error" ? "error" : issue.severity === "warning" ? "warn" : "ok",
       icon: t("configuration"),
@@ -189,10 +199,14 @@ export function buildDoctorViewModel({
 }: BuildDoctorViewModelInput): DoctorViewModel {
   const text = reportText(data);
   const parsed = text ? parseReport(text) : null;
+  const structuredIssueSignatures = structuredReportIssueSignatures(data);
   const checks = dedupeChecks([
     ...(parsed?.checks ?? []),
     ...structuredReportChecks(data, t),
-    ...productChecks(configIssues, workspaceData, t, { omitOrphanedState: reportIncludesIssue(data, "orphaned_state") }),
+    ...productChecks(configIssues, workspaceData, t, {
+      omittedConfigIssueSignatures: structuredIssueSignatures,
+      omitOrphanedState: reportIncludesIssue(data, "orphaned_state"),
+    }),
   ]);
   const issueCount = checks.filter((check) => check.status === "error").length;
   const warningCount = checks.filter((check) => check.status === "warn").length;
