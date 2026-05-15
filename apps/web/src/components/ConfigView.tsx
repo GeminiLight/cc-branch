@@ -7,6 +7,7 @@ import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
 import LineEditor from "./ui/LineEditor";
 import { useConfig, useSaveConfig, useKeyboardShortcuts } from "../hooks";
+import { pathBasename } from "../utils/pathDisplay";
 
 interface ConfigViewProps {
   projectPath?: string;
@@ -168,7 +169,7 @@ export default function ConfigView({ projectPath, configPath }: ConfigViewProps)
           </span>
           {data?.path && (
             <span className="text-[10px] text-muted font-mono">
-              {data.path.split("/").pop()}
+              {pathBasename(data.path)}
             </span>
           )}
         </div>

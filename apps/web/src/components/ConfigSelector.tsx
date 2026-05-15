@@ -4,6 +4,7 @@ import type { ConfigOption } from "../types";
 import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
 import Modal from "./ui/Modal";
+import { compactPathTail } from "../utils/pathDisplay";
 
 interface ConfigSelectorProps {
   projectPath?: string;
@@ -29,12 +30,6 @@ function configCountText(t: (key: string, vars?: Record<string, string | number>
 function displayLabel(config: ConfigOption | undefined, t: (key: string) => string): string {
   if (!config) return "";
   return config.is_default ? t("defaultConfig") : config.label;
-}
-
-function shortPath(path?: string): string {
-  if (!path) return "";
-  const parts = path.split("/");
-  return parts.slice(-3).join("/");
 }
 
 export function ConfigContextNotice({ configs, selectedPath }: Omit<ConfigSelectorProps, "onSelect">) {
@@ -250,7 +245,7 @@ export default function ConfigSelector({
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold text-primary leading-tight">{t("workspaceProfiles")}</p>
                   <p className="mt-0.5 text-[11px] text-tertiary truncate" title={selected?.path}>
-                    {selected ? shortPath(selected.path) : t("noConfigSelected")}
+                    {selected ? compactPathTail(selected.path) : t("noConfigSelected")}
                   </p>
                 </div>
                 <span className="rounded-md bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-semibold text-tertiary shrink-0">
@@ -302,7 +297,7 @@ export default function ConfigSelector({
                           )}
                         </span>
                         <span className="block mt-0.5 truncate text-[10px] text-tertiary">
-                          {config.exists ? shortPath(config.path) : t("missing")}
+                          {config.exists ? compactPathTail(config.path) : t("missing")}
                         </span>
                       </span>
                     </button>

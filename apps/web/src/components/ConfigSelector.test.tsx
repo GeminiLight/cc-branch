@@ -52,6 +52,32 @@ describe("ConfigSelector", () => {
     expect(screen.getByText("2 configs")).toBeInTheDocument();
   });
 
+  it("shows compact Windows config paths inside the selector", () => {
+    render(
+      <I18nProvider>
+        <ConfigSelector
+          configs={[
+            {
+              id: "default",
+              label: "Default",
+              path: "C:\\work\\demo\\.cc-branch\\config.yaml",
+              state_path: "C:\\work\\demo\\.cc-branch\\state.yaml",
+              exists: true,
+              is_default: true,
+              selected: true,
+            },
+          ]}
+          selectedPath="C:\\work\\demo\\.cc-branch\\config.yaml"
+          onSelect={vi.fn()}
+        />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace profile" }));
+
+    expect(screen.getAllByText("demo/.cc-branch/config.yaml").length).toBeGreaterThan(0);
+  });
+
   it("exposes workspace management actions from the selector", () => {
     const onCreate = vi.fn();
     const onRename = vi.fn();
