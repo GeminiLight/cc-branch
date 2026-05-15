@@ -9,6 +9,7 @@ from rich.table import Table
 
 from ...application.state_store import StateStore
 from ...context import WorkspaceContext
+from ...text import count_label
 from ..output import output_format, status_color
 
 
@@ -93,7 +94,7 @@ def _run_session_prune(ctx: WorkspaceContext, args: argparse.Namespace, workspac
     removed = cli.prune_sessions(workspace, plan, state, dry_run=args.dry_run)
     if args.dry_run:
         if removed:
-            cli.console.print(f"[dim]Would remove {len(removed)} stale local session record(s):[/dim]")
+            cli.console.print(f"[dim]Would remove {count_label(len(removed), 'stale local session record')}:[/dim]")
             for key in removed:
                 cli.console.print(f"  [yellow]- {key}[/yellow]")
         else:
@@ -102,7 +103,7 @@ def _run_session_prune(ctx: WorkspaceContext, args: argparse.Namespace, workspac
 
     if removed:
         StateStore(ctx.state_path).save(state)
-        cli.console.print(f"[green]✓[/green] Pruned {len(removed)} stale local session record(s):")
+        cli.console.print(f"[green]✓[/green] Pruned {count_label(len(removed), 'stale local session record')}:")
         for key in removed:
             cli.console.print(f"  [green]- {key}[/green]")
     else:

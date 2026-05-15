@@ -12,11 +12,11 @@ from ...runtime.sync import (
     reconcilable_targets,
     record_applied_results,
 )
+from ...text import count_label
 from ..results import ActionResult
 from .dependencies import WorkspaceActionDependencies
 from .persistence import AppliedResultPersistence, applied_result_persistence
 from .targets import WorkspaceTargetResolver, target_resolver
-
 
 @dataclass(frozen=True)
 class WorkspaceSyncActions:
@@ -80,9 +80,9 @@ class WorkspaceSyncActions:
             self.persistence.persist(state_path, workspace, plan, results)
 
         if targets or stopped_extra:
-            message = f"Synced {applied_targets} target(s)"
+            message = f"Synced {count_label(applied_targets, 'target')}"
             if stopped_extra:
-                message += f" and stopped {len(stopped_extra)} extra window(s)"
+                message += f" and stopped {count_label(len(stopped_extra), 'extra window')}"
             return ActionResult(
                 ok=True,
                 code="sync_applied",

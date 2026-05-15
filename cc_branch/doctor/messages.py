@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..runtime.shells import tmux_install_hint
+from ..text import count_label
 
 
 def _get_install_suggestion(agent_name: str, command: str) -> str:
@@ -61,5 +62,5 @@ def _describe_issue(issue_type: str, context: dict) -> str:
     if issue_type == "missing_tmux":
         return "missing tmux"
     if issue_type == "orphaned_state":
-        return f"{context.get('count', 0)} stale local session record(s)"
+        return count_label(int(context.get("count", 0) or 0), "stale local session record")
     return issue_type.replace("_", " ")

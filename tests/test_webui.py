@@ -1728,7 +1728,7 @@ windows:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
 
-            self.assertEqual(data["message"], "Synced 2 target(s)")
+            self.assertEqual(data["message"], "Synced 2 targets")
             self.assertIn(
                 "dev:coder",
                 [call.args[2] for call in restart_workspace.call_args_list],
@@ -1771,7 +1771,7 @@ windows:
                     self.assertEqual(response.status, 200)
                     data = json.loads(response.read().decode())
 
-            self.assertEqual(data["message"], "Synced 2 target(s)")
+            self.assertEqual(data["message"], "Synced 2 targets")
             self.assertIn(
                 "dev:coder",
                 [call.args[2] for call in restart_workspace.call_args_list],

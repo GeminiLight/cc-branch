@@ -8,6 +8,7 @@ from ..runtime import which
 from ..runtime.capabilities import is_managed_runtime
 from ..runtime.shells import tmux_install_hint
 from ..targets import reserved_target_separators
+from ..text import count_label
 from .messages import _get_install_suggestion
 
 
@@ -275,14 +276,16 @@ def _build_state_issues(plan: WorkspacePlan, state: WorkspaceState | None) -> li
     ]
     if not stale_entries:
         return []
+    stale_count = len(stale_entries)
     return [
         Issue(
             "orphaned_state",
             "warning",
-            f"{len(stale_entries)} stale local session record(s) no longer match the current config",
+            f"{count_label(stale_count, 'stale local session record')} no longer "
+            f"{'matches' if stale_count == 1 else 'match'} the current config",
             target="state",
             context={
-                "count": len(stale_entries),
+                "count": stale_count,
                 "keys": [entry["key"] for entry in stale_entries],
                 "entries": stale_entries,
             },

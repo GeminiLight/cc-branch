@@ -11,6 +11,7 @@ from ...planner import plan_workspace
 from ...runtime.capabilities import is_external_process_runtime
 from ...runtime.sessions import prune_sessions
 from ...state import load_state, save_state
+from ...text import count_label
 from ..results import ActionResult
 from .command_specs import command_specs
 from .dependencies import WorkspaceActionDependencies
@@ -18,7 +19,6 @@ from .lifecycle import WorkspaceLifecycleActions
 from .open import WorkspaceOpenActions
 from .sync import WorkspaceSyncActions
 from .targets import WorkspaceTargetResolver, target_resolver
-
 
 @dataclass(frozen=True)
 class WorkspaceActionExecutor:
@@ -162,7 +162,7 @@ class WorkspaceActionExecutor:
                 return ActionResult(
                     ok=True,
                     code="orphaned_state_pruned",
-                    message=f"Cleared {len(removed)} stale session record(s)",
+                    message=f"Cleared {count_label(len(removed), 'stale session record')}",
                     changed_targets=tuple(removed),
                 )
             return ActionResult(
