@@ -542,8 +542,8 @@ class OpenerTests(unittest.TestCase):
             self.assertEqual(payload["tasks"][1]["command"], "cc-branch attach dev")
             self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
 
-    def test_vscode_workspace_open_leaves_broken_user_tasks_untouched(self):
-        """Truly broken user tasks are left untouched instead of being guessed."""
+    def test_vscode_workspace_open_rejects_broken_user_tasks(self):
+        """Broken user tasks should fail clearly instead of opening with no generated terminals."""
         import tempfile
 
         from cc_branch.openers import open_workspace_file
@@ -556,18 +556,49 @@ class OpenerTests(unittest.TestCase):
             user_tasks.write_text(user_content, encoding="utf-8")
             with (
                 patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
-                patch("cc_branch.openers.editors._popen"),
+                patch("cc_branch.openers.editors._popen") as popen,
             ):
-                open_workspace_file(
-                    "vscode",
-                    cwd=root,
-                    commands=[
-                        OpenCommandSpec("dev", root, "cc-branch attach dev"),
-                    ],
-                )
+                with self.assertRaisesRegex(OpenerError, "Cannot install VS Code/Cursor launch tasks"):
+                    open_workspace_file(
+                        "vscode",
+                        cwd=root,
+                        commands=[
+                            OpenCommandSpec("dev", root, "cc-branch attach dev"),
+                        ],
+                    )
 
             self.assertEqual(user_tasks.read_text(encoding="utf-8"), user_content)
             self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
+            popen.assert_not_called()
+
+    def test_vscode_workspace_open_rejects_user_tasks_with_non_list_tasks(self):
+        """A malformed tasks shape cannot receive folder-open tasks and should be reported."""
+        import tempfile
+
+        from cc_branch.openers import open_workspace_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            user_tasks = root / ".vscode" / "tasks.json"
+            user_tasks.parent.mkdir()
+            user_content = '{"version":"2.0.0","tasks":{"label":"not a list"}}\n'
+            user_tasks.write_text(user_content, encoding="utf-8")
+            with (
+                patch("cc_branch.openers.registry.shutil.which", return_value="/usr/local/bin/code"),
+                patch("cc_branch.openers.editors._popen") as popen,
+            ):
+                with self.assertRaisesRegex(OpenerError, "Cannot install VS Code/Cursor launch tasks"):
+                    open_workspace_file(
+                        "vscode",
+                        cwd=root,
+                        commands=[
+                            OpenCommandSpec("dev", root, "cc-branch attach dev"),
+                        ],
+                    )
+
+            self.assertEqual(user_tasks.read_text(encoding="utf-8"), user_content)
+            self.assertTrue((root / ".cc-branch" / ".generated" / "vscode-tasks.json").exists())
+            popen.assert_not_called()
 
     def test_cursor_workspace_open_creates_project_tasks_bridge(self):
         """Cursor should use the same project tasks bridge as VS Code."""

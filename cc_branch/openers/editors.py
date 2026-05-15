@@ -116,7 +116,11 @@ class EditorWorkspaceOpener:
         bridge = cwd / ".vscode" / "tasks.json"
         if bridge.exists() or bridge.is_symlink():
             if not self.is_cc_branch_tasks_bridge(bridge, sidecar):
-                self.merge_project_tasks_bridge(bridge, commands)
+                if not self.merge_project_tasks_bridge(bridge, commands):
+                    raise OpenerError(
+                        f"Cannot install VS Code/Cursor launch tasks because {bridge} "
+                        "could not be parsed or updated. Fix that file, then open the workspace again."
+                    )
                 return
             bridge.unlink()
         bridge.parent.mkdir(parents=True, exist_ok=True)
