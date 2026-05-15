@@ -90,6 +90,7 @@ describe('AddProjectModal', () => {
       expect(mocks.probeProject).toHaveBeenCalledWith('/tmp/demo')
       expect(screen.getByText('demo')).toBeInTheDocument()
     })
+    expect(screen.getByRole('button', { name: 'Browse folder' })).not.toBeDisabled()
   })
 
   it('fills and scans the current server directory in one click', async () => {

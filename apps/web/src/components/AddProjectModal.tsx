@@ -32,6 +32,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
     status: string;
   } | null>(null);
   const latestRequest = useRef(0);
+  const latestPickRequest = useRef(0);
   const modalRef = useRef<HTMLDivElement>(null);
   const canBrowseSystemDirectory = api.supportsNativeProjectDirectoryPicker();
 
@@ -69,18 +70,18 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
   }, [path, api, toast]);
 
   const handlePickDirectory = useCallback(async () => {
-    const reqId = ++latestRequest.current;
+    const reqId = ++latestPickRequest.current;
     setPicking(true);
     try {
       const selected = await api.pickProjectDirectory(currentDir || undefined);
-      if (reqId !== latestRequest.current || !selected) return;
+      if (reqId !== latestPickRequest.current || !selected) return;
       setPath(selected);
       await handleScan(selected);
     } catch (e: unknown) {
-      if (reqId !== latestRequest.current) return;
+      if (reqId !== latestPickRequest.current) return;
       toast.error(errorMessage(e));
     } finally {
-      if (reqId === latestRequest.current) {
+      if (reqId === latestPickRequest.current) {
         setPicking(false);
       }
     }
