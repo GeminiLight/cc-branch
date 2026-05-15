@@ -131,6 +131,21 @@ class ProjectIndexStoreTests(unittest.TestCase):
             [str(Path("/tmp/a").resolve(strict=False)), str(Path("/tmp/b").resolve(strict=False))],
         )
 
+    def test_add_project_does_not_replace_valid_backup_with_malformed_index(self):
+        self.store.add_project("/tmp/a")
+        backup_path = self.path.with_suffix(".yaml.bak")
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        backup_path.write_text(self.path.read_text(encoding="utf-8"), encoding="utf-8")
+        self.path.write_text("projects: [", encoding="utf-8")
+
+        self.store.add_project("/tmp/b")
+
+        backup_payload = ProjectIndexStore(backup_path).payload()
+        self.assertEqual(
+            [item["path"] for item in backup_payload["projects"]],
+            [str(Path("/tmp/a").resolve(strict=False))],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

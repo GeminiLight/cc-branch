@@ -208,7 +208,7 @@ class ProjectIndexStore:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = self._path.with_suffix(self._path.suffix + ".tmp")
         temp_path.write_text(content, encoding="utf-8")
-        if self._path.exists():
+        if self._path.exists() and self._load_yaml_file(self._path) is not None:
             shutil.copy2(self._path, self._backup_path())
         temp_path.replace(self._path)
 
