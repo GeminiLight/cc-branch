@@ -67,6 +67,7 @@ function coerceAgentConfig(raw: unknown): AgentConfig {
 
 function coerceWindowConfig(raw: unknown): WindowConfig {
   const r = raw as Record<string, unknown>;
+  const rawLayout = String(r?.layout ?? "");
   return {
     name: String(r?.name ?? ""),
     layoutBackend: r?.layoutBackend != null
@@ -74,6 +75,10 @@ function coerceWindowConfig(raw: unknown): WindowConfig {
       : r?.runtime != null
       ? coerceLayoutBackend(r.runtime, "direct")
       : null,
+    layout: ["auto", "horizontal", "vertical", "main-left", "main-top", "grid"].includes(rawLayout)
+      ? (rawLayout as WindowConfig["layout"])
+      : null,
+    opener: r?.opener != null ? String(r.opener) : null,
     agent: r?.agent != null ? String(r.agent) : null,
     command: r?.command != null ? String(r.command) : null,
     cwd: r?.cwd != null ? String(r.cwd) : null,
@@ -247,6 +252,8 @@ function cleanPaneConfig(win: WindowConfig, defaultLayoutBackend: "tmux" | "dire
   if (win.layoutBackend === "tmux" || win.windows) {
     const out: Record<string, unknown> = { name: win.name };
     if (defaultLayoutBackend !== "tmux") out.layoutBackend = "tmux";
+    if (win.layout != null && win.layout !== "auto") out.layout = win.layout;
+    if (win.opener != null) out.opener = win.opener;
     if (win.cwd != null) out.cwd = win.cwd;
     if (Object.keys(win.env).length > 0) out.env = win.env;
     out.windows = (win.windows && win.windows.length > 0 ? win.windows : [win]).map(cleanWindowConfig);

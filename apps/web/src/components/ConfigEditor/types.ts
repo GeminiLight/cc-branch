@@ -18,6 +18,8 @@ export interface AgentConfig {
 export interface WindowConfig {
   name: string;
   layoutBackend?: "direct" | "tmux" | null;
+  layout?: "auto" | "horizontal" | "vertical" | "main-left" | "main-top" | "grid" | null;
+  opener?: string | null;
   agent: string | null;
   command: string | null;
   cwd: string | null;

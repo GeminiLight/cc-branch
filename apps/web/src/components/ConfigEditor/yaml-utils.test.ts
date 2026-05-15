@@ -252,6 +252,8 @@ describe("ConfigEditor YAML session intent", () => {
       "        agent: codex",
       "      - name: tmux-dev",
       "        layoutBackend: tmux",
+      "        layout: main-top",
+      "        opener: warp",
       "        windows:",
       "          - name: frontend",
       "            agent: codex",
@@ -270,16 +272,22 @@ describe("ConfigEditor YAML session intent", () => {
     expect(parsed.slots[0].windows[0].layoutBackend).toBe("direct");
     expect(parsed.slots[0].windows[1].name).toBe("tmux-dev");
     expect(parsed.slots[0].windows[1].layoutBackend).toBe("tmux");
+    expect(parsed.slots[0].windows[1].layout).toBe("main-top");
+    expect(parsed.slots[0].windows[1].opener).toBe("warp");
     expect(parsed.slots[0].windows[1].windows?.map((window) => window.name)).toEqual([
       "frontend",
       "backend",
     ]);
     expect(serialized).toContain("layoutBackend: tmux");
+    expect(serialized).toContain("layout: main-top");
+    expect(serialized).toContain("opener: warp");
     expect(serialized).toContain("windows:");
     expect(reparsed.slots[0].windows[1].windows?.map((window) => window.name)).toEqual([
       "frontend",
       "backend",
     ]);
+    expect(reparsed.slots[0].windows[1].layout).toBe("main-top");
+    expect(reparsed.slots[0].windows[1].opener).toBe("warp");
   });
 
   it("parses mixed panes under a tmux default as a canvas tab container", () => {

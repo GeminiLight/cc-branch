@@ -1,4 +1,5 @@
 import type { SlotConfig, WindowConfig } from "./types";
+import { normalizeWorkspaceLayout, type WorkspaceLayout } from "../workspace-layout";
 
 export type Selection = {
   slotIndex: number;
@@ -7,6 +8,7 @@ export type Selection = {
 };
 
 export type TabLayout = NonNullable<SlotConfig["layout"]>;
+export type ResolvedTabLayout = WorkspaceLayout;
 
 export type CanvasPane = {
   name: string;
@@ -463,12 +465,8 @@ export function clampSelection(selection: Selection, slots: SlotConfig[]): Selec
   };
 }
 
-export function normalizedLayout(slot: SlotConfig, paneLength: number): TabLayout {
-  const layout = slot.layout || "auto";
-  if (layout !== "auto") return layout;
-  if (paneLength <= 2) return "horizontal";
-  if (paneLength === 3) return "main-left";
-  return "grid";
+export function normalizedLayout(slot: SlotConfig, paneLength: number): ResolvedTabLayout {
+  return normalizeWorkspaceLayout(slot, paneLength);
 }
 
 export function moveTab(slots: SlotConfig[], fromSlotIndex: number, toSlotIndex: number, selection: Selection): WorkspaceMutation | null {
