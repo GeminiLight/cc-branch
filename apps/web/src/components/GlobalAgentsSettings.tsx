@@ -9,7 +9,7 @@ import { useToast } from "./ui/Toast";
 import { FieldLabel, SelectInput, TextInput } from "./ConfigEditor/FormPrimitives";
 import type { AgentConfig } from "./ConfigEditor/types";
 
-type GlobalAgentConfig = AgentConfig & {
+export type GlobalAgentConfig = AgentConfig & {
   install_hint: string;
 };
 
@@ -82,9 +82,29 @@ function cleanAgent(agent: GlobalAgentConfig): Record<string, unknown> {
   return out;
 }
 
-function serializeGlobalAgents(agents: Record<string, GlobalAgentConfig>): string {
+export function agentEquals(a: GlobalAgentConfig | undefined, b: GlobalAgentConfig | undefined): boolean {
+  if (!a || !b) return false;
+  return JSON.stringify(cleanAgent(a)) === JSON.stringify(cleanAgent(b));
+}
+
+export function removeOrResetAgent(
+  agents: Record<string, GlobalAgentConfig>,
+  baseline: Record<string, GlobalAgentConfig>,
+  name: string,
+): Record<string, GlobalAgentConfig> {
+  const next = { ...agents };
+  if (baseline[name]) next[name] = baseline[name];
+  else delete next[name];
+  return next;
+}
+
+export function serializeGlobalAgents(
+  agents: Record<string, GlobalAgentConfig>,
+  baseline: Record<string, GlobalAgentConfig> = {},
+): string {
   const out: Record<string, unknown> = { agents: {} };
   for (const [name, agent] of Object.entries(agents)) {
+    if (agentEquals(agent, baseline[name])) continue;
     (out.agents as Record<string, unknown>)[name] = cleanAgent(agent);
   }
   return YAML.dump(out, {
@@ -108,6 +128,8 @@ function AgentCard({
   name,
   agent,
   expanded,
+  isBuiltIn,
+  isOverridden,
   onToggle,
   onPatch,
   onRename,
@@ -116,6 +138,8 @@ function AgentCard({
   name: string;
   agent: GlobalAgentConfig;
   expanded: boolean;
+  isBuiltIn: boolean;
+  isOverridden: boolean;
   onToggle: () => void;
   onPatch: (patch: Partial<GlobalAgentConfig>) => void;
   onRename: (name: string) => boolean;
@@ -152,11 +176,12 @@ function AgentCard({
         <button
           type="button"
           onClick={onDelete}
-          className="icon-touch rounded-md text-tertiary hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] flex items-center justify-center"
-          aria-label={t("removeAgentNamed", { name })}
-          title={t("removeAgentNamed", { name })}
+          disabled={isBuiltIn && !isOverridden}
+          className="icon-touch rounded-md text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent flex items-center justify-center"
+          aria-label={isBuiltIn ? t("resetAgentNamed", { name }) : t("removeAgentNamed", { name })}
+          title={isBuiltIn ? t("resetAgentNamed", { name }) : t("removeAgentNamed", { name })}
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          {isBuiltIn ? <RotateCcw className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
         </button>
       </div>
 
@@ -249,6 +274,7 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
   const toast = useToast();
   const [path, setPath] = useState("");
   const [agents, setAgents] = useState<Record<string, GlobalAgentConfig>>({});
+  const [builtinAgents, setBuiltinAgents] = useState<Record<string, GlobalAgentConfig>>({});
   const [initialContent, setInitialContent] = useState("");
   const [baseMtime, setBaseMtime] = useState<number | null | undefined>(null);
   const [baseHash, setBaseHash] = useState<string | undefined>(undefined);
@@ -257,7 +283,7 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const content = useMemo(() => serializeGlobalAgents(agents), [agents]);
+  const content = useMemo(() => serializeGlobalAgents(agents, builtinAgents), [agents, builtinAgents]);
   const dirty = content !== initialContent;
 
   const load = useCallback(() => {
@@ -267,8 +293,10 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
       .getGlobalAgents()
       .then((data) => {
         const parsed = agentsFromPayload(data.agents);
+        const builtin = agentsFromPayload(data.builtin_agents ?? []);
         setAgents(parsed);
-        setInitialContent(serializeGlobalAgents(parsed));
+        setBuiltinAgents(builtin);
+        setInitialContent(serializeGlobalAgents(parsed, builtin));
         setPath(data.path);
         setBaseMtime(data.mtime);
         setBaseHash(data.content_hash);
@@ -323,11 +351,7 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
   }
 
   function deleteAgent(name: string) {
-    setAgents((current) => {
-      const next = { ...current };
-      delete next[name];
-      return next;
-    });
+    setAgents((current) => removeOrResetAgent(current, builtinAgents, name));
     if (expanded === name) setExpanded(null);
   }
 
@@ -337,8 +361,10 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
     try {
       const result = await api.saveGlobalAgents(content, baseMtime, baseHash);
       const parsed = agentsFromPayload(result.agents);
+      const builtin = agentsFromPayload(result.builtin_agents ?? []);
       setAgents(parsed);
-      setInitialContent(serializeGlobalAgents(parsed));
+      setBuiltinAgents(builtin);
+      setInitialContent(serializeGlobalAgents(parsed, builtin));
       setPath(result.path);
       setBaseMtime(result.mtime);
       setBaseHash(result.content_hash);
@@ -358,8 +384,10 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
     try {
       const result = await api.saveGlobalAgents("agents: {}\n", baseMtime, baseHash);
       const parsed = agentsFromPayload(result.agents);
+      const builtin = agentsFromPayload(result.builtin_agents ?? []);
       setAgents(parsed);
-      setInitialContent(serializeGlobalAgents(parsed));
+      setBuiltinAgents(builtin);
+      setInitialContent(serializeGlobalAgents(parsed, builtin));
       setPath(result.path);
       setBaseMtime(result.mtime);
       setBaseHash(result.content_hash);
@@ -406,6 +434,8 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
               name={name}
               agent={agent}
               expanded={expanded === name}
+              isBuiltIn={Boolean(builtinAgents[name])}
+              isOverridden={Boolean(builtinAgents[name] && !agentEquals(agent, builtinAgents[name]))}
               onToggle={() => setExpanded((current) => current === name ? null : name)}
               onPatch={(patch) => patchAgent(name, patch)}
               onRename={(nextName) => renameAgent(name, nextName)}

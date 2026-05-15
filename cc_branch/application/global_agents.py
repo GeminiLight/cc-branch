@@ -94,8 +94,12 @@ def _payload(path: Path, content: str, *, exists: bool) -> dict:
         user_data = yaml.safe_load(content) or {}
     except yaml.YAMLError:
         user_data = {}
-    effective_data = _effective_global_agent_data(user_data if isinstance(user_data, dict) else {})
+    user_data = user_data if isinstance(user_data, dict) else {}
+    builtin_data = load_yaml(builtin_agents_path())
+    effective_data = _effective_global_agent_data(user_data)
     definitions = parse_agent_definitions(effective_data)
+    builtin_definitions = parse_agent_definitions(builtin_data if isinstance(builtin_data, dict) else {})
+    user_definitions = parse_agent_definitions(user_data)
     version = file_version_payload(path, content) if path.exists() else {
         "mtime": None,
         "content_hash": content_hash(content),
@@ -105,10 +109,9 @@ def _payload(path: Path, content: str, *, exists: bool) -> dict:
         "exists": exists,
         "content": content,
         **version,
-        "agents": [
-            _global_agent_payload(name, definition)
-            for name, definition in sorted(definitions.items())
-        ],
+        "agents": _agent_list(definitions),
+        "builtin_agents": _agent_list(builtin_definitions),
+        "user_agents": _agent_list(user_definitions),
     }
 
 
@@ -133,6 +136,13 @@ def _global_agent_payload(name: str, definition) -> dict:
     payload = agent_payload(name, definition.to_agent_spec())
     payload["install_hint"] = definition.install_hint
     return payload
+
+
+def _agent_list(definitions: dict) -> list[dict]:
+    return [
+        _global_agent_payload(name, definition)
+        for name, definition in sorted(definitions.items())
+    ]
 
 
 def _validate_global_agents(content: str) -> str | None:

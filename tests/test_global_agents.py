@@ -25,6 +25,8 @@ class GlobalAgentsTests(unittest.TestCase):
         self.assertEqual(result.payload["path"], str(self.home / ".cc-branch/agents.yaml"))
         self.assertIn("agents: {}", result.payload["content"])
         self.assertIn("codex", {agent["id"] for agent in result.payload["agents"]})
+        self.assertIn("codex", {agent["id"] for agent in result.payload["builtin_agents"]})
+        self.assertEqual(result.payload["user_agents"], [])
 
     def test_save_global_agents_writes_user_override(self):
         content = """agents:
@@ -41,6 +43,7 @@ class GlobalAgentsTests(unittest.TestCase):
         self.assertTrue(path.exists())
         self.assertIn("codex", path.read_text(encoding="utf-8"))
         self.assertIn("codex", {agent["id"] for agent in result.payload["agents"]})
+        self.assertIn("codex", {agent["id"] for agent in result.payload["user_agents"]})
 
     def test_save_global_agents_rejects_invalid_shape(self):
         with patch("cc_branch.agent_registry.paths.Path.home", return_value=self.home):

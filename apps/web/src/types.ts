@@ -235,6 +235,8 @@ export interface GlobalAgentsData {
   mtime?: number | null;
   content_hash?: string;
   agents: AgentProfileInfo[];
+  builtin_agents?: AgentProfileInfo[];
+  user_agents?: AgentProfileInfo[];
 }
 
 export interface GlobalAgentsSaveResult extends GlobalAgentsData {
