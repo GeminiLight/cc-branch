@@ -39,6 +39,7 @@ import {
   movePaneBetweenSlots,
   movePaneWithinTabMutation,
   moveTab as moveTabModel,
+  slotToPanes,
   tmuxGroupWindows,
   updateTmuxWindowMutation,
   type PaneSplitLayout,
@@ -247,7 +248,7 @@ export default function SlotsSection({
 
   const selectedTmuxWindowList = selectedTmuxGroup
     ? selectedSlot && isLegacyTmuxSlot(selectedSlot)
-      ? selectedSlot.windows
+      ? slotToPanes(selectedSlot)
       : selectedWindow
       ? tmuxGroupWindows(selectedWindow)
       : []
@@ -269,7 +270,7 @@ export default function SlotsSection({
   }
 
   function addSelectedTmuxWindow() {
-    const next = addTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex);
+    const next = addTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, agents);
     if (!next) return;
     onChange(next);
   }
@@ -353,6 +354,9 @@ export default function SlotsSection({
       )}
       {workspaceValidation.hasEmptyPaneNames && (
         <InlineError message={t("allWindowsMustHaveName")} />
+      )}
+      {workspaceValidation.missingLaunchTargets.length > 0 && (
+        <InlineError message={t("missingLaunchCommands", { names: workspaceValidation.missingLaunchTargets.join(", ") })} />
       )}
       {workspaceValidation.reservedTargetNames.length > 0 && (
         <InlineError message={t("reservedTargetNameSeparators", { names: workspaceValidation.reservedTargetNames.join(", ") })} />

@@ -1520,6 +1520,43 @@ class ConfigWorkflowTests(unittest.TestCase):
                 ],
             )
 
+    def test_collect_config_issues_accepts_shell_mappings_in_public_schema(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+                    defaults:
+                      shell:
+                        command: "zsh"
+                        args: ["-l"]
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "shell"
+                            command: "npm run dev"
+                            shell:
+                              command: "bash"
+                              args: ["-l"]
+                          - name: "agents"
+                            layoutBackend: "tmux"
+                            windows:
+                              - name: "review"
+                                agent: "codex"
+                                shell:
+                                  command: "zsh"
+                                  args: ["-l"]
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            self.assertEqual([issue for issue in issues if issue.severity == "error"], [])
+
     def test_collect_config_issues_errors_for_duplicate_names_and_missing_launch_command(self):
         from cc_branch.application.config_validation import collect_config_issues
 
@@ -1552,6 +1589,32 @@ class ConfigWorkflowTests(unittest.TestCase):
                     ("duplicate_window", "window:dev:main"),
                     ("missing_launch_command", "window:dev:main"),
                 ],
+            )
+
+    def test_collect_config_issues_errors_for_empty_tmux_group_without_launch_command(self):
+        from cc_branch.application.config_validation import collect_config_issues
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            issues = collect_config_issues(
+                textwrap.dedent(
+                    """
+                    version: 2
+                    project: "demo"
+                    tabs:
+                      - name: "dev"
+                        panes:
+                          - name: "agents"
+                            layoutBackend: "tmux"
+                            windows: []
+                    """
+                ),
+                root / ".cc-branch/config.yaml",
+            )
+
+            self.assertIn(
+                ("missing_launch_command", "pane:dev:agents"),
+                [(issue.issue_type, issue.target) for issue in issues if issue.severity == "error"],
             )
 
     def test_collect_config_issues_normalizes_names_before_duplicate_checks(self):
@@ -2468,6 +2531,58 @@ class WorkspaceActionsTests(unittest.TestCase):
             ])
             updated = load_state(root / ".cc-branch/state.yaml")
             self.assertIn("dev.planner", updated.windows)
+
+    def test_editor_open_target_keeps_selected_named_config_in_attach_command(self):
+        from unittest.mock import patch
+
+        from cc_branch.config import resolve_state_path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/configs/review.yaml"
+            self._write(
+                config_path,
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                tabs:
+                  - name: "review"
+                    layoutBackend: "tmux"
+                    panes:
+                      - name: "planner"
+                        command: "codex"
+                """,
+            )
+            workspace = load_workspace(config_path)
+            state_path = resolve_state_path(root, config_path)
+            state = load_state(state_path)
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap in {"open_project", "workspace_file"}),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="VS Code"),
+                patch("cc_branch.application.workspace_actions.ensure_slot", return_value=[]) as ensure_slot,
+                patch("cc_branch.application.workspace_actions.open_workspace_file") as open_workspace_file,
+            ):
+                result = open_workspace(
+                    workspace,
+                    plan,
+                    state,
+                    state_path,
+                    cwd=root,
+                    cli="cc-branch",
+                    opener="vscode",
+                    target="review",
+                )
+
+            self.assertTrue(result.ok)
+            ensure_slot.assert_called_once()
+            specs = open_workspace_file.call_args.kwargs["commands"]
+            self.assertEqual([(spec.title, spec.command) for spec in specs], [
+                ("review", f"cc-branch --config {config_path.resolve()} attach review"),
+            ])
 
     def test_attach_workspace_normalizes_legacy_split_group_alias(self):
         from unittest.mock import patch

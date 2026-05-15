@@ -570,6 +570,34 @@ describe('Dashboard actions', () => {
     })
   })
 
+  it('renders and opens implicit terminal slots that do not have child windows', async () => {
+    const result = terminalWorkspaceResult()
+    result.data.slots[0] = {
+      name: 'scratch',
+      runtime: 'terminal',
+      status: 'running',
+      session_name: 'scratch',
+      windows: [],
+    }
+    mocks.workspaceResult.current = result
+
+    renderDashboard()
+
+    expect(screen.getByRole('heading', { name: 'scratch' })).toBeInTheDocument()
+    expect(screen.getByText('Terminal')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open scratch' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'open',
+        target: 'scratch',
+        opener: 'auto-terminal',
+        intent: 'attach_target',
+        projectPath: '/tmp/demo',
+      })
+    })
+  })
+
   it('renders multiple terminal panes inside one dashboard tab', async () => {
     const result = terminalWorkspaceResult()
     result.data.slots[0].name = 'codex-spec'

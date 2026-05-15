@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ...config import project_dir_for_config, resolve_config_path
 from ...models import SlotPlan, WorkspaceConfig, WorkspacePlan, WorkspaceState
 from ...openers import OpenIntent
 from ...runtime.capabilities import is_external_process_runtime, is_managed_runtime
@@ -93,6 +95,7 @@ class WorkspaceOpenActions:
         target: str,
         custom_openers,
     ) -> ActionResult:
+        attach_cli = self._attach_cli(workspace, cli)
         slot, window = self.targets.resolve_target(plan, target)
         if slot is None:
             return ActionResult(
@@ -109,7 +112,7 @@ class WorkspaceOpenActions:
                     state_path,
                     [slot],
                 )
-            specs = self.specs.attach_target_specs(slot, window, target, cli)
+            specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
             self.dependencies.open_workspace_file(
                 opener,
                 cwd=cwd,
@@ -127,13 +130,13 @@ class WorkspaceOpenActions:
             )
             return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
         if is_external_process_runtime(slot.runtime):
-            specs = self.specs.attach_target_specs(slot, window, target, cli)
+            specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
 
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, [slot])
-            specs = self.specs.attach_target_specs(slot, window, target, cli)
+            specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
 
@@ -167,6 +170,7 @@ class WorkspaceOpenActions:
         opener_name: str,
         custom_openers,
     ) -> ActionResult:
+        attach_cli = self._attach_cli(workspace, cli)
         tmux_slots = self.targets.tmux_slots(plan)
         terminal_slots = self.targets.terminal_slots(plan)
         if not tmux_slots and not terminal_slots:
@@ -175,7 +179,7 @@ class WorkspaceOpenActions:
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_slot_attach_specs(tmux_slots, cli),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, attach_cli),
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
@@ -184,7 +188,7 @@ class WorkspaceOpenActions:
         if self.dependencies.opener_supports(opener, "workspace_file", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_slot_attach_specs(tmux_slots, cli),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, attach_cli),
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_workspace_file(opener, cwd=cwd, commands=specs, custom_openers=custom_openers)
@@ -228,6 +232,16 @@ class WorkspaceOpenActions:
                 message=f"Opened tmux dashboard and terminal slots in {opener_name}",
             )
         return ActionResult(ok=True, code="open_applied", message=f"Opened workspace dashboard in {opener_name}")
+
+    def _attach_cli(self, workspace: WorkspaceConfig, cli: str) -> str:
+        config_path = getattr(workspace, "_config_path", "")
+        if not config_path:
+            return cli
+        selected = Path(str(config_path))
+        default = resolve_config_path(project_dir_for_config(selected))
+        if selected.resolve(strict=False) == default.resolve(strict=False):
+            return cli
+        return f"{cli} --config {shlex.quote(str(selected))}"
 
     def _opens_as_project_folder(self, opener: str, custom_openers) -> bool:
         return (

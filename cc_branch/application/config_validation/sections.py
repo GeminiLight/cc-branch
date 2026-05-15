@@ -95,6 +95,15 @@ def defaults_issues(raw_defaults: Any) -> list[Issue]:
     return issues
 
 
+def shell_issues(data: dict, target: str) -> list[Issue]:
+    raw_shell = data.get("shell")
+    if raw_shell is None:
+        return []
+    if not isinstance(raw_shell, (str, dict)):
+        return [invalid_type("shell", raw_shell, target, "string or mapping")]
+    return []
+
+
 def window_issues(raw_windows: Any, slot_name: str) -> list[Issue]:
     issues: list[Issue] = []
     if raw_windows is None:
@@ -112,6 +121,7 @@ def window_issues(raw_windows: Any, slot_name: str) -> list[Issue]:
         target = f"window:{slot_name}:{window_name}"
         issues.extend(unknown_fields(raw_window, WINDOW_FIELDS, target))
         issues.extend(string_type_issues(raw_window, WINDOW_STRING_FIELDS, target))
+        issues.extend(shell_issues(raw_window, target))
         issue = empty_name_issue(raw_window, target, "window")
         if issue is not None:
             issues.append(issue)
@@ -184,6 +194,7 @@ def pane_issues(raw_panes: Any, tab_name: str) -> list[Issue]:
         target = f"pane:{tab_name}:{pane_name}"
         issues.extend(unknown_fields(raw_pane, PANE_FIELDS, target))
         issues.extend(string_type_issues(raw_pane, PANE_STRING_FIELDS, target))
+        issues.extend(shell_issues(raw_pane, target))
         issue = empty_name_issue(raw_pane, target, "pane")
         if issue is not None:
             issues.append(issue)
@@ -209,6 +220,8 @@ def pane_issues(raw_panes: Any, tab_name: str) -> list[Issue]:
         raw_windows = raw_pane.get("windows")
         if raw_windows is not None:
             issues.extend(window_issues(raw_windows, pane_name))
+            if isinstance(raw_windows, list) and not raw_windows and raw_pane.get("command") is None and raw_pane.get("agent") is None:
+                issues.append(missing_launch_command(target))
         elif raw_pane.get("command") is None and raw_pane.get("agent") is None:
             issues.append(missing_launch_command(target))
     return issues

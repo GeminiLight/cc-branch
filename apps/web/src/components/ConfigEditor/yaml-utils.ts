@@ -345,6 +345,7 @@ function defaultValidationMessage(key: string, vars?: Record<string, string | nu
     allWindowsMustHaveName: "All windows must have a name",
     duplicateSlotNames: "Duplicate slot names: {names}",
     duplicatePaneNames: "Duplicate pane/window names: {names}",
+    missingLaunchCommands: "Add an agent or command to: {names}",
     reservedTargetNameSeparators: "Names cannot contain ':' or '.': {names}",
   };
   const template = messages[key] || key;
@@ -367,6 +368,9 @@ export function validateConfigForm(
   }
   if (workspaceValidation.duplicatePaneNames.length > 0) {
     errors.push(t("duplicatePaneNames", { names: workspaceValidation.duplicatePaneNames.join(", ") }));
+  }
+  if (workspaceValidation.missingLaunchTargets.length > 0) {
+    errors.push(t("missingLaunchCommands", { names: workspaceValidation.missingLaunchTargets.join(", ") }));
   }
   if (workspaceValidation.reservedTargetNames.length > 0) {
     errors.push(t("reservedTargetNameSeparators", { names: workspaceValidation.reservedTargetNames.join(", ") }));

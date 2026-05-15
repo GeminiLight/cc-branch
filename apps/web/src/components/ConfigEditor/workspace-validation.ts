@@ -5,6 +5,7 @@ export interface WorkspaceNameValidation {
   duplicatePaneNames: string[];
   hasEmptyTabNames: boolean;
   hasEmptyPaneNames: boolean;
+  missingLaunchTargets: string[];
   reservedTargetNames: string[];
 }
 
@@ -20,6 +21,20 @@ function reservedWindowNames(window: WindowConfig): string[] {
     ...(name && TARGET_NAME_SEPARATOR_RE.test(name) ? [name] : []),
     ...(window.windows ?? []).flatMap(reservedWindowNames),
   ];
+}
+
+function windowMissingLaunchTargets(scope: string, windows: WindowConfig[]): string[] {
+  return windows.flatMap((window) => {
+    const windowName = window.name.trim() || "unnamed";
+    const target = `${scope}/${windowName}`;
+    if (window.windows) {
+      if (window.windows.length > 0) {
+        return windowMissingLaunchTargets(target, window.windows);
+      }
+      return window.agent || window.command ? [] : [target];
+    }
+    return window.agent || window.command ? [] : [target];
+  });
 }
 
 function duplicateNames(names: string[]): string[] {
@@ -51,6 +66,11 @@ export function validateWorkspaceNames(slots: SlotConfig[]): WorkspaceNameValida
     const slotName = slot.name.trim() || "unnamed";
     return scopedDuplicateWindowNames(slotName, slot.windows);
   });
+  const missingLaunchTargets = slots.flatMap((slot) => {
+    const slotName = slot.name.trim() || "unnamed";
+    if (slot.windows.length > 0) return windowMissingLaunchTargets(slotName, slot.windows);
+    return slot.agent || slot.command ? [] : [slotName];
+  });
   const reservedTargetNames = [
     ...slots.flatMap((slot) => {
       const name = slot.name.trim();
@@ -64,6 +84,7 @@ export function validateWorkspaceNames(slots: SlotConfig[]): WorkspaceNameValida
     duplicatePaneNames: [...new Set(duplicatePaneNames)],
     hasEmptyTabNames: slots.some((slot) => slot.name.trim().length === 0),
     hasEmptyPaneNames: slots.some((slot) => slot.windows.some(hasEmptyWindowName)),
+    missingLaunchTargets: [...new Set(missingLaunchTargets)],
     reservedTargetNames: [...new Set(reservedTargetNames)],
   };
 }

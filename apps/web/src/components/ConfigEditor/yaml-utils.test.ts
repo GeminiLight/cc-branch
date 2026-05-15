@@ -61,6 +61,25 @@ describe("ConfigEditor YAML session intent", () => {
     expect(validateConfigForm(data)).toContain("Duplicate pane/window names: dev/main, dev/agents/api");
   });
 
+  it("validates panes without an agent or command before saving", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: empty",
+      "      - name: agents",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: worker",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Add an agent or command to: dev/empty, dev/agents/worker");
+  });
+
   it("parses canonical workspace terms and pane shell overrides", () => {
     const data = parseConfigYaml([
       "version: 2",

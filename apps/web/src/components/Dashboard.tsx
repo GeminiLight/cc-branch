@@ -37,6 +37,7 @@ import {
   paneCountLabel,
   tabPaneCount,
   tabDisplayName,
+  terminalPanesForSlot,
   terminalTaskSummary,
   windowSummary,
   workspaceCountLabel,
@@ -191,10 +192,10 @@ const SlotCard = memo(function SlotCard({
   const slotRuntimeUnavailable = slot.runtime === "tmux" && tmuxRuntimeUnavailable;
   const primaryActionLabel = t("open");
   const paneActionClassName = "icon-touch sm:min-h-7 sm:min-w-7 rounded-md text-tertiary hover:text-primary hover:surface-hover transition-colors flex items-center justify-center disabled:opacity-50";
-  const primaryWindow = slot.windows[0];
   const paneCount = tabPaneCount(slot);
   const tabName = displayName || slot.name || tabDisplayName(t, index);
-  const terminalPanes = slot.windows.length > 0 ? slot.windows : [];
+  const terminalPanes = slot.runtime === "terminal" ? terminalPanesForSlot(slot) : [];
+  const primaryWindow = terminalPanes[0] ?? slot.windows[0];
   const hasMultipleTerminalPanes = slot.runtime === "terminal" && terminalPanes.length > 1;
   const internalWindowCount = slot.runtime === "tmux" ? slot.windows.length : 0;
   const slotNeedsAction = isActionableSyncStatus(slot.sync_status, slot.status) || slot.windows.some((w) => isActionableWindowSync(w, slot));
@@ -250,7 +251,7 @@ const SlotCard = memo(function SlotCard({
       <div className="bg-[var(--bg-card)] p-3">
         {slot.runtime === "terminal" ? (
           <div className="grid gap-1.5" style={workspacePaneGridStyle(slot, paneCount)}>
-            {(terminalPanes.length > 0 ? terminalPanes : [primaryWindow]).filter(Boolean).map((window, paneIndex) => {
+            {terminalPanes.map((window, paneIndex) => {
               const paneTarget = hasMultipleTerminalPanes ? `${slot.name}:${window.name}` : slotTarget;
               const paneNeedsAction = isActionableWindowSync(window, slot) || (!hasMultipleTerminalPanes && primaryWindowNeedsAction);
               return (

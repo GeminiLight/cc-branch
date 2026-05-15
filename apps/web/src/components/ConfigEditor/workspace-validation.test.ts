@@ -147,6 +147,70 @@ describe("validateWorkspaceNames", () => {
     ]);
   });
 
+  it("detects panes and nested tmux windows without an agent or command", () => {
+    const workspace = slot("dev", ["shell", "agents"]);
+    workspace.windows[0].command = "zsh";
+    workspace.windows[1].layoutBackend = "tmux";
+    workspace.windows[1].windows = [
+      {
+        name: "review",
+        agent: "codex",
+        command: null,
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+      {
+        name: "empty",
+        agent: null,
+        command: null,
+        cwd: null,
+        env: {},
+        session: null,
+        session_id: null,
+        shell: null,
+        label: null,
+        label_template: null,
+        resume_mode: null,
+        resume_template: null,
+        create_mode: null,
+        create_template: null,
+        label_mode: null,
+        rename_template: null,
+      },
+    ];
+
+    expect(validateWorkspaceNames([workspace]).missingLaunchTargets).toEqual([
+      "dev/agents/empty",
+    ]);
+  });
+
+  it("detects implicit terminal tabs without an agent or command", () => {
+    const workspace = slot("scratch", []);
+    workspace.command = undefined;
+    workspace.agent = undefined;
+
+    expect(validateWorkspaceNames([workspace]).missingLaunchTargets).toEqual(["scratch"]);
+  });
+
+  it("detects empty tmux groups without a fallback launch command", () => {
+    const workspace = slot("dev", ["agents"]);
+    workspace.windows[0].layoutBackend = "tmux";
+    workspace.windows[0].windows = [];
+
+    expect(validateWorkspaceNames([workspace]).missingLaunchTargets).toEqual(["dev/agents"]);
+  });
+
   it("detects target separators in tab, pane, and nested tmux window names", () => {
     const workspace = slot("dev:ui", ["main.shell", "agents"]);
     workspace.windows[1].layoutBackend = "tmux";

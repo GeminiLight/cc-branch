@@ -58,6 +58,15 @@ export function emptyWindow(name = "main", agent: string | null = null): WindowC
   };
 }
 
+export function launchWindow(name = "main", agents: string[] = []): WindowConfig {
+  const agent = agents[0] ?? null;
+  return {
+    ...emptyWindow(name, agent),
+    command: agent ? null : "$SHELL",
+    session: agent ? "auto" : null,
+  };
+}
+
 export function uniqueName(existingNames: string[], base: string): string {
   const names = new Set(existingNames.map((name) => name.trim()).filter(Boolean));
   const normalizedBase = base.trim() || "item";
@@ -122,7 +131,7 @@ export function addPaneMutation(
   if (!slot) return null;
   if (isLegacyTmuxSlot(slot)) {
     const panes = [tmuxGroupWindowFromSlot(slot)];
-    panes.push(emptyWindow(uniqueName(panes.map((pane) => pane.name), "pane-2"), agents[0] ?? null));
+    panes.push(launchWindow(uniqueName(panes.map((pane) => pane.name), "pane-2"), agents));
     const next = [...slots];
     next[slotIndex] = slotWithWindows(slot, panes, layout || slot.layout || "auto");
     return {
@@ -133,7 +142,7 @@ export function addPaneMutation(
 
   const windows = editableWindowsForSlot(slot);
   const insertAt = afterIndex == null ? windows.length : Math.min(afterIndex + 1, windows.length);
-  windows.splice(insertAt, 0, emptyWindow(uniqueName(windows.map((window) => window.name), `pane-${windows.length + 1}`), agents[0] ?? null));
+  windows.splice(insertAt, 0, launchWindow(uniqueName(windows.map((window) => window.name), `pane-${windows.length + 1}`), agents));
   const next = [...slots];
   next[slotIndex] = slotWithWindows(slot, windows, layout || slot.layout || "auto");
   return {
@@ -156,7 +165,7 @@ export function addTmuxGroupPaneMutation(
   panes.splice(insertAt, 0, {
     ...emptyWindow(groupName),
     layoutBackend: "tmux",
-    windows: [emptyWindow("main", agents[0] ?? null)],
+    windows: [launchWindow("main", agents)],
   });
   const next = [...slots];
   next[slotIndex] = slotWithWindows(slot, panes, slot.layout || "auto");
@@ -242,7 +251,8 @@ function updateTmuxWindowsInSlot(
   updateWindows: (windows: WindowConfig[]) => WindowConfig[] | null,
 ): SlotConfig | null {
   if (isLegacyTmuxSlot(slot)) {
-    const windows = updateWindows([...slot.windows]);
+    const sourceWindows = slot.windows.length > 0 ? [...slot.windows] : [terminalSlotToWindow(slot)];
+    const windows = updateWindows(sourceWindows);
     if (!windows) return null;
     return { ...slot, windows };
   }
@@ -292,10 +302,11 @@ export function addTmuxWindowMutation(
   slots: SlotConfig[],
   slotIndex: number,
   paneIndex: number | null,
+  agents: string[] = [],
 ): SlotConfig[] | null {
   return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => {
     const name = uniqueName(windows.map((window) => window.name), `window-${windows.length + 1}`);
-    return [...windows, emptyWindow(name)];
+    return [...windows, launchWindow(name, agents)];
   });
 }
 
@@ -358,14 +369,30 @@ export function tmuxGroupWindowFromSlot(slot: SlotConfig): WindowConfig {
     layoutBackend: "tmux",
     cwd: slot.cwd || null,
     env: { ...slot.env },
-    windows: slot.windows.length > 0 ? slot.windows : [emptyWindow("main")],
+    windows: slot.windows.length > 0 ? slot.windows : [terminalSlotToWindow(slot)],
   };
 }
 
 export function tmuxGroupWindows(window: WindowConfig | null | undefined): WindowConfig[] {
   if (!window) return [emptyWindow("main")];
   if (window.windows && window.windows.length > 0) return window.windows;
-  return [emptyWindow(window.name || "main", window.agent ?? null)];
+  return [{
+    ...emptyWindow(window.name || "main", window.agent ?? null),
+    command: window.command ?? null,
+    cwd: window.cwd ?? null,
+    env: { ...window.env },
+    session: window.session ?? null,
+    session_id: window.session_id ?? null,
+    shell: window.shell ?? null,
+    label: window.label ?? null,
+    label_template: window.label_template ?? null,
+    resume_mode: window.resume_mode ?? null,
+    resume_template: window.resume_template ?? null,
+    create_mode: window.create_mode ?? null,
+    create_template: window.create_template ?? null,
+    label_mode: window.label_mode ?? null,
+    rename_template: window.rename_template ?? null,
+  }];
 }
 
 export function terminalPaneName(slot: SlotConfig): string {
@@ -386,14 +413,14 @@ export function terminalSlotToWindow(slot: SlotConfig): WindowConfig {
 
 export function slotToPanes(slot: SlotConfig): WindowConfig[] {
   if (isLegacyTmuxSlot(slot)) {
-    return slot.windows.length > 0 ? slot.windows : [emptyWindow("main")];
+    return slot.windows.length > 0 ? slot.windows : [terminalSlotToWindow(slot)];
   }
   return slot.windows.length > 0 ? slot.windows : [terminalSlotToWindow(slot)];
 }
 
 export function slotToCanvasPanes(slot: SlotConfig): CanvasPane[] {
   if (isLegacyTmuxSlot(slot)) {
-    const agent = slot.windows.find((window) => window.agent)?.agent ?? null;
+    const agent = slot.windows.find((window) => window.agent)?.agent ?? slot.agent ?? null;
     return [{
       name: slot.name || "tmux",
       agent,
@@ -417,7 +444,7 @@ export function slotToCanvasPanes(slot: SlotConfig): CanvasPane[] {
 export function editableWindowsForSlot(slot: SlotConfig): WindowConfig[] {
   if (slot.windows.length > 0) return [...slot.windows];
   if (slot.runtime === "terminal") return [terminalSlotToWindow(slot)];
-  return [emptyWindow("main")];
+  return [terminalSlotToWindow(slot)];
 }
 
 export function slotWithWindows(slot: SlotConfig, windows: WindowConfig[], layout?: TabLayout): SlotConfig {

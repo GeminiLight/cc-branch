@@ -84,14 +84,6 @@ export default function WorkspaceCanvas({
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-default bg-[var(--bg-elevated)]">
       <div className="workspace-matrix-surface relative p-2.5 sm:p-3 min-h-[220px]">
-        <div
-          className="absolute inset-0 opacity-[0.045] pointer-events-none"
-          style={{
-            backgroundImage:
-              "linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)",
-            backgroundSize: "36px 36px",
-          }}
-        />
         <div className="relative space-y-2.5">
           {slots.map((slot, slotIndex) => {
             const selectedTab = slotIndex === selection.slotIndex;
@@ -108,7 +100,7 @@ export default function WorkspaceCanvas({
                 onDragOver={onTabDragOver}
                 onDrop={(event) => onTabDrop(event, slotIndex)}
                 onDragEnd={onTabDragEnd}
-                className={`group/tab rounded-lg border bg-[var(--bg-card)] transition-all overflow-hidden shadow-sm ${
+                className={`group/tab rounded-lg border bg-[var(--bg-card)] transition-all overflow-hidden ${
                   selectedTab
                     ? "border-[var(--accent-border)] ring-1 ring-[var(--accent-border)] shadow-[inset_3px_0_0_var(--accent)]"
                     : "border-default hover:border-[var(--border-strong)]"
@@ -185,7 +177,7 @@ export default function WorkspaceCanvas({
 
                     <div className="space-y-2">
                       <div
-                        className="grid gap-2 min-h-[62px]"
+                        className="grid gap-2 min-h-[54px]"
                         style={workspacePaneGridStyle(slot, canvasPanes.length)}
                         onDragOver={(event) => onPaneDragOver(event, slotIndex)}
                         onDrop={(event) => onPaneAppendDrop(event, slotIndex)}
@@ -223,7 +215,7 @@ export default function WorkspaceCanvas({
                                   onSelect({ slotIndex, target: "pane", windowIndex: pane.windowIndex });
                                 }
                               }}
-                              className={`workspace-pane-card group/pane relative min-h-[58px] overflow-hidden rounded-md border p-2 text-left transition-all ${
+                              className={`workspace-pane-card group/pane relative min-h-[52px] overflow-hidden rounded-md border p-2 text-left transition-all ${
                                 selectedPane
                                   ? "border-[var(--accent-border)] bg-[var(--accent-bg)] ring-1 ring-[var(--accent-border)] shadow-[0_0_0_3px_var(--accent-bg),0_10px_24px_rgba(15,23,42,0.08)]"
                                   : pane.kind === "tmux-group"
@@ -246,7 +238,13 @@ export default function WorkspaceCanvas({
                               )}
                               <span className="relative flex items-start justify-between gap-2 pl-1.5">
                                 <span className="flex min-w-0 items-start gap-2">
-                                  <AgentMark agent={paneAgent} />
+                                  {pane.kind === "tmux-group" ? (
+                                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
+                                      <SquareTerminal className="h-3.5 w-3.5" aria-hidden="true" />
+                                    </span>
+                                  ) : (
+                                    <AgentMark agent={paneAgent} />
+                                  )}
                                   <span className="min-w-0">
                                     <span className="block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
                                       {pane.kind === "tmux-group" ? t("tmuxWindowStack") : t("pane")}

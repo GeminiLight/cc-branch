@@ -9,6 +9,7 @@ import {
   tabPaneCount,
   tabDisplayName,
   terminalTaskSummary,
+  terminalPanesForSlot,
   windowSummary,
   workspaceTabCount,
   workspaceCountLabel,
@@ -137,6 +138,20 @@ describe("dashboard-view-model", () => {
       agent: null,
       command: "npm run dev",
     })).toBe("command npm run dev");
+  });
+
+  it("creates a visible fallback pane for implicit terminal slots", () => {
+    const slot = terminalSlot({ windows: [], sync_status: "changed" });
+
+    expect(terminalPanesForSlot(slot)).toEqual([
+      expect.objectContaining({
+        name: "dev",
+        agent: null,
+        command: "",
+        status: "running",
+        sync_status: "changed",
+      }),
+    ]);
   });
 
   it("derives split-group slot names without exposing implementation prefixes", () => {

@@ -107,6 +107,20 @@ export function terminalTaskSummary(t: Translate, window?: WindowInfo): string {
   return windowSummary(t, window);
 }
 
+export function terminalPanesForSlot(slot: SlotInfo): WindowInfo[] {
+  if (slot.windows.length > 0) return slot.windows;
+  return [{
+    name: slot.name || "terminal",
+    agent: null,
+    command: "",
+    session_id: null,
+    label: null,
+    cwd: "",
+    status: slot.status,
+    sync_status: slot.sync_status,
+  }];
+}
+
 export function groupedSlotDisplayName(t: Translate, slot: SlotInfo, groupName: string): string {
   if (slot.name === groupName) {
     return slot.runtime === "terminal" ? t("terminalLabel") : t("tmuxPane");

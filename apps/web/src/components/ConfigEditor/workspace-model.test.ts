@@ -19,6 +19,7 @@ import {
   movePaneWithinTabMutation,
   moveTab,
   slotToCanvasPanes,
+  slotToPanes,
   slotWithWindows,
   tmuxGroupWindowFromSlot,
   tmuxGroupWindows,
@@ -147,7 +148,7 @@ describe("workspace model", () => {
       layout: "vertical",
       windows: [
         expect.objectContaining({ name: "ui" }),
-        expect.objectContaining({ name: "pane-2", agent: "codex" }),
+        expect.objectContaining({ name: "pane-2", agent: "codex", session: "auto", command: null }),
       ],
     });
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
@@ -169,7 +170,7 @@ describe("workspace model", () => {
         layoutBackend: "tmux",
         windows: [expect.objectContaining({ name: "frontend" })],
       }),
-      expect.objectContaining({ name: "pane-2", agent: "claude" }),
+      expect.objectContaining({ name: "pane-2", agent: "claude", session: "auto", command: null }),
     ]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
   });
@@ -190,7 +191,7 @@ describe("workspace model", () => {
         expect.objectContaining({
           name: "tmux-group",
           layoutBackend: "tmux",
-          windows: [expect.objectContaining({ name: "main", agent: "codex" })],
+          windows: [expect.objectContaining({ name: "main", agent: "codex", session: "auto", command: null })],
         }),
       ],
     });
@@ -216,7 +217,7 @@ describe("workspace model", () => {
       expect.objectContaining({
         name: "tmux-group",
         layoutBackend: "tmux",
-        windows: [expect.objectContaining({ name: "main", agent: "claude" })],
+        windows: [expect.objectContaining({ name: "main", agent: "claude", session: "auto", command: null })],
       }),
     ]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
@@ -321,9 +322,48 @@ describe("workspace model", () => {
           }),
         ],
       }),
-    ], 0, 0);
+    ], 0, 0, ["codex"]);
 
     expect(mutation?.[0].windows[0].windows?.map((window) => window.name)).toEqual(["api", "window-3", "window-3-1"]);
+    expect(mutation?.[0].windows[0].windows?.[2]).toMatchObject({ agent: "codex", session: "auto", command: null });
+  });
+
+  it("adds a tmux window to an empty legacy tmux tab without losing the original launch fields", () => {
+    const mutation = addTmuxWindowMutation([
+      slotConfig({
+        name: "agent",
+        runtime: "tmux",
+        agent: "codex",
+        session: "explicit-session",
+        windows: [],
+      }),
+    ], 0, null, ["claude"]);
+
+    expect(mutation?.[0].runtime).toBe("tmux");
+    expect(mutation?.[0].windows).toEqual([
+      expect.objectContaining({ name: "agent", agent: "codex", session: "explicit-session" }),
+      expect.objectContaining({ name: "window-2", agent: "claude", session: "auto" }),
+    ]);
+  });
+
+  it("adds valid shell panes when no agent is available", () => {
+    const paneMutation = addPaneMutation([
+      slotConfig({ name: "dev", runtime: "terminal", windows: [windowConfig({ name: "ui" })] }),
+    ], 0, []);
+    const tmuxMutation = addTmuxWindowMutation([
+      slotConfig({
+        windows: [
+          windowConfig({
+            name: "workers",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "api" })],
+          }),
+        ],
+      }),
+    ], 0, 0, []);
+
+    expect(paneMutation?.slots[0].windows[1]).toMatchObject({ name: "pane-2", agent: null, command: "$SHELL" });
+    expect(tmuxMutation?.[0].windows[0].windows?.[1]).toMatchObject({ name: "window-2", agent: null, command: "$SHELL" });
   });
 
   it("moves a tmux window inside a tmux group", () => {
@@ -446,11 +486,50 @@ describe("workspace model", () => {
     });
   });
 
+  it("preserves slot-level launch fields when wrapping an empty legacy tmux tab", () => {
+    const slot = slotConfig({
+      name: "agent",
+      runtime: "tmux",
+      agent: "codex",
+      command: "codex",
+      session: "explicit-session",
+      session_id: "explicit-session",
+      label: "demo/agent",
+      windows: [],
+    });
+
+    expect(tmuxGroupWindowFromSlot(slot).windows?.[0]).toMatchObject({
+      name: "agent",
+      agent: "codex",
+      command: null,
+      session: "explicit-session",
+      session_id: "explicit-session",
+      label: "demo/agent",
+    });
+    expect(slotToPanes(slot)[0]).toMatchObject({
+      name: "agent",
+      agent: "codex",
+      session: "explicit-session",
+    });
+    expect(editableWindowsForSlot(slot)[0]).toMatchObject({
+      name: "agent",
+      agent: "codex",
+      session: "explicit-session",
+    });
+  });
+
   it("falls back to a single tmux window when an explicit group has no children", () => {
-    const group = windowConfig({ name: "group", agent: "codex", windows: [] });
+    const group = windowConfig({
+      name: "group",
+      agent: "codex",
+      command: "codex",
+      session: "session-1",
+      label: "demo/group",
+      windows: [],
+    });
 
     expect(tmuxGroupWindows(group)).toEqual([
-      expect.objectContaining({ name: "group", agent: "codex" }),
+      expect.objectContaining({ name: "group", agent: "codex", command: "codex", session: "session-1", label: "demo/group" }),
     ]);
   });
 
