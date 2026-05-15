@@ -6,7 +6,7 @@ import type { APIClient } from "../api/client";
 import type { AgentProfileInfo } from "../types";
 import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
-import { FieldLabel, SelectInput, TextInput } from "./ConfigEditor/FormPrimitives";
+import { FieldLabel, HelpText, SelectInput, TextInput } from "./ConfigEditor/FormPrimitives";
 import type { AgentConfig } from "./ConfigEditor/types";
 
 export type GlobalAgentConfig = AgentConfig & {
@@ -194,11 +194,13 @@ function AgentCard({
                 value={draftName}
                 onChange={setDraftName}
                 onBlur={commitName}
+                disabled={isBuiltIn}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") event.currentTarget.blur();
                 }}
                 invalid={!draftName.trim()}
               />
+              {isBuiltIn && <HelpText>{t("builtinAgentNameLocked")}</HelpText>}
             </div>
             <div>
               <FieldLabel required>{t("command")}</FieldLabel>
@@ -327,6 +329,10 @@ export default function GlobalAgentsSettings({ api }: { api: APIClient }) {
   }
 
   function renameAgent(from: string, toRaw: string): boolean {
+    if (builtinAgents[from]) {
+      setError(t("builtinAgentNameLocked"));
+      return false;
+    }
     const to = toRaw.trim();
     if (!to) {
       setError(t("agentNameRequired"));
