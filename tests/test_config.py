@@ -306,6 +306,63 @@ class ConfigTests(unittest.TestCase):
             self.assertNotIn("windows", serialized["tabs"][0]["panes"][0])
             self.assertEqual(serialized["tabs"][0]["panes"][1]["shell"], "zsh")
 
+    def test_workspace_to_dict_preserves_legacy_single_window_terminal_slot(self):
+        """Legacy slot-level command fields should not disappear during v2 serialization."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 1
+                project: "test"
+                root: "."
+                slots:
+                  - name: "shell"
+                    title: "Main shell"
+                    runtime: "terminal"
+                    command: "zsh"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            self.assertEqual(serialized["tabs"][0]["name"], "shell")
+            self.assertEqual(serialized["tabs"][0]["panes"], [{"name": "Main shell", "command": "zsh"}])
+
+    def test_workspace_to_dict_preserves_legacy_single_window_tmux_slot(self):
+        """Legacy tmux slots without windows should keep their launch fields as one pane."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / ".cc-branch/config.yaml"
+            self._write(
+                config_path,
+                """
+                version: 1
+                project: "test"
+                root: "."
+                slots:
+                  - name: "agent"
+                    runtime: "tmux"
+                    agent: "codex"
+                    session: "019dd56d-0700-7bb3-a9c0-83eb2b033b0e"
+                """,
+            )
+
+            serialized = load_workspace(config_path).to_dict()
+
+            tab = serialized["tabs"][0]
+            self.assertEqual(tab["name"], "agent")
+            self.assertEqual(tab["layoutBackend"], "tmux")
+            self.assertEqual(
+                tab["panes"],
+                [{
+                    "name": "agent",
+                    "agent": "codex",
+                    "session": "019dd56d-0700-7bb3-a9c0-83eb2b033b0e",
+                }],
+            )
+
     def test_workspace_to_dict_preserves_mixed_public_tab_shape(self):
         """A mixed direct/tmux public tab should not reserialize as two tabs."""
         with tempfile.TemporaryDirectory() as tmp:

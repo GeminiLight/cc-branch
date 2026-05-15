@@ -375,7 +375,7 @@ def _slot_to_tab(slot: SlotConfig, default_layout_backend: str) -> dict[str, Any
     slot_layout_backend = "tmux" if slot.runtime == "tmux" else "direct"
     if slot_layout_backend != default_layout_backend:
         tab["layoutBackend"] = slot_layout_backend
-    tab["panes"] = [_as_legacy_dict(window) for window in slot.windows]
+    tab["panes"] = _slot_public_windows(slot)
     return tab
 
 
@@ -387,7 +387,7 @@ def _tmux_group_pane(slot: SlotConfig) -> dict[str, Any]:
     pane: dict[str, Any] = {
         "name": slot.pane_name or slot.name,
         "layoutBackend": "tmux",
-        "windows": [_as_legacy_dict(window) for window in slot.windows],
+        "windows": _slot_public_windows(slot),
     }
     if slot.layout != "auto":
         pane["layout"] = slot.layout
@@ -403,11 +403,29 @@ def _tmux_group_pane(slot: SlotConfig) -> dict[str, Any]:
 
 
 def _terminal_panes(slot: SlotConfig, default_layout_backend: str) -> list[dict[str, Any]]:
-    panes = [_as_legacy_dict(window) for window in slot.windows]
+    panes = _slot_public_windows(slot)
     if default_layout_backend != "direct":
         for pane in panes:
             pane["layoutBackend"] = "direct"
     return panes
+
+
+def _slot_public_windows(slot: SlotConfig) -> list[dict[str, Any]]:
+    if slot.windows:
+        return [_as_legacy_dict(window) for window in slot.windows]
+
+    pane: dict[str, Any] = {"name": slot.title or slot.name or "main"}
+    if slot.command is not None:
+        pane["command"] = slot.command
+    if slot.agent is not None:
+        pane["agent"] = slot.agent
+    if slot.session is not None:
+        pane["session"] = slot.session
+    if slot.session_id is not None and slot.session is None:
+        pane["session_id"] = slot.session_id
+    if slot.label is not None:
+        pane["label"] = slot.label
+    return [pane]
 
 
 def _merged_tab_from_group(slots: list[SlotConfig], default_layout_backend: str) -> dict[str, Any]:
