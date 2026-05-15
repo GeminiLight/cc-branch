@@ -219,7 +219,7 @@ def api_save_global_agents(handler) -> None:
 def api_info(handler) -> None:
     try:
         handler._send_json({
-            "port": 8080,
+            "port": int(getattr(handler.server, "server_port", 0) or 0),
             "config_path": str(handler.config_path),
             "state_path": str(handler.state_path),
         })

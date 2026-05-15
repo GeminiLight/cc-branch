@@ -332,7 +332,7 @@ describe('ConfigEditor diagnostics', () => {
     renderConfigEditor('project')
 
     expect(screen.getByRole('button', { name: /Expand agent overrides section/ })).toBeInTheDocument()
-    expect(screen.getAllByText('1 override(s)').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Overrides: 1').length).toBeGreaterThan(0)
     expect(screen.queryByText('Usually leave this empty. Built-in Codex, Claude, Gemini, and terminal profiles are already available.')).not.toBeInTheDocument()
     expect(screen.queryByText('Command: codex')).not.toBeInTheDocument()
   })

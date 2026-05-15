@@ -700,7 +700,7 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('1 running tmux-managed pane(s) use an older launch command.')).toBeInTheDocument()
+    expect(screen.getByText('1 running tmux-managed pane uses an older launch command.')).toBeInTheDocument()
   })
 
   it('shows every runtime sync notice instead of hiding mixed states', () => {
@@ -715,11 +715,11 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('1 running tmux-managed pane(s) use an older launch command.')).toBeInTheDocument()
-    expect(screen.getByText('4 running pane(s) were not launched from the current config.')).toBeInTheDocument()
-    expect(screen.getByText('3 extra tmux-managed pane(s) are running outside the config.')).toBeInTheDocument()
-    expect(screen.getByText('2 stale session record(s) no longer match the current config.')).toBeInTheDocument()
-    expect(screen.getByText('10 item(s) need attention')).toBeInTheDocument()
+    expect(screen.getByText('1 running tmux-managed pane uses an older launch command.')).toBeInTheDocument()
+    expect(screen.getByText('4 running panes were not launched from the current config.')).toBeInTheDocument()
+    expect(screen.getByText('3 extra tmux-managed panes are running outside the config.')).toBeInTheDocument()
+    expect(screen.getByText('2 stale session records no longer match the current config.')).toBeInTheDocument()
+    expect(screen.getByText('10 items need attention')).toBeInTheDocument()
   })
 
   it('summarizes extra tmux panes without exposing a destructive header action', () => {
@@ -734,7 +734,7 @@ describe('Dashboard actions', () => {
 
     renderDashboard()
 
-    expect(document.body.textContent).toContain('2 extra tmux-managed pane(s) are running outside the config.')
+    expect(document.body.textContent).toContain('2 extra tmux-managed panes are running outside the config.')
     expect(screen.queryByRole('button', { name: 'Stop extra panes' })).not.toBeInTheDocument()
   })
 
@@ -749,10 +749,10 @@ describe('Dashboard actions', () => {
     mocks.workspaceResult.current = result
 
     renderDashboard()
-    fireEvent.click(screen.getByRole('button', { name: 'Clear records' }))
-    const dialog = screen.getByRole('dialog', { name: 'Clear records' })
-    expect(within(dialog).getByText('Clear 2 stale local session record(s). Running panes and config will not be changed.')).toBeInTheDocument()
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Clear records' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean up' }))
+    const dialog = screen.getByRole('dialog', { name: 'Clean up' })
+    expect(within(dialog).getByText('Clean up 2 stale local session records. Running panes and config will not be changed.')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Clean up' }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({

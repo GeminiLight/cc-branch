@@ -146,6 +146,15 @@ function actionableRuntimeDrift(workspaceData: WorkspaceStatus | undefined): {
   };
 }
 
+function countText(
+  t: Translate,
+  singularKey: string,
+  pluralKey: string,
+  count: number,
+): string {
+  return t(count === 1 ? singularKey : pluralKey, { count });
+}
+
 function productChecks(
   configIssues: ConfigIssue[] | undefined | null,
   workspaceData: WorkspaceStatus | undefined,
@@ -171,11 +180,11 @@ function productChecks(
   }
 
   const { changed, missing, untracked, extra, orphaned } = actionableRuntimeDrift(workspaceData);
-  if (changed > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeChangedPending", { count: changed }) });
-  if (missing > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeMissingPending", { count: missing }) });
-  if (untracked > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeUntracked", { count: untracked }) });
-  if (extra > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeExtraPanes", { count: extra }) });
-  if (orphaned > 0 && !options.omitOrphanedState) checks.push({ status: "warn", icon: t("runtimeState"), text: t("runtimeOrphanedState", { count: orphaned }) });
+  if (changed > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeChangedPendingOne", "runtimeChangedPending", changed) });
+  if (missing > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeMissingPendingOne", "runtimeMissingPending", missing) });
+  if (untracked > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeUntrackedOne", "runtimeUntracked", untracked) });
+  if (extra > 0) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeExtraPanesOne", "runtimeExtraPanes", extra) });
+  if (orphaned > 0 && !options.omitOrphanedState) checks.push({ status: "warn", icon: t("runtimeState"), text: countText(t, "runtimeOrphanedStateOne", "runtimeOrphanedState", orphaned) });
   return checks;
 }
 

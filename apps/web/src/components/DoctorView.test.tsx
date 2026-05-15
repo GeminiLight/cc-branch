@@ -217,7 +217,7 @@ describe('DoctorView summary', () => {
     renderDoctorView()
 
     expect(screen.getByText('Warnings found; workspace can run, but the setup needs attention.')).toBeInTheDocument()
-    expect(screen.getByText('2 tmux-managed pane(s) are not started.')).toBeInTheDocument()
+    expect(screen.getByText('2 tmux-managed panes are not started.')).toBeInTheDocument()
     expect(screen.getByText('1 warning')).toBeInTheDocument()
   })
 })

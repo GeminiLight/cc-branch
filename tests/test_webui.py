@@ -321,6 +321,20 @@ slots:
         finally:
             self._stop_test_server(server)
 
+    def test_api_info_reports_actual_bound_port(self):
+        """Clients should not see the default port when the server binds elsewhere."""
+        server, port = self._start_test_server()
+        try:
+            with urlopen(f"http://127.0.0.1:{port}/api/info", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode())
+
+            self.assertEqual(data["port"], port)
+            self.assertEqual(data["config_path"], str(self.config_path))
+            self.assertEqual(data["state_path"], str(self.state_path))
+        finally:
+            self._stop_test_server(server)
+
     def test_api_status_reports_unavailable_tmux_runtime(self):
         """Dashboard clients should know when existing tmux config cannot run locally."""
         from unittest.mock import patch

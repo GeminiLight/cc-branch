@@ -113,7 +113,8 @@ function openerDisplayLabel(t: (key: string, vars?: Record<string, string | numb
 
 function actionMessage(t: (key: string, vars?: Record<string, string | number>) => string, result: { code?: string; message: string; changed_targets?: string[] }): string {
   if (result.code === "orphaned_state_pruned") {
-    return t("staleStateCleared", { count: result.changed_targets?.length || 0 });
+    const count = result.changed_targets?.length || 0;
+    return countText(t, "staleStateClearedOne", "staleStateCleared", count);
   }
   if (result.code === "orphaned_state_clean") {
     return t("staleStateClean");
@@ -673,9 +674,9 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   } = buildDashboardRuntimeSummary(data);
   const runtimeSyncNotices = [
     tmuxRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : null,
-    changedCount > 0 ? t("runtimeChangedPending", { count: changedCount }) : null,
-    untrackedCount > 0 ? t("runtimeUntracked", { count: untrackedCount }) : null,
-    extraCount > 0 ? t("runtimeExtraWindows", { count: extraCount }) : null,
+    changedCount > 0 ? countText(t, "runtimeChangedPendingOne", "runtimeChangedPending", changedCount) : null,
+    untrackedCount > 0 ? countText(t, "runtimeUntrackedOne", "runtimeUntracked", untrackedCount) : null,
+    extraCount > 0 ? countText(t, "runtimeExtraWindowsOne", "runtimeExtraWindows", extraCount) : null,
   ].filter((notice): notice is string => Boolean(notice));
   const openers = openersData?.openers?.length ? openersData.openers : [DEFAULT_OPENER];
   const defaultOpenerId = openersData?.default || "auto-terminal";
@@ -720,7 +721,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   const requestPruneState = () => {
     requestConfirmedAction("prune_state", undefined, t("clearStaleState"), {
       confirmText: t("clearStaleState"),
-      description: t("clearStaleStateConfirmDescription", { count: orphanedCount }),
+      description: countText(t, "clearStaleStateConfirmDescriptionOne", "clearStaleStateConfirmDescription", orphanedCount),
     });
   };
   const tabGroups = workspaceTabGroups(data.slots);
@@ -856,13 +857,15 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
           {issueCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
               <AlertTriangle className="w-3 h-3" />
-              {t("workspaceSyncNeedsAction", { count: issueCount })}
+              {countText(t, "workspaceSyncNeedsActionOne", "workspaceSyncNeedsAction", issueCount)}
             </span>
           )}
           {orphanedCount > 0 && (
             <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-default bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-medium text-secondary">
               <Wand2 className="w-3 h-3 shrink-0 text-tertiary" />
-              <span className="truncate">{t("runtimeOrphanedState", { count: orphanedCount })}</span>
+              <span className="truncate">
+                {countText(t, "runtimeOrphanedStateOne", "runtimeOrphanedState", orphanedCount)}
+              </span>
               <button
                 type="button"
                 onClick={requestPruneState}
