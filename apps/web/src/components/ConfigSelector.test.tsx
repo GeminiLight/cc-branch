@@ -105,6 +105,40 @@ describe("ConfigSelector", () => {
     expect(screen.getByRole("button", { name: "Delete workspace" })).toBeEnabled();
   });
 
+  it("deletes the config that opened the confirmation even if selection changes", () => {
+    const onDelete = vi.fn();
+    const { rerender } = render(
+      <I18nProvider>
+        <ConfigSelector
+          projectPath="/tmp/demo"
+          configs={configs}
+          selectedPath={configs[1].path}
+          onSelect={vi.fn()}
+          onDelete={onDelete}
+        />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete workspace" }));
+
+    rerender(
+      <I18nProvider>
+        <ConfigSelector
+          projectPath="/tmp/demo"
+          configs={configs}
+          selectedPath={configs[0].path}
+          onSelect={vi.fn()}
+          onDelete={onDelete}
+        />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(onDelete).toHaveBeenCalledWith(configs[1].path);
+  });
+
   it("creates a workspace profile inline instead of opening a blocking modal", () => {
     const onCreate = vi.fn();
 

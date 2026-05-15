@@ -18,6 +18,7 @@ interface ConfigSelectorProps {
 
 type InlineAction = "create" | "duplicate" | "rename" | null;
 type PendingAction = "delete" | null;
+type ActionTarget = Pick<ConfigOption, "path" | "label" | "is_default" | "exists">;
 
 function selectedConfig(configs: ConfigOption[], selectedPath?: string): ConfigOption | undefined {
   return configs.find((item) => item.path === selectedPath) || configs.find((item) => item.selected) || configs[0];
@@ -79,6 +80,7 @@ export default function ConfigSelector({
   const [open, setOpen] = useState(false);
   const [inlineAction, setInlineAction] = useState<InlineAction>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [actionTarget, setActionTarget] = useState<ActionTarget | null>(null);
   const [draftName, setDraftName] = useState("");
   const [busy, setBusy] = useState(false);
   const selected = selectedConfig(configs, selectedPath);
@@ -113,6 +115,7 @@ export default function ConfigSelector({
   function openInlineAction(action: Exclude<InlineAction, null>) {
     setOpen(true);
     setPendingAction(null);
+    setActionTarget(action === "create" ? null : selected ? { ...selected } : null);
     setInlineAction(action);
     if (action === "create") {
       setDraftName("");
@@ -124,9 +127,11 @@ export default function ConfigSelector({
   }
 
   function openDeleteAction() {
+    if (!selected) return;
     setOpen(false);
     setInlineAction(null);
     setDraftName("");
+    setActionTarget({ ...selected });
     setPendingAction("delete");
   }
 
@@ -139,14 +144,15 @@ export default function ConfigSelector({
       if (inlineAction === "create") {
         await onCreate?.(name, undefined);
         toast.success(t("workspaceProfileCreated"));
-      } else if (inlineAction === "duplicate" && selected) {
-        await onCreate?.(name, selected.path);
+      } else if (inlineAction === "duplicate" && actionTarget) {
+        await onCreate?.(name, actionTarget.path);
         toast.success(t("workspaceProfileCreated"));
-      } else if (inlineAction === "rename" && selected) {
-        await onRename?.(selected.path, name);
+      } else if (inlineAction === "rename" && actionTarget) {
+        await onRename?.(actionTarget.path, name);
         toast.success(t("workspaceProfileRenamed"));
       }
       setInlineAction(null);
+      setActionTarget(null);
       setDraftName("");
       setOpen(false);
     } catch (error) {
@@ -157,12 +163,13 @@ export default function ConfigSelector({
   }
 
   async function confirmDeleteAction() {
-    if (!selected || busy) return;
+    if (!actionTarget || busy) return;
     try {
       setBusy(true);
-      await onDelete?.(selected.path);
+      await onDelete?.(actionTarget.path);
       toast.success(t("workspaceProfileDeleted"));
       setPendingAction(null);
+      setActionTarget(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -392,6 +399,7 @@ export default function ConfigSelector({
                         }
                         if (event.key === "Escape") {
                           setInlineAction(null);
+                          setActionTarget(null);
                           setDraftName("");
                         }
                       }}
@@ -403,6 +411,7 @@ export default function ConfigSelector({
                       type="button"
                       onClick={() => {
                         setInlineAction(null);
+                        setActionTarget(null);
                         setDraftName("");
                       }}
                       className="h-8 px-2 rounded-md text-[12px] font-medium text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] transition-colors"
@@ -427,10 +436,14 @@ export default function ConfigSelector({
 
       <Modal
         isOpen={pendingAction !== null}
-        onClose={() => !busy && setPendingAction(null)}
+        onClose={() => {
+          if (busy) return;
+          setPendingAction(null);
+          setActionTarget(null);
+        }}
         title={modalTitle}
         description={
-          t("deleteWorkspaceProfileDesc", { name: selected?.label || "" })
+          t("deleteWorkspaceProfileDesc", { name: actionTarget?.label || "" })
         }
         icon={
           pendingAction === "delete"
