@@ -307,7 +307,7 @@ def _tabs_to_slots(raw_tabs: list[Any], default_layout_backend: str) -> list[Slo
                             name=_unique_slot_name(base_name, used_slot_names),
                             runtime="terminal",
                             layout=tab_layout,
-                            opener=tab_opener if isinstance(tab_opener, str) else None,
+                            opener=str(pane.get("opener") or tab_opener) if pane.get("opener") or tab_opener else None,
                             split_group=tab_name,
                             cwd=tab_cwd,
                             env=tab_env,
@@ -435,8 +435,6 @@ def _merged_tab_from_group(slots: list[SlotConfig], default_layout_backend: str)
         "layout": first.layout,
         "cwd": first.cwd,
     }
-    if first.opener is not None:
-        tab["opener"] = first.opener
     if first.env:
         tab["env"] = first.env
 
@@ -445,7 +443,10 @@ def _merged_tab_from_group(slots: list[SlotConfig], default_layout_backend: str)
         if slot.runtime == "tmux":
             panes.append(_tmux_group_pane(slot))
         else:
-            panes.extend(_terminal_panes(slot, default_layout_backend))
+            for pane in _terminal_panes(slot, default_layout_backend):
+                if slot.opener is not None:
+                    pane["opener"] = slot.opener
+                panes.append(pane)
     tab["panes"] = panes
     return tab
 

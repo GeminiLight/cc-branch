@@ -250,6 +250,7 @@ describe("ConfigEditor YAML session intent", () => {
       "    panes:",
       "      - name: ui",
       "        agent: codex",
+      "        opener: cursor",
       "      - name: tmux-dev",
       "        layoutBackend: tmux",
       "        layout: main-top",
@@ -270,6 +271,7 @@ describe("ConfigEditor YAML session intent", () => {
     expect(parsed.slots[0].windows).toHaveLength(2);
     expect(parsed.slots[0].windows[0].name).toBe("ui");
     expect(parsed.slots[0].windows[0].layoutBackend).toBe("direct");
+    expect(parsed.slots[0].windows[0].opener).toBe("cursor");
     expect(parsed.slots[0].windows[1].name).toBe("tmux-dev");
     expect(parsed.slots[0].windows[1].layoutBackend).toBe("tmux");
     expect(parsed.slots[0].windows[1].layout).toBe("main-top");
@@ -279,6 +281,7 @@ describe("ConfigEditor YAML session intent", () => {
       "backend",
     ]);
     expect(serialized).toContain("layoutBackend: tmux");
+    expect(serialized).toContain("opener: cursor");
     expect(serialized).toContain("layout: main-top");
     expect(serialized).toContain("opener: warp");
     expect(serialized).toContain("windows:");

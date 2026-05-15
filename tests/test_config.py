@@ -454,9 +454,11 @@ class ConfigTests(unittest.TestCase):
                       - name: "frontend"
                         command: "npm run dev"
                       - name: "backend"
+                        opener: "cursor"
                         command: "python api.py"
                       - name: "agents"
                         layoutBackend: "tmux"
+                        opener: "warp"
                         windows:
                           - name: "planner"
                             agent: "codex"
@@ -474,7 +476,10 @@ class ConfigTests(unittest.TestCase):
                     ("dev-agents", "tmux", "dev", ["planner"]),
                 ],
             )
+            self.assertEqual([slot.opener for slot in workspace.slots], [None, "cursor", "warp"])
             self.assertEqual([pane["name"] for pane in serialized["tabs"][0]["panes"]], ["frontend", "backend", "agents"])
+            self.assertEqual(serialized["tabs"][0]["panes"][1]["opener"], "cursor")
+            self.assertEqual(serialized["tabs"][0]["panes"][2]["opener"], "warp")
 
     def test_workspace_to_dict_preserves_single_tmux_group_pane(self):
         """A tmux group pane should not be flattened into tab-level tmux panes."""

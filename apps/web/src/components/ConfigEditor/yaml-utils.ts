@@ -261,6 +261,7 @@ function cleanPaneConfig(win: WindowConfig, defaultLayoutBackend: "tmux" | "dire
   }
   const out = cleanWindowConfig(win);
   if (defaultLayoutBackend === "tmux") out.layoutBackend = "direct";
+  if (win.opener != null) out.opener = win.opener;
   return out;
 }
 
