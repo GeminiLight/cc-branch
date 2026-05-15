@@ -42,6 +42,20 @@ describe("global agent settings serialization", () => {
     expect(yaml).not.toContain("claude:");
   });
 
+  it("keeps empty-string overrides when users clear a built-in field", () => {
+    const yaml = serializeGlobalAgents(
+      {
+        codex: agent({ label_template: "" }),
+      },
+      {
+        codex: agent({ label_template: "{project}/{tab}/{pane}" }),
+      },
+    );
+
+    expect(yaml).toContain("codex:");
+    expect(yaml).toContain("label_template: ''");
+  });
+
   it("keeps custom agents that are not part of the built-in baseline", () => {
     const yaml = serializeGlobalAgents(
       { custom: agent({ command: "my-agent", install_hint: "Install locally" }) },

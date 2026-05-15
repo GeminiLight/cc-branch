@@ -25,6 +25,18 @@ const DEFAULT_AGENT: GlobalAgentConfig = {
   rename_template: "",
 };
 
+type NormalizedAgent = {
+  command: string;
+  install_hint: string;
+  resume_mode: string;
+  resume_template: string;
+  create_mode: string;
+  create_template: string;
+  label_template: string;
+  label_mode: string;
+  rename_template: string;
+};
+
 function coerceAgent(raw: unknown, name: string): GlobalAgentConfig {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const resumeMode = String(r.resume_mode ?? "none");
@@ -68,23 +80,59 @@ function agentsFromPayload(items: AgentProfileInfo[]): Record<string, GlobalAgen
   );
 }
 
-function cleanAgent(agent: GlobalAgentConfig): Record<string, unknown> {
+function normalizedAgent(agent: GlobalAgentConfig): NormalizedAgent {
+  return {
+    command: agent.command,
+    install_hint: agent.install_hint,
+    resume_mode: agent.resume_mode,
+    resume_template: agent.resume_template,
+    create_mode: agent.create_mode,
+    create_template: agent.create_template,
+    label_template: agent.label_template,
+    label_mode: agent.label_mode,
+    rename_template: agent.rename_template,
+  };
+}
+
+function cleanAgent(agent: GlobalAgentConfig, baseline?: GlobalAgentConfig): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (agent.command) out.command = agent.command;
-  if (agent.install_hint) out.install_hint = agent.install_hint;
-  if (agent.resume_mode !== "none") out.resume_mode = agent.resume_mode;
-  if (agent.resume_template) out.resume_template = agent.resume_template;
-  if (agent.create_mode !== "none") out.create_mode = agent.create_mode;
-  if (agent.create_template) out.create_template = agent.create_template;
-  if (agent.label_template) out.label_template = agent.label_template;
-  if (agent.label_mode !== "metadata") out.label_mode = agent.label_mode;
-  if (agent.rename_template) out.rename_template = agent.rename_template;
+  const base = baseline ? normalizedAgent(baseline) : null;
+
+  function includeString(key: keyof NormalizedAgent, value: string) {
+    if (base) {
+      if (value !== base[key]) out[key] = value;
+      return;
+    }
+    if (value) out[key] = value;
+  }
+
+  function includeMode(
+    key: "resume_mode" | "create_mode" | "label_mode",
+    value: string,
+    defaultValue: string,
+  ) {
+    if (base) {
+      if (value !== base[key]) out[key] = value;
+      return;
+    }
+    if (value !== defaultValue) out[key] = value;
+  }
+
+  includeString("command", agent.command);
+  includeString("install_hint", agent.install_hint);
+  includeMode("resume_mode", agent.resume_mode, "none");
+  includeString("resume_template", agent.resume_template);
+  includeMode("create_mode", agent.create_mode, "none");
+  includeString("create_template", agent.create_template);
+  includeString("label_template", agent.label_template);
+  includeMode("label_mode", agent.label_mode, "metadata");
+  includeString("rename_template", agent.rename_template);
   return out;
 }
 
 export function agentEquals(a: GlobalAgentConfig | undefined, b: GlobalAgentConfig | undefined): boolean {
   if (!a || !b) return false;
-  return JSON.stringify(cleanAgent(a)) === JSON.stringify(cleanAgent(b));
+  return JSON.stringify(normalizedAgent(a)) === JSON.stringify(normalizedAgent(b));
 }
 
 export function removeOrResetAgent(
@@ -105,7 +153,7 @@ export function serializeGlobalAgents(
   const out: Record<string, unknown> = { agents: {} };
   for (const [name, agent] of Object.entries(agents)) {
     if (agentEquals(agent, baseline[name])) continue;
-    (out.agents as Record<string, unknown>)[name] = cleanAgent(agent);
+    (out.agents as Record<string, unknown>)[name] = cleanAgent(agent, baseline[name]);
   }
   return YAML.dump(out, {
     indent: 2,
