@@ -976,7 +976,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
         if (!isSplitGroup) {
           const slot = group.slots[0];
           return (
-            <div key={group.name} className="animate-stagger" style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}>
+            <div key={group.name} className="animate-stagger">
               <SlotCard
                 slot={slot}
                 index={i}
@@ -997,7 +997,6 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
             role="group"
             aria-label={`${t("tabLabel")} ${group.name}`}
             className="animate-stagger relative grid grid-cols-1 lg:grid-cols-[154px_minmax(0,1fr)] surface-card border border-default rounded-lg overflow-hidden"
-            style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}
           >
             <div className="workspace-tab-rail border-b lg:border-b-0 lg:border-r border-subtle p-3">
               <div className="flex lg:flex-col gap-3 min-w-0">
