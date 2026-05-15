@@ -14,7 +14,7 @@ import {
   SquareTerminal,
   Wand2,
 } from "lucide-react";
-import type { OpenIntent, OpenerInfo, SlotInfo, SyncStatus, WindowInfo, WorkspaceAction } from "../types";
+import type { OpenIntent, OpenerInfo, SlotInfo, SyncStatus, WorkspaceAction } from "../types";
 // Dashboard uses hooks only; api prop kept for SetupGuide compatibility
 import { useI18n } from "../i18n";
 import { useToast } from "./ui/Toast";
@@ -29,9 +29,15 @@ import { workspacePaneCellStyle, workspacePaneGridStyle } from "./workspace-layo
 import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
 import {
   buildDashboardRuntimeSummary,
+  countText,
+  groupedSlotDisplayName,
   isActionableSyncStatus,
   isActionableWindowSync,
+  paneCountLabel,
   tabPaneCount,
+  tabDisplayName,
+  terminalTaskSummary,
+  windowSummary,
   workspaceCountLabel,
 } from "./dashboard-view-model";
 import { workspaceTabGroups } from "./workspace-status-view-model";
@@ -135,23 +141,6 @@ function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: S
   );
 }
 
-function paneCountLabel(t: (key: string, vars?: Record<string, string | number>) => string, count: number): string {
-  return t(count === 1 ? "paneCountShortOne" : "paneCountShort", { count });
-}
-
-function countText(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  singularKey: string,
-  pluralKey: string,
-  count: number,
-): string {
-  return t(count === 1 ? singularKey : pluralKey, { count });
-}
-
-function tabDisplayName(t: (key: string, vars?: Record<string, string | number>) => string, index: number): string {
-  return t("tabDisplayName", { index: index + 1 });
-}
-
 function PaneStatus({ status }: { status: SlotInfo["status"] }) {
   const { t } = useI18n();
   const isRunning = status === "running";
@@ -167,53 +156,6 @@ function PaneStatus({ status }: { status: SlotInfo["status"] }) {
       {isRunning ? t("running") : isExternal ? t("ready") : t("notStarted")}
     </span>
   );
-}
-
-function windowSummary(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  window: SlotInfo["windows"][number]
-): string {
-  if (window.agent) {
-    return agentSessionSummary(t, window);
-  }
-  return t("commandSummary", { command: window.command || "-" });
-}
-
-function terminalTaskSummary(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  window?: SlotInfo["windows"][number]
-): string {
-  if (!window) return t("terminalTask");
-  if (window.agent) {
-    return agentSessionSummary(t, window);
-  }
-  return t("commandSummary", { command: window.command || "-" });
-}
-
-function agentSessionSummary(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  window: WindowInfo
-): string {
-  if (window.session_id) {
-    return t("sessionBoundShort", { id: shortSessionId(window.session_id) });
-  }
-  switch (window.session_binding_status) {
-    case "fresh":
-      return t("sessionFreshSummary");
-    case "pending_capture":
-      return t("sessionPendingCapture");
-    case "ambiguous":
-      return t("sessionCaptureAmbiguous");
-    case "will_create":
-    case undefined:
-      return t("sessionWillCreate");
-    default:
-      return t("sessionWillCreate");
-  }
-}
-
-function shortSessionId(sessionId: string): string {
-  return sessionId.length > 10 ? `${sessionId.slice(0, 8)}...` : sessionId;
 }
 
 const SlotCard = memo(function SlotCard({
@@ -505,17 +447,6 @@ const SlotCard = memo(function SlotCard({
     </div>
   );
 });
-
-function groupedSlotDisplayName(t: (key: string) => string, slot: SlotInfo, groupName: string): string {
-  if (slot.name === groupName) {
-    return slot.runtime === "terminal" ? t("terminalLabel") : t("tmuxPane");
-  }
-  const prefix = `${groupName}-`;
-  if (slot.name.startsWith(prefix)) {
-    return slot.name.slice(prefix.length) || slot.name;
-  }
-  return slot.name;
-}
 
 function DashboardLoading() {
   return (

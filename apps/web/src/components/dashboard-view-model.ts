@@ -55,6 +55,69 @@ export function workspaceCountLabel(t: Translate, tabs: number, panes: number): 
   return `${tabLabel} · ${paneLabel}`;
 }
 
+export function countText(
+  t: Translate,
+  singularKey: string,
+  pluralKey: string,
+  count: number,
+): string {
+  return t(count === 1 ? singularKey : pluralKey, { count });
+}
+
+export function paneCountLabel(t: Translate, count: number): string {
+  return countText(t, "paneCountShortOne", "paneCountShort", count);
+}
+
+export function tabDisplayName(t: Translate, index: number): string {
+  return t("tabDisplayName", { index: index + 1 });
+}
+
+export function shortSessionId(sessionId: string): string {
+  return sessionId.length > 10 ? `${sessionId.slice(0, 8)}...` : sessionId;
+}
+
+export function agentSessionSummary(t: Translate, window: WindowInfo): string {
+  if (window.session_id) {
+    return t("sessionBoundShort", { id: shortSessionId(window.session_id) });
+  }
+  switch (window.session_binding_status) {
+    case "fresh":
+      return t("sessionFreshSummary");
+    case "pending_capture":
+      return t("sessionPendingCapture");
+    case "ambiguous":
+      return t("sessionCaptureAmbiguous");
+    case "will_create":
+    case undefined:
+      return t("sessionWillCreate");
+    default:
+      return t("sessionWillCreate");
+  }
+}
+
+export function windowSummary(t: Translate, window: WindowInfo): string {
+  if (window.agent) {
+    return agentSessionSummary(t, window);
+  }
+  return t("commandSummary", { command: window.command || "-" });
+}
+
+export function terminalTaskSummary(t: Translate, window?: WindowInfo): string {
+  if (!window) return t("terminalTask");
+  return windowSummary(t, window);
+}
+
+export function groupedSlotDisplayName(t: Translate, slot: SlotInfo, groupName: string): string {
+  if (slot.name === groupName) {
+    return slot.runtime === "terminal" ? t("terminalLabel") : t("tmuxPane");
+  }
+  const prefix = `${groupName}-`;
+  if (slot.name.startsWith(prefix)) {
+    return slot.name.slice(prefix.length) || slot.name;
+  }
+  return slot.name;
+}
+
 export function buildDashboardRuntimeSummary(data: WorkspaceStatus): DashboardRuntimeSummary {
   const syncSummary = data.runtime_sync?.summary;
   const changedCount = syncSummary?.changed || 0;

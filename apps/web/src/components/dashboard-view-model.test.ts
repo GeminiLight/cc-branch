@@ -3,8 +3,13 @@ import type { RuntimeSyncReport, SlotInfo, WorkspaceStatus } from "../types";
 import {
   actionableRuntimeDriftCount,
   buildDashboardRuntimeSummary,
+  groupedSlotDisplayName,
   isActionableSyncStatus,
+  paneCountLabel,
   tabPaneCount,
+  tabDisplayName,
+  terminalTaskSummary,
+  windowSummary,
   workspaceTabCount,
   workspaceCountLabel,
 } from "./dashboard-view-model";
@@ -45,6 +50,24 @@ function workspace(slots: SlotInfo[], summary: RuntimeSyncReport["summary"]): Wo
 }
 
 describe("dashboard-view-model", () => {
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    const templates: Record<string, string> = {
+      commandSummary: "command {command}",
+      paneCountShortOne: "{count} pane",
+      paneCountShort: "{count} panes",
+      sessionBoundShort: "session {id}",
+      sessionCaptureAmbiguous: "ambiguous",
+      sessionFreshSummary: "fresh",
+      sessionPendingCapture: "pending",
+      sessionWillCreate: "will create",
+      tabDisplayName: "Tab {index}",
+      terminalLabel: "Terminal",
+      terminalTask: "terminal task",
+      tmuxPane: "Tmux group",
+    };
+    return (templates[key] || key).replace(/\{(\w+)\}/g, (_, name) => String(vars?.[name] ?? ""));
+  };
+
   it("does not treat stopped missing panes as actionable drift", () => {
     expect(isActionableSyncStatus("missing", "stopped")).toBe(false);
     expect(isActionableSyncStatus("missing", "running")).toBe(true);
@@ -75,7 +98,7 @@ describe("dashboard-view-model", () => {
   });
 
   it("formats dashboard workspace counts with natural singular labels", () => {
-    const t = (key: string, vars?: Record<string, string | number>) => {
+    const translateCounts = (key: string, vars?: Record<string, string | number>) => {
       const templates: Record<string, string> = {
         tabCountOne: "{count} tab",
         tabCount: "{count} tabs",
@@ -85,8 +108,41 @@ describe("dashboard-view-model", () => {
       return (templates[key] || key).replace("{count}", String(vars?.count));
     };
 
-    expect(workspaceCountLabel(t, 1, 1)).toBe("1 tab · 1 pane");
-    expect(workspaceCountLabel(t, 2, 3)).toBe("2 tabs · 3 panes");
+    expect(workspaceCountLabel(translateCounts, 1, 1)).toBe("1 tab · 1 pane");
+    expect(workspaceCountLabel(translateCounts, 2, 3)).toBe("2 tabs · 3 panes");
+  });
+
+  it("formats tab and pane labels from the shared dashboard display rules", () => {
+    expect(tabDisplayName(t, 0)).toBe("Tab 1");
+    expect(paneCountLabel(t, 1)).toBe("1 pane");
+    expect(paneCountLabel(t, 3)).toBe("3 panes");
+  });
+
+  it("summarizes agent sessions and commands consistently", () => {
+    expect(windowSummary(t, {
+      ...terminalSlot().windows[0],
+      agent: "codex",
+      session_id: "1234567890abcdef",
+      session_binding_status: undefined,
+    })).toBe("session 12345678...");
+    expect(windowSummary(t, {
+      ...terminalSlot().windows[0],
+      agent: "codex",
+      session_id: null,
+      session_binding_status: "fresh",
+    })).toBe("fresh");
+    expect(terminalTaskSummary(t, undefined)).toBe("terminal task");
+    expect(terminalTaskSummary(t, {
+      ...terminalSlot().windows[0],
+      agent: null,
+      command: "npm run dev",
+    })).toBe("command npm run dev");
+  });
+
+  it("derives split-group slot names without exposing implementation prefixes", () => {
+    expect(groupedSlotDisplayName(t, terminalSlot({ name: "dev", runtime: "terminal" }), "dev")).toBe("Terminal");
+    expect(groupedSlotDisplayName(t, terminalSlot({ name: "dev-agents", runtime: "tmux" }), "dev")).toBe("agents");
+    expect(groupedSlotDisplayName(t, terminalSlot({ name: "docs", runtime: "terminal" }), "dev")).toBe("docs");
   });
 
   it("counts slot-level drift only when child panes are not already counted", () => {
