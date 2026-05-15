@@ -23,7 +23,7 @@ import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
 import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
 import { visibleConfigIssues } from "../../utils/configIssues";
-import type { ConfigFormData } from "./types";
+import type { ConfigFormData, WorkspaceEditTarget } from "./types";
 import { parseConfigYaml, parseConfigYamlStrict, serializeConfigForm, validateConfigForm } from "./yaml-utils";
 import { createDefaultConfig } from "./types";
 import ProjectSection from "./ProjectSection";
@@ -36,6 +36,7 @@ interface ConfigEditorProps {
   projectPath?: string;
   configPath?: string;
   view?: "workspace" | "project";
+  focusTarget?: WorkspaceEditTarget | null;
 }
 
 type EditorMode = "form" | "yaml";
@@ -59,6 +60,7 @@ export default function ConfigEditor({
   projectPath,
   configPath,
   view = "workspace",
+  focusTarget = null,
 }: ConfigEditorProps) {
   const { t } = useI18n();
   const toast = useToast();
@@ -537,6 +539,7 @@ export default function ConfigEditor({
             slots={formData.slots}
             agents={effectiveAgentNames}
             scope={scope}
+            focusTarget={focusTarget}
             onChange={updateSlots}
           />
         ) : (

@@ -27,6 +27,7 @@ import Dropdown from "./ui/Dropdown";
 import AgentMark from "./ui/AgentMark";
 import { workspacePaneCellStyle, workspacePaneGridStyle } from "./workspace-layout";
 import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
+import type { WorkspaceEditTarget } from "./ConfigEditor/types";
 import {
   buildDashboardRuntimeSummary,
   countText,
@@ -47,7 +48,7 @@ interface DashboardProps {
   projectPath?: string;
   configPath?: string;
   isActive?: boolean;
-  onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
+  onEditTarget?: (target: WorkspaceEditTarget) => void;
 }
 
 type PendingAction = {
@@ -178,7 +179,7 @@ const SlotCard = memo(function SlotCard({
   displayName?: string;
   onRunAction: (action: WorkspaceAction, target: string, opener?: string, intent?: OpenIntent) => void;
   onSyncTarget: (target: string) => void;
-  onEditTarget?: (target: { slotName: string; windowName?: string }) => void;
+  onEditTarget?: (target: WorkspaceEditTarget) => void;
   busy: boolean;
   openerId: string;
   tmuxRuntimeUnavailable: boolean;

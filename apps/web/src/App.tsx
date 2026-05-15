@@ -30,6 +30,7 @@ import Dropdown from "./components/ui/Dropdown";
 import Tooltip from "./components/ui/Tooltip";
 import Dashboard from "./components/Dashboard";
 import ConfigSelector from "./components/ConfigSelector";
+import type { WorkspaceEditTarget } from "./components/ConfigEditor/types";
 
 type Tab = AppTab;
 
@@ -87,6 +88,7 @@ function AppInner() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectsHydrated, setProjectsHydrated] = useState(false);
+  const [workspaceFocusTarget, setWorkspaceFocusTarget] = useState<WorkspaceEditTarget | null>(null);
   const activeConfigPath = activeProject?.selected_config_path;
   const activeScope = activeProject ? { projectPath: activeProject.path, configPath: activeConfigPath } : undefined;
   const { data: configOptionsData } = useConfigOptions(activeScope);
@@ -216,7 +218,8 @@ function AppInner() {
     [activeProject?.path, client, refreshConfigData, setSnapshot]
   );
 
-  const handleEditWorkspaceTarget = useCallback(() => {
+  const handleEditWorkspaceTarget = useCallback((target: WorkspaceEditTarget) => {
+    setWorkspaceFocusTarget({ ...target });
     setTab("workspace");
   }, [setTab]);
 
@@ -247,6 +250,7 @@ function AppInner() {
             projectPath={activeProject.path}
             configPath={selectedConfigPath}
             view="workspace"
+            focusTarget={workspaceFocusTarget}
           />
         ) : tab === "project" ? (
           <ConfigEditor

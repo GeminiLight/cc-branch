@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import ConfigEditor from './ConfigEditor'
 import { I18nProvider } from '../i18n'
 import { ToastProvider } from './ui/Toast'
@@ -26,11 +27,14 @@ vi.mock('../hooks', () => ({
   useAgentSessions: (...args: unknown[]) => mocks.useAgentSessions(...args),
 }))
 
-function renderConfigEditor(view: 'workspace' | 'project' = 'workspace') {
+function renderConfigEditor(
+  view: 'workspace' | 'project' = 'workspace',
+  props: Partial<ComponentProps<typeof ConfigEditor>> = {},
+) {
   return render(
     <I18nProvider>
       <ToastProvider>
-        <ConfigEditor projectPath="/tmp/demo" view={view} />
+        <ConfigEditor projectPath="/tmp/demo" view={view} {...props} />
       </ToastProvider>
     </I18nProvider>
   )
@@ -488,6 +492,39 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByRole('button', { name: 'Edit pane main' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Move pane main up' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove pane main' })).not.toBeInTheDocument()
+  })
+
+  it('focuses a dashboard edit target on the workspace canvas', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '      - name: agents',
+          '        layoutBackend: tmux',
+          '        windows:',
+          '          - name: backend',
+          '            agent: codex',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor('workspace', {
+      focusTarget: { slotName: 'dev-agents', windowName: 'backend' },
+    })
+
+    expect(screen.getByRole('button', { name: 'Edit pane agents' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getAllByText('agents').length).toBeGreaterThan(0)
   })
 
   it('adds another pane to a terminal tab without converting it to tmux', async () => {

@@ -55,6 +55,11 @@ export interface SlotConfig {
   label?: string;
 }
 
+export interface WorkspaceEditTarget {
+  slotName: string;
+  windowName?: string;
+}
+
 export interface DisplayConfig {
   mode: "grid" | "list";
   columns: number;

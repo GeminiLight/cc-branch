@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SlotConfig, WindowConfig } from "./types";
-import { deriveWorkspaceSelection } from "./workspace-selection";
+import { deriveWorkspaceSelection, selectionForWorkspaceTarget } from "./workspace-selection";
 
 function windowConfig(patch: Partial<WindowConfig> = {}): WindowConfig {
   return {
@@ -95,5 +95,42 @@ describe("workspace selection", () => {
     expect(state.selectedTerminalWindow).toBeNull();
     expect(state.selectedTmuxGroup).toBe(true);
     expect(state.editingPane).toBe(true);
+  });
+
+  it("maps dashboard edit targets to direct panes", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "spec" })],
+      }),
+    ];
+
+    expect(selectionForWorkspaceTarget(slots, { slotName: "dev", windowName: "spec" })).toEqual({
+      slotIndex: 0,
+      target: "pane",
+      windowIndex: 1,
+    });
+  });
+
+  it("maps backend split slot names back to public workspace panes", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        windows: [
+          windowConfig({ name: "ui" }),
+          windowConfig({
+            name: "agents",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+          }),
+        ],
+      }),
+    ];
+
+    expect(selectionForWorkspaceTarget(slots, { slotName: "dev-agents", windowName: "backend" })).toEqual({
+      slotIndex: 0,
+      target: "pane",
+      windowIndex: 1,
+    });
   });
 });

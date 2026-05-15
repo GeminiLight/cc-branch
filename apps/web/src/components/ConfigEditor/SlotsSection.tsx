@@ -5,10 +5,10 @@
  * tabs/panes so users edit the workspace model, not the storage model.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { WorkspaceScope } from "../../types";
-import type { SlotConfig, WindowConfig } from "./types";
+import type { SlotConfig, WindowConfig, WorkspaceEditTarget } from "./types";
 import {
   MoveToTabActions,
   PaneSchedulingActions,
@@ -54,7 +54,7 @@ import {
   selectedPaneOrderState,
   selectedTmuxGroupPositionState,
 } from "./workspace-inspector-model";
-import { deriveWorkspaceSelection } from "./workspace-selection";
+import { deriveWorkspaceSelection, selectionForWorkspaceTarget } from "./workspace-selection";
 import { validateWorkspaceNames } from "./workspace-validation";
 
 function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) => string, runtime: SlotConfig["runtime"]): string {
@@ -65,15 +65,18 @@ export default function SlotsSection({
   slots,
   agents,
   scope,
+  focusTarget,
   onChange,
 }: {
   slots: SlotConfig[];
   agents: string[];
   scope?: WorkspaceScope;
+  focusTarget?: WorkspaceEditTarget | null;
   onChange: (slots: SlotConfig[]) => void;
 }) {
   const { t } = useI18n();
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
+  const lastAppliedFocusTarget = useRef<WorkspaceEditTarget | null>(null);
 
   const selectionState = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
   const {
@@ -94,6 +97,15 @@ export default function SlotsSection({
       setSelection(normalizedSelection);
     }
   }, [normalizedSelection, selection]);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    if (lastAppliedFocusTarget.current === focusTarget) return;
+    const nextSelection = selectionForWorkspaceTarget(slots, focusTarget);
+    if (!nextSelection) return;
+    lastAppliedFocusTarget.current = focusTarget;
+    setSelection(nextSelection);
+  }, [focusTarget, slots]);
 
   const agentOptions = [
     { value: "", label: t("noneOption") },
