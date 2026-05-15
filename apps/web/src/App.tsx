@@ -126,8 +126,7 @@ function AppInner() {
 
   const handleAddProject = useCallback(
     async (path: string) => {
-      const name = path.split(/[\\/]/).pop() || "project";
-      const data = await client.addProject(path, name);
+      const data = await client.addProject(path);
       setSnapshot(data.projects, data.active_project_id);
     },
     [client, setSnapshot]

@@ -228,6 +228,24 @@ describe("HTTPClient workspace scope", () => {
     );
   });
 
+  it("lets the backend derive project names when adding a project without a name", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ version: 1, active_project_id: "p1", projects: [], storage_path: "/tmp/home/.cc-branch/app/projects.yaml" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new HTTPClient().addProject("/tmp/demo/");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/add",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ path: "/tmp/demo/" }),
+      })
+    );
+  });
+
   it("saves global agents settings", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

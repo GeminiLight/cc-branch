@@ -31,6 +31,11 @@ class ProjectIndexStoreTests(unittest.TestCase):
         self.assertEqual(payload["projects"][0]["name"], "demo")
         self.assertEqual(payload["active_project_id"], payload["projects"][0]["id"])
 
+    def test_add_project_derives_name_from_trailing_slash_path(self):
+        payload = self.store.add_project("/tmp/demo/")
+
+        self.assertEqual(payload["projects"][0]["name"], "demo")
+
     def test_add_project_deduplicates_by_path(self):
         first = self.store.add_project("/tmp/demo", name="demo-a")
         first_id = first["projects"][0]["id"]
