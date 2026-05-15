@@ -63,6 +63,19 @@ class DirectoryPickerTests(unittest.TestCase):
 
         self.assertIsNone(picked)
 
+    def test_windows_directory_picker_escapes_starting_directory(self):
+        from subprocess import CompletedProcess
+        from unittest.mock import patch
+
+        from cc_branch.webui.server import directory_picker
+
+        with patch.object(directory_picker.subprocess, "run", return_value=CompletedProcess(["powershell"], 0, "C:\\demo\n", "")) as run:
+            picked = directory_picker._pick_directory_windows(Path("C:/Users/O'Neil/demo"))
+
+        self.assertEqual(picked, "C:\\demo")
+        command = " ".join(run.call_args.args[0])
+        self.assertIn("'C:/Users/O''Neil/demo'", command)
+
 
 class TerminalOpenTests(unittest.TestCase):
     """Tests for local terminal launch helpers."""

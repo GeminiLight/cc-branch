@@ -55,9 +55,10 @@ def _pick_directory_macos(starting_dir: Path) -> str | None:
 
 
 def _pick_directory_windows(starting_dir: Path) -> str | None:
+    start = _powershell_single_quote(str(starting_dir))
     script = (
         "$shell = New-Object -ComObject Shell.Application; "
-        f"$folder = $shell.BrowseForFolder(0, 'Select project directory', 0, '{str(starting_dir)}'); "
+        f"$folder = $shell.BrowseForFolder(0, 'Select project directory', 0, {start}); "
         "if ($folder) { $folder.Self.Path }"
     )
     result = subprocess.run(
@@ -72,6 +73,10 @@ def _pick_directory_windows(starting_dir: Path) -> str | None:
         raise RuntimeError(result.stderr.strip() or "Cannot open directory picker")
     picked = result.stdout.strip()
     return picked or None
+
+
+def _powershell_single_quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
 
 
 def _pick_directory_linux(starting_dir: Path) -> str | None:
