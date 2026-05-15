@@ -104,6 +104,33 @@ class ProjectIndexStoreTests(unittest.TestCase):
         backup_path = self.path.with_suffix(".yaml.bak")
         self.assertTrue(backup_path.exists())
 
+    def test_payload_recovers_from_backup_when_index_is_malformed(self):
+        saved = self.store.add_project("/tmp/a")
+        first_id = saved["projects"][0]["id"]
+        backup_path = self.path.with_suffix(".yaml.bak")
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        backup_path.write_text(self.path.read_text(encoding="utf-8"), encoding="utf-8")
+        self.path.write_text("projects: [", encoding="utf-8")
+
+        payload = self.store.payload()
+
+        self.assertEqual(payload["active_project_id"], first_id)
+        self.assertEqual([item["path"] for item in payload["projects"]], [str(Path("/tmp/a").resolve(strict=False))])
+
+    def test_add_project_preserves_backup_projects_when_index_is_malformed(self):
+        self.store.add_project("/tmp/a")
+        backup_path = self.path.with_suffix(".yaml.bak")
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        backup_path.write_text(self.path.read_text(encoding="utf-8"), encoding="utf-8")
+        self.path.write_text("projects: [", encoding="utf-8")
+
+        payload = self.store.add_project("/tmp/b")
+
+        self.assertEqual(
+            [item["path"] for item in payload["projects"]],
+            [str(Path("/tmp/a").resolve(strict=False)), str(Path("/tmp/b").resolve(strict=False))],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

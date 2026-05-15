@@ -189,12 +189,9 @@ class ProjectIndexStore:
     def _load(self) -> dict[str, object]:
         if yaml is None:  # pragma: no cover
             raise RuntimeError("YAML support requires PyYAML to be installed")
-        if not self._path.exists():
-            return dict(_EMPTY_INDEX)
-        try:
-            raw: Any = yaml.safe_load(self._path.read_text(encoding="utf-8")) or {}
-        except Exception:
-            return dict(_EMPTY_INDEX)
+        raw = self._load_yaml_file(self._path)
+        if raw is None and self._path.exists():
+            raw = self._load_yaml_file(self._backup_path())
         if not isinstance(raw, dict):
             return dict(_EMPTY_INDEX)
         return _normalize_data(raw)
@@ -210,11 +207,24 @@ class ProjectIndexStore:
         )
         self._path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = self._path.with_suffix(self._path.suffix + ".tmp")
-        backup_path = self._path.with_suffix(self._path.suffix + ".bak")
         temp_path.write_text(content, encoding="utf-8")
         if self._path.exists():
-            shutil.copy2(self._path, backup_path)
+            shutil.copy2(self._path, self._backup_path())
         temp_path.replace(self._path)
+
+    def _load_yaml_file(self, path: Path) -> dict[str, object] | None:
+        if yaml is None:  # pragma: no cover
+            raise RuntimeError("YAML support requires PyYAML to be installed")
+        if not path.exists():
+            return None
+        try:
+            raw: Any = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return None
+        return raw if isinstance(raw, dict) else None
+
+    def _backup_path(self) -> Path:
+        return self._path.with_suffix(self._path.suffix + ".bak")
 
 
 def _normalize_data(raw: dict[str, object]) -> dict[str, object]:
