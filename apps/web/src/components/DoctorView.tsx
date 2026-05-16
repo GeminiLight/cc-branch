@@ -7,6 +7,7 @@ import type { CheckItem } from "./doctor-view-model";
 import { buildDoctorViewModel } from "./doctor-view-model";
 import EmptyState from "./ui/EmptyState";
 import { useToast } from "./ui/Toast";
+import { PageSummaryCard, PageSummaryMetric } from "./ui/PageSummary";
 
 interface DoctorViewProps {
   projectPath?: string;
@@ -20,29 +21,6 @@ const StatusDot = memo(function StatusDot({ status }: { status: DoctorStatus }) 
     return <XCircle className="w-4 h-4 text-[var(--danger)] shrink-0 mt-0.5" />;
   return <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0 mt-0.5" />;
 });
-
-const METRIC_STYLES = {
-  issue: {
-    icon: "text-[var(--danger)]",
-    active: "bg-[var(--danger-bg)]",
-  },
-  warning: {
-    icon: "text-[var(--warning)]",
-    active: "bg-[var(--warning-bg)]",
-  },
-  passed: {
-    icon: "text-[var(--success)]",
-    active: "success-bg",
-  },
-};
-
-function metricCardClass(active: boolean, activeClass: string): string {
-  return `rounded-md px-3 py-2 flex items-center gap-2 ${active ? activeClass : "bg-[var(--bg-hover)]/35"}`;
-}
-
-function metricIconClass(active: boolean, activeClass: string): string {
-  return `w-4 h-4 shrink-0 ${active ? activeClass : "text-tertiary"}`;
-}
 
 function FindingRow({
   check,
@@ -202,22 +180,16 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
   return (
     <div className="page-shell space-y-4">
       {/* Summary */}
-      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-4 flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
-              <Stethoscope className="w-4 h-4 text-[var(--accent)]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[16px] font-semibold text-primary leading-tight">{t("healthCheck")}</h2>
-                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${overallBadgeClass}`}>
-                  {overallLabel}
-                </span>
-              </div>
-              <p className="text-[12px] text-secondary mt-1">{summaryText}</p>
-            </div>
-          </div>
+      <PageSummaryCard
+        icon={<Stethoscope className="w-4 h-4" />}
+        title={t("healthCheck")}
+        badge={
+          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${overallBadgeClass}`}>
+            {overallLabel}
+          </span>
+        }
+        description={summaryText}
+        actions={
           <button
             type="button"
             onClick={() => refetch()}
@@ -228,34 +200,30 @@ export default function DoctorView({ projectPath, configPath }: DoctorViewProps)
             <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
             {t("refresh")}
           </button>
-        </div>
-
-        {hasActionableFindings && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div className={metricCardClass(issueCount > 0, METRIC_STYLES.issue.active)}>
-              <XCircle className={metricIconClass(issueCount > 0, METRIC_STYLES.issue.icon)} />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksIssues")}</p>
-                <p className="text-[13px] font-semibold text-primary">{issueCountLabel}</p>
-              </div>
-            </div>
-            <div className={metricCardClass(warningCount > 0, METRIC_STYLES.warning.active)}>
-              <AlertTriangle className={metricIconClass(warningCount > 0, METRIC_STYLES.warning.icon)} />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksWarnings")}</p>
-                <p className="text-[13px] font-semibold text-primary">{warningCountLabel}</p>
-              </div>
-            </div>
-            <div className={metricCardClass(passedCount > 0, METRIC_STYLES.passed.active)}>
-              <CheckCircle2 className={metricIconClass(passedCount > 0, METRIC_STYLES.passed.icon)} />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("checksPassed")}</p>
-                <p className="text-[13px] font-semibold text-primary">{passedCountLabel}</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        }
+        metrics={hasActionableFindings ? (
+          <>
+            <PageSummaryMetric
+              icon={<XCircle className="w-4 h-4" />}
+              label={t("checksIssues")}
+              value={issueCountLabel}
+              tone={issueCount > 0 ? "danger" : "neutral"}
+            />
+            <PageSummaryMetric
+              icon={<AlertTriangle className="w-4 h-4" />}
+              label={t("checksWarnings")}
+              value={warningCountLabel}
+              tone={warningCount > 0 ? "warning" : "neutral"}
+            />
+            <PageSummaryMetric
+              icon={<CheckCircle2 className="w-4 h-4" />}
+              label={t("checksPassed")}
+              value={passedCountLabel}
+              tone={passedCount > 0 ? "success" : "neutral"}
+            />
+          </>
+        ) : undefined}
+      />
 
       {/* Checks */}
       <div className="surface-card border border-default rounded-lg overflow-hidden">

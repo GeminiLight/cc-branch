@@ -25,6 +25,7 @@ import SetupGuide from "./SetupGuide";
 import Skeleton from "./ui/Skeleton";
 import Dropdown from "./ui/Dropdown";
 import AgentMark from "./ui/AgentMark";
+import { PageSummaryCard, PageSummaryMetric } from "./ui/PageSummary";
 import { workspacePaneCellStyle, workspacePaneGridStyle } from "./workspace-layout";
 import { getLocalStorageItem, setLocalStorageItem } from "../utils/browserStorage";
 import type { WorkspaceEditTarget } from "./ConfigEditor/types";
@@ -736,47 +737,46 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
   return (
     <div className="page-shell space-y-3">
       {/* Project summary */}
-      <div className="surface-command border border-default rounded-lg px-4 sm:px-5 py-3 flex flex-col gap-2.5">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-7 h-7 rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0">
-              <FolderGit2 className="w-3.5 h-3.5 text-[var(--accent)]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                <p className="text-[16px] font-semibold text-primary leading-tight truncate">
-                  {data.project || data.project_name}
-                </p>
-              </div>
-              <div className="mt-1.5 grid grid-cols-3 gap-1.5 w-full max-w-[420px]">
-                <div className="rounded-md bg-[var(--bg-hover)]/45 px-2 py-1.5">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceRunning")}</p>
-                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{runningCount}/{totalTabs}</p>
+      <PageSummaryCard
+        icon={<FolderGit2 className="w-4 h-4" />}
+        title={data.project || data.project_name}
+        metrics={
+          <>
+            <PageSummaryMetric
+              icon={<Activity className="w-4 h-4" />}
+              label={t("workspaceRunning")}
+              value={`${runningCount}/${totalTabs}`}
+              tone={runningCount > 0 ? "success" : "neutral"}
+            />
+            <PageSummaryMetric
+              icon={<AlertTriangle className="w-4 h-4" />}
+              label={t("workspaceNeedsAction")}
+              tone={issueCount > 0 ? "warning" : "neutral"}
+              value={
+                <div className="flex items-center gap-1.5">
+                  <span className={issueCount > 0 ? "text-[var(--warning)]" : "text-primary"}>{issueCount}</span>
+                  {issueCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={viewIssues}
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)] hover:bg-[var(--warning-bg)] transition-colors"
+                    >
+                      <Eye className="w-3 h-3" />
+                      {t("viewIssues")}
+                    </button>
+                  )}
                 </div>
-                <div className="rounded-md bg-[var(--bg-hover)]/45 px-2 py-1.5">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceNeedsAction")}</p>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <p className={`text-[13px] font-semibold ${issueCount > 0 ? "text-[var(--warning)]" : "text-primary"}`}>{issueCount}</p>
-                    {issueCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={viewIssues}
-                        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)] hover:bg-[var(--warning-bg)] transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        {t("viewIssues")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-md bg-[var(--bg-hover)]/45 px-2 py-1.5">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-tertiary">{t("workspaceWindows")}</p>
-                  <p className="mt-0.5 text-[13px] font-semibold text-primary">{totalPanes}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="w-full xl:w-auto xl:min-w-[500px] flex flex-col items-stretch sm:items-end gap-2">
+              }
+            />
+            <PageSummaryMetric
+              icon={<Monitor className="w-4 h-4" />}
+              label={t("workspaceWindows")}
+              value={totalPanes}
+            />
+          </>
+        }
+        actions={
+          <>
             <div className="grid grid-cols-1 gap-1.5 sm:flex sm:flex-row sm:justify-end sm:items-center sm:w-auto w-full">
               <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center sm:justify-end sm:w-auto w-full">
                 <button
@@ -842,15 +842,16 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        }
+      >
         {lastActionMessage && (
           <div className="flex items-center gap-2 rounded-md success-bg px-2.5 py-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-[var(--success)] shrink-0" />
             <p className="text-[11px] font-medium text-secondary">{lastActionMessage}</p>
           </div>
         )}
-      </div>
+      </PageSummaryCard>
 
       {/* Slot cards */}
       <div ref={slotsSectionRef} className="flex items-center justify-between gap-2 px-0.5 pt-1 scroll-mt-24">

@@ -21,6 +21,7 @@ import type { ConfigIssue } from "../../types";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
+import { PageSummaryCard, PageSummaryMetric } from "../ui/PageSummary";
 import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
 import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData, WorkspaceEditTarget } from "./types";
@@ -388,30 +389,20 @@ export default function ConfigEditor({
         }}
       />
       {/* Summary */}
-      <div className={`surface-command border border-default rounded-lg px-4 sm:px-5 flex flex-col gap-3 ${isWorkspaceView ? "mb-3 py-3" : "mb-4 py-4"}`}>
-        <div className={`flex flex-col xl:flex-row justify-between gap-3 ${isWorkspaceView ? "xl:items-center" : "xl:items-start"}`}>
-          <div className="flex items-center gap-3 min-w-0">
-            <div className={`${isWorkspaceView ? "w-8 h-8" : "w-9 h-9"} rounded-md bg-[var(--accent-bg)] border border-[var(--accent-border)] flex items-center justify-center shrink-0`}>
-              <HeaderIcon className="w-4 h-4 text-[var(--accent)]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                <h2 className="text-[16px] font-semibold text-primary leading-tight">
-                  {title}
-                </h2>
-                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${configStatusClass}`}>
-                  {configStatusLabel}
-                </span>
-              </div>
-              {data?.path && (
-                <p className="mt-1 text-[11px] text-tertiary font-mono truncate">
-                  {data.path}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center w-full xl:w-auto">
+      <PageSummaryCard
+        className={isWorkspaceView ? "mb-3" : "mb-4"}
+        icon={<HeaderIcon className="w-4 h-4" />}
+        title={title}
+        badge={
+          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${configStatusClass}`}>
+            {configStatusLabel}
+          </span>
+        }
+        meta={data?.path ? (
+          <p className="font-mono truncate">{data.path}</p>
+        ) : undefined}
+        actions={
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end w-full xl:w-auto">
             <div className="col-span-2 flex items-center bg-[var(--bg-hover)]/70 rounded-md p-0.5 sm:col-span-1">
               <button
                 type="button"
@@ -471,31 +462,22 @@ export default function ConfigEditor({
               {t("save")}
             </button>
           </div>
-        </div>
-
-        {!isWorkspaceView && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-              <FileCode2 className="w-4 h-4 text-[var(--accent)] shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("project")}</p>
-                <p className="text-[13px] font-semibold text-primary">
-                  {formData.project || t("unnamed")}
-                </p>
-              </div>
-            </div>
-            <div className="rounded-md bg-[var(--bg-hover)]/45 px-3 py-2 flex items-center gap-2">
-              <Bot className="w-4 h-4 text-[var(--accent)] shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("agentOverrides")}</p>
-                <p className="text-[13px] font-semibold text-primary">
-                  {t("agentOverridesDefined", { count: agentOverrideCount })}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        }
+        metrics={!isWorkspaceView ? (
+          <>
+            <PageSummaryMetric
+              icon={<FileCode2 className="w-4 h-4" />}
+              label={t("project")}
+              value={formData.project || t("unnamed")}
+            />
+            <PageSummaryMetric
+              icon={<Bot className="w-4 h-4" />}
+              label={t("agentOverrides")}
+              value={t("agentOverridesDefined", { count: agentOverrideCount })}
+            />
+          </>
+        ) : undefined}
+      />
 
       {displayedIssues.length > 0 && (
         <div className={`mb-3 rounded-md border px-3 py-2 flex items-start gap-2 ${displayedIssueClass}`}>
