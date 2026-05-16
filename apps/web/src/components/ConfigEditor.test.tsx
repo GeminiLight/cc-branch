@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../hooks', () => ({
+  useApiInfo: () => ({
+    data: { port: 5192, config_path: '/tmp/demo/.cc-branch/config.yaml', state_path: '/tmp/demo/.cc-branch/state.yaml', default_shell: 'zsh' },
+  }),
   useConfig: () => mocks.configResult.current,
   useSaveConfig: () => ({
     mutateAsync: mocks.saveConfig,

@@ -36,6 +36,7 @@ from ...config import (
 )
 from ...openers import OpenerError
 from ...runtime.backends import get_backend
+from ...runtime.shells import default_shell_command
 from .directory_picker import pick_directory
 from .terminal import _slot_exists
 
@@ -222,6 +223,7 @@ def api_info(handler) -> None:
             "port": int(getattr(handler.server, "server_port", 0) or 0),
             "config_path": str(handler.config_path),
             "state_path": str(handler.state_path),
+            "default_shell": default_shell_command(),
         })
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)

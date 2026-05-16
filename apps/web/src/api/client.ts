@@ -26,6 +26,7 @@ import type {
   ProjectsIndexData,
   GlobalAgentsData,
   GlobalAgentsSaveResult,
+  ApiInfo,
 } from "../types";
 
 export interface APIClient {
@@ -44,7 +45,7 @@ export interface APIClient {
   runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
   runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult>;
   stopSlot(sessionName: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
-  getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }>;
+  getApiInfo(signal?: AbortSignal): Promise<ApiInfo>;
   getProjectsIndex(signal?: AbortSignal): Promise<ProjectsIndexData>;
   addProject(path: string, name?: string): Promise<ProjectsIndexData>;
   removeProject(id: string): Promise<ProjectsIndexData>;
@@ -289,11 +290,11 @@ export class HTTPClient implements APIClient {
     return this.runAction("stop", sessionName, scope);
   }
 
-  async getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }> {
+  async getApiInfo(signal?: AbortSignal): Promise<ApiInfo> {
     const res = await fetchApi(`${this.baseUrl}/api/info`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data as { port: number; config_path: string; state_path: string };
+    return data as ApiInfo;
   }
 
   async getProjectsIndex(signal?: AbortSignal): Promise<ProjectsIndexData> {
@@ -562,9 +563,9 @@ export class TauriClient implements APIClient {
     return this.runAction("stop", sessionName, scope);
   }
 
-  async getApiInfo(signal?: AbortSignal): Promise<{ port: number; config_path: string; state_path: string }> {
+  async getApiInfo(signal?: AbortSignal): Promise<ApiInfo> {
     throwIfAborted(signal);
-    const info = await this._invoke("get_api_info") as { port: number; config_path: string; state_path: string };
+    const info = await this._invoke("get_api_info") as ApiInfo;
     throwIfAborted(signal);
     return info;
   }

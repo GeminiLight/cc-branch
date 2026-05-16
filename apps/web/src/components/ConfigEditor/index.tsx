@@ -22,7 +22,7 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../ui/Toast";
 import LineEditor from "../ui/LineEditor";
 import { PageSummaryCard, PageSummaryMetric } from "../ui/PageSummary";
-import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../../hooks";
+import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents, useApiInfo } from "../../hooks";
 import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData, WorkspaceEditTarget } from "./types";
 import { parseConfigYaml, parseConfigYamlStrict, serializeConfigForm, validateConfigForm } from "./yaml-utils";
@@ -68,6 +68,7 @@ export default function ConfigEditor({
   const toast = useToast();
   const scope = useMemo(() => ({ projectPath, configPath }), [projectPath, configPath]);
   const { data, error, isLoading } = useConfig(scope);
+  const { data: apiInfo } = useApiInfo();
   const saveMutation = useSaveConfig();
 
   const [mode, setMode] = useState<EditorMode>("form");
@@ -370,6 +371,7 @@ export default function ConfigEditor({
   }
   const workspaceValidationErrorSet = new Set(workspaceValidationErrors);
   const validationErrors = mode === "form" ? formErrors.filter((err) => !workspaceValidationErrorSet.has(err)) : [];
+  const defaultShellName = apiInfo?.default_shell || null;
   const hasValidationErrors = mode === "form" ? formErrors.length > 0 : Boolean(yamlError);
   const agentOverrideCount = Object.keys(formData.agents).length;
   const configStatusLabel = hasValidationErrors
@@ -539,6 +541,7 @@ export default function ConfigEditor({
             slots={formData.slots}
             agents={effectiveAgentNames}
             scope={scope}
+            defaultShellName={defaultShellName}
             focusTarget={focusTarget}
             onChange={updateSlots}
           />
@@ -546,6 +549,7 @@ export default function ConfigEditor({
           <div className="space-y-3">
             <ProjectSection
               data={formData}
+              defaultShellName={defaultShellName}
               onChange={updateForm}
               expanded={expandedSections.project}
               onToggle={() => toggleSection("project")}

@@ -34,11 +34,13 @@ function SettingsGroup({
 
 export default function ProjectSection({
   data,
+  defaultShellName,
   onChange,
   expanded,
   onToggle,
 }: {
   data: ConfigFormData;
+  defaultShellName?: string | null;
   onChange: (patch: Partial<ConfigFormData>) => void;
   expanded: boolean;
   onToggle: () => void;
@@ -46,6 +48,9 @@ export default function ProjectSection({
   const { t } = useI18n();
   const defaultShell = data.defaults?.shell;
   const shellValue = typeof defaultShell === "string" ? defaultShell : defaultShell ? "custom" : "system-default";
+  const systemShellLabel = defaultShellName
+    ? t("shellSystemDefaultNamed", { shell: defaultShellName })
+    : t("shellSystemDefault");
 
   return (
     <section className="rounded-md transition-colors">
@@ -114,7 +119,7 @@ export default function ProjectSection({
                   value={shellValue}
                   onChange={(value) => onChange({ defaults: { shell: value === "custom" ? defaultShell ?? null : value as NonNullable<ConfigFormData["defaults"]>["shell"] } })}
                   options={[
-                    { value: "system-default", label: t("shellSystemDefault") },
+                    { value: "system-default", label: systemShellLabel },
                     { value: "zsh", label: "zsh" },
                     { value: "bash", label: "bash" },
                     { value: "pwsh", label: "PowerShell" },

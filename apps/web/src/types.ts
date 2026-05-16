@@ -275,6 +275,7 @@ export interface ApiInfo {
   port: number;
   config_path: string;
   state_path: string;
+  default_shell?: string;
 }
 
 export interface Profile {

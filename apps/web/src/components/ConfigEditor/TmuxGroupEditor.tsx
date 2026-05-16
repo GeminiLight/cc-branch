@@ -10,6 +10,7 @@ import {
   TextInput,
 } from "./FormPrimitives";
 import SessionInput from "./SessionInput";
+import { DefaultShellCommandHint } from "./WorkspaceDetailEditors";
 import { countText } from "./workspace-display";
 
 type AgentOption = { value: string; label: string };
@@ -19,6 +20,7 @@ export default function TmuxGroupEditor({
   windows,
   agentOptions,
   scope,
+  defaultShellName,
   onGroupNameChange,
   onAddWindow,
   onMoveWindow,
@@ -29,6 +31,7 @@ export default function TmuxGroupEditor({
   windows: WindowConfig[];
   agentOptions: AgentOption[];
   scope?: WorkspaceScope;
+  defaultShellName?: string | null;
   onGroupNameChange: (value: string) => void;
   onAddWindow: () => void;
   onMoveWindow: (windowIndex: number, dir: number) => void;
@@ -36,6 +39,7 @@ export default function TmuxGroupEditor({
   onUpdateWindow: (windowIndex: number, patch: Partial<WindowConfig>) => void;
 }) {
   const { t } = useI18n();
+  const defaultShellDisplay = defaultShellName ? `$SHELL (${defaultShellName})` : "$SHELL";
 
   return (
     <div className="space-y-3">
@@ -77,7 +81,7 @@ export default function TmuxGroupEditor({
                   <div className="min-w-0">
                     <p className="truncate text-[12px] font-semibold text-primary">{window.name || t("unnamed")}</p>
                     <p className="truncate text-[10px] text-tertiary">
-                      {window.agent ? displayAgentName(window.agent) : window.command || "$SHELL"}
+                      {window.agent ? displayAgentName(window.agent) : window.command || defaultShellDisplay}
                     </p>
                   </div>
                 </div>
@@ -153,6 +157,11 @@ export default function TmuxGroupEditor({
                       value={window.command ?? ""}
                       onChange={(value) => onUpdateWindow(windowIndex, { command: value || null })}
                       placeholder="$SHELL"
+                    />
+                    <DefaultShellCommandHint
+                      defaultShellName={defaultShellName}
+                      value={window.command ?? ""}
+                      onUseDefaultShell={() => onUpdateWindow(windowIndex, { command: "$SHELL" })}
                     />
                   </div>
                 )}

@@ -345,7 +345,7 @@ function defaultValidationMessage(key: string, vars?: Record<string, string | nu
     allWindowsMustHaveName: "All windows must have a name",
     duplicateSlotNames: "Duplicate slot names: {names}",
     duplicatePaneNames: "Duplicate pane/window names: {names}",
-    missingLaunchCommands: "These panes have nothing to launch yet: {names}. Choose an Agent or enter a command.",
+    missingLaunchCommands: "These panes have nothing to launch yet: {names}. Choose an Agent, use the default Shell, or enter a command.",
     reservedTargetNameSeparators: "Names cannot contain ':' or '.': {names}",
   };
   const template = messages[key] || key;

@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -197,12 +198,39 @@ fn start_sidecar_server(
 
 // ── Tauri Commands ──────────────────────────────────────────────────────────
 
+fn default_shell_name() -> String {
+    #[cfg(windows)]
+    {
+        if let Ok(shell) = std::env::var("COMSPEC") {
+            return Path::new(&shell)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(&shell)
+                .to_string();
+        }
+        return "cmd".to_string();
+    }
+
+    #[cfg(not(windows))]
+    {
+        if let Ok(shell) = std::env::var("SHELL") {
+            return Path::new(&shell)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(&shell)
+                .to_string();
+        }
+        "sh".to_string()
+    }
+}
+
 #[tauri::command]
 fn get_api_info(state: tauri::State<'_, PythonServer>) -> serde_json::Value {
     serde_json::json!({
         "port": state.port,
         "config_path": state.config_path,
         "state_path": state.state_path,
+        "default_shell": default_shell_name(),
     })
 }
 
@@ -215,10 +243,15 @@ fn show_window(window: tauri::WebviewWindow) {
 #[tauri::command]
 fn pick_project_directory(starting_dir: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new();
-    if let Some(dir) = starting_dir.as_deref().filter(|value| !value.trim().is_empty()) {
+    if let Some(dir) = starting_dir
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
         dialog = dialog.set_directory(dir);
     }
-    dialog.pick_folder().map(|path| path.to_string_lossy().to_string())
+    dialog
+        .pick_folder()
+        .map(|path| path.to_string_lossy().to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -230,7 +263,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![get_api_info, show_window, pick_project_directory])
+        .invoke_handler(tauri::generate_handler![
+            get_api_info,
+            show_window,
+            pick_project_directory
+        ])
         .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

@@ -14,6 +14,37 @@ import type { TabLayout } from "./workspace-model";
 
 type SelectOption = { value: string; label: string };
 
+export function DefaultShellCommandHint({
+  defaultShellName,
+  value,
+  onUseDefaultShell,
+}: {
+  defaultShellName?: string | null;
+  value: string;
+  onUseDefaultShell: () => void;
+}) {
+  const { t } = useI18n();
+  const isUsingDefault = value.trim() === "$SHELL";
+
+  return (
+    <div className="mt-1.5 flex items-center justify-between gap-2">
+      <p className="min-w-0 truncate text-[10.5px] text-tertiary">
+        {defaultShellName
+          ? t("defaultShellResolved", { shell: defaultShellName })
+          : t("defaultShellFallbackHint")}
+      </p>
+      <button
+        type="button"
+        onClick={onUseDefaultShell}
+        disabled={isUsingDefault}
+        className="shrink-0 rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[10.5px] font-semibold text-secondary transition-colors hover:border-[var(--border-strong)] hover:text-primary disabled:cursor-default disabled:opacity-45"
+      >
+        {isUsingDefault ? t("usingDefaultShell") : t("useDefaultShell")}
+      </button>
+    </div>
+  );
+}
+
 export function TabEditor({
   slot,
   layoutOptions,
@@ -59,6 +90,7 @@ export function TerminalPaneEditor({
   window,
   agentOptions,
   scope,
+  defaultShellName,
   onSlotChange,
   onWindowChange,
 }: {
@@ -66,12 +98,14 @@ export function TerminalPaneEditor({
   window: WindowConfig | null;
   agentOptions: SelectOption[];
   scope?: WorkspaceScope;
+  defaultShellName?: string | null;
   onSlotChange: (patch: Partial<SlotConfig>) => void;
   onWindowChange: (patch: Partial<WindowConfig>) => void;
 }) {
   const { t } = useI18n();
   const agent = window?.agent ?? slot.agent;
   const titleValue = window?.name ?? slot.title ?? slot.name ?? "";
+  const commandValue = window?.command ?? slot.command ?? "";
 
   return (
     <div className="space-y-2.5">
@@ -125,12 +159,20 @@ export function TerminalPaneEditor({
         <div>
           <FieldLabel>{t("shellCommand")}</FieldLabel>
           <TextInput
-            value={window?.command ?? slot.command ?? ""}
+            value={commandValue}
             onChange={(value) => {
               if (window) onWindowChange({ command: value || null });
               else onSlotChange({ command: value || undefined });
             }}
             placeholder="$SHELL"
+          />
+          <DefaultShellCommandHint
+            defaultShellName={defaultShellName}
+            value={commandValue}
+            onUseDefaultShell={() => {
+              if (window) onWindowChange({ command: "$SHELL" });
+              else onSlotChange({ command: "$SHELL" });
+            }}
           />
         </div>
       )}

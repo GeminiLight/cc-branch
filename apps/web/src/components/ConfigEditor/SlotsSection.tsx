@@ -66,12 +66,14 @@ export default function SlotsSection({
   slots,
   agents,
   scope,
+  defaultShellName,
   focusTarget,
   onChange,
 }: {
   slots: SlotConfig[];
   agents: string[];
   scope?: WorkspaceScope;
+  defaultShellName?: string | null;
   focusTarget?: WorkspaceEditTarget | null;
   onChange: (slots: SlotConfig[]) => void;
 }) {
@@ -410,6 +412,7 @@ export default function SlotsSection({
                           window={selectedTerminalWindow}
                           agentOptions={agentOptions}
                           scope={scope}
+                          defaultShellName={defaultShellName}
                           onSlotChange={(patch) => updateSlot(normalizedSelection.slotIndex, patch)}
                           onWindowChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
                         />
@@ -419,6 +422,7 @@ export default function SlotsSection({
                           windows={selectedTmuxWindowList}
                           agentOptions={agentOptions}
                           scope={scope}
+                          defaultShellName={defaultShellName}
                           onGroupNameChange={updateSelectedTmuxGroupName}
                           onAddWindow={addSelectedTmuxWindow}
                           onMoveWindow={moveSelectedTmuxWindow}
