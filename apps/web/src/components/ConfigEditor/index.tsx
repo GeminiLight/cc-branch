@@ -26,6 +26,7 @@ import { useConfig, useSaveConfig, useKeyboardShortcuts, useAgents } from "../..
 import { visibleConfigIssues } from "../../utils/configIssues";
 import type { ConfigFormData, WorkspaceEditTarget } from "./types";
 import { parseConfigYaml, parseConfigYamlStrict, serializeConfigForm, validateConfigForm } from "./yaml-utils";
+import { validateWorkspaceNames } from "./workspace-validation";
 import { createDefaultConfig } from "./types";
 import ProjectSection from "./ProjectSection";
 import AgentsSection from "./AgentsSection";
@@ -351,7 +352,24 @@ export default function ConfigEditor({
       : displayedIssueTone === "warning"
         ? "border-[var(--warning)]/20 bg-[var(--warning-bg)] text-[var(--warning)]"
         : "border-default bg-[var(--bg-hover)] text-secondary";
-  const validationErrors = mode === "form" ? formErrors : [];
+  const workspaceValidation = validateWorkspaceNames(formData.slots);
+  const workspaceValidationErrors: string[] = [];
+  if (workspaceValidation.hasEmptyTabNames) workspaceValidationErrors.push(t("allSlotsMustHaveName"));
+  if (workspaceValidation.hasEmptyPaneNames) workspaceValidationErrors.push(t("allWindowsMustHaveName"));
+  if (workspaceValidation.duplicateTabNames.length > 0) {
+    workspaceValidationErrors.push(t("duplicateSlotNames", { names: workspaceValidation.duplicateTabNames.join(", ") }));
+  }
+  if (workspaceValidation.duplicatePaneNames.length > 0) {
+    workspaceValidationErrors.push(t("duplicatePaneNames", { names: workspaceValidation.duplicatePaneNames.join(", ") }));
+  }
+  if (workspaceValidation.missingLaunchTargets.length > 0) {
+    workspaceValidationErrors.push(t("missingLaunchCommands", { names: workspaceValidation.missingLaunchTargets.join(", ") }));
+  }
+  if (workspaceValidation.reservedTargetNames.length > 0) {
+    workspaceValidationErrors.push(t("reservedTargetNameSeparators", { names: workspaceValidation.reservedTargetNames.join(", ") }));
+  }
+  const workspaceValidationErrorSet = new Set(workspaceValidationErrors);
+  const validationErrors = mode === "form" ? formErrors.filter((err) => !workspaceValidationErrorSet.has(err)) : [];
   const hasValidationErrors = mode === "form" ? formErrors.length > 0 : Boolean(yamlError);
   const agentOverrideCount = Object.keys(formData.agents).length;
   const configStatusLabel = hasValidationErrors

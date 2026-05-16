@@ -77,7 +77,9 @@ describe("ConfigEditor YAML session intent", () => {
       "",
     ].join("\n"));
 
-    expect(validateConfigForm(data)).toContain("Add an agent or command to: dev/empty, dev/agents/worker");
+    expect(validateConfigForm(data)).toContain(
+      "These panes have nothing to launch yet: dev/empty, dev/agents/worker. Choose an Agent or enter a command."
+    );
   });
 
   it("parses canonical workspace terms and pane shell overrides", () => {
