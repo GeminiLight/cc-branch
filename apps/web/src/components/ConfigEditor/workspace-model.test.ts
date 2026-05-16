@@ -148,7 +148,7 @@ describe("workspace model", () => {
       layout: "vertical",
       windows: [
         expect.objectContaining({ name: "ui" }),
-        expect.objectContaining({ name: "pane-2", agent: "codex", session: "auto", command: null }),
+        expect.objectContaining({ name: "pane-2", agent: null, session: null, command: "$SHELL" }),
       ],
     });
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
@@ -170,7 +170,7 @@ describe("workspace model", () => {
         layoutBackend: "tmux",
         windows: [expect.objectContaining({ name: "frontend" })],
       }),
-      expect.objectContaining({ name: "pane-2", agent: "claude", session: "auto", command: null }),
+      expect.objectContaining({ name: "pane-2", agent: null, session: null, command: "$SHELL" }),
     ]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
   });
@@ -191,7 +191,7 @@ describe("workspace model", () => {
         expect.objectContaining({
           name: "tmux-group",
           layoutBackend: "tmux",
-          windows: [expect.objectContaining({ name: "main", agent: "codex", session: "auto", command: null })],
+          windows: [expect.objectContaining({ name: "main", agent: null, session: null, command: "$SHELL" })],
         }),
       ],
     });
@@ -217,7 +217,7 @@ describe("workspace model", () => {
       expect.objectContaining({
         name: "tmux-group",
         layoutBackend: "tmux",
-        windows: [expect.objectContaining({ name: "main", agent: "claude", session: "auto", command: null })],
+        windows: [expect.objectContaining({ name: "main", agent: null, session: null, command: "$SHELL" })],
       }),
     ]);
     expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
@@ -325,7 +325,7 @@ describe("workspace model", () => {
     ], 0, 0, ["codex"]);
 
     expect(mutation?.[0].windows[0].windows?.map((window) => window.name)).toEqual(["api", "window-3", "window-3-1"]);
-    expect(mutation?.[0].windows[0].windows?.[2]).toMatchObject({ agent: "codex", session: "auto", command: null });
+    expect(mutation?.[0].windows[0].windows?.[2]).toMatchObject({ agent: null, session: null, command: "$SHELL" });
   });
 
   it("adds a tmux window to an empty legacy tmux tab without losing the original launch fields", () => {
@@ -342,7 +342,7 @@ describe("workspace model", () => {
     expect(mutation?.[0].runtime).toBe("tmux");
     expect(mutation?.[0].windows).toEqual([
       expect.objectContaining({ name: "agent", agent: "codex", session: "explicit-session" }),
-      expect.objectContaining({ name: "window-2", agent: "claude", session: "auto" }),
+      expect.objectContaining({ name: "window-2", agent: null, session: null, command: "$SHELL" }),
     ]);
   });
 

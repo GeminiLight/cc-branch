@@ -58,12 +58,10 @@ export function emptyWindow(name = "main", agent: string | null = null): WindowC
   };
 }
 
-export function launchWindow(name = "main", agents: string[] = []): WindowConfig {
-  const agent = agents[0] ?? null;
+export function launchWindow(name = "main"): WindowConfig {
   return {
-    ...emptyWindow(name, agent),
-    command: agent ? null : "$SHELL",
-    session: agent ? "auto" : null,
+    ...emptyWindow(name),
+    command: "$SHELL",
   };
 }
 
@@ -123,7 +121,7 @@ export function deleteTabMutation(slots: SlotConfig[], index: number): Workspace
 export function addPaneMutation(
   slots: SlotConfig[],
   slotIndex: number,
-  agents: string[],
+  _agents: string[],
   afterIndex?: number,
   layout?: PaneSplitLayout,
 ): WorkspaceMutation | null {
@@ -131,7 +129,7 @@ export function addPaneMutation(
   if (!slot) return null;
   if (isLegacyTmuxSlot(slot)) {
     const panes = [tmuxGroupWindowFromSlot(slot)];
-    panes.push(launchWindow(uniqueName(panes.map((pane) => pane.name), "pane-2"), agents));
+    panes.push(launchWindow(uniqueName(panes.map((pane) => pane.name), "pane-2")));
     const next = [...slots];
     next[slotIndex] = slotWithWindows(slot, panes, layout || slot.layout || "auto");
     return {
@@ -142,7 +140,7 @@ export function addPaneMutation(
 
   const windows = editableWindowsForSlot(slot);
   const insertAt = afterIndex == null ? windows.length : Math.min(afterIndex + 1, windows.length);
-  windows.splice(insertAt, 0, launchWindow(uniqueName(windows.map((window) => window.name), `pane-${windows.length + 1}`), agents));
+  windows.splice(insertAt, 0, launchWindow(uniqueName(windows.map((window) => window.name), `pane-${windows.length + 1}`)));
   const next = [...slots];
   next[slotIndex] = slotWithWindows(slot, windows, layout || slot.layout || "auto");
   return {
@@ -154,7 +152,7 @@ export function addPaneMutation(
 export function addTmuxGroupPaneMutation(
   slots: SlotConfig[],
   slotIndex: number,
-  agents: string[],
+  _agents: string[],
   afterIndex?: number,
 ): WorkspaceMutation | null {
   const slot = slots[slotIndex];
@@ -165,7 +163,7 @@ export function addTmuxGroupPaneMutation(
   panes.splice(insertAt, 0, {
     ...emptyWindow(groupName),
     layoutBackend: "tmux",
-    windows: [launchWindow("main", agents)],
+    windows: [launchWindow("main")],
   });
   const next = [...slots];
   next[slotIndex] = slotWithWindows(slot, panes, slot.layout || "auto");
@@ -302,11 +300,12 @@ export function addTmuxWindowMutation(
   slots: SlotConfig[],
   slotIndex: number,
   paneIndex: number | null,
-  agents: string[] = [],
+  _agents: string[],
 ): SlotConfig[] | null {
+  void _agents;
   return updateTmuxWindowsMutation(slots, slotIndex, paneIndex, (windows) => {
     const name = uniqueName(windows.map((window) => window.name), `window-${windows.length + 1}`);
-    return [...windows, launchWindow(name, agents)];
+    return [...windows, launchWindow(name)];
   });
 }
 
