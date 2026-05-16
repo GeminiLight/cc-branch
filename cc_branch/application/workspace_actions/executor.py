@@ -10,15 +10,17 @@ from ...openers import OpenIntent
 from ...planner import plan_workspace
 from ...runtime.capabilities import is_external_process_runtime
 from ...runtime.sessions import prune_sessions
-from ...state import load_state, save_state
+from ...state import load_state, merge_state, save_state
 from ...text import count_label
 from ..results import ActionResult
 from .command_specs import command_specs
 from .dependencies import WorkspaceActionDependencies
 from .lifecycle import WorkspaceLifecycleActions
 from .open import WorkspaceOpenActions
+from .persistence import external_open_results
 from .sync import WorkspaceSyncActions
 from .targets import WorkspaceTargetResolver, target_resolver
+
 
 @dataclass(frozen=True)
 class WorkspaceActionExecutor:
@@ -41,7 +43,14 @@ class WorkspaceActionExecutor:
     ) -> ActionResult:
         workspace = load_workspace(config_path)
         state = load_state(state_path)
-        plan = plan_workspace(workspace, state, False)
+        bootstrap_missing = action in {"launch", "restart", "sync"} or (
+            action == "open" and intent != "project_folder"
+        )
+        plan = plan_workspace(workspace, state, bootstrap_missing)
+        merged_state = merge_state(state, plan.state_updates)
+        if merged_state != state:
+            save_state(state_path, merged_state)
+            state = merged_state
         project_dir = project_dir_for_config(config_path)
         public_target = self.targets.normalize_action_target(plan, target)
         opener_id = opener or "auto-terminal"
@@ -114,6 +123,7 @@ class WorkspaceActionExecutor:
                 if self.dependencies.opener_supports(opener_id, "run_command", custom_openers):
                     specs = command_specs.terminal_command_specs(terminal_slots)
                     self.dependencies.open_command_layout(opener_id, specs, custom_openers=custom_openers)
+                    lifecycle.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
                     return ActionResult(ok=True, code="launch_applied", message=f"Launched terminal slots in {opener_name}")
                 return lifecycle.launch_workspace(workspace, plan, state, state_path, target=public_target)
 
@@ -121,6 +131,7 @@ class WorkspaceActionExecutor:
             if terminal_slots and self.dependencies.opener_supports(opener_id, "run_command", custom_openers):
                 specs = command_specs.terminal_command_specs(terminal_slots)
                 self.dependencies.open_command_layout(opener_id, specs, custom_openers=custom_openers)
+                lifecycle.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
                 if public_target is None:
                     return replace(result, message=f"Launched tmux slots and terminal slots in {opener_name}")
                 return replace(result, message=f"Launched {public_target} and terminal slots in {opener_name}")

@@ -134,7 +134,9 @@ def _session_display(session_id: str | None, binding_status: str) -> str:
 def _binding_display(status: str) -> str:
     return {
         "bound": "bound",
-        "will_create": "will create",
+        "will_bootstrap": "will save id",
+        "will_capture": "will detect",
+        "will_create": "will start",
         "pending_capture": "detecting",
         "ambiguous": "needs choice",
         "fresh": "fresh",

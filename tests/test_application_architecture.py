@@ -1,8 +1,10 @@
 import tempfile
 import textwrap
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
+from cc_branch.application.agent_sessions import AgentSessionOption
 from cc_branch.application.diagnostics import get_doctor_payload
 from cc_branch.application.state_store import StateStore
 from cc_branch.application.workspace_actions import (
@@ -2444,6 +2446,152 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertEqual([(spec.title, spec.command) for spec in specs], [
                 ("scratch:main", "zsh"),
             ])
+
+    def test_execute_workspace_action_bootstraps_generated_session_before_external_launch(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                agents:
+                  demo:
+                    command: demo-agent
+                    resume_mode: flag
+                    create_mode: generated_uuid
+                    create_template: "demo-agent --session-id {session_id}"
+                    resume_template: "resume {session_id}"
+
+                tabs:
+                  - name: "coding"
+                    panes:
+                      - name: "main"
+                        agent: demo
+                """,
+            )
+
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap == "run_command"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout") as open_command_layout,
+            ):
+                result = execute_workspace_action(
+                    root / ".cc-branch/config.yaml",
+                    root / ".cc-branch/state.yaml",
+                    action="launch",
+                    opener="warp",
+                    cli="cc-branch",
+                )
+
+            self.assertTrue(result.ok)
+            updated = load_state(root / ".cc-branch/state.yaml")
+            self.assertRegex(updated.windows["coding.main"].session_id or "", r"^[0-9a-f-]{36}$")
+            specs = open_command_layout.call_args.args[1]
+            self.assertEqual(len(specs), 1)
+            self.assertEqual(specs[0].command, f"demo-agent --session-id {updated.windows['coding.main'].session_id}")
+
+    def test_execute_workspace_action_open_project_folder_does_not_bootstrap_sessions(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                agents:
+                  demo:
+                    command: demo-agent
+                    resume_mode: flag
+                    create_mode: generated_uuid
+                    create_template: "demo-agent --session-id {session_id}"
+                    resume_template: "resume {session_id}"
+
+                tabs:
+                  - name: "coding"
+                    panes:
+                      - name: "main"
+                        agent: demo
+                """,
+            )
+
+            with patch("cc_branch.application.workspace_actions.open_with") as open_with:
+                result = execute_workspace_action(
+                    root / ".cc-branch/config.yaml",
+                    root / ".cc-branch/state.yaml",
+                    action="open",
+                    opener="vscode",
+                    intent="project_folder",
+                    cli="cc-branch",
+                )
+
+            self.assertTrue(result.ok)
+            open_with.assert_called_once()
+            updated = load_state(root / ".cc-branch/state.yaml")
+            self.assertNotIn("coding.main", updated.windows)
+
+    def test_execute_workspace_action_binds_discovered_session_after_external_launch(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "demo"
+                root: "."
+
+                agents:
+                  codex:
+                    command: codex
+                    resume_mode: flag
+                    resume_template: "resume {session_id}"
+
+                tabs:
+                  - name: "coding"
+                    panes:
+                      - name: "main"
+                        agent: codex
+                """,
+            )
+            discovered = [
+                AgentSessionOption(
+                    agent="codex",
+                    id="codex-session-1",
+                    label="Demo session",
+                    updated_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    source=str(root / "codex.jsonl"),
+                    project_path=str(root),
+                )
+            ]
+
+            with (
+                patch("cc_branch.application.workspace_actions.opener_supports", side_effect=lambda _opener, cap, _custom=None: cap == "run_command"),
+                patch("cc_branch.application.workspace_actions.opener_label", return_value="Warp"),
+                patch("cc_branch.application.workspace_actions.open_command_layout"),
+                patch("cc_branch.application.session_binding.agent_session_options_for_project", return_value=discovered),
+            ):
+                result = execute_workspace_action(
+                    root / ".cc-branch/config.yaml",
+                    root / ".cc-branch/state.yaml",
+                    action="launch",
+                    opener="warp",
+                    cli="cc-branch",
+                )
+
+            self.assertTrue(result.ok)
+            updated = load_state(root / ".cc-branch/state.yaml")
+            self.assertEqual(updated.windows["coding.main"].session_id, "codex-session-1")
+            self.assertEqual(updated.windows["coding.main"].session_binding_status, "bound")
 
     def test_execute_workspace_action_prunes_stale_state_entries(self):
         from unittest.mock import patch

@@ -87,6 +87,10 @@ export function agentSessionSummary(t: Translate, window: WindowInfo): string {
       return t("sessionPendingCapture");
     case "ambiguous":
       return t("sessionCaptureAmbiguous");
+    case "will_bootstrap":
+      return t("sessionWillBootstrap");
+    case "will_capture":
+      return t("sessionWillCapture");
     case "will_create":
     case undefined:
       return t("sessionWillCreate");

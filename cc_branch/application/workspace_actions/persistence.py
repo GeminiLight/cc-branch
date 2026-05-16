@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ...models import WorkspaceConfig, WorkspacePlan
+from ...models import AppliedWindowResult, SlotPlan, WindowPlan, WorkspaceConfig, WorkspacePlan
 from ...runtime.sync import record_applied_results
 from ..session_binding import SessionBindingResult, bind_discovered_agent_sessions
 from ..state_store import StateStore
@@ -43,6 +43,43 @@ class AppliedResultPersistence:
 
 
 applied_result_persistence = AppliedResultPersistence()
+
+
+def external_open_results(
+    slots: list[SlotPlan],
+    *,
+    windows: list[WindowPlan] | None = None,
+) -> list[AppliedWindowResult]:
+    """Return applied-result records for panes launched by an external opener."""
+    results: list[AppliedWindowResult] = []
+    if windows is not None and len(slots) == 1:
+        slot = slots[0]
+        iterable = windows
+        for window in iterable:
+            results.append(
+                AppliedWindowResult(
+                    slot=slot.name,
+                    window=window.name,
+                    key=window.key,
+                    runtime=slot.runtime,
+                    tmux_session=slot.tmux_session,
+                    action="opened_external",
+                )
+            )
+        return results
+    for slot in slots:
+        for window in slot.windows:
+            results.append(
+                AppliedWindowResult(
+                    slot=slot.name,
+                    window=window.name,
+                    key=window.key,
+                    runtime=slot.runtime,
+                    tmux_session=slot.tmux_session,
+                    action="opened_external",
+                )
+            )
+    return results
 
 
 def _persist_applied_results(

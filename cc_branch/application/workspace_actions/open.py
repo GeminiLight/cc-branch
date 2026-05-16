@@ -14,7 +14,7 @@ from ...runtime.capabilities import is_external_process_runtime, is_managed_runt
 from ..results import ActionResult
 from .command_specs import WorkspaceCommandSpecs, command_specs
 from .dependencies import WorkspaceActionDependencies
-from .persistence import AppliedResultPersistence, applied_result_persistence
+from .persistence import AppliedResultPersistence, applied_result_persistence, external_open_results
 from .targets import WorkspaceTargetResolver, target_resolver
 
 
@@ -119,6 +119,9 @@ class WorkspaceOpenActions:
                 commands=specs,
                 custom_openers=custom_openers,
             )
+            if is_external_process_runtime(slot.runtime):
+                windows = [window] if window is not None else slot.windows
+                self.persistence.persist(state_path, workspace, plan, external_open_results([slot], windows=windows))
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
         if self._opens_as_project_folder(opener, custom_openers):
             self.dependencies.open_with(
@@ -132,6 +135,8 @@ class WorkspaceOpenActions:
         if is_external_process_runtime(slot.runtime):
             specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
+            windows = [window] if window is not None else slot.windows
+            self.persistence.persist(state_path, workspace, plan, external_open_results([slot], windows=windows))
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
 
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
@@ -183,6 +188,8 @@ class WorkspaceOpenActions:
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
+            if terminal_slots:
+                self.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
             return ActionResult(ok=True, code="open_applied", message=f"Opened workspace in {opener_name}")
 
         if self.dependencies.opener_supports(opener, "workspace_file", custom_openers):
@@ -192,6 +199,8 @@ class WorkspaceOpenActions:
                 *self.specs.terminal_command_specs(terminal_slots),
             ]
             self.dependencies.open_workspace_file(opener, cwd=cwd, commands=specs, custom_openers=custom_openers)
+            if terminal_slots:
+                self.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
             return ActionResult(ok=True, code="open_applied", message=f"Opened workspace in {opener_name}")
 
         if self._opens_as_project_folder(opener, custom_openers):
@@ -210,6 +219,7 @@ class WorkspaceOpenActions:
                 self.specs.terminal_command_specs(terminal_slots),
                 custom_openers=custom_openers,
             )
+            self.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
             return ActionResult(ok=True, code="open_applied", message="Opened terminal slots")
 
         self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
@@ -226,6 +236,7 @@ class WorkspaceOpenActions:
                 self.specs.terminal_command_specs(terminal_slots),
                 custom_openers=custom_openers,
             )
+            self.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
             return ActionResult(
                 ok=True,
                 code="open_applied",

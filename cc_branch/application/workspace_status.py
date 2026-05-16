@@ -40,6 +40,10 @@ def _session_binding_status(window, state_entry) -> str:
     if state_entry and state_entry.session_binding_status:
         return state_entry.session_binding_status
     if window.session_mode == "auto":
+        if window.create_mode == "generated_uuid":
+            return "will_bootstrap"
+        if window.resume_mode != "none":
+            return "will_capture"
         return "will_create"
     return "none"
 

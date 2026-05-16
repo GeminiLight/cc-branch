@@ -15,6 +15,8 @@ export interface WindowInfo {
     | "none"
     | "bound"
     | "fresh"
+    | "will_bootstrap"
+    | "will_capture"
     | "will_create"
     | "pending_capture"
     | "ambiguous"

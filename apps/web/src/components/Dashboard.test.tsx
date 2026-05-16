@@ -523,14 +523,15 @@ describe('Dashboard actions', () => {
     expect(screen.getByText(/Bound session-/)).toBeInTheDocument()
   })
 
-  it('shows agent windows without a session as auto-created-on-start', () => {
+  it('shows agent windows without a session as launch-time capture', () => {
     const result = readyWorkspaceResult()
     ;(result.data.slots[0].windows[0] as Record<string, unknown>).session_id = null
+    ;(result.data.slots[0].windows[0] as Record<string, unknown>).session_binding_status = 'will_capture'
     mocks.workspaceResult.current = result
 
     renderDashboard()
 
-    expect(screen.getByText(/Will create and remember a session/)).toBeInTheDocument()
+    expect(screen.getByText(/Will detect and save the session after launch/)).toBeInTheDocument()
   })
 
   it('does not show a session badge for command-only windows', () => {
@@ -543,7 +544,7 @@ describe('Dashboard actions', () => {
     renderDashboard()
 
     expect(screen.queryByText(/Bound /)).not.toBeInTheDocument()
-    expect(screen.queryByText('Will create and remember a session')).not.toBeInTheDocument()
+    expect(screen.queryByText('Will detect and save the session after launch')).not.toBeInTheDocument()
   })
 
   it('flattens direct-layout tabs into one task card without a repeated child pane', async () => {
@@ -682,7 +683,7 @@ describe('Dashboard actions', () => {
     expect(screen.getAllByText('2 tmux windows').length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText('Codex').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText(/Bound session-/)).toBeInTheDocument()
-    expect(screen.getByText('Will create and remember a session')).toBeInTheDocument()
+    expect(screen.getByText('Will start a new session')).toBeInTheDocument()
     expect(screen.queryByText('tmux pane group')).not.toBeInTheDocument()
   })
 

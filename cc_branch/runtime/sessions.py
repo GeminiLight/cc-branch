@@ -46,6 +46,10 @@ def _binding_status(agent, session_id, entry, window_plan) -> str:
     if entry and entry.session_binding_status:
         return entry.session_binding_status
     if window_plan and window_plan.session_mode == "auto":
+        if window_plan.create_mode == "generated_uuid":
+            return "will_bootstrap"
+        if window_plan.resume_mode != "none":
+            return "will_capture"
         return "will_create"
     return "none"
 

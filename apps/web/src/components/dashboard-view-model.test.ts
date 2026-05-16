@@ -60,6 +60,7 @@ describe("dashboard-view-model", () => {
       sessionCaptureAmbiguous: "ambiguous",
       sessionFreshSummary: "fresh",
       sessionPendingCapture: "pending",
+      sessionWillCapture: "will capture",
       sessionWillCreate: "will create",
       tabDisplayName: "Tab {index}",
       terminalLabel: "Terminal",
@@ -132,6 +133,12 @@ describe("dashboard-view-model", () => {
       session_id: null,
       session_binding_status: "fresh",
     })).toBe("fresh");
+    expect(windowSummary(t, {
+      ...terminalSlot().windows[0],
+      agent: "codex",
+      session_id: null,
+      session_binding_status: "will_capture",
+    })).toBe("will capture");
     expect(terminalTaskSummary(t, undefined)).toBe("terminal task");
     expect(terminalTaskSummary(t, {
       ...terminalSlot().windows[0],
