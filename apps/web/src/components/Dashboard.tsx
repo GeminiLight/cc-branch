@@ -150,7 +150,7 @@ function PaneStatus({ status }: { status: SlotInfo["status"] }) {
   const isRunning = status === "running";
   const isExternal = status === "external";
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${isRunning ? "success" : "text-tertiary"}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold ${isRunning ? "success" : "text-tertiary"}`}>
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           isRunning ? "bg-[var(--success)]" : isExternal ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"
@@ -160,6 +160,18 @@ function PaneStatus({ status }: { status: SlotInfo["status"] }) {
       {isRunning ? t("running") : isExternal ? t("ready") : t("notStarted")}
     </span>
   );
+}
+
+function dashboardTerminalGridClass(paneCount: number): string {
+  return paneCount >= 3 ? "grid-cols-1 md:grid-cols-2" : "";
+}
+
+function dashboardTerminalGridStyle(slot: SlotInfo, paneCount: number) {
+  return paneCount >= 3 ? undefined : workspacePaneGridStyle(slot, paneCount);
+}
+
+function dashboardTerminalCellStyle(slot: SlotInfo, paneCount: number, paneIndex: number) {
+  return paneCount >= 3 ? undefined : workspacePaneCellStyle(slot, paneCount, paneIndex);
 }
 
 const SlotCard = memo(function SlotCard({
@@ -251,70 +263,74 @@ const SlotCard = memo(function SlotCard({
 
       <div className="bg-[var(--bg-card)] p-3">
         {slot.runtime === "terminal" ? (
-          <div className="grid gap-1.5" style={workspacePaneGridStyle(slot, paneCount)}>
+          <div className={`grid gap-2 ${dashboardTerminalGridClass(paneCount)}`} style={dashboardTerminalGridStyle(slot, paneCount)}>
             {terminalPanes.map((window, paneIndex) => {
               const paneTarget = hasMultipleTerminalPanes ? `${slot.name}:${window.name}` : slotTarget;
               const paneNeedsAction = isActionableWindowSync(window, slot) || (!hasMultipleTerminalPanes && primaryWindowNeedsAction);
               return (
                 <div
                   key={window.name || paneIndex}
-                  style={workspacePaneCellStyle(slot, paneCount, paneIndex)}
-                  className={`min-h-[58px] rounded-md border bg-[var(--bg-elevated)] px-2.5 py-1.5 ${
+                  style={dashboardTerminalCellStyle(slot, paneCount, paneIndex)}
+                  className={`min-h-[74px] rounded-md border bg-[var(--bg-elevated)] px-2.5 py-2 ${
                     paneNeedsAction ? "border-[var(--warning)]/55 shadow-[0_0_0_2px_var(--warning-bg)]" : "border-default"
                   }`}
                 >
-                  <div className="flex h-full items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
-                        <SquareTerminal className="w-4 h-4 shrink-0" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <AgentMark agent={window.agent} compact />
-                          <span className="truncate text-[13px] font-semibold text-primary">
-                            {hasMultipleTerminalPanes ? window.name : t("terminalLabel")}
-                          </span>
-                          <PaneStatus status={window.status || slot.status} />
+                  <div className="flex h-full min-w-0 flex-col gap-2">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="w-7 h-7 rounded-md border border-default bg-[var(--bg-card)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                          <SquareTerminal className="w-4 h-4 shrink-0" />
                         </div>
-                        <p className="mt-0.5 text-[11px] text-tertiary truncate" title={window.session_id || window.command || undefined}>
-                          {terminalTaskSummary(t, window)}
-                        </p>
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <AgentMark agent={window.agent} compact />
+                            <span className="min-w-0 truncate text-[13px] font-semibold text-primary">
+                              {hasMultipleTerminalPanes ? window.name : t("terminalLabel")}
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                      <PaneStatus status={window.status || slot.status} />
                     </div>
-                    <div className="flex items-center justify-end gap-1 shrink-0">
-                      {paneNeedsAction && (
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <p className="min-w-0 truncate text-[11px] text-tertiary" title={window.session_id || window.command || undefined}>
+                        {terminalTaskSummary(t, window)}
+                      </p>
+                      <div className="flex items-center justify-end gap-1 shrink-0">
+                        {paneNeedsAction && (
+                          <button
+                            type="button"
+                            onClick={() => onSyncTarget(paneTarget)}
+                            disabled={busy || slotRuntimeUnavailable}
+                            className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
+                            title={t("syncItem")}
+                            aria-label={t("syncItem")}
+                          >
+                            {t("sync")}
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => onSyncTarget(paneTarget)}
+                          onClick={() => onRunAction("open", paneTarget, openerId, "attach_target")}
                           disabled={busy || slotRuntimeUnavailable}
-                          className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
-                          title={t("syncItem")}
-                          aria-label={t("syncItem")}
-                        >
-                          {t("sync")}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => onRunAction("open", paneTarget, openerId, "attach_target")}
-                        disabled={busy || slotRuntimeUnavailable}
-                        className={paneActionClassName}
-                        aria-label={`${primaryActionLabel} ${paneTarget}`}
-                        title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${primaryActionLabel} ${paneTarget}`}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
-                      {onEditTarget && (
-                        <button
-                          type="button"
-                          onClick={() => onEditTarget(hasMultipleTerminalPanes ? { slotName: slot.name, windowName: window.name } : { slotName: slot.name })}
                           className={paneActionClassName}
-                          aria-label={hasMultipleTerminalPanes ? t("editWindowNamed", { name: paneTarget }) : t("editSlotNamed", { name: slotTarget })}
-                          title={hasMultipleTerminalPanes ? t("editWindowNamed", { name: paneTarget }) : t("editSlotNamed", { name: slotTarget })}
+                          aria-label={`${primaryActionLabel} ${paneTarget}`}
+                          title={slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${primaryActionLabel} ${paneTarget}`}
                         >
-                          <PencilLine className="w-3.5 h-3.5" />
+                          <ExternalLink className="w-3.5 h-3.5" />
                         </button>
-                      )}
+                        {onEditTarget && (
+                          <button
+                            type="button"
+                            onClick={() => onEditTarget(hasMultipleTerminalPanes ? { slotName: slot.name, windowName: window.name } : { slotName: slot.name })}
+                            className={paneActionClassName}
+                            aria-label={hasMultipleTerminalPanes ? t("editWindowNamed", { name: paneTarget }) : t("editSlotNamed", { name: slotTarget })}
+                            title={hasMultipleTerminalPanes ? t("editWindowNamed", { name: paneTarget }) : t("editSlotNamed", { name: slotTarget })}
+                          >
+                            <PencilLine className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -381,6 +381,33 @@ class DoctorTests(unittest.TestCase):
 
             self.assertIn("missing command", report.lower())
 
+    def test_doctor_accepts_default_shell_placeholder(self):
+        """$SHELL is a runtime shell placeholder, not a literal binary name."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: "test"
+                root: "."
+
+                tabs:
+                  - name: "coding"
+                    panes:
+                      - name: "pane-4"
+                        command: "$SHELL"
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            report = build_doctor_report(workspace, plan)
+
+            self.assertNotIn("Command not found: $SHELL", report)
+            self.assertNotIn("missing command", report.lower())
+
     def test_doctor_passes_valid_configuration(self):
         """Test that doctor passes a valid configuration without errors."""
         with tempfile.TemporaryDirectory() as tmp:

@@ -642,6 +642,27 @@ describe('Dashboard actions', () => {
     })
   })
 
+  it('keeps four terminal panes in a readable dashboard grid', () => {
+    const result = terminalWorkspaceResult()
+    result.data.slots[0].name = 'coding'
+    ;(result.data.slots[0] as Record<string, unknown>).layout = 'horizontal'
+    result.data.slots[0].windows = ['cc', 'codex', 'pane-3', 'pane-4'].map((name) => ({
+      name,
+      agent: name === 'cc' ? 'claude' : name === 'codex' ? 'codex' : '',
+      command: name.startsWith('pane') ? '$SHELL' : name,
+      session_id: '',
+      label: `demo/coding/${name}`,
+      cwd: '/tmp/demo',
+    }))
+    mocks.workspaceResult.current = result
+
+    const { container } = renderDashboard()
+
+    expect(screen.getByText('4 terminals')).toBeInTheDocument()
+    expect(container.querySelector('.md\\:grid-cols-2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open coding:pane-4' })).toBeInTheDocument()
+  })
+
   it('expands only tmux-backed tabs and uses natural child pane summaries', () => {
     const result = readyWorkspaceResult()
     result.data.slots[0].windows.push({

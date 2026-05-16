@@ -43,6 +43,10 @@ def _build_tmux_issue() -> Issue | None:
     )
 
 
+def _is_default_shell_placeholder(command_binary: str) -> bool:
+    return command_binary in {"$SHELL", "${SHELL}"}
+
+
 def _build_agent_issues(workspace: WorkspaceConfig) -> list[Issue]:
     issues: list[Issue] = []
     referenced = {
@@ -200,6 +204,8 @@ def _build_window_issues(plan: WorkspacePlan) -> list[Issue]:
                 )
 
             if window.command_binary:
+                if _is_default_shell_placeholder(window.command_binary):
+                    continue
                 path = command_cache.get(window.command_binary)
                 if path is None and window.command_binary not in command_cache:
                     path = which(window.command_binary)
