@@ -1051,6 +1051,16 @@ slots:
                     activated = json.loads(response.read().decode())
                 self.assertEqual(activated["active_project_id"], project_id)
 
+                pin_request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/pin",
+                    data=json.dumps({"id": project_id, "pinned": True}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(pin_request, timeout=2) as response:
+                    pinned = json.loads(response.read().decode())
+                self.assertTrue(pinned["projects"][0]["pinned"])
+
                 current_request = Request(
                     (
                         f"http://127.0.0.1:{port}/api/projects/current"
@@ -1068,6 +1078,29 @@ slots:
                     str(review_config.resolve(strict=False)),
                 )
 
+                alt_dir = self.cwd / "alt-project"
+                alt_dir.mkdir()
+                add_alt_request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/add",
+                    data=json.dumps({"path": str(alt_dir)}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(add_alt_request, timeout=2) as response:
+                    with_alt = json.loads(response.read().decode())
+                alt_project_id = with_alt["projects"][1]["id"]
+
+                reorder_request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/reorder",
+                    data=json.dumps({"id": alt_project_id, "before_id": "current"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(reorder_request, timeout=2) as response:
+                    reordered = json.loads(response.read().decode())
+                self.assertEqual(reordered["projects"][0]["id"], alt_project_id)
+                self.assertEqual(reordered["projects"][1]["id"], "current")
+
                 remove_request = Request(
                     f"http://127.0.0.1:{port}/api/projects/remove",
                     data=json.dumps({"id": "current"}).encode(),
@@ -1076,7 +1109,7 @@ slots:
                 )
                 with urlopen(remove_request, timeout=2) as response:
                     removed = json.loads(response.read().decode())
-                self.assertEqual(removed["projects"], [])
+                self.assertEqual([project["id"] for project in removed["projects"]], [alt_project_id])
         finally:
             self._stop_test_server(server)
 

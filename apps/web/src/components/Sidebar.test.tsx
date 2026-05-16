@@ -13,12 +13,16 @@ function renderSidebar({
   activeProjectId = null,
   seedWorkspaceStatus = false,
   workspaceStatus,
+  onSetProjectPinned,
+  onReorderProject,
 }: {
   onOpenSettings?: () => void;
   projects?: ProjectItem[];
   activeProjectId?: string | null;
   seedWorkspaceStatus?: boolean;
   workspaceStatus?: WorkspaceStatus;
+  onSetProjectPinned?: (id: string, pinned: boolean) => void;
+  onReorderProject?: (id: string, beforeId: string | null, pinned?: boolean) => void;
 } = {}) {
   const resolvedOnOpenSettings = onOpenSettings ?? vi.fn(() => undefined);
   const client = new QueryClient({
@@ -56,6 +60,8 @@ function renderSidebar({
           activeProjectId={activeProjectId}
           onSelectProject={() => {}}
           onRemoveProject={() => {}}
+          onSetProjectPinned={onSetProjectPinned ?? (() => {})}
+          onReorderProject={onReorderProject ?? (() => {})}
           onAddProject={() => {}}
           onOpenSettings={resolvedOnOpenSettings}
         />
@@ -139,5 +145,43 @@ describe("Sidebar", () => {
 
     expect(screen.getByText("~/code/research-projects")).toBeInTheDocument();
     expect(screen.queryByText("...")).not.toBeInTheDocument();
+  });
+
+  it("keeps pinned projects in a dedicated section and toggles pin state", () => {
+    const onSetProjectPinned = vi.fn();
+    renderSidebar({
+      activeProjectId: "active",
+      onSetProjectPinned,
+      projects: [
+        { id: "active", name: "Active", path: "/tmp/active" },
+        { id: "pinned", name: "Pinned Project", path: "/tmp/pinned", pinned: true },
+      ],
+    });
+
+    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    expect(screen.getByText("Projects")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Unpin Pinned Project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pin Active" }));
+
+    expect(onSetProjectPinned).toHaveBeenCalledWith("pinned", false);
+    expect(onSetProjectPinned).toHaveBeenCalledWith("active", true);
+  });
+
+  it("reorders projects by dropping one project before another", () => {
+    const onReorderProject = vi.fn();
+    renderSidebar({
+      activeProjectId: "alpha",
+      onReorderProject,
+      projects: [
+        { id: "alpha", name: "Alpha", path: "/tmp/alpha" },
+        { id: "beta", name: "Beta", path: "/tmp/beta" },
+      ],
+    });
+
+    fireEvent.dragStart(screen.getByRole("button", { name: "Move Alpha" }));
+    fireEvent.drop(screen.getByRole("button", { name: "Move Beta" }));
+
+    expect(onReorderProject).toHaveBeenCalledWith("alpha", "beta");
   });
 });

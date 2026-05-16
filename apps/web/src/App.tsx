@@ -161,6 +161,34 @@ function AppInner() {
     [client, setSnapshot]
   );
 
+  const handleSetProjectPinned = useCallback(
+    (id: string, pinned: boolean) => {
+      client
+        .setProjectPinned(id, pinned)
+        .then((data) => setSnapshot(data.projects, data.active_project_id))
+        .catch(() => {
+          // keep current order if backend update fails.
+        });
+    },
+    [client, setSnapshot]
+  );
+
+  const handleReorderProject = useCallback(
+    async (id: string, beforeId: string | null, pinned?: boolean) => {
+      if (!id || id === beforeId) return;
+      try {
+        if (typeof pinned === "boolean") {
+          await client.setProjectPinned(id, pinned);
+        }
+        const data = await client.reorderProject(id, beforeId);
+        setSnapshot(data.projects, data.active_project_id);
+      } catch {
+        // keep current order if backend update fails.
+      }
+    },
+    [client, setSnapshot]
+  );
+
   const handleSetTab = useCallback((id: Tab) => setTab(id), [setTab]);
   const handleSelectConfig = useCallback(
     (path: string) => {
@@ -292,6 +320,8 @@ function AppInner() {
           activeProjectId={activeProjectId}
           onSelectProject={handleSelectProject}
           onRemoveProject={handleRemoveProject}
+          onSetProjectPinned={handleSetProjectPinned}
+          onReorderProject={handleReorderProject}
           onAddProject={() => setAddModalOpen(true)}
           onOpenSettings={handleOpenSettings}
         />
@@ -304,6 +334,8 @@ function AppInner() {
         activeProjectId={activeProjectId}
         onSelectProject={handleSelectProject}
         onRemoveProject={handleRemoveProject}
+        onSetProjectPinned={handleSetProjectPinned}
+        onReorderProject={handleReorderProject}
         onAddProject={() => setAddModalOpen(true)}
         onOpenSettings={handleOpenSettings}
       />
@@ -496,6 +528,8 @@ function MobileSidebarOverlay({
   activeProjectId,
   onSelectProject,
   onRemoveProject,
+  onSetProjectPinned,
+  onReorderProject,
   onAddProject,
   onOpenSettings,
 }: {
@@ -504,6 +538,8 @@ function MobileSidebarOverlay({
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
   onRemoveProject: (id: string) => void;
+  onSetProjectPinned: (id: string, pinned: boolean) => void;
+  onReorderProject: (id: string, beforeId: string | null, pinned?: boolean) => void;
   onAddProject: () => void;
   onOpenSettings: () => void;
 }) {
@@ -526,6 +562,8 @@ function MobileSidebarOverlay({
           activeProjectId={activeProjectId}
           onSelectProject={onSelectProject}
           onRemoveProject={onRemoveProject}
+          onSetProjectPinned={onSetProjectPinned}
+          onReorderProject={onReorderProject}
           onAddProject={onAddProject}
           onOpenSettings={onOpenSettings}
           forceExpanded

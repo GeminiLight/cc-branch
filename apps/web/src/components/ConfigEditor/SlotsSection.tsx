@@ -6,13 +6,14 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import type { WorkspaceScope } from "../../types";
+import Modal from "../ui/Modal";
 import type { SlotConfig, WindowConfig, WorkspaceEditTarget } from "./types";
 import {
   MoveToTabActions,
   PaneSchedulingActions,
-  RemovePaneAction,
   TmuxGroupPositionActions,
 } from "./InspectorActions";
 import TmuxGroupEditor from "./TmuxGroupEditor";
@@ -79,6 +80,7 @@ export default function SlotsSection({
 }) {
   const { t } = useI18n();
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
+  const [pendingDeleteTabIndex, setPendingDeleteTabIndex] = useState<number | null>(null);
   const lastAppliedFocusTarget = useRef<WorkspaceEditTarget | null>(null);
 
   const selectionState = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
@@ -146,10 +148,21 @@ export default function SlotsSection({
     replaceSlots(mutation.slots, mutation.selection);
   }
 
-  function deleteTab(index: number) {
+  function applyDeleteTab(index: number) {
     const mutation = deleteTabMutation(slots, index);
     if (!mutation) return;
     replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function deleteTab(index: number) {
+    if (index < 0 || index >= slots.length) return;
+    setPendingDeleteTabIndex(index);
+  }
+
+  function confirmDeleteTab() {
+    if (pendingDeleteTabIndex == null) return;
+    applyDeleteTab(pendingDeleteTabIndex);
+    setPendingDeleteTabIndex(null);
   }
 
   function moveTabByDrag(fromSlotIndex: number, toSlotIndex: number) {
@@ -201,14 +214,13 @@ export default function SlotsSection({
     replaceSlots(mutation.slots, mutation.selection);
   }
 
-  function deletePane() {
-    if (!selectedSlot) return;
-    deletePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? null);
-  }
-
   function deletePaneAtSlot(slotIndex: number, windowIndex: number | null) {
     const mutation = deletePaneMutation(slots, slotIndex, windowIndex);
     if (!mutation) return;
+    if (mutation.slots.length < slots.length) {
+      deleteTab(slotIndex);
+      return;
+    }
     replaceSlots(mutation.slots, mutation.selection);
   }
 
@@ -308,14 +320,6 @@ export default function SlotsSection({
     movePane(dir);
   }
 
-  function deleteSelectedTmuxGroup() {
-    if (selectedTmuxGroupIsLegacy) {
-      deleteTab(normalizedSelection.slotIndex);
-      return;
-    }
-    deletePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? 0);
-  }
-
   const workspaceDrag = useWorkspaceDrag({
     slots,
     onMoveTab: moveTabByDrag,
@@ -331,6 +335,7 @@ export default function SlotsSection({
     onDeleteTab: deleteTab,
     onAddPane: addPaneToSlot,
     onAddTmuxGroup: addTmuxGroupToSlot,
+    onDeletePane: deletePaneAtSlot,
     onSelect: setSelection,
     onTabDragStart: workspaceDrag.handleTabDragStart,
     onTabDragOver: workspaceDrag.handleTabDragOver,
@@ -342,9 +347,21 @@ export default function SlotsSection({
     onPaneAppendDrop: workspaceDrag.handlePaneAppendDrop,
     onPaneDragEnd: workspaceDrag.clearPaneDrag,
   };
+  const pendingDeleteTab = pendingDeleteTabIndex == null ? null : slots[pendingDeleteTabIndex];
+  const pendingDeleteTabName = pendingDeleteTab?.name || t("unnamed");
 
   return (
     <section className="space-y-3 animate-stagger">
+      <Modal
+        isOpen={pendingDeleteTabIndex !== null}
+        onClose={() => setPendingDeleteTabIndex(null)}
+        title={t("removeSlotConfirmTitle", { name: pendingDeleteTabName })}
+        description={t("removeSlotConfirmDescription", { name: pendingDeleteTabName })}
+        icon={<Trash2 className="h-5 w-5 text-[var(--danger)]" />}
+        confirmText={t("confirm")}
+        onConfirm={confirmDeleteTab}
+        variant="danger"
+      />
       {workspaceValidation.duplicateTabNames.length > 0 && (
         <InlineError message={t("duplicateSlotNames", { names: workspaceValidation.duplicateTabNames.join(", ") })} />
       )}
@@ -450,7 +467,6 @@ export default function SlotsSection({
                         canMoveDown={canMoveSelectedGroupDown}
                         onMoveUp={() => moveSelectedTmuxGroup(-1)}
                         onMoveDown={() => moveSelectedTmuxGroup(1)}
-                        onDelete={deleteSelectedTmuxGroup}
                       />
                     ) : null}
 
@@ -471,10 +487,6 @@ export default function SlotsSection({
                         options={moveTargetOptions}
                         onMoveTo={movePaneToTab}
                       />
-                    ) : null}
-
-                    {editingPane && !selectedTmuxGroup ? (
-                      <RemovePaneAction onDelete={deletePane} />
                     ) : null}
                   </div>
                 </aside>

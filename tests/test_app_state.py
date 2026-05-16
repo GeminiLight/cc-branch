@@ -96,6 +96,25 @@ class ProjectIndexStoreTests(unittest.TestCase):
             str(Path("/tmp/demo/.cc-branch/configs/review.yaml").resolve(strict=False)),
         )
 
+    def test_project_pin_state_is_persisted(self):
+        added = self.store.add_project("/tmp/demo")
+        project_id = added["projects"][0]["id"]
+
+        pinned = self.store.set_project_pinned(project_id, True)
+
+        self.assertTrue(pinned["projects"][0]["pinned"])
+        reloaded = ProjectIndexStore(self.path).payload()
+        self.assertTrue(reloaded["projects"][0]["pinned"])
+
+    def test_reorder_project_moves_before_target(self):
+        a = self.store.add_project("/tmp/a")["projects"][0]["id"]
+        b = self.store.add_project("/tmp/b")["projects"][1]["id"]
+        c = self.store.add_project("/tmp/c")["projects"][2]["id"]
+
+        payload = self.store.reorder_project(c, before_id=a)
+
+        self.assertEqual([item["id"] for item in payload["projects"]], [c, a, b])
+
     def test_save_creates_backup(self):
         self.store.add_project("/tmp/a")
         self.assertTrue(self.path.exists())

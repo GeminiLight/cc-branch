@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp, Copy, MoveRight, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, MoveRight, Plus } from "lucide-react";
 import { useI18n } from "../../i18n";
 
 type SelectOption = { value: string; label: string };
@@ -41,13 +41,11 @@ export function TmuxGroupPositionActions({
   canMoveDown,
   onMoveUp,
   onMoveDown,
-  onDelete,
 }: {
   canMoveUp: boolean;
   canMoveDown: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
-  onDelete: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -64,14 +62,6 @@ export function TmuxGroupPositionActions({
           <ActionLabel icon={<ArrowDown className="h-3.5 w-3.5 text-tertiary" />}>{t("moveDown")}</ActionLabel>
         </ActionButton>
       </div>
-      <button
-        type="button"
-        onClick={onDelete}
-        className="w-full control-touch rounded-md border border-[var(--danger)]/20 text-[12px] text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center gap-1.5"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-        {t("removeGroup")}
-      </button>
     </section>
   );
 }
@@ -154,22 +144,6 @@ export function MoveToTabActions({
           {t("noCompatibleTabs")}
         </div>
       )}
-    </section>
-  );
-}
-
-export function RemovePaneAction({ onDelete }: { onDelete: () => void }) {
-  const { t } = useI18n();
-  return (
-    <section className="space-y-2.5 pt-3 border-t border-default">
-      <button
-        type="button"
-        onClick={onDelete}
-        className="w-full control-touch rounded-md border border-[var(--danger)]/20 text-[12px] text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors flex items-center justify-center gap-1.5"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-        {t("removePane")}
-      </button>
     </section>
   );
 }

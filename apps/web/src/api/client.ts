@@ -50,6 +50,8 @@ export interface APIClient {
   addProject(path: string, name?: string): Promise<ProjectsIndexData>;
   removeProject(id: string): Promise<ProjectsIndexData>;
   activateProject(id: string): Promise<ProjectsIndexData>;
+  setProjectPinned(id: string, pinned: boolean): Promise<ProjectsIndexData>;
+  reorderProject(id: string, beforeId?: string | null): Promise<ProjectsIndexData>;
   injectCurrentProject(scope?: WorkspaceScope | string): Promise<ProjectsIndexData>;
   setProjectConfig(projectPath: string, configPath: string): Promise<ProjectsIndexData>;
   createWorkspaceConfig(projectPath: string, name: string, sourceConfigPath?: string): Promise<ConfigOptionsData>;
@@ -337,6 +339,28 @@ export class HTTPClient implements APIClient {
     return data as ProjectsIndexData;
   }
 
+  async setProjectPinned(id: string, pinned: boolean): Promise<ProjectsIndexData> {
+    const res = await fetchApi(`${this.baseUrl}/api/projects/pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, pinned }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ProjectsIndexData;
+  }
+
+  async reorderProject(id: string, beforeId?: string | null): Promise<ProjectsIndexData> {
+    const res = await fetchApi(`${this.baseUrl}/api/projects/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, before_id: beforeId ?? null }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ProjectsIndexData;
+  }
+
   async injectCurrentProject(scope?: WorkspaceScope | string): Promise<ProjectsIndexData> {
     const res = await fetchApi(`${this.baseUrl}/api/projects/current${qs(scope)}`, {
       method: "POST",
@@ -608,6 +632,30 @@ export class TauriClient implements APIClient {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ProjectsIndexData;
+  }
+
+  async setProjectPinned(id: string, pinned: boolean): Promise<ProjectsIndexData> {
+    const baseUrl = await this._baseUrl();
+    const res = await fetchApi(`${baseUrl}/api/projects/pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, pinned }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ProjectsIndexData;
+  }
+
+  async reorderProject(id: string, beforeId?: string | null): Promise<ProjectsIndexData> {
+    const baseUrl = await this._baseUrl();
+    const res = await fetchApi(`${baseUrl}/api/projects/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, before_id: beforeId ?? null }),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);

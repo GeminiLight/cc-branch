@@ -259,6 +259,7 @@ export interface GlobalProjectItem {
   id: string;
   name: string;
   path: string;
+  pinned?: boolean;
   selected_config_path?: string;
 }
 

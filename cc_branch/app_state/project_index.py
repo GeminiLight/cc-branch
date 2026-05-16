@@ -105,6 +105,44 @@ class ProjectIndexStore:
         self._save(data)
         return self.payload()
 
+    def set_project_pinned(self, project_id: str, pinned: bool) -> dict[str, object]:
+        if not project_id:
+            raise ValueError("id is required")
+        data = self._load()
+        projects = _project_list(data)
+        for idx, item in enumerate(projects):
+            if item.get("id") != project_id:
+                continue
+            next_item = dict(item)
+            next_item["pinned"] = bool(pinned)
+            projects[idx] = next_item
+            data["projects"] = projects
+            self._save(data)
+            return self.payload()
+        raise ValueError(f"unknown project id: {project_id}")
+
+    def reorder_project(self, project_id: str, *, before_id: str | None = None) -> dict[str, object]:
+        if not project_id:
+            raise ValueError("id is required")
+        data = self._load()
+        projects = _project_list(data)
+        source_index = next((idx for idx, item in enumerate(projects) if item.get("id") == project_id), -1)
+        if source_index < 0:
+            raise ValueError(f"unknown project id: {project_id}")
+
+        moving = projects.pop(source_index)
+        if before_id:
+            target_index = next((idx for idx, item in enumerate(projects) if item.get("id") == before_id), -1)
+            if target_index < 0:
+                raise ValueError(f"unknown target project id: {before_id}")
+            projects.insert(target_index, moving)
+        else:
+            projects.append(moving)
+
+        data["projects"] = projects
+        self._save(data)
+        return self.payload()
+
     def inject_current_project(
         self,
         project_path: str,
@@ -243,6 +281,7 @@ def _normalize_data(raw: dict[str, object]) -> dict[str, object]:
                 "name": str(item.get("name") or _project_name(project_path)),
                 "path": project_path,
             }
+            record["pinned"] = bool(item.get("pinned"))
             selected = str(item.get("selected_config_path") or "").strip()
             if selected:
                 record["selected_config_path"] = _normalize_path(selected)

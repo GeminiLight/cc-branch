@@ -303,6 +303,36 @@ def api_projects_activate(handler) -> None:
         handler._send_json({"error": str(error)}, 500)
 
 
+def api_projects_pin(handler) -> None:
+    try:
+        data = _read_json_body(handler)
+        project_id = str(data.get("id") or "").strip()
+        if not project_id:
+            handler._send_json({"error": "Missing 'id' field"}, 400)
+            return
+        handler._send_json(ProjectIndexStore().set_project_pinned(project_id, bool(data.get("pinned"))))
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_projects_reorder(handler) -> None:
+    try:
+        data = _read_json_body(handler)
+        project_id = str(data.get("id") or "").strip()
+        before_raw = data.get("before_id")
+        before_id = str(before_raw).strip() if before_raw is not None else None
+        if not project_id:
+            handler._send_json({"error": "Missing 'id' field"}, 400)
+            return
+        handler._send_json(ProjectIndexStore().reorder_project(project_id, before_id=before_id or None))
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
 def api_projects_current(handler) -> None:
     try:
         config_path, _state_path = handler._resolve_paths()

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
-import { ChevronLeft, ChevronRight, Plus, Settings, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, Pin, PinOff, Plus, Settings, X } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import type { APIClient } from "../api/client";
 import type { WorkspaceStatus } from "../types";
@@ -15,6 +15,8 @@ interface SidebarProps {
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
   onRemoveProject: (id: string) => void;
+  onSetProjectPinned: (id: string, pinned: boolean) => void;
+  onReorderProject: (id: string, beforeId: string | null, pinned?: boolean) => void;
   onAddProject: () => void;
   onOpenSettings: () => void;
   forceExpanded?: boolean;
@@ -106,6 +108,15 @@ function projectIconStyle(project: ProjectItem, active: boolean): CSSProperties 
   };
 }
 
+function projectSections(projects: ProjectItem[]): Array<{ key: "pinned" | "projects"; titleKey: string; projects: ProjectItem[] }> {
+  const pinned = projects.filter((project) => project.pinned);
+  const normal = projects.filter((project) => !project.pinned);
+  const sections: Array<{ key: "pinned" | "projects"; titleKey: string; projects: ProjectItem[] }> = [];
+  if (pinned.length > 0) sections.push({ key: "pinned", titleKey: "pinnedProjects", projects: pinned });
+  if (normal.length > 0) sections.push({ key: "projects", titleKey: "projects", projects: normal });
+  return sections;
+}
+
 function AppMark({ compact = false }: { compact?: boolean }) {
   return (
     <img
@@ -126,6 +137,8 @@ export default function Sidebar({
   activeProjectId,
   onSelectProject,
   onRemoveProject,
+  onSetProjectPinned,
+  onReorderProject,
   onAddProject,
   onOpenSettings,
   forceExpanded = false,
@@ -134,7 +147,9 @@ export default function Sidebar({
   const [storedCollapsed, setStoredCollapsed] = useState(() => {
     return getLocalStorageItem(SIDEBAR_COLLAPSED_KEY) === "true";
   });
+  const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const collapsed = forceExpanded ? false : storedCollapsed;
+  const sections = useMemo(() => projectSections(projects), [projects]);
 
   const toggleCollapsed = useCallback(() => {
     setStoredCollapsed((prev) => {
@@ -228,11 +243,42 @@ export default function Sidebar({
             {!collapsed && <p className="text-[11px] text-muted mt-1">{t("addProjectHint")}</p>}
           </div>
         )}
-        {projects.map((p) => {
+        {sections.map((section) => (
+          <div
+            key={section.key}
+            className={collapsed ? "space-y-1" : "space-y-1.5"}
+            onDragOver={(event) => {
+              if (!draggingProjectId) return;
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (!draggingProjectId) return;
+              const source = projects.find((project) => project.id === draggingProjectId);
+              const targetPinned = section.key === "pinned";
+              const nextPinned = source && Boolean(source.pinned) !== targetPinned ? targetPinned : undefined;
+              if (typeof nextPinned === "boolean") {
+                onReorderProject(draggingProjectId, null, nextPinned);
+              } else {
+                onReorderProject(draggingProjectId, null);
+              }
+              setDraggingProjectId(null);
+            }}
+          >
+            {!collapsed && sections.length > 1 && (
+              <div className="flex items-center justify-between px-2 pt-1 pb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                  {t(section.titleKey)}
+                </span>
+                <span className="text-[10px] font-mono text-muted">{section.projects.length}</span>
+              </div>
+            )}
+            {section.projects.map((p) => {
           const active = activeProjectId === p.id;
           const st = statuses[p.id];
           const monogram = projectMonogram(p.name);
           const canRemove = p.id !== "current";
+          const isDragging = draggingProjectId === p.id;
 
           return (
             <div
@@ -241,8 +287,26 @@ export default function Sidebar({
                 active
                   ? "bg-[var(--bg-card)] text-primary"
                   : "text-secondary hover:text-primary hover:bg-[var(--bg-hover)]"
-              }`}
+              } ${isDragging ? "opacity-55 ring-1 ring-[var(--accent)]/35" : ""}`}
               title={collapsed ? p.name : undefined}
+              onDragOver={(event) => {
+                if (!draggingProjectId || draggingProjectId === p.id) return;
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!draggingProjectId || draggingProjectId === p.id) return;
+                const source = projects.find((project) => project.id === draggingProjectId);
+                const nextPinned = source && Boolean(source.pinned) !== Boolean(p.pinned) ? Boolean(p.pinned) : undefined;
+                if (typeof nextPinned === "boolean") {
+                  onReorderProject(draggingProjectId, p.id, nextPinned);
+                } else {
+                  onReorderProject(draggingProjectId, p.id);
+                }
+                setDraggingProjectId(null);
+              }}
             >
               {/* Active indicator — left border */}
               {active && !collapsed && (
@@ -253,7 +317,7 @@ export default function Sidebar({
                 type="button"
                 onClick={() => onSelectProject(p.id)}
                 className={`w-full min-w-0 text-left rounded-md flex items-center ${
-                  collapsed ? "justify-center px-1 py-1.5" : `gap-2.5 py-2.5 pl-2.5 ${canRemove ? "pr-16" : "pr-7"}`
+                  collapsed ? "justify-center px-1 py-1.5" : `gap-2.5 py-2.5 pl-2.5 ${canRemove ? "pr-[5.75rem]" : "pr-16"}`
                 }`}
                 aria-current={active ? "page" : undefined}
                 aria-label={collapsed ? p.name : undefined}
@@ -289,37 +353,78 @@ export default function Sidebar({
 
               <span
                 className={`absolute rounded-full border border-[var(--sidebar-bg)] shadow-[0_0_0_1px_rgb(255_255_255_/_0.18)] ${
-                  collapsed ? "right-2 top-2.5 w-2.5 h-2.5" : "right-2.5 top-1/2 w-2 h-2 -translate-y-1/2"
+                  collapsed ? "right-2 top-2.5 w-2.5 h-2.5" : "right-3 top-2.5 w-2 h-2"
                 } ${statusDotClass(st?.status)}`}
                 title={statusLabel(t, st?.status)}
                 aria-label={statusLabel(t, st?.status)}
               />
 
-              {/* Delete button */}
-              {!collapsed && canRemove && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveProject(p.id);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
+              {!collapsed && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(event) => {
+                      setDraggingProjectId(p.id);
+                      if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", p.id);
+                      }
+                    }}
+                    onDragEnd={() => setDraggingProjectId(null)}
+                    className="icon-touch sm:min-h-7 sm:min-w-7 rounded-md flex items-center justify-center text-muted hover:text-primary hover:surface-hover transition-colors cursor-grab active:cursor-grabbing"
+                    aria-label={t("moveProject", { name: p.name })}
+                    title={t("moveProject", { name: p.name })}
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
-                      onRemoveProject(p.id);
-                    }
-                  }}
-                  className="absolute right-6 top-1/2 -translate-y-1/2 icon-touch sm:min-h-8 sm:min-w-8 rounded-md flex items-center justify-center text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger hover:danger-bg transition-colors"
-                  aria-label={`${t("remove")} ${p.name}`}
-                  tabIndex={0}
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                      onSetProjectPinned(p.id, !p.pinned);
+                    }}
+                    className={`icon-touch sm:min-h-7 sm:min-w-7 rounded-md flex items-center justify-center transition-colors ${
+                      p.pinned
+                        ? "text-[var(--accent)] bg-[var(--accent-bg)]"
+                        : "text-muted hover:text-primary hover:surface-hover"
+                    }`}
+                    aria-label={t(p.pinned ? "unpinProject" : "pinProject", { name: p.name })}
+                    title={t(p.pinned ? "unpinProject" : "pinProject", { name: p.name })}
+                  >
+                    {p.pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                  </button>
+                  {canRemove && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveProject(p.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          onRemoveProject(p.id);
+                        }
+                      }}
+                      className="icon-touch sm:min-h-7 sm:min-w-7 rounded-md flex items-center justify-center text-muted hover:text-danger hover:danger-bg transition-colors"
+                      aria-label={`${t("remove")} ${p.name}`}
+                      tabIndex={0}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );
-        })}
+            })}
+            {!collapsed && draggingProjectId && (
+              <div className="mx-1 h-2 rounded-full border border-dashed border-[var(--accent-border)] bg-[var(--accent-bg)]/40" />
+            )}
+          </div>
+        ))}
       </nav>
 
       {/* Add / Settings */}

@@ -322,6 +322,12 @@ class WebUIHandler(BaseHTTPRequestHandler):
         elif path == "/api/projects/activate":
             if self._require_auth():
                 api.api_projects_activate(self)
+        elif path == "/api/projects/pin":
+            if self._require_auth():
+                api.api_projects_pin(self)
+        elif path == "/api/projects/reorder":
+            if self._require_auth():
+                api.api_projects_reorder(self)
         elif path == "/api/projects/current":
             if self._require_auth():
                 api.api_projects_current(self)

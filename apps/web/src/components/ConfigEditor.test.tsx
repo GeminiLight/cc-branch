@@ -497,6 +497,51 @@ describe('ConfigEditor diagnostics', () => {
     expect(screen.queryByRole('button', { name: 'Remove pane main' })).not.toBeInTheDocument()
   })
 
+  it('removes a pane from the canvas hover action without confirmation', () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '      - name: spec',
+          '        command: npm test',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove pane spec' }))
+
+    expect(screen.queryByText('Remove tab spec?')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit pane spec' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit pane ui' })).toBeInTheDocument()
+  })
+
+  it('asks for confirmation before deleting a tab', () => {
+    renderConfigEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tab dev' }))
+
+    expect(screen.getByText('Remove tab dev?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit tab dev' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(screen.queryByRole('button', { name: 'Edit tab dev' })).not.toBeInTheDocument()
+    expect(screen.getByText('No tabs yet')).toBeInTheDocument()
+  })
+
   it('focuses a dashboard edit target on the workspace canvas', () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {

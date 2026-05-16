@@ -29,6 +29,7 @@ type WorkspaceCanvasProps = {
   onDeleteTab: (slotIndex: number) => void;
   onAddPane: (slotIndex: number, afterIndex?: number) => void;
   onAddTmuxGroup: (slotIndex: number, afterIndex?: number) => void;
+  onDeletePane: (slotIndex: number, windowIndex: number | null) => void;
   onSelect: (selection: Selection) => void;
   onTabDragStart: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
   onTabDragOver: (event: DragEvent<HTMLElement>) => void;
@@ -50,6 +51,7 @@ export default function WorkspaceCanvas({
   onDeleteTab,
   onAddPane,
   onAddTmuxGroup,
+  onDeletePane,
   onSelect,
   onTabDragStart,
   onTabDragOver,
@@ -198,11 +200,19 @@ export default function WorkspaceCanvas({
                           const paneIsDragSource =
                             paneDrag?.slotIndex === slotIndex && paneDrag.paneIndex === paneIndex;
                           const paneDropCandidate = Boolean(paneDrag && !paneIsDragSource);
+                          const canDeletePaneFromCanvas =
+                            !isLegacyTmuxSlot(slot) &&
+                            pane.windowIndex !== null &&
+                            slotToPanes(slot).length > 1;
                           return (
+                            <div
+                              key={`${pane.name}-${paneIndex}`}
+                              className="group/pane-cell relative min-w-0"
+                              style={workspacePaneCellStyle(slot, canvasPanes.length, paneIndex)}
+                            >
                             <div
                               role="button"
                               tabIndex={0}
-                              key={`${pane.name}-${paneIndex}`}
                               onClick={() => onSelect({ slotIndex, target: "pane", windowIndex: pane.windowIndex })}
                               draggable={paneIsDraggable}
                               onDragStart={(event) => onPaneDragStart(event, slotIndex, paneIndex)}
@@ -224,7 +234,6 @@ export default function WorkspaceCanvas({
                               } ${paneIsDragSource ? "opacity-55 scale-[0.99]" : ""} ${
                                 paneDropCandidate ? "outline outline-1 outline-offset-1 outline-[var(--accent-border)]" : ""
                               }`}
-                              style={workspacePaneCellStyle(slot, canvasPanes.length, paneIndex)}
                               aria-label={t("editWindowNamed", { name: paneName })}
                               aria-current={selectedPane ? "true" : undefined}
                               data-drag-source={paneIsDragSource ? "true" : undefined}
@@ -300,6 +309,22 @@ export default function WorkspaceCanvas({
                                   {cwdLabel}
                                 </span>
                               )}
+                            </div>
+                            {canDeletePaneFromCanvas && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onDeletePane(slotIndex, pane.windowIndex);
+                                }}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                className="absolute right-1.5 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--danger)]/20 bg-[var(--bg-card)]/95 text-muted opacity-0 shadow-sm backdrop-blur transition-all hover:border-[var(--danger)]/45 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] focus:opacity-100 group-hover/pane-cell:opacity-100"
+                                aria-label={t("removeWindow", { name: paneName })}
+                                title={t("removeWindow", { name: paneName })}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            )}
                             </div>
                           );
                         })}

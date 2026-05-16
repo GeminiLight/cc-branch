@@ -149,6 +149,29 @@ describe("HTTPClient workspace scope", () => {
     );
   });
 
+  it("pins and reorders projects through the project index endpoints", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ version: 1, active_project_id: "a", projects: [], storage_path: "/tmp/home/.cc-branch/app/projects.yaml" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new HTTPClient();
+
+    await client.setProjectPinned("a", true);
+    await client.reorderProject("b", "a");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/projects/pin",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ id: "a", pinned: true }) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/projects/reorder",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ id: "b", before_id: "a" }) }),
+    );
+  });
+
   it("loads global agents settings", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
