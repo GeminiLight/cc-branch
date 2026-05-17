@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="portalGrad" x1="60" y1="98" x2="60" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4c0f99"/>
+      <stop offset="50%" stop-color="#7e14ff"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="60" cy="60" r="56" fill="#f8f5ff"/>
+
+  <!-- 水滴 / 盾形外框 -->
+  <path d="M 60 18
+           C 78 34, 92 50, 92 70
+           C 92 88, 78 100, 60 100
+           C 42 100, 28 88, 28 70
+           C 28 50, 42 34, 60 18 Z"
+        fill="url(#portalGrad)"/>
+
+  <!-- Y 形负空间：像窗口里的分支，也像门扉向两侧打开 -->
+  <path d="M 60 90  L 60 56
+           M 60 56  L 38 34
+           M 60 56  L 82 34"
+        stroke="#f8f5ff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 中心圆点，让负空间更完整、更有 Hub 感 -->
+  <circle cx="60" cy="56" r="7.5" fill="#f8f5ff"/>
+</svg>

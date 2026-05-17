@@ -1,0 +1,98 @@
+name: Release Desktop App
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to create or update, for example v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            os: macos-14
+            args: --target aarch64-apple-darwin --bundles app
+            rust-targets: aarch64-apple-darwin
+            sidecar-target: aarch64-apple-darwin
+          - name: macOS Intel
+            os: macos-15-intel
+            args: --target x86_64-apple-darwin --bundles app
+            rust-targets: x86_64-apple-darwin
+            sidecar-target: x86_64-apple-darwin
+          - name: Linux
+            os: ubuntu-22.04
+            args: ""
+            rust-targets: ""
+            sidecar-target: x86_64-unknown-linux-gnu
+          - name: Windows
+            os: windows-latest
+            args: ""
+            rust-targets: ""
+            sidecar-target: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+          cache: npm
+          cache-dependency-path: apps/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install app dependencies
+        working-directory: apps
+        run: npm ci
+
+      - name: Build bundled backend sidecar
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+          python scripts/build-desktop-sidecar.py --target ${{ matrix.sidecar-target }}
+
+      - name: Build desktop app and upload release assets
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ inputs.release_tag || github.ref_name }}
+          releaseName: CC Branch Desktop ${{ inputs.release_tag || github.ref_name }}
+          releaseBody: |
+            CC Branch Desktop.
+
+            This build bundles the CC Branch backend sidecar. Users do not need
+            to install Python or the `cc-branch` Python package separately.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

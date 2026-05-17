@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cc-branch"
+version = "0.1.0"
+description = "Multi-agent workspace orchestrator for shell and tmux runtimes"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  {name = "GeminiLight", email = "wtfly2018@gmail.com"}
+]
+maintainers = [
+  {name = "GeminiLight", email = "wtfly2018@gmail.com"}
+]
+keywords = ["tmux", "cli", "agents", "orchestrator", "ai", "workspace", "automation"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: System :: Shells",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Environment :: Console",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+  "PyYAML>=6.0",
+  "rich>=13.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.18.0",
+  "pytest>=7.0.0",
+  "pytest-cov>=4.0.0",
+  "ruff>=0.1.0",
+  "types-PyYAML>=6.0.12",
+]
+desktop = [
+  "pyinstaller>=6.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/GeminiLight/cc-branch"
+Documentation = "https://github.com/GeminiLight/cc-branch/blob/main/docs"
+Repository = "https://github.com/GeminiLight/cc-branch"
+Issues = "https://github.com/GeminiLight/cc-branch/issues"
+Changelog = "https://github.com/GeminiLight/cc-branch/blob/main/CHANGELOG.md"
+
+[project.scripts]
+cc-branch = "cc_branch.cli:main"
+ccb = "cc_branch.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["cc_branch*"]
+
+[tool.setuptools.package-data]
+cc_branch = ["agents.yaml", "webui/static/*", "webui/static/assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+source = ["cc_branch"]
+omit = ["tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "B",  # flake8-bugbear
+  "C4", # flake8-comprehensions
+]
+ignore = [
+  "E501",  # line too long (handled by formatter)
+  "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused imports in __init__.py

@@ -1,0 +1,22 @@
+version: 2
+project: cli-workspace
+root: .
+openWith: auto-terminal
+display:
+  dashboard: true
+tabs:
+  - name: codex-spec
+    cwd: .
+    panes:
+      - name: dev-backend
+        agent: codex
+        cwd: .
+        session: 019dd56d-0700-7bb3-a9c0-83eb2b033b0e
+      - name: pane-3
+        agent: claude
+  - name: tmux-dev
+    layoutBackend: tmux
+    cwd: .
+    panes:
+      - name: shell
+        command: zsh

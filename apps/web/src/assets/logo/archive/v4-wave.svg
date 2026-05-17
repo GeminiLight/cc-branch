@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Wave：三个 pane 底部对齐，顶部形成波浪，中最高为 accent -->
+  <rect x="10" y="50" width="28" height="44" rx="8" fill="#1c1917"/>
+  <rect x="46" y="26" width="28" height="68" rx="8" fill="#c2410c"/>
+  <rect x="82" y="58" width="28" height="36" rx="8" fill="#1c1917"/>
+</svg>

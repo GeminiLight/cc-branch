@@ -1,0 +1,18 @@
+{
+  "name": "@cc-branch/apps",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "cd web && npm run dev",
+    "build": "cd web && npm run build",
+    "lint": "cd web && npm run lint",
+    "preview": "cd web && npm run preview",
+    "desktop:dev": "cd desktop && npm run tauri:dev",
+    "desktop:build": "cd desktop && npm run tauri:build"
+  },
+  "workspaces": [
+    "web",
+    "desktop"
+  ]
+}

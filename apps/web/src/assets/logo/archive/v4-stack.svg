@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Stack：三层 pane 向右上方错开，颜色从深到亮 -->
+  <rect x="8" y="46" width="56" height="48" rx="12" fill="#1c1917"/>
+  <rect x="32" y="30" width="56" height="48" rx="12" fill="#7c2d12"/>
+  <rect x="56" y="14" width="56" height="48" rx="12" fill="#c2410c"/>
+</svg>

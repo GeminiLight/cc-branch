@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="flowGrad" x1="60" y1="100" x2="60" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4c0f99"/>
+      <stop offset="60%" stop-color="#7e14ff"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="60" cy="60" r="56" fill="#f8f5ff"/>
+
+  <!--
+    一笔粗线条从底部向上，在途中自然分岔。
+    利用 fill-path 制造「书法笔触」般的粗细变化：
+    底部最粗，分岔处最细，末端再次略收圆。
+  -->
+  <path d="M 56 94
+           C 56 80, 57 68, 58 58
+           C 58 52, 54 46, 46 38
+           C 42 34, 38 30, 36 26
+           C 40 26, 44 28, 48 32
+           C 54 40, 58 48, 60 54
+           C 62 48, 66 40, 72 32
+           C 76 28, 80 26, 84 26
+           C 82 30, 78 34, 74 38
+           C 66 46, 62 52, 62 58
+           C 63 68, 64 80, 64 94
+           C 63 96, 61 97, 60 97
+           C 59 97, 57 96, 56 94 Z"
+        fill="url(#flowGrad)"/>
+</svg>

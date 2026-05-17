@@ -1,0 +1,78 @@
+# Scenario: Solo Developer Workspace
+#
+# Use case: You're working on a web application and want to:
+# - Have Claude Code review your code
+# - Have Codex help with implementation
+# - Run your dev server in a separate pane
+# - Keep a scratch terminal for quick commands
+#
+# Workflow:
+# 1. Start coding in the "coder" pane
+# 2. Ask for review in the "reviewer" pane
+# 3. Check your app in the "server" pane
+# 4. Run quick commands in the "scratch" tab
+
+version: 2
+project: "my-web-app"
+root: "."
+openWith: auto-terminal
+
+display:
+  mode: "grid"
+  columns: 2
+  dashboard: true
+
+agents:
+  # Codex for implementation
+  codex:
+    command: "codex"
+    resume_mode: "flag"
+    resume_template: "resume {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+  # Claude for code review
+  claude:
+    command: "claude"
+    create_mode: "generated_uuid"
+    create_template: "claude --session-id {session_id}"
+    resume_mode: "flag"
+    resume_template: "-r {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+tabs:
+  # Main development tab with multiple agents
+  - name: "dev"
+    layoutBackend: "tmux"
+    cwd: "."
+    panes:
+      # Pane 1: Codex for coding
+      - name: "coder"
+        agent: "codex"
+        env:
+          EDITOR: "vim"
+
+      # Pane 2: Claude for review
+      - name: "reviewer"
+        agent: "claude"
+
+      # Pane 3: Dev server (no agent, just a command)
+      - name: "server"
+        command: "npm run dev"
+        # Note: This will run the dev server
+        # You can attach to this pane to see logs
+
+  # Scratch terminal for quick commands
+  - name: "scratch"
+    cwd: "."
+    panes:
+      - name: "scratch"
+        command: "zsh"
+
+# How to use:
+# 1. cp examples/scenario-solo-dev.yaml .cc-branch/config.yaml
+# 2. cc-branch plan --write-state
+# 3. cc-branch start
+# 4. cc-branch attach dev:coder      # Start coding
+# 5. cc-branch attach dev:reviewer   # Get code review
+# 6. cc-branch attach dev:server     # Check server logs
+# 7. cc-branch attach scratch        # Run quick commands

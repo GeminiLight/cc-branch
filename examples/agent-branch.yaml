@@ -1,0 +1,43 @@
+# Human-friendly YAML variant of the starter workspace config.
+# Keep template strings quoted so braces stay unambiguous across editors.
+
+version: 2
+project: "your-project"
+root: "."
+openWith: auto-terminal
+
+display:
+  mode: "grid"
+  columns: 2
+  dashboard: true
+
+agents:
+  codex:
+    command: "codex"
+    resume_mode: "flag"
+    resume_template: "resume {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+  claude:
+    command: "claude"
+    create_mode: "generated_uuid"
+    create_template: "claude --session-id {session_id}"
+    resume_mode: "flag"
+    resume_template: "-r {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+tabs:
+  - name: "dev"
+    layoutBackend: "tmux"
+    cwd: "."
+    panes:
+      - name: "planner"
+        agent: "codex"
+      - name: "review"
+        agent: "claude"
+
+  - name: "scratch"
+    cwd: "."
+    panes:
+      - name: "scratch"
+        command: "zsh"

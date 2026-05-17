@@ -1,0 +1,765 @@
+import { describe, expect, it } from "vitest";
+import type { SlotConfig, WindowConfig } from "./types";
+import {
+  addPaneMutation,
+  addTabMutation,
+  addTmuxGroupPaneMutation,
+  addTmuxWindowMutation,
+  clampSelection,
+  configuredPaneCount,
+  deletePaneMutation,
+  deleteTabMutation,
+  deleteTmuxWindowMutation,
+  duplicatePaneMutation,
+  editableWindowsForSlot,
+  isLegacyTmuxSlot,
+  isTmuxGroupWindow,
+  moveTmuxWindowMutation,
+  movePaneBetweenSlots,
+  movePaneWithinTabMutation,
+  moveTab,
+  slotToCanvasPanes,
+  slotToPanes,
+  slotWithWindows,
+  tmuxGroupWindowFromSlot,
+  tmuxGroupWindows,
+  updateTmuxWindowMutation,
+  uniqueName,
+  uniqueTabName,
+} from "./workspace-model";
+
+function windowConfig(patch: Partial<WindowConfig> = {}): WindowConfig {
+  return {
+    name: "main",
+    agent: null,
+    command: null,
+    cwd: null,
+    env: {},
+    session: null,
+    session_id: null,
+    label: null,
+    label_template: null,
+    resume_mode: null,
+    resume_template: null,
+    create_mode: null,
+    create_template: null,
+    label_mode: null,
+    rename_template: null,
+    ...patch,
+  };
+}
+
+function slotConfig(patch: Partial<SlotConfig> = {}): SlotConfig {
+  return {
+    name: "dev",
+    runtime: "terminal",
+    cwd: ".",
+    env: {},
+    windows: [],
+    ...patch,
+  };
+}
+
+describe("workspace model", () => {
+  it("generates unique names after trimming existing names", () => {
+    expect(uniqueName(["coding", " coding-1 "], " coding ")).toBe("coding-2");
+  });
+
+  it("generates a stable unique tab name", () => {
+    const slots = [
+      slotConfig({ name: "coding" }),
+      slotConfig({ name: " coding-1 " }),
+      slotConfig({ name: "review" }),
+    ];
+
+    expect(uniqueTabName(slots)).toBe("coding-2");
+  });
+
+  it("adds a clean terminal tab without binding an agent or tmux runtime", () => {
+    const mutation = addTabMutation([]);
+
+    expect(mutation.slots).toEqual([
+      expect.objectContaining({
+        name: "coding",
+        runtime: "terminal",
+        layout: "auto",
+        cwd: ".",
+        env: {},
+        command: "$SHELL",
+        windows: [],
+      }),
+    ]);
+    expect(mutation.slots[0].agent).toBeUndefined();
+    expect(mutation.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("adds unique shell tabs regardless of available agents", () => {
+    const mutation = addTabMutation([slotConfig({ name: "coding" })]);
+
+    expect(mutation.slots[1]).toMatchObject({
+      name: "coding-1",
+      runtime: "terminal",
+      command: "$SHELL",
+      windows: [],
+    });
+    expect(mutation.slots[1].agent).toBeUndefined();
+    expect(mutation.selection).toEqual({ slotIndex: 1, target: "tab", windowIndex: null });
+  });
+
+  it("adds a shell tab when no agent exists", () => {
+    const mutation = addTabMutation([]);
+
+    expect(mutation.slots[0]).toMatchObject({
+      name: "coding",
+      runtime: "terminal",
+      command: "$SHELL",
+      windows: [],
+    });
+    expect(mutation.slots[0].agent).toBeUndefined();
+  });
+
+  it("deletes a tab and selects the previous tab", () => {
+    const mutation = deleteTabMutation([
+      slotConfig({ name: "first" }),
+      slotConfig({ name: "second" }),
+      slotConfig({ name: "third" }),
+    ], 1);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["first", "third"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("ignores invalid tab deletion indexes", () => {
+    expect(deleteTabMutation([slotConfig()], -1)).toBeNull();
+    expect(deleteTabMutation([slotConfig()], 1)).toBeNull();
+  });
+
+  it("adds a pane to an explicit terminal tab", () => {
+    const mutation = addPaneMutation([
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" })],
+      }),
+    ], 0, ["codex"], 0, "vertical");
+
+    expect(mutation?.slots[0]).toMatchObject({
+      runtime: "terminal",
+      layout: "vertical",
+      windows: [
+        expect.objectContaining({ name: "ui" }),
+        expect.objectContaining({ name: "pane-2", agent: null, session: null, command: "$SHELL" }),
+      ],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("splits a legacy tmux tab into a movable tmux group plus a new pane", () => {
+    const mutation = addPaneMutation([
+      slotConfig({
+        name: "tmux-dev",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" })],
+      }),
+    ], 0, ["claude"]);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows).toEqual([
+      expect.objectContaining({
+        name: "tmux-dev",
+        layoutBackend: "tmux",
+        windows: [expect.objectContaining({ name: "frontend" })],
+      }),
+      expect.objectContaining({ name: "pane-2", agent: null, session: null, command: "$SHELL" }),
+    ]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("adds an explicit tmux group pane without changing existing direct panes", () => {
+    const mutation = addTmuxGroupPaneMutation([
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui", layoutBackend: "direct" })],
+      }),
+    ], 0, ["codex"], 0);
+
+    expect(mutation?.slots[0]).toMatchObject({
+      runtime: "terminal",
+      windows: [
+        expect.objectContaining({ name: "ui", layoutBackend: "direct" }),
+        expect.objectContaining({
+          name: "tmux-group",
+          layoutBackend: "tmux",
+          windows: [expect.objectContaining({ name: "main", agent: null, session: null, command: "$SHELL" })],
+        }),
+      ],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("adds a second tmux group next to a legacy tmux tab group", () => {
+    const mutation = addTmuxGroupPaneMutation([
+      slotConfig({
+        name: "agents",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" })],
+      }),
+    ], 0, ["claude"]);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows).toEqual([
+      expect.objectContaining({
+        name: "agents",
+        layoutBackend: "tmux",
+        windows: [expect.objectContaining({ name: "frontend" })],
+      }),
+      expect.objectContaining({
+        name: "tmux-group",
+        layoutBackend: "tmux",
+        windows: [expect.objectContaining({ name: "main", agent: null, session: null, command: "$SHELL" })],
+      }),
+    ]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("duplicates an implicit terminal pane as a new tab", () => {
+    const mutation = duplicatePaneMutation([
+      slotConfig({ name: " scratch ", title: "Scratch", runtime: "terminal", windows: [] }),
+      slotConfig({ name: "scratch-copy", runtime: "terminal", windows: [] }),
+    ], 0, null);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual([" scratch ", "scratch-copy-1", "scratch-copy"]);
+    expect(mutation?.slots[1].title).toBe("Scratch-copy");
+    expect(mutation?.selection).toEqual({ slotIndex: 1, target: "pane", windowIndex: null });
+  });
+
+  it("duplicates an explicit pane next to its source", () => {
+    const mutation = duplicatePaneMutation([
+      slotConfig({
+        name: "dev",
+        windows: [
+          windowConfig({ name: "ui" }),
+          windowConfig({ name: " api ", agent: "codex" }),
+          windowConfig({ name: "api-copy" }),
+        ],
+      }),
+    ], 0, 1);
+
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["ui", " api ", "api-copy-1", "api-copy"]);
+    expect(mutation?.slots[0].windows[2]).toMatchObject({ agent: "codex" });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 2 });
+  });
+
+  it("deletes an implicit terminal pane by deleting the tab", () => {
+    const mutation = deletePaneMutation([
+      slotConfig({ name: "scratch", runtime: "terminal", windows: [] }),
+      slotConfig({ name: "review", runtime: "terminal", windows: [] }),
+    ], 0, null);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["review"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("deletes an explicit pane and selects the previous remaining pane", () => {
+    const mutation = deletePaneMutation([
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" }), windowConfig({ name: "docs" })],
+      }),
+    ], 0, 1);
+
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["ui", "docs"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 0 });
+  });
+
+  it("ignores invalid explicit pane deletion indexes", () => {
+    expect(deletePaneMutation([
+      slotConfig({ windows: [windowConfig({ name: "ui" })] }),
+    ], 0, 4)).toBeNull();
+  });
+
+  it("updates a tmux window inside a legacy tmux tab", () => {
+    const mutation = updateTmuxWindowMutation([
+      slotConfig({
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+    ], 0, null, 1, { agent: "codex" });
+
+    expect(mutation?.[0].windows[1]).toMatchObject({ name: "backend", agent: "codex" });
+  });
+
+  it("updates a tmux window inside an explicit tmux group pane", () => {
+    const mutation = updateTmuxWindowMutation([
+      slotConfig({
+        windows: [
+          windowConfig({ name: "shell" }),
+          windowConfig({
+            name: "workers",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "api" })],
+          }),
+        ],
+      }),
+    ], 0, 1, 0, { command: "pytest" });
+
+    expect(mutation?.[0].windows[1]).toMatchObject({
+      name: "workers",
+      windows: [expect.objectContaining({ name: "api", command: "pytest" })],
+    });
+  });
+
+  it("adds a tmux window to the selected tmux group", () => {
+    const mutation = addTmuxWindowMutation([
+      slotConfig({
+        windows: [
+          windowConfig({
+            name: "workers",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "api" }), windowConfig({ name: "window-3" })],
+          }),
+        ],
+      }),
+    ], 0, 0, ["codex"]);
+
+    expect(mutation?.[0].windows[0].windows?.map((window) => window.name)).toEqual(["api", "window-3", "window-3-1"]);
+    expect(mutation?.[0].windows[0].windows?.[2]).toMatchObject({ agent: null, session: null, command: "$SHELL" });
+  });
+
+  it("adds a tmux window to an empty legacy tmux tab without losing the original launch fields", () => {
+    const mutation = addTmuxWindowMutation([
+      slotConfig({
+        name: "agent",
+        runtime: "tmux",
+        agent: "codex",
+        session: "explicit-session",
+        windows: [],
+      }),
+    ], 0, null, ["claude"]);
+
+    expect(mutation?.[0].runtime).toBe("tmux");
+    expect(mutation?.[0].windows).toEqual([
+      expect.objectContaining({ name: "agent", agent: "codex", session: "explicit-session" }),
+      expect.objectContaining({ name: "window-2", agent: null, session: null, command: "$SHELL" }),
+    ]);
+  });
+
+  it("adds valid shell panes when no agent is available", () => {
+    const paneMutation = addPaneMutation([
+      slotConfig({ name: "dev", runtime: "terminal", windows: [windowConfig({ name: "ui" })] }),
+    ], 0, []);
+    const tmuxMutation = addTmuxWindowMutation([
+      slotConfig({
+        windows: [
+          windowConfig({
+            name: "workers",
+            layoutBackend: "tmux",
+            windows: [windowConfig({ name: "api" })],
+          }),
+        ],
+      }),
+    ], 0, 0, []);
+
+    expect(paneMutation?.slots[0].windows[1]).toMatchObject({ name: "pane-2", agent: null, command: "$SHELL" });
+    expect(tmuxMutation?.[0].windows[0].windows?.[1]).toMatchObject({ name: "window-2", agent: null, command: "$SHELL" });
+  });
+
+  it("moves a tmux window inside a tmux group", () => {
+    const mutation = moveTmuxWindowMutation([
+      slotConfig({
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+    ], 0, null, 0, 1);
+
+    expect(mutation?.[0].windows.map((window) => window.name)).toEqual(["backend", "frontend"]);
+  });
+
+  it("deletes a tmux window but keeps at least one window", () => {
+    const slots = [
+      slotConfig({
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+    ];
+
+    expect(deleteTmuxWindowMutation(slots, 0, null, 0)?.[0].windows.map((window) => window.name)).toEqual(["backend"]);
+    expect(deleteTmuxWindowMutation([
+      slotConfig({ runtime: "tmux", windows: [windowConfig({ name: "only" })] }),
+    ], 0, null, 0)).toBeNull();
+  });
+
+  it("treats legacy tmux slots as one outer pane regardless of internal windows", () => {
+    const slot = slotConfig({
+      runtime: "tmux",
+      windows: [
+        windowConfig({ name: "frontend" }),
+        windowConfig({ name: "backend" }),
+        windowConfig({ name: "docs" }),
+      ],
+    });
+
+    expect(isLegacyTmuxSlot(slot)).toBe(true);
+    expect(configuredPaneCount(slot)).toBe(1);
+  });
+
+  it("counts explicit tmux groups as panes without counting their internal windows", () => {
+    const slot = slotConfig({
+      windows: [
+        windowConfig({ name: "ui" }),
+        windowConfig({
+          name: "workers",
+          layoutBackend: "tmux",
+          windows: [windowConfig({ name: "api" }), windowConfig({ name: "jobs" })],
+        }),
+      ],
+    });
+
+    expect(isTmuxGroupWindow(slot.windows[1])).toBe(true);
+    expect(isLegacyTmuxSlot(slot)).toBe(false);
+    expect(configuredPaneCount(slot)).toBe(2);
+  });
+
+  it("treats an explicit empty windows array as a tmux group marker", () => {
+    const slot = slotConfig({
+      runtime: "tmux",
+      windows: [windowConfig({ name: "empty-group", windows: [] })],
+    });
+
+    expect(isTmuxGroupWindow(slot.windows[0])).toBe(true);
+    expect(isLegacyTmuxSlot(slot)).toBe(false);
+    expect(configuredPaneCount(slot)).toBe(1);
+  });
+
+  it("projects a legacy tmux tab as one canvas pane with internal windows hidden", () => {
+    const slot = slotConfig({
+      name: "dev",
+      runtime: "tmux",
+      windows: [
+        windowConfig({ name: "frontend", agent: "codex" }),
+        windowConfig({ name: "backend", agent: "claude" }),
+      ],
+    });
+
+    expect(slotToCanvasPanes(slot)).toEqual([{
+      name: "dev",
+      agent: "codex",
+      cwd: ".",
+      windowIndex: null,
+      kind: "tmux-group",
+    }]);
+  });
+
+  it("uses a terminal slot fallback window without changing the source slot", () => {
+    const slot = slotConfig({
+      name: "scratch",
+      runtime: "terminal",
+      command: "zsh",
+      windows: [],
+    });
+
+    const windows = editableWindowsForSlot(slot);
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].name).toBe("scratch");
+    expect(windows[0].command).toBe("zsh");
+    expect(slot.windows).toEqual([]);
+  });
+
+  it("wraps legacy tmux tabs as movable tmux group windows", () => {
+    const slot = slotConfig({
+      name: "dev",
+      runtime: "tmux",
+      cwd: "app",
+      env: { NODE_ENV: "development" },
+      windows: [windowConfig({ name: "api" })],
+    });
+
+    expect(tmuxGroupWindowFromSlot(slot)).toMatchObject({
+      name: "dev",
+      layoutBackend: "tmux",
+      cwd: "app",
+      env: { NODE_ENV: "development" },
+      windows: [expect.objectContaining({ name: "api" })],
+    });
+  });
+
+  it("preserves slot-level launch fields when wrapping an empty legacy tmux tab", () => {
+    const slot = slotConfig({
+      name: "agent",
+      runtime: "tmux",
+      agent: "codex",
+      command: "codex",
+      session: "explicit-session",
+      session_id: "explicit-session",
+      label: "demo/agent",
+      windows: [],
+    });
+
+    expect(tmuxGroupWindowFromSlot(slot).windows?.[0]).toMatchObject({
+      name: "agent",
+      agent: "codex",
+      command: null,
+      session: "explicit-session",
+      session_id: "explicit-session",
+      label: "demo/agent",
+    });
+    expect(slotToPanes(slot)[0]).toMatchObject({
+      name: "agent",
+      agent: "codex",
+      session: "explicit-session",
+    });
+    expect(editableWindowsForSlot(slot)[0]).toMatchObject({
+      name: "agent",
+      agent: "codex",
+      session: "explicit-session",
+    });
+  });
+
+  it("falls back to a single tmux window when an explicit group has no children", () => {
+    const group = windowConfig({
+      name: "group",
+      agent: "codex",
+      command: "codex",
+      session: "session-1",
+      label: "demo/group",
+      windows: [],
+    });
+
+    expect(tmuxGroupWindows(group)).toEqual([
+      expect.objectContaining({ name: "group", agent: "codex", command: "codex", session: "session-1", label: "demo/group" }),
+    ]);
+  });
+
+  it("normalizes a slot containing a tmux group back to terminal runtime", () => {
+    const slot = slotConfig({ runtime: "tmux", command: "tmux attach", agent: "codex" });
+    const next = slotWithWindows(slot, [
+      windowConfig({ name: "shell" }),
+      windowConfig({ name: "group", layoutBackend: "tmux", windows: [windowConfig({ name: "api" })] }),
+    ]);
+
+    expect(next.runtime).toBe("terminal");
+    expect(next.command).toBeUndefined();
+    expect(next.agent).toBeUndefined();
+    expect(next.windows).toHaveLength(2);
+  });
+
+  it("clamps pane selections to the current tab shape", () => {
+    const slots = [
+      slotConfig({ name: "first", windows: [windowConfig({ name: "one" })] }),
+      slotConfig({
+        name: "second",
+        windows: [windowConfig({ name: "two" }), windowConfig({ name: "three" })],
+      }),
+    ];
+
+    expect(clampSelection({ slotIndex: 9, target: "pane", windowIndex: 9 }, slots)).toEqual({
+      slotIndex: 1,
+      target: "pane",
+      windowIndex: 1,
+    });
+  });
+
+  it("moves tabs while keeping the same selected tab identity", () => {
+    const first = slotConfig({ name: "first" });
+    const second = slotConfig({ name: "second" });
+    const third = slotConfig({ name: "third" });
+
+    const mutation = moveTab([first, second, third], 0, 3, {
+      slotIndex: 1,
+      target: "tab",
+      windowIndex: null,
+    });
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["second", "third", "first"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "tab", windowIndex: null });
+  });
+
+  it("reorders panes inside one tab without changing runtimes", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" }), windowConfig({ name: "docs" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 0, 3);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["api", "docs", "ui"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 2 });
+  });
+
+  it("moves panes inside one tab by direction", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" }), windowConfig({ name: "docs" })],
+      }),
+    ];
+
+    const mutation = movePaneWithinTabMutation(slots, 0, 1, -1);
+
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["api", "ui", "docs"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 0 });
+  });
+
+  it("does not move an implicit terminal fallback pane", () => {
+    const mutation = movePaneWithinTabMutation([slotConfig({ runtime: "terminal", windows: [] })], 0, 0, 1);
+
+    expect(mutation).toBeNull();
+  });
+
+  it("rejects invalid source pane indexes for directional moves", () => {
+    const slots = [
+      slotConfig({
+        name: "dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "ui" }), windowConfig({ name: "api" })],
+      }),
+    ];
+
+    expect(movePaneWithinTabMutation(slots, 0, -1, 1)).toBeNull();
+    expect(movePaneWithinTabMutation(slots, 0, 2, -1)).toBeNull();
+  });
+
+  it("moves panes across tabs even when their runtimes differ", () => {
+    const slots = [
+      slotConfig({
+        name: "source",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "worker" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 1, 1, 1);
+
+    expect(mutation?.slots).toHaveLength(2);
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["frontend"]);
+    expect(mutation?.slots[1].runtime).toBe("terminal");
+    expect(mutation?.slots[1].windows.map((window) => window.name)).toEqual(["target", "backend"]);
+    expect(mutation?.slots[1].windows[0]).toMatchObject({
+      layoutBackend: "tmux",
+      windows: [expect.objectContaining({ name: "worker" })],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 1, target: "pane", windowIndex: 1 });
+  });
+
+  it("turns a legacy tmux tab into a movable tmux group when dropped into another tab", () => {
+    const slots = [
+      slotConfig({
+        name: "tmux-dev",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" }), windowConfig({ name: "backend" })],
+      }),
+      slotConfig({
+        name: "terminal-dev",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "review" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 1, 1);
+
+    expect(mutation?.slots).toHaveLength(1);
+    expect(mutation?.slots[0].name).toBe("terminal-dev");
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows).toHaveLength(2);
+    expect(mutation?.slots[0].windows[1]).toMatchObject({
+      name: "tmux-dev",
+      layoutBackend: "tmux",
+      windows: [expect.objectContaining({ name: "frontend" }), expect.objectContaining({ name: "backend" })],
+    });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("removes an empty source tab after moving its last explicit pane", () => {
+    const slots = [
+      slotConfig({
+        name: "single",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "only" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 1, 1);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["target"]);
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["existing", "only"]);
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("moves an implicit terminal pane into another tab", () => {
+    const slots = [
+      slotConfig({
+        name: "shell",
+        runtime: "terminal",
+        command: "zsh",
+        windows: [],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    const mutation = movePaneBetweenSlots(slots, 0, 0, 1, 1);
+
+    expect(mutation?.slots.map((slot) => slot.name)).toEqual(["target"]);
+    expect(mutation?.slots[0].runtime).toBe("terminal");
+    expect(mutation?.slots[0].windows.map((window) => window.name)).toEqual(["existing", "shell"]);
+    expect(mutation?.slots[0].windows[1]).toMatchObject({ command: "zsh" });
+    expect(mutation?.selection).toEqual({ slotIndex: 0, target: "pane", windowIndex: 1 });
+  });
+
+  it("rejects invalid source pane indexes for cross-tab moves", () => {
+    const slots = [
+      slotConfig({
+        name: "source",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "first" }), windowConfig({ name: "last" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    expect(movePaneBetweenSlots(slots, 0, -1, 1, 1)).toBeNull();
+    expect(movePaneBetweenSlots(slots, 0, 2, 1, 1)).toBeNull();
+  });
+
+  it("rejects invalid legacy tmux group source pane indexes", () => {
+    const slots = [
+      slotConfig({
+        name: "tmux-dev",
+        runtime: "tmux",
+        windows: [windowConfig({ name: "frontend" })],
+      }),
+      slotConfig({
+        name: "target",
+        runtime: "terminal",
+        windows: [windowConfig({ name: "existing" })],
+      }),
+    ];
+
+    expect(movePaneBetweenSlots(slots, 0, 1, 1, 1)).toBeNull();
+  });
+});

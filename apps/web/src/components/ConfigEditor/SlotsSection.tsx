@@ -1,0 +1,498 @@
+/**
+ * ConfigEditor — Workspace canvas for Tab / Pane layout editing.
+ *
+ * The persisted schema is still slots/windows. The UI presents those as
+ * tabs/panes so users edit the workspace model, not the storage model.
+ */
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
+import { useI18n } from "../../i18n";
+import type { WorkspaceScope } from "../../types";
+import Modal from "../ui/Modal";
+import type { SlotConfig, WindowConfig, WorkspaceEditTarget } from "./types";
+import {
+  MoveToTabActions,
+  PaneSchedulingActions,
+  TmuxGroupPositionActions,
+} from "./InspectorActions";
+import TmuxGroupEditor from "./TmuxGroupEditor";
+import WorkspaceCanvas from "./WorkspaceCanvas";
+import {
+  AgentPaneEditor,
+  TabEditor,
+  TerminalPaneEditor,
+} from "./WorkspaceDetailEditors";
+import {
+  InlineError,
+} from "./FormPrimitives";
+import {
+  addPaneMutation,
+  addTabMutation,
+  addTmuxGroupPaneMutation,
+  addTmuxWindowMutation,
+  deleteTmuxWindowMutation,
+  deleteTabMutation,
+  deletePaneMutation,
+  duplicatePaneMutation,
+  isLegacyTmuxSlot,
+  moveTmuxWindowMutation,
+  movePaneBetweenSlots,
+  movePaneWithinTabMutation,
+  moveTab as moveTabModel,
+  slotToPanes,
+  tmuxGroupWindows,
+  updateTmuxWindowMutation,
+  type PaneSplitLayout,
+  type Selection,
+} from "./workspace-model";
+import { paneCount } from "./workspace-display";
+import { useWorkspaceDrag } from "./workspace-drag";
+import {
+  canMoveSelectedPaneToTarget,
+  inspectorSelectionSubtitle,
+  isSelectedPaneMovable,
+  moveTargetOptionsForSelection,
+  selectedPaneOrderState,
+  selectedTmuxGroupPositionState,
+} from "./workspace-inspector-model";
+import { deriveWorkspaceSelection, selectionForWorkspaceTarget } from "./workspace-selection";
+import { validateWorkspaceNames } from "./workspace-validation";
+
+function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) => string, runtime: SlotConfig["runtime"]): string {
+  return runtime === "terminal" ? t("runtimeTerminal") : t("runtimeTmux");
+}
+
+export default function SlotsSection({
+  slots,
+  agents,
+  scope,
+  defaultShellName,
+  focusTarget,
+  onChange,
+}: {
+  slots: SlotConfig[];
+  agents: string[];
+  scope?: WorkspaceScope;
+  defaultShellName?: string | null;
+  focusTarget?: WorkspaceEditTarget | null;
+  onChange: (slots: SlotConfig[]) => void;
+}) {
+  const { t } = useI18n();
+  const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
+  const [pendingDeleteTabIndex, setPendingDeleteTabIndex] = useState<number | null>(null);
+  const lastAppliedFocusTarget = useRef<WorkspaceEditTarget | null>(null);
+
+  const selectionState = useMemo(() => deriveWorkspaceSelection(slots, selection), [selection, slots]);
+  const {
+    normalizedSelection,
+    selectedSlot,
+    selectedWindow,
+    selectedTerminalWindow,
+    selectedTmuxGroup,
+    editingPane,
+  } = selectionState;
+
+  useEffect(() => {
+    if (
+      normalizedSelection.slotIndex !== selection.slotIndex ||
+      normalizedSelection.target !== selection.target ||
+      normalizedSelection.windowIndex !== selection.windowIndex
+    ) {
+      setSelection(normalizedSelection);
+    }
+  }, [normalizedSelection, selection]);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    if (lastAppliedFocusTarget.current === focusTarget) return;
+    const nextSelection = selectionForWorkspaceTarget(slots, focusTarget);
+    if (!nextSelection) return;
+    lastAppliedFocusTarget.current = focusTarget;
+    setSelection(nextSelection);
+  }, [focusTarget, slots]);
+
+  const agentOptions = [
+    { value: "", label: t("noneOption") },
+    ...agents.map((agent) => ({ value: agent, label: agent })),
+  ];
+  const layoutOptions = [
+    { value: "auto", label: t("layoutAuto") },
+    { value: "horizontal", label: t("layoutHorizontal") },
+    { value: "vertical", label: t("layoutVertical") },
+    { value: "main-left", label: t("layoutMainLeft") },
+    { value: "main-top", label: t("layoutMainTop") },
+    { value: "grid", label: t("layoutGrid") },
+  ];
+
+  const moveTargetOptions = useMemo(() => {
+    return moveTargetOptionsForSelection(slots, selectionState, t);
+  }, [selectionState, slots, t]);
+
+  const selectedMovablePane = isSelectedPaneMovable(selectionState);
+  const selectedInspectorSubtitle = inspectorSelectionSubtitle(selectionState, t);
+
+  function updateSlot(index: number, patch: Partial<SlotConfig>) {
+    const next = [...slots];
+    next[index] = { ...next[index], ...patch };
+    onChange(next);
+  }
+
+  function replaceSlots(next: SlotConfig[], nextSelection?: Selection) {
+    onChange(next);
+    if (nextSelection) setSelection(nextSelection);
+  }
+
+  function addTab() {
+    const mutation = addTabMutation(slots);
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function applyDeleteTab(index: number) {
+    const mutation = deleteTabMutation(slots, index);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function deleteTab(index: number) {
+    if (index < 0 || index >= slots.length) return;
+    setPendingDeleteTabIndex(index);
+  }
+
+  function confirmDeleteTab() {
+    if (pendingDeleteTabIndex == null) return;
+    applyDeleteTab(pendingDeleteTabIndex);
+    setPendingDeleteTabIndex(null);
+  }
+
+  function moveTabByDrag(fromSlotIndex: number, toSlotIndex: number) {
+    const mutation = moveTabModel(slots, fromSlotIndex, toSlotIndex, normalizedSelection);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function moveTab(index: number, dir: number) {
+    if (dir < 0) {
+      moveTabByDrag(index, index - 1);
+      return;
+    }
+    moveTabByDrag(index, index + 2);
+  }
+
+  function updateWindow(index: number, patch: Partial<WindowConfig>) {
+    if (!selectedSlot || selectedSlot.windows.length === 0) return;
+    const windows = [...selectedSlot.windows];
+    windows[index] = { ...windows[index], ...patch };
+    updateSlot(normalizedSelection.slotIndex, { windows });
+  }
+
+  function splitSelectedPane(layout: PaneSplitLayout) {
+    if (!selectedSlot) return;
+    addPaneToSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? 0, layout);
+  }
+
+  function addPaneToSlot(slotIndex: number, afterIndex?: number, layout?: PaneSplitLayout) {
+    const mutation = addPaneMutation(slots, slotIndex, agents, afterIndex, layout);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function addTmuxGroupToSlot(slotIndex: number, afterIndex?: number) {
+    const mutation = addTmuxGroupPaneMutation(slots, slotIndex, agents, afterIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function duplicatePane() {
+    if (!selectedSlot) return;
+    duplicatePaneAtSlot(normalizedSelection.slotIndex, normalizedSelection.windowIndex ?? null);
+  }
+
+  function duplicatePaneAtSlot(slotIndex: number, windowIndex: number | null) {
+    const mutation = duplicatePaneMutation(slots, slotIndex, windowIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function deletePaneAtSlot(slotIndex: number, windowIndex: number | null) {
+    const mutation = deletePaneMutation(slots, slotIndex, windowIndex);
+    if (!mutation) return;
+    if (mutation.slots.length < slots.length) {
+      deleteTab(slotIndex);
+      return;
+    }
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function movePane(dir: number) {
+    movePaneAt(normalizedSelection.windowIndex ?? 0, dir);
+  }
+
+  function movePaneAt(windowIndex: number, dir: number) {
+    movePaneAtSlot(normalizedSelection.slotIndex, windowIndex, dir);
+  }
+
+  function movePaneAtSlot(slotIndex: number, windowIndex: number, dir: number) {
+    const mutation = movePaneWithinTabMutation(slots, slotIndex, windowIndex, dir);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function movePaneByDrag(fromSlotIndex: number, fromPaneIndex: number, toSlotIndex: number, toPaneIndex: number) {
+    const mutation = movePaneBetweenSlots(slots, fromSlotIndex, fromPaneIndex, toSlotIndex, toPaneIndex);
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  function movePaneToTab(targetValue: string) {
+    if (!selectedSlot || !selectedMovablePane) return;
+    const targetIndex = Number(targetValue);
+    const target = slots[targetIndex];
+    if (!target || !canMoveSelectedPaneToTarget(selectionState, targetIndex)) return;
+    const mutation = movePaneBetweenSlots(
+      slots,
+      normalizedSelection.slotIndex,
+      normalizedSelection.windowIndex ?? 0,
+      targetIndex,
+      paneCount(target),
+    );
+    if (!mutation) return;
+    replaceSlots(mutation.slots, mutation.selection);
+  }
+
+  const selectedTmuxWindowList = selectedTmuxGroup
+    ? selectedSlot && isLegacyTmuxSlot(selectedSlot)
+      ? slotToPanes(selectedSlot)
+      : selectedWindow
+      ? tmuxGroupWindows(selectedWindow)
+      : []
+    : [];
+
+  function updateSelectedTmuxGroupName(value: string) {
+    if (!selectedSlot) return;
+    if (isLegacyTmuxSlot(selectedSlot)) {
+      updateSlot(normalizedSelection.slotIndex, { name: value });
+      return;
+    }
+    if (selectedWindow) updateWindow(normalizedSelection.windowIndex ?? 0, { name: value });
+  }
+
+  function updateSelectedTmuxWindow(windowIndex: number, patch: Partial<WindowConfig>) {
+    const next = updateTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, windowIndex, patch);
+    if (!next) return;
+    onChange(next);
+  }
+
+  function addSelectedTmuxWindow() {
+    const next = addTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, agents);
+    if (!next) return;
+    onChange(next);
+  }
+
+  function moveSelectedTmuxWindow(windowIndex: number, dir: number) {
+    const next = moveTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, windowIndex, dir);
+    if (!next) return;
+    onChange(next);
+  }
+
+  function deleteSelectedTmuxWindow(windowIndex: number) {
+    const next = deleteTmuxWindowMutation(slots, normalizedSelection.slotIndex, normalizedSelection.windowIndex, windowIndex);
+    if (!next) return;
+    onChange(next);
+  }
+
+  const workspaceValidation = useMemo(() => validateWorkspaceNames(slots), [slots]);
+  const {
+    canMoveUp: canMoveSelectedPaneUp,
+    canMoveDown: canMoveSelectedPaneDown,
+  } = selectedPaneOrderState(selectionState);
+  const {
+    isLegacy: selectedTmuxGroupIsLegacy,
+    canMoveUp: canMoveSelectedGroupUp,
+    canMoveDown: canMoveSelectedGroupDown,
+  } = selectedTmuxGroupPositionState(slots, selectionState);
+
+  function moveSelectedTmuxGroup(dir: number) {
+    if (selectedTmuxGroupIsLegacy) {
+      moveTab(normalizedSelection.slotIndex, dir);
+      return;
+    }
+    movePane(dir);
+  }
+
+  const workspaceDrag = useWorkspaceDrag({
+    slots,
+    onMoveTab: moveTabByDrag,
+    onMovePane: movePaneByDrag,
+  });
+
+  const canvasProps = {
+    slots,
+    selection: normalizedSelection,
+    tabDrag: workspaceDrag.tabDrag,
+    paneDrag: workspaceDrag.paneDrag,
+    onAddTab: addTab,
+    onDeleteTab: deleteTab,
+    onAddPane: addPaneToSlot,
+    onAddTmuxGroup: addTmuxGroupToSlot,
+    onDeletePane: deletePaneAtSlot,
+    onSelect: setSelection,
+    onTabDragStart: workspaceDrag.handleTabDragStart,
+    onTabDragOver: workspaceDrag.handleTabDragOver,
+    onTabDrop: workspaceDrag.handleTabDrop,
+    onTabDragEnd: workspaceDrag.clearTabDrag,
+    onPaneDragStart: workspaceDrag.handlePaneDragStart,
+    onPaneDragOver: workspaceDrag.handlePaneDragOver,
+    onPaneDrop: workspaceDrag.handlePaneDrop,
+    onPaneAppendDrop: workspaceDrag.handlePaneAppendDrop,
+    onPaneDragEnd: workspaceDrag.clearPaneDrag,
+  };
+  const pendingDeleteTab = pendingDeleteTabIndex == null ? null : slots[pendingDeleteTabIndex];
+  const pendingDeleteTabName = pendingDeleteTab?.name || t("unnamed");
+
+  return (
+    <section className="space-y-3 animate-stagger">
+      <Modal
+        isOpen={pendingDeleteTabIndex !== null}
+        onClose={() => setPendingDeleteTabIndex(null)}
+        title={t("removeSlotConfirmTitle", { name: pendingDeleteTabName })}
+        description={t("removeSlotConfirmDescription", { name: pendingDeleteTabName })}
+        icon={<Trash2 className="h-5 w-5 text-[var(--danger)]" />}
+        confirmText={t("confirm")}
+        onConfirm={confirmDeleteTab}
+        variant="danger"
+      />
+      {workspaceValidation.duplicateTabNames.length > 0 && (
+        <InlineError message={t("duplicateSlotNames", { names: workspaceValidation.duplicateTabNames.join(", ") })} />
+      )}
+      {workspaceValidation.duplicatePaneNames.length > 0 && (
+        <InlineError message={t("duplicatePaneNames", { names: workspaceValidation.duplicatePaneNames.join(", ") })} />
+      )}
+      {workspaceValidation.hasEmptyTabNames && (
+        <InlineError message={t("allSlotsMustHaveName")} />
+      )}
+      {workspaceValidation.hasEmptyPaneNames && (
+        <InlineError message={t("allWindowsMustHaveName")} />
+      )}
+      {workspaceValidation.missingLaunchTargets.length > 0 && (
+        <InlineError message={t("missingLaunchCommands", { names: workspaceValidation.missingLaunchTargets.join(", ") })} />
+      )}
+      {workspaceValidation.reservedTargetNames.length > 0 && (
+        <InlineError message={t("reservedTargetNameSeparators", { names: workspaceValidation.reservedTargetNames.join(", ") })} />
+      )}
+
+      {slots.length === 0 ? (
+        <WorkspaceCanvas {...canvasProps} />
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3 items-start">
+          <WorkspaceCanvas {...canvasProps} />
+
+              {selectedSlot && (
+                <aside className="rounded-lg border border-default bg-[var(--bg-card)] overflow-hidden xl:sticky xl:top-3">
+                  <div className="px-3 py-3 border-b border-subtle bg-[var(--bg-card)]">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{t("inspector")}</p>
+                    <div className="mt-1 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-[15px] font-semibold text-primary">
+                          {editingPane ? t("selectedPane") : t("selectedTab")}
+                        </h3>
+                        <p className="mt-0.5 truncate text-[11px] text-tertiary">
+                          {selectedInspectorSubtitle}
+                        </p>
+                      </div>
+                      <span className="inline-flex shrink-0 items-center rounded-md border border-default bg-[var(--bg-hover)] px-2 py-1 text-[10px] font-semibold text-tertiary">
+                        {selectedTmuxGroup ? t("tmuxWindowStack") : editingPane ? t("pane") : t("tab")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 space-y-3">
+                    {!editingPane && (
+                      <TabEditor
+                        slot={selectedSlot}
+                        layoutOptions={layoutOptions}
+                        onChange={(patch) => updateSlot(normalizedSelection.slotIndex, patch)}
+                      />
+                    )}
+
+                    {editingPane && (
+                    <section className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{t("pane")}</p>
+                        <span className="text-[10px] text-tertiary">
+                          {selectedTmuxGroup ? t("runtimeTmux") : runtimeLabel(t, selectedSlot.runtime)}
+                        </span>
+                      </div>
+                      {selectedSlot.runtime === "terminal" && !selectedTmuxGroup ? (
+                        <TerminalPaneEditor
+                          slot={selectedSlot}
+                          window={selectedTerminalWindow}
+                          agentOptions={agentOptions}
+                          scope={scope}
+                          defaultShellName={defaultShellName}
+                          onSlotChange={(patch) => updateSlot(normalizedSelection.slotIndex, patch)}
+                          onWindowChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
+                        />
+                      ) : selectedTmuxGroup ? (
+                        <TmuxGroupEditor
+                          groupName={isLegacyTmuxSlot(selectedSlot) ? selectedSlot.name : selectedWindow?.name ?? ""}
+                          windows={selectedTmuxWindowList}
+                          agentOptions={agentOptions}
+                          scope={scope}
+                          defaultShellName={defaultShellName}
+                          onGroupNameChange={updateSelectedTmuxGroupName}
+                          onAddWindow={addSelectedTmuxWindow}
+                          onMoveWindow={moveSelectedTmuxWindow}
+                          onDeleteWindow={deleteSelectedTmuxWindow}
+                          onUpdateWindow={updateSelectedTmuxWindow}
+                        />
+                      ) : selectedWindow ? (
+                        <AgentPaneEditor
+                          window={selectedWindow}
+                          agentOptions={agentOptions}
+                          scope={scope}
+                          onChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
+                        />
+                      ) : (
+                        <div className="rounded-md border border-dashed border-default p-4 text-[12px] text-tertiary">
+                          {t("noPanesYet")}
+                        </div>
+                      )}
+                    </section>
+                    )}
+
+                    {selectedTmuxGroup ? (
+                      <TmuxGroupPositionActions
+                        canMoveUp={canMoveSelectedGroupUp}
+                        canMoveDown={canMoveSelectedGroupDown}
+                        onMoveUp={() => moveSelectedTmuxGroup(-1)}
+                        onMoveDown={() => moveSelectedTmuxGroup(1)}
+                      />
+                    ) : null}
+
+                    {editingPane && !selectedTmuxGroup ? (
+                      <PaneSchedulingActions
+                        canMoveUp={canMoveSelectedPaneUp}
+                        canMoveDown={canMoveSelectedPaneDown}
+                        onSplitRight={() => splitSelectedPane("horizontal")}
+                        onSplitDown={() => splitSelectedPane("vertical")}
+                        onDuplicate={duplicatePane}
+                        onMoveUp={() => movePane(-1)}
+                        onMoveDown={() => movePane(1)}
+                      />
+                    ) : null}
+
+                    {editingPane && selectedMovablePane && slots.length > 1 ? (
+                      <MoveToTabActions
+                        options={moveTargetOptions}
+                        onMoveTo={movePaneToTab}
+                      />
+                    ) : null}
+                  </div>
+                </aside>
+              )}
+            </div>
+          )}
+    </section>
+  );
+}

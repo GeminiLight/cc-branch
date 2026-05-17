@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="sproutGrad" x1="60" y1="95" x2="60" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4c0f99"/>
+      <stop offset="45%" stop-color="#7e14ff"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 淡紫圆形背景 -->
+  <circle cx="60" cy="60" r="56" fill="#f8f5ff"/>
+
+  <!-- 萌芽：底部圆润，向上收束，顶部分岔成两叶 -->
+  <path d="M 55 90
+           C 48 84, 44 76, 40 64
+           C 36 52, 36 40, 38 26
+           C 42 26, 45 28, 47 32
+           C 52 44, 56 52, 60 56
+           C 64 52, 68 44, 73 32
+           C 75 28, 78 26, 82 26
+           C 84 40, 84 52, 80 64
+           C 76 76, 72 84, 65 90
+           C 63 92, 61 93, 60 93
+           C 59 93, 57 92, 55 90 Z"
+        fill="url(#sproutGrad)"/>
+
+  <!-- 中心高光 Hub，增加呼吸感和精致度 -->
+  <circle cx="60" cy="56" r="5.5" fill="#ffffff" opacity="0.9"/>
+</svg>

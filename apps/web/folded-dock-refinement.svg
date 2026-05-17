@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 780" role="img" aria-labelledby="title desc">
+  <title id="title">Folded Dock refined logo variants</title>
+  <desc id="desc">Six refined logo variants exploring a folded project dock opening into workspace lanes.</desc>
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1320" y2="780" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAF2EF"/>
+      <stop offset="1" stop-color="#DDE8E6"/>
+    </linearGradient>
+    <filter id="tileShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#263C3A" flood-opacity=".18"/>
+    </filter>
+    <linearGradient id="tileGraphite" x1="28" y1="20" x2="220" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#132022"/>
+      <stop offset="1" stop-color="#0B1517"/>
+    </linearGradient>
+    <linearGradient id="tileSoft" x1="28" y1="20" x2="220" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8FCFA"/>
+      <stop offset="1" stop-color="#E7F0EE"/>
+    </linearGradient>
+    <linearGradient id="dockTeal" x1="0" y1="42" x2="0" y2="168" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#35E9CE"/>
+      <stop offset="1" stop-color="#10A79C"/>
+    </linearGradient>
+    <linearGradient id="foldTeal" x1="0" y1="42" x2="0" y2="168" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#149B92"/>
+      <stop offset="1" stop-color="#0A5F5B"/>
+    </linearGradient>
+    <linearGradient id="amberTile" x1="28" y1="20" x2="220" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18201B"/>
+      <stop offset="1" stop-color="#10130F"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1320" height="780" fill="url(#pageBg)"/>
+  <text x="70" y="74" font-family="Aptos, IBM Plex Sans, Arial, sans-serif" font-size="36" font-weight="800" fill="#10201F">Folded Dock refinement</text>
+  <text x="70" y="108" font-family="Aptos, IBM Plex Sans, Arial, sans-serif" font-size="18" fill="#5D6D69">Less black, no awkward diamond. Keep the dock + workspace lanes idea, but make the geometry cleaner.</text>
+
+  <!-- A -->
+  <g transform="translate(70 150)">
+    <rect x="0" y="0" width="250" height="250" rx="54" fill="url(#tileGraphite)" filter="url(#tileShadow)"/>
+    <rect x="54" y="54" width="42" height="142" rx="18" fill="url(#dockTeal)"/>
+    <path d="M96 54 L132 76 Q142 82 142 96 L142 208 L96 181 Z" fill="url(#foldTeal)"/>
+    <rect x="136" y="72" width="54" height="16" rx="8" fill="#F5FFF9"/>
+    <rect x="136" y="117" width="70" height="16" rx="8" fill="#F4B740"/>
+    <rect x="136" y="162" width="58" height="16" rx="8" fill="#35D08F"/>
+    <text x="0" y="296" font-family="Aptos, Arial, sans-serif" font-size="20" font-weight="800" fill="#10201F">A. Original cleaned</text>
+    <text x="0" y="324" font-family="Aptos, Arial, sans-serif" font-size="15" fill="#687773">Closest to the one you liked, but aligned.</text>
+  </g>
+
+  <!-- B -->
+  <g transform="translate(380 150)">
+    <rect x="0" y="0" width="250" height="250" rx="54" fill="#102022" filter="url(#tileShadow)"/>
+    <path d="M54 54 H93 Q106 54 116 63 L143 88 Q151 95 151 107 V197 L115 176 Q96 165 96 142 V54 Z" fill="#0F766E"/>
+    <rect x="54" y="54" width="48" height="142" rx="18" fill="#2DD4BF"/>
+    <rect x="144" y="72" width="54" height="16" rx="8" fill="#F5FFF9"/>
+    <rect x="144" y="117" width="70" height="16" rx="8" fill="#F4B740"/>
+    <rect x="144" y="162" width="58" height="16" rx="8" fill="#35D08F"/>
+    <text x="0" y="296" font-family="Aptos, Arial, sans-serif" font-size="20" font-weight="800" fill="#10201F">B. Fold behind rail</text>
+    <text x="0" y="324" font-family="Aptos, Arial, sans-serif" font-size="15" fill="#687773">Fold is behind the dock, so the join is cleaner.</text>
+  </g>
+
+  <!-- C -->
+  <g transform="translate(690 150)">
+    <rect x="0" y="0" width="250" height="250" rx="54" fill="url(#tileSoft)" filter="url(#tileShadow)"/>
+    <rect x="53" y="54" width="43" height="142" rx="18" fill="#102022"/>
+    <path d="M96 54 L132 76 Q142 82 142 96 L142 206 L96 181 Z" fill="#0F766E"/>
+    <rect x="136" y="72" width="54" height="16" rx="8" fill="#102022"/>
+    <rect x="136" y="117" width="70" height="16" rx="8" fill="#2DD4BF"/>
+    <rect x="136" y="162" width="58" height="16" rx="8" fill="#F4B740"/>
+    <text x="0" y="296" font-family="Aptos, Arial, sans-serif" font-size="20" font-weight="800" fill="#10201F">C. Light mark</text>
+    <text x="0" y="324" font-family="Aptos, Arial, sans-serif" font-size="15" fill="#687773">Better for docs / desktop, weaker as default.</text>
+  </g>
+
+  <!-- D -->
+  <g transform="translate(1000 150)">
+    <rect x="0" y="0" width="250" height="250" rx="54" fill="#F3F5EE" filter="url(#tileShadow)"/>
+    <path d="M57 56 H94 Q111 56 123 68 L143 88 Q153 98 153 113 V198" fill="none" stroke="#102022" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M57 56 V194" stroke="#2DD4BF" stroke-width="34" stroke-linecap="round"/>
+    <path d="M148 74 H198 M148 119 H215 M148 164 H202" stroke-linecap="round" stroke-width="16" fill="none" stroke="#102022"/>
+    <path d="M148 119 H215" stroke-linecap="round" stroke-width="8" fill="none" stroke="#F4B740"/>
+    <text x="0" y="296" font-family="Aptos, Arial, sans-serif" font-size="20" font-weight="800" fill="#10201F">D. Monoline fold</text>
+    <text x="0" y="324" font-family="Aptos, Arial, sans-serif" font-size="15" fill="#687773">Clean, but maybe too much like an icon set.</text>
+  </g>
+
+  <!-- E -->
+  <g transform="translate(70 500)">
+    <rect x="0" y="0" width="250" height="250" rx="54" fill="#102022" filter="url(#tileShadow)"/>
+    <path d="M55 56 H99 Q112 56 121 65 L142 86 Q151 95 151 108 V194 L119 176 Q99 165 99 141 V56 Z" fill="#0E5F5B"/>
+    <rect x="55" y="56" width="44" height="138" rx="15" fill="#2DD4BF"/>
+    <path d="M99 56 V194" stroke="#8EF7DC" stroke-width="2" opacity=".38"/>
+    <rect x="146" y="75" width="52" height="15" rx="7.5" fill="#F5FFF9"/>
+    <rect x="146" y="118" width="66" height="15" rx="7.5" fill="#F4B740"/>
+    <rect x="146" y="161" width="56" height="15" rx="7.5" fill="#35D08F"/>
+    <text x="0" y="296" font-family="Aptos, Arial, sans-serif" font-size="20" font-weight="800" fill="#10201F">E. Hard seam</text>
+    <text x="0" y="324" font-family="Aptos, Arial, sans-serif" font-size="15" fill="#687773">Sharper, more app-icon-like.</text>
+  </g>
+
+  <!-- F -->
+  <g transform="translate(380 500)">
+    <rect x="0" y="0" width="250" height="250" rx="54" fill="url(#amberTile)" filter="url(#tileShadow)"/>
+    <rect x="54" y="54" width="42" height="142" rx="18" fill="#F6A833"/>
+    <path d="M96 54 L132 76 Q142 82 142 96 L142 208 L96 181 Z" fill="#7C4A04"/>
+    <rect x="136" y="72" width="54" height="16" rx="8" fill="#F8F0DC"/>
+    <rect x="136" y="117" width="70" height="16" rx="8" fill="#A3E635"/>
+    <rect x="136" y="162" width="58" height="16" rx="8" fill="#F6A833"/>
+    <text x="0" y="296" font-family="Aptos, Arial, sans-serif" font-size="20" font-weight="800" fill="#10201F">F. Operator amber</text>
+    <text x="0" y="324" font-family="Aptos, Arial, sans-serif" font-size="15" fill="#687773">Stronger personality, maybe too heavy.</text>
+  </g>
+</svg>

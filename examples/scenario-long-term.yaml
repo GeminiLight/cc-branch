@@ -1,0 +1,151 @@
+# Scenario: Long-Term Project with Persistent Context
+#
+# Use case: You're working on a complex project over weeks/months:
+# - Multiple specialized agents for different tasks
+# - Persistent session IDs for context continuity
+# - Organized workspace for different work phases
+#
+# This setup is ideal for:
+# - Large refactoring projects
+# - Feature development with multiple iterations
+# - Projects requiring deep context understanding
+#
+# Workflow:
+# 1. Planning phase: Use planner agent to design
+# 2. Implementation: Use coder agent to build
+# 3. Review: Use reviewer agent to check quality
+# 4. Testing: Use tester agent to write tests
+# 5. Documentation: Use docs agent to document
+
+version: 2
+project: "long-term-refactor"
+root: "."
+openWith: auto-terminal
+
+display:
+  mode: "grid"
+  columns: 2
+  dashboard: true
+
+agents:
+  # Codex for planning and architecture
+  codex:
+    command: "codex"
+    resume_mode: "flag"
+    resume_template: "resume {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+  # Claude for implementation
+  claude:
+    command: "claude"
+    create_mode: "generated_uuid"
+    create_template: "claude --session-id {session_id}"
+    resume_mode: "flag"
+    resume_template: "-r {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+  # Gemini for code review
+  gemini:
+    command: "gemini"
+    resume_mode: "flag"
+    resume_template: "--resume {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+  # Cursor for testing
+  cursor:
+    command: "cursor"
+    resume_mode: "flag"
+    resume_template: "--session {session_id}"
+    label_template: "{project}/{tab}/{pane}"
+
+tabs:
+  # Planning and architecture tab
+  - name: "planning"
+    layoutBackend: "tmux"
+    cwd: "."
+    panes:
+      - name: "architect"
+        agent: "codex"
+        # This agent maintains context about the overall architecture
+
+      - name: "notes"
+        command: "vim docs/architecture.md"
+        # Keep architecture notes in sync
+
+  # Implementation tab
+  - name: "implementation"
+    layoutBackend: "tmux"
+    cwd: "."
+    env:
+      PYTHONPATH: "./src"
+    panes:
+      - name: "coder"
+        agent: "claude"
+        # Main coding agent with persistent context
+
+      - name: "reviewer"
+        agent: "gemini"
+        # Review changes before committing
+
+      - name: "git"
+        command: "zsh"
+        # Manual git operations
+
+  # Testing and validation tab
+  - name: "testing"
+    layoutBackend: "tmux"
+    cwd: "."
+    panes:
+      - name: "tester"
+        agent: "cursor"
+        # Agent focused on writing tests
+
+      - name: "runner"
+        command: "pytest --watch"
+        # Continuous test runner
+
+      - name: "coverage"
+        command: "zsh"
+        # Check coverage reports
+
+  # Monitoring tab
+  - name: "monitor"
+    layoutBackend: "tmux"
+    cwd: "."
+    panes:
+      - name: "logs"
+        command: "tail -f logs/*.log"
+
+      - name: "metrics"
+        command: "htop"
+
+# How to use:
+#
+# Initial setup:
+# 1. cp examples/scenario-long-term.yaml .cc-branch/config.yaml
+# 2. cc-branch plan --write-state
+# 3. cc-branch start
+#
+# Daily workflow:
+# 1. cc-branch status  # Check what sessions exist
+# 2. cc-branch attach planning:architect  # Review architecture
+# 3. cc-branch attach implementation:coder  # Start coding
+# 4. cc-branch attach implementation:reviewer  # Get review
+# 5. cc-branch attach testing:tester  # Write tests
+#
+# After a break (days/weeks):
+# 1. cc-branch status  # All sessions are preserved
+# 2. cc-branch attach implementation:coder  # Continue where you left off
+# 3. The agent remembers the context from previous sessions
+#
+# Tips:
+# - Session IDs are stable across restarts
+# - Each agent maintains its own conversation history
+# - Use labels to organize sessions: {project}/{tab}/{pane}
+# - Run `cc-branch doctor` to check session health
+# - Use `cc-branch restart <tab>` to refresh a specific tab
+#
+# Maintenance:
+# - Backup .cc-branch/state.yaml to preserve session IDs
+# - Commit .cc-branch/config.yaml to version control
+# - Don't commit .cc-branch/state.yaml (it's machine-specific)
