@@ -1,6 +1,6 @@
 [package]
 name = "cc-branch"
-version = "0.1.0"
+version = "0.1.1"
 description = "CC Branch Desktop App"
 authors = ["GeminiLight"]
 license = "MIT"

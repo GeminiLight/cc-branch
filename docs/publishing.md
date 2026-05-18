@@ -197,6 +197,8 @@ PyPI 推荐使用 Trusted Publishing：
 
 桌面版会内置 `cc-branch-backend` sidecar。发布 workflow 会先用 PyInstaller 把 Python 后端打成平台二进制，再交给 Tauri 打包。用户安装桌面版后不需要额外安装 Python 或 `cc-branch` Python 包。
 
+macOS 桌面版发布使用 signed + notarized `.dmg`。首次配置或迁移到新项目时，按 [`docs/release-kits/apple-developer-id/`](release-kits/apple-developer-id/) 准备 Developer ID Application 证书、App Store Connect API key、GitHub Secrets 和本地 `.gitignore` 防护。
+
 ## 发布检查清单
 
 发布前确认:

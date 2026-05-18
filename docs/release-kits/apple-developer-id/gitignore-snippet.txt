@@ -1,0 +1,18 @@
+# Apple signing and notarization secrets
+# Public certs are not usually sensitive, but keeping all signing material out
+# of git avoids accidentally committing matching private keys or exported p12s.
+*.cer
+*.certSigningRequest
+*.csr
+*.key
+*.pem
+*.p12
+*.p12.password
+*.p8
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
+apple-signing/
+.apple-signing/
+*-secrets/
+.*-secrets/

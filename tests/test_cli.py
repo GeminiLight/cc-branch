@@ -80,7 +80,7 @@ class CLITests(unittest.TestCase):
             mock_console.print.assert_called()
 
     def test_package_exposes_release_version(self):
-        self.assertEqual(cc_branch.__version__, "0.1.0")
+        self.assertEqual(cc_branch.__version__, "0.1.1")
 
     def test_main_with_help_flag_shows_help(self):
         with patch("cc_branch.cli.console") as mock_console:

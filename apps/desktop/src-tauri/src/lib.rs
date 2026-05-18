@@ -92,12 +92,13 @@ fn wait_for_server(port: u16, timeout: Duration) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     while start.elapsed() < timeout {
-        if client
-            .get(format!("http://127.0.0.1:{}/api/status", port))
+        if let Ok(response) = client
+            .get(format!("http://127.0.0.1:{}/api/info", port))
             .send()
-            .is_ok()
         {
-            return Ok(());
+            if response.status().is_success() {
+                return Ok(());
+            }
         }
         std::thread::sleep(Duration::from_millis(100));
     }

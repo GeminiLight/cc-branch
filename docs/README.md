@@ -85,6 +85,7 @@ Users should not encounter these features in normal usage until they are impleme
 | `contributing.md` | English | ✅ Shipped | Contributing guidelines |
 | `github-actions.md` | 中文 | ⚠️ Deprecated | Content covered by `publishing.md` |
 | `publishing.md` | 中文 | ✅ Shipped | Publishing and distribution guide |
+| `release-kits/apple-developer-id/` | 中文 | ✅ Shipped | Apple Developer ID signing/notarization setup kit for macOS DMG releases |
 | `release-readiness-review.md` | English | ⚠️ Archived | One-time pre-release review (2026-04-28), see `publishing.md` for current procedures |
 | `install-troubleshooting.md` | English | ✅ Shipped | Installation troubleshooting |
 
