@@ -89,10 +89,29 @@ jobs:
           tagName: ${{ inputs.release_tag || github.ref_name }}
           releaseName: CC Branch Desktop ${{ inputs.release_tag || github.ref_name }}
           releaseBody: |
-            CC Branch Desktop.
+            # CC Branch Desktop
 
-            This build bundles the CC Branch backend sidecar. Users do not need
+            This desktop build bundles the CC Branch backend sidecar. You do not need
             to install Python or the `cc-branch` Python package separately.
+
+            ## Which file should I download?
+
+            | Platform | Recommended download | Notes |
+            | --- | --- | --- |
+            | macOS Apple Silicon | `cc-branch_aarch64.app.tar.gz` | For M1/M2/M3/M4 Macs. Extract the archive, then open the app. |
+            | macOS Intel | `cc-branch_x64.app.tar.gz` | For older Intel Macs. Extract the archive, then open the app. |
+            | Windows | `cc-branch_0.1.0_x64_en-US.msi` | Standard Windows installer. Use the `.exe` setup file only if you prefer an executable installer. |
+            | Ubuntu / Debian | `cc-branch_0.1.0_amd64.deb` | Best choice for Debian-based Linux distributions. |
+            | Fedora / RHEL | `cc-branch-0.1.0-1.x86_64.rpm` | Best choice for RPM-based Linux distributions. |
+            | Other Linux | `cc-branch_0.1.0_amd64.AppImage` | Portable Linux build. Larger because it bundles more runtime dependencies. |
+
+            ## CLI package
+
+            The CLI package is published separately through the Python package flow:
+
+            ```bash
+            pipx install cc-branch
+            ```
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
