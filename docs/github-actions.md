@@ -66,6 +66,20 @@ workflow 会先用 PyInstaller 构建 `cc-branch-backend` sidecar，再创建或
 
 桌面端安装包内置 CC Branch 后端。用户不需要额外安装 Python 或 `cc-branch` Python 包。Agent CLI、tmux、git 等外部开发工具仍按用户环境检测和引导。
 
+macOS 发布目标是正式的 signed + notarized `.dmg`。仓库需要配置以下 secrets：
+
+| Secret | 用途 |
+| --- | --- |
+| `APPLE_CERTIFICATE` 或 `APPLE_CERTIFICATE_BASE64` | Developer ID Application 证书的 base64 内容 |
+| `APPLE_CERTIFICATE_PASSWORD` | 证书密码 |
+| `APPLE_SIGNING_IDENTITY` | 可选；签名身份，例如 `Developer ID Application: Example, Inc. (TEAMID)`。不填时 workflow 会从证书中自动查找。 |
+| `APPLE_API_KEY_BASE64` | App Store Connect API key `.p8` 文件的 base64 内容 |
+| `APPLE_API_KEY_ID` | App Store Connect API key ID |
+| `APPLE_API_ISSUER` | App Store Connect issuer ID |
+| `KEYCHAIN_PASSWORD` | 可选；临时 keychain 密码。不填时 workflow 自动生成。 |
+
+也支持 Apple ID 兜底 notarization：`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD` 或 `APPLE_PASSWORD`、`APPLE_TEAM_ID`。推荐使用 API key，和 MindOS desktop release 链路保持一致。
+
 ## 推荐发布流程
 
 1. 更新版本号：
@@ -134,13 +148,12 @@ PyPI 不允许覆盖已有版本。更新 `pyproject.toml` 版本号后重新发
 优先看对应平台日志：
 
 - Linux 常见是 WebKit / appindicator 依赖问题
-- macOS 常见是 target 或签名问题
+- macOS 常见是 target、签名证书或 notarization secret 问题
 - Windows 常见是 Rust / WebView2 环境问题
-
-当前 workflow 未做代码签名和 notarization。正式面向普通用户分发 macOS / Windows 安装包前，需要补签名链路。
 
 ## 参考资源
 
 - [GitHub Actions 文档](https://docs.github.com/en/actions)
 - [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
 - [Tauri 发布指南](https://tauri.app/distribute/)
+- [Tauri macOS 签名与 notarization](https://tauri.app/distribute/sign/macos/)

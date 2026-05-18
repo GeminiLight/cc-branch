@@ -24,21 +24,25 @@ jobs:
         include:
           - name: macOS Apple Silicon
             os: macos-14
-            args: --target aarch64-apple-darwin --bundles app
+            platform: mac
+            args: --target aarch64-apple-darwin --bundles dmg
             rust-targets: aarch64-apple-darwin
             sidecar-target: aarch64-apple-darwin
           - name: macOS Intel
             os: macos-15-intel
-            args: --target x86_64-apple-darwin --bundles app
+            platform: mac
+            args: --target x86_64-apple-darwin --bundles dmg
             rust-targets: x86_64-apple-darwin
             sidecar-target: x86_64-apple-darwin
           - name: Linux
             os: ubuntu-22.04
+            platform: linux
             args: ""
             rust-targets: ""
             sidecar-target: x86_64-unknown-linux-gnu
           - name: Windows
             os: windows-latest
+            platform: windows
             args: ""
             rust-targets: ""
             sidecar-target: x86_64-pc-windows-msvc
@@ -80,10 +84,116 @@ jobs:
           python -m pip install -e ".[desktop]"
           python scripts/build-desktop-sidecar.py --target ${{ matrix.sidecar-target }}
 
+      - name: Validate macOS signing and notarization secrets
+        if: matrix.platform == 'mac'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE || secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD || secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "::error::Missing APPLE_CERTIFICATE or APPLE_CERTIFICATE_BASE64 secret."
+            missing=1
+          fi
+          if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+            echo "::error::Missing APPLE_CERTIFICATE_PASSWORD secret."
+            missing=1
+          fi
+          if [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "APPLE_SIGNING_IDENTITY is not configured; the workflow will derive it from the imported certificate."
+          fi
+
+          has_api_key=false
+          if [ -n "$APPLE_API_KEY_BASE64" ] && [ -n "$APPLE_API_KEY_ID" ] && [ -n "$APPLE_API_ISSUER" ]; then
+            has_api_key=true
+          fi
+
+          has_apple_id=false
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            has_apple_id=true
+          fi
+
+          if [ "$has_api_key" != "true" ] && [ "$has_apple_id" != "true" ]; then
+            echo "::error::Missing notarization credentials. Configure APPLE_API_KEY_BASE64 + APPLE_API_KEY_ID + APPLE_API_ISSUER, or APPLE_ID + APPLE_PASSWORD/APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID."
+            missing=1
+          fi
+
+          [ "$missing" -eq 0 ]
+
+      - name: Import Apple Developer certificate
+        if: matrix.platform == 'mac'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE || secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate_path="$RUNNER_TEMP/apple-certificate.p12"
+          keychain_password="${KEYCHAIN_PASSWORD:-$(uuidgen)}"
+          keychain_path="$RUNNER_TEMP/build.keychain-db"
+
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security list-keychain -d user -s "$keychain_path"
+
+          security find-identity -v -p codesigning "$keychain_path"
+
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            resolved_identity="$APPLE_SIGNING_IDENTITY"
+          else
+            resolved_identity="$(security find-identity -v -p codesigning "$keychain_path" | awk -F'"' '/Developer ID Application/ { print $2; exit }')"
+          fi
+
+          if [ -z "$resolved_identity" ]; then
+            echo "::error::Could not find a Developer ID Application signing identity in the imported certificate."
+            exit 1
+          fi
+
+          echo "APPLE_SIGNING_IDENTITY=$resolved_identity" >> "$GITHUB_ENV"
+          echo "Imported signing identity: $resolved_identity"
+
+      - name: Prepare Apple API key for notarization
+        if: matrix.platform == 'mac'
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ -z "$APPLE_API_KEY_BASE64" ] || [ -z "$APPLE_API_KEY_ID" ] || [ -z "$APPLE_API_ISSUER" ]; then
+            echo "App Store Connect API key secrets are not configured; falling back to Apple ID notarization if available."
+            exit 0
+          fi
+
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$api_key_path"
+          chmod 600 "$api_key_path"
+
+          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+          echo "APPLE_API_KEY=$APPLE_API_KEY_ID" >> "$GITHUB_ENV"
+          echo "APPLE_API_ISSUER=$APPLE_API_ISSUER" >> "$GITHUB_ENV"
+          echo "Prepared App Store Connect API key for notarization."
+
       - name: Build desktop app and upload release assets
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE || secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD || secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: apps/desktop
           tagName: ${{ inputs.release_tag || github.ref_name }}
@@ -98,12 +208,12 @@ jobs:
 
             | Platform | Recommended download | Notes |
             | --- | --- | --- |
-            | macOS Apple Silicon | `cc-branch_aarch64.app.tar.gz` | For M1/M2/M3/M4 Macs. Extract the archive, then open the app. |
-            | macOS Intel | `cc-branch_x64.app.tar.gz` | For older Intel Macs. Extract the archive, then open the app. |
-            | Windows | `cc-branch_0.1.0_x64_en-US.msi` | Standard Windows installer. Use the `.exe` setup file only if you prefer an executable installer. |
-            | Ubuntu / Debian | `cc-branch_0.1.0_amd64.deb` | Best choice for Debian-based Linux distributions. |
-            | Fedora / RHEL | `cc-branch-0.1.0-1.x86_64.rpm` | Best choice for RPM-based Linux distributions. |
-            | Other Linux | `cc-branch_0.1.0_amd64.AppImage` | Portable Linux build. Larger because it bundles more runtime dependencies. |
+            | macOS Apple Silicon | `cc-branch_*_aarch64.dmg` | Signed and notarized DMG for M1/M2/M3/M4 Macs. |
+            | macOS Intel | `cc-branch_*_x64.dmg` | Signed and notarized DMG for older Intel Macs. |
+            | Windows | `cc-branch_*_x64_en-US.msi` | Standard Windows installer. Use the `.exe` setup file only if you prefer an executable installer. |
+            | Ubuntu / Debian | `cc-branch_*_amd64.deb` | Best choice for Debian-based Linux distributions. |
+            | Fedora / RHEL | `cc-branch-*-1.x86_64.rpm` | Best choice for RPM-based Linux distributions. |
+            | Other Linux | `cc-branch_*_amd64.AppImage` | Portable Linux build. Larger because it bundles more runtime dependencies. |
 
             ## CLI package
 

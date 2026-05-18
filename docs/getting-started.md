@@ -23,6 +23,7 @@ The Homebrew formula installs Python dependencies inside Homebrew's managed envi
 ### Desktop app
 
 Download the latest desktop build for your platform from [GitHub Releases](https://github.com/GeminiLight/cc-branch/releases).
+For macOS, use the signed and notarized `.dmg` that matches your CPU: Apple Silicon for M-series Macs, Intel for older Macs.
 
 ### Python users
 
