@@ -109,13 +109,23 @@ fn wait_for_server(port: u16, timeout: Duration) -> Result<(), String> {
     ))
 }
 
+fn wait_for_sidecar_server(child: CommandChild, port: u16) -> Result<CommandChild, String> {
+    match wait_for_server(port, Duration::from_secs(45)) {
+        Ok(()) => Ok(child),
+        Err(error) => {
+            let _ = child.kill();
+            Err(error)
+        }
+    }
+}
+
 fn start_python_server(config_path: &str, state_path: &str) -> Result<(Child, u16), String> {
     let python = find_python()?;
     check_cc_branch(&python)?;
 
     let port = portpicker::pick_unused_port().ok_or("No available port")?;
 
-    let child = Command::new(&python)
+    let mut child = Command::new(&python)
         .args([
             "-m",
             "cc_branch",
@@ -133,7 +143,8 @@ fn start_python_server(config_path: &str, state_path: &str) -> Result<(Child, u1
         .map_err(|e| format!("Failed to start Python server: {}", e))?;
 
     // Wait for the server to actually respond instead of a blind sleep.
-    if let Err(e) = wait_for_server(port, Duration::from_secs(5)) {
+    if let Err(e) = wait_for_server(port, Duration::from_secs(15)) {
+        let _ = child.kill();
         return Err(format!(
             "{}\n\n\
              Hints:\n\
@@ -186,13 +197,16 @@ fn start_sidecar_server(
         }
     });
 
-    if let Err(e) = wait_for_server(port, Duration::from_secs(8)) {
-        return Err(format!(
-            "{}\n\n\
+    let child = match wait_for_sidecar_server(child, port) {
+        Ok(child) => child,
+        Err(e) => {
+            return Err(format!(
+                "{}\n\n\
              The bundled cc-branch backend was found, but did not become ready.",
-            e
-        ));
-    }
+                e
+            ));
+        }
+    };
 
     Ok((child, port))
 }
