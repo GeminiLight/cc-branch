@@ -44,9 +44,9 @@ const translations = {
     whyKicker: "The local control problem",
     whyTitle: "Your project is no longer one terminal.",
     whyBody1:
-      "Modern AI development means agents, shells, dev servers, editor windows, desktop controls, long-lived sessions, and remote boxes all orbiting the same repo. CC Branch gives that orbit a file format and a runtime.",
+      "Modern AI work moves across terminals, editors, a browser, and desktop apps. CC Branch keeps those surfaces in one file and one runtime.",
     whyBody2:
-      "The committed config describes what should exist. The local state remembers what is already running. The CLI, Web UI, and desktop shell make the workspace inspectable instead of mysterious.",
+      "The committed config describes what should exist. Local state remembers what is already running, and the UI shows the result instead of hiding it.",
     feature1Title: "Config that survives the week",
     feature1Body:
       "Put tabs, panes, agents, commands, directories, environment variables, and openers in `.cc-branch/config.yaml`.",
@@ -62,14 +62,14 @@ const translations = {
     desktopKicker: "Desktop shell",
     desktopTitle: "A local control room, not another cloud dashboard.",
     desktopBody:
-      "CC Branch Desktop wraps the Web UI in a native shell and runs the backend sidecar locally. It is built for people who want visual project control without giving up terminal-first workflows.",
+      "CC Branch Desktop wraps the Web UI in a native shell and runs the backend sidecar locally. It is for people who want a visual control room without moving their workspace into a cloud product.",
     desktopPoint1: "Bundled backend sidecar",
     desktopPoint2: "Project switcher and diagnostics",
     desktopPoint3: "Local-only workspace data",
     workflowKicker: "Workspace anatomy",
     workflowTitle: "One config. Multiple execution surfaces.",
     workflowBody:
-      "Use tmux when you want durable background sessions. Use direct mode when the right answer is simply opening a local app or running a normal command. Add SSH when a pane belongs on a server.",
+      "Use tmux for long-lived sessions, direct mode for local apps, and SSH when a pane belongs on a remote machine.",
     installKicker: "Install today",
     installTitle: "Use the GitHub source package while registries are being prepared.",
     installBody:
