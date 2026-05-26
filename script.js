@@ -1,5 +1,10 @@
 const translations = {
   en: {
+    pageTitle: "CC Branch - Multi-agent workspace control",
+    description:
+      "CC Branch turns a project workspace into committed config, reusable tmux sessions, desktop control, local Web UI diagnostics, and AI agent launch plans.",
+    ogDescription:
+      "A CLI-first workspace orchestrator with Web UI and desktop shell for developers running multiple AI agents, terminals, editors, and project commands.",
     skip: "Skip to content",
     navWhy: "Why",
     navDesktop: "Desktop",
@@ -8,14 +13,34 @@ const translations = {
     navDocs: "Docs",
     heroEyebrow: "CLI-first control for AI development workspaces",
     heroCopy:
-      "Commit the shape of your workspace. Reopen the same tmux sessions, agent panes, commands, editors, remote targets, diagnostics, desktop shell, and browser controls without rebuilding the room by hand.",
+      "Keep tabs, panes, agents, local apps, and remote work in one config. Reopen the same layout without rebuilding it by hand.",
     heroPrimary: "Install from GitHub",
     heroSecondary: "View source",
-    tickerTmux: "tmux sessions",
-    tickerDirect: "direct commands",
-    tickerSsh: "SSH panes",
-    tickerDesktop: "desktop shell",
-    tickerWeb: "Web UI",
+    heroPanelLabel: "workspace orbit",
+    heroPanelState: "local-first",
+    heroSummaryTabs: "Tabs",
+    heroSummarySurfaces: "Surfaces",
+    heroSummaryState: "State",
+    heroSummaryLocal: "local",
+    heroPoint1: "CLI, Web UI, and desktop app share one workspace model",
+    heroPoint2: "Chinese and English content switch from the top bar",
+    heroPoint3: "Light and dark themes stay in sync with the page",
+    capability1Kicker: "Source install",
+    capability1Title: "Build from the repo today.",
+    capability1Body:
+      "The Python package bundles the Web UI, so one install covers the CLI and the browser view.",
+    capability2Kicker: "Desktop app",
+    capability2Title: "Use the native shell when you want it.",
+    capability2Body:
+      "Desktop wraps the same workspace model without turning the project into a cloud dashboard.",
+    capability3Kicker: "Language switch",
+    capability3Title: "Chinese and English stay aligned.",
+    capability3Body:
+      "The page title, descriptions, buttons, and visible content all change with the selected language.",
+    capability4Kicker: "Theme switch",
+    capability4Title: "Light and dark mode use the same layout.",
+    capability4Body:
+      "The palette updates without changing the structure, so the page stays readable in both modes.",
     whyKicker: "The local control problem",
     whyTitle: "Your project is no longer one terminal.",
     whyBody1:
@@ -55,6 +80,15 @@ const translations = {
     installNote4: "Desktop installers are prepared through GitHub Releases",
     docsKicker: "Read next",
     docsTitle: "Everything important is plain files.",
+    deviceProjects: "Projects",
+    deviceReady: "Workspace ready",
+    boardProject: "project: orbit",
+    boardLayout: "layoutBackend: tmux",
+    boardPlanner: "planner",
+    boardServer: "server",
+    boardReview: "review",
+    boardRemote: "remote qa",
+    boardEditor: "editor",
     docStartLabel: "Start",
     docStart: "Getting Started",
     docMapLabel: "Map",
@@ -69,6 +103,11 @@ const translations = {
     select: "Select",
   },
   zh: {
+    pageTitle: "CC Branch - 多代理工作空间控制",
+    description:
+      "CC Branch 把项目工作空间变成可提交的配置、可复用的 tmux 会话、桌面端控制、本地 Web UI 诊断和 AI Agent 启动方案。",
+    ogDescription:
+      "一个 CLI-first 的工作空间编排器，带 Web UI 和桌面壳，适合同时运行多个 AI Agent、终端、编辑器和项目命令。",
     skip: "跳到正文",
     navWhy: "为什么",
     navDesktop: "桌面端",
@@ -77,20 +116,40 @@ const translations = {
     navDocs: "文档",
     heroEyebrow: "面向 AI 开发工作空间的 CLI-first 控制层",
     heroCopy:
-      "把工作空间的形状提交到配置里。tmux 会话、Agent 窗格、命令、编辑器、远程目标、诊断、桌面端和浏览器控制，都可以稳定恢复，不用每次手动重搭现场。",
+      "把 tabs、panes、Agent、本地应用和远程工作放进同一份配置。下次打开时恢复同一套布局，不用手动重搭现场。",
     heroPrimary: "从 GitHub 安装",
     heroSecondary: "查看源码",
-    tickerTmux: "tmux 会话",
-    tickerDirect: "直接命令",
-    tickerSsh: "SSH 窗格",
-    tickerDesktop: "桌面端",
-    tickerWeb: "Web UI",
+    heroPanelLabel: "工作空间 orbit",
+    heroPanelState: "本地优先",
+    heroSummaryTabs: "标签页",
+    heroSummarySurfaces: "表面",
+    heroSummaryState: "状态",
+    heroSummaryLocal: "本地",
+    heroPoint1: "CLI、Web UI 和桌面端共用同一套工作空间模型",
+    heroPoint2: "中英文内容可从顶部直接切换",
+    heroPoint3: "亮暗色模式和页面结构保持一致",
+    capability1Kicker: "源码安装",
+    capability1Title: "今天就能从仓库构建。",
+    capability1Body:
+      "Python 包会内置 Web UI，一次安装同时覆盖 CLI 和浏览器界面。",
+    capability2Kicker: "桌面端",
+    capability2Title: "需要原生壳时再用它。",
+    capability2Body:
+      "桌面端共享同一套工作空间模型，但不会把项目变成云端 dashboard。",
+    capability3Kicker: "语言切换",
+    capability3Title: "中英文始终保持一致。",
+    capability3Body:
+      "页面标题、描述、按钮和可见内容都会随着语言同步切换。",
+    capability4Kicker: "主题切换",
+    capability4Title: "亮色和暗色共用同一版布局。",
+    capability4Body:
+      "配色会变化，但结构不变，所以两种模式都保持可读。",
     whyKicker: "本地控制问题",
     whyTitle: "你的项目已经不再只是一个终端。",
     whyBody1:
-      "现代 AI 开发里，Agent、shell、开发服务、编辑器窗口、桌面控制、长期会话和远程机器都围绕同一个仓库运行。CC Branch 给这套现场一个文件格式和运行时。",
+      "现代 AI 工作会在终端、编辑器、浏览器和桌面应用之间移动。CC Branch 把这些表面收进一份文件和一个运行时。",
     whyBody2:
-      "提交的配置描述应该存在什么，本地状态记录已经在运行什么。CLI、Web UI 和桌面端让工作空间可检查、可恢复，而不是一团黑箱。",
+      "提交的配置描述应该存在什么，本地状态记录已经运行什么，界面负责把结果展示出来，而不是藏起来。",
     feature1Title: "能陪项目跑一整周的配置",
     feature1Body:
       "把 tabs、panes、agents、commands、目录、环境变量和打开方式写进 `.cc-branch/config.yaml`。",
@@ -106,14 +165,14 @@ const translations = {
     desktopKicker: "桌面端",
     desktopTitle: "这是本地控制室，不是又一个云端 dashboard。",
     desktopBody:
-      "CC Branch Desktop 把 Web UI 包进原生桌面壳，并在本地运行后端 sidecar。它适合想要可视化项目控制、但仍坚持终端优先工作流的人。",
+      "CC Branch Desktop 把 Web UI 包进原生桌面壳，并在本地运行后端 sidecar。它适合想要可视化控制室、但不想把工作空间搬进云产品的人。",
     desktopPoint1: "内置后端 sidecar",
     desktopPoint2: "项目切换与诊断",
     desktopPoint3: "工作空间数据保留在本地",
     workflowKicker: "工作空间结构",
     workflowTitle: "一份配置，多种运行表面。",
     workflowBody:
-      "需要持久后台会话时用 tmux。只是打开本地应用或运行普通命令时用 direct mode。某个窗格该跑在服务器上时，再加 SSH。",
+      "长期会话用 tmux，本地应用用 direct mode，需要跑在远程机器上的窗格再加 SSH。",
     installKicker: "现在可用",
     installTitle: "注册表发布准备好之前，先使用 GitHub 源码包。",
     installBody:
@@ -124,6 +183,15 @@ const translations = {
     installNote4: "桌面安装包通过 GitHub Releases 准备",
     docsKicker: "继续阅读",
     docsTitle: "重要的东西都是普通文件。",
+    deviceProjects: "项目",
+    deviceReady: "工作空间已就绪",
+    boardProject: "项目：orbit",
+    boardLayout: "layoutBackend：tmux",
+    boardPlanner: "规划",
+    boardServer: "服务",
+    boardReview: "评审",
+    boardRemote: "远程 QA",
+    boardEditor: "编辑器",
     docStartLabel: "开始",
     docStart: "入门指南",
     docMapLabel: "地图",
@@ -167,6 +235,7 @@ function applyLanguage(lang) {
   currentLang = translations[lang] ? lang : "en";
   const dictionary = translations[currentLang];
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+  document.title = dictionary.pageTitle;
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     const key = node.getAttribute("data-i18n");
     if (key && dictionary[key]) {
@@ -176,6 +245,12 @@ function applyLanguage(lang) {
   document.querySelectorAll("[data-copy-label]").forEach((button) => {
     button.textContent = dictionary.copy;
     button.setAttribute("data-copy-label", dictionary.copy);
+  });
+  document.querySelectorAll("[data-i18n-meta]").forEach((node) => {
+    const key = node.getAttribute("data-i18n-meta");
+    if (key && dictionary[key]) {
+      node.setAttribute("content", dictionary[key]);
+    }
   });
   if (langButton) {
     langButton.textContent = currentLang === "zh" ? "EN" : "中文";

@@ -3,14 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CC Branch - Multi-agent workspace control</title>
+    <title data-i18n="pageTitle">CC Branch - Multi-agent workspace control</title>
     <meta
+      data-i18n-meta="description"
       name="description"
       content="CC Branch turns a project workspace into committed config, reusable tmux sessions, desktop control, local Web UI diagnostics, and AI agent launch plans."
     />
     <meta name="theme-color" content="#10292b" />
-    <meta property="og:title" content="CC Branch - Multi-agent workspace control" />
+    <meta data-i18n-meta="pageTitle" property="og:title" content="CC Branch - Multi-agent workspace control" />
     <meta
+      data-i18n-meta="ogDescription"
       property="og:description"
       content="A CLI-first workspace orchestrator with Web UI and desktop shell for developers running multiple AI agents, terminals, editors, and project commands."
     />
@@ -48,74 +50,76 @@
     <main id="main">
       <section class="hero" id="top">
         <div class="hero-scene" aria-hidden="true">
-          <div class="scene-grid"></div>
-          <div class="terminal-window terminal-left">
-            <div class="terminal-bar">
-              <span></span><span></span><span></span>
+          <div class="hero-panel">
+            <div class="hero-panel-head">
+              <span data-i18n="heroPanelLabel">workspace orbit</span>
+              <span data-i18n="heroPanelState">local-first</span>
             </div>
-            <pre><code>$ cc-branch plan
+            <div class="hero-panel-body">
+              <pre><code>$ cc-branch plan
 workspace orbit
   tab dev       tmux  orbit-dev
   pane planner  codex resume
   pane server   npm run dev
-  pane qa       claude --session
-
-$ cc-branch start
-created orbit-dev
-attached planner
-synced 4 panes</code></pre>
-          </div>
-          <div class="terminal-window terminal-right">
-            <div class="mini-map">
-              <span class="lane cyan"></span>
-              <span class="lane amber"></span>
-              <span class="lane green"></span>
-            </div>
-            <div class="status-stack">
-              <span>config.yaml</span>
-              <strong>4 tabs</strong>
-              <em>portable</em>
-            </div>
-            <div class="status-stack">
-              <span>desktop</span>
-              <strong>sidecar</strong>
-              <em>bundled</em>
-            </div>
-            <div class="status-stack">
-              <span>doctor</span>
-              <strong>ready</strong>
-              <em>fixable</em>
+  pane qa       claude --session</code></pre>
+              <div class="hero-panel-summary" aria-label="Workspace summary">
+                <div>
+                  <span data-i18n="heroSummaryTabs">Tabs</span>
+                  <strong>4</strong>
+                </div>
+                <div>
+                  <span data-i18n="heroSummarySurfaces">Surfaces</span>
+                  <strong>3</strong>
+                </div>
+                <div>
+                  <span data-i18n="heroSummaryState">State</span>
+                  <strong data-i18n="heroSummaryLocal">local</strong>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="signal-strip signal-one"></div>
-          <div class="signal-strip signal-two"></div>
         </div>
 
         <div class="hero-content">
           <p class="eyebrow" data-i18n="heroEyebrow">CLI-first control for AI development workspaces</p>
           <h1>CC Branch</h1>
           <p class="hero-copy" data-i18n="heroCopy">
-            Commit the shape of your workspace. Reopen the same tmux sessions, agent
-            panes, commands, editors, remote targets, diagnostics, desktop shell, and
-            browser controls without rebuilding the room by hand.
+            Keep tabs, panes, agents, local apps, and remote work in one config. Reopen
+            the same layout without rebuilding it by hand.
           </p>
           <div class="hero-actions">
             <a class="primary-action" href="#install" data-i18n="heroPrimary">Install from GitHub</a>
             <a class="secondary-action" href="https://github.com/GeminiLight/cc-branch" data-i18n="heroSecondary">View source</a>
           </div>
+          <div class="hero-points" aria-label="Key benefits">
+            <span data-i18n="heroPoint1">CLI, Web UI, and desktop app share one workspace model</span>
+            <span data-i18n="heroPoint2">Chinese and English content switch from the top bar</span>
+            <span data-i18n="heroPoint3">Light and dark themes stay in sync with the page</span>
+          </div>
         </div>
       </section>
 
-      <section class="ticker" aria-label="Core capabilities">
-        <span data-i18n="tickerTmux">tmux sessions</span>
-        <span data-i18n="tickerDirect">direct commands</span>
-        <span data-i18n="tickerSsh">SSH panes</span>
-        <span data-i18n="tickerDesktop">desktop shell</span>
-        <span>Codex</span>
-        <span>Claude Code</span>
-        <span>Gemini CLI</span>
-        <span>Cursor</span>
-        <span data-i18n="tickerWeb">Web UI</span>
+      <section class="capabilities" aria-label="Core capabilities">
+        <div>
+          <span data-i18n="capability1Kicker">Source install</span>
+          <strong data-i18n="capability1Title">Build from the repo today.</strong>
+          <p data-i18n="capability1Body">The Python package bundles the Web UI, so one install covers the CLI and the browser view.</p>
+        </div>
+        <div>
+          <span data-i18n="capability2Kicker">Desktop app</span>
+          <strong data-i18n="capability2Title">Use the native shell when you want it.</strong>
+          <p data-i18n="capability2Body">Desktop wraps the same workspace model without turning the project into a cloud dashboard.</p>
+        </div>
+        <div>
+          <span data-i18n="capability3Kicker">Language switch</span>
+          <strong data-i18n="capability3Title">Chinese and English stay aligned.</strong>
+          <p data-i18n="capability3Body">The page title, descriptions, buttons, and visible content all change with the selected language.</p>
+        </div>
+        <div>
+          <span data-i18n="capability4Kicker">Theme switch</span>
+          <strong data-i18n="capability4Title">Light and dark mode use the same layout.</strong>
+          <p data-i18n="capability4Body">The palette updates without changing the structure, so the page stays readable in both modes.</p>
+        </div>
       </section>
 
       <section class="section split" id="why">
@@ -125,14 +129,12 @@ synced 4 panes</code></pre>
         </div>
         <div class="statement">
           <p data-i18n="whyBody1">
-            Modern AI development means agents, shells, dev servers, editor windows,
-            desktop controls, long-lived sessions, and remote boxes all orbiting the
-            same repo. CC Branch gives that orbit a file format and a runtime.
+            Modern AI work moves across terminals, editors, a browser, and desktop apps.
+            CC Branch keeps those surfaces in one file and one runtime.
           </p>
           <p data-i18n="whyBody2">
-            The committed config describes what should exist. The local state remembers
-            what is already running. The CLI, Web UI, and desktop shell make the
-            workspace inspectable instead of mysterious.
+            The committed config describes what should exist. Local state remembers what
+            is already running, and the UI shows the result instead of hiding it.
           </p>
         </div>
       </section>
@@ -178,8 +180,8 @@ synced 4 panes</code></pre>
           <h2 data-i18n="desktopTitle">A local control room, not another cloud dashboard.</h2>
           <p data-i18n="desktopBody">
             CC Branch Desktop wraps the Web UI in a native shell and runs the backend
-            sidecar locally. It is built for people who want visual project control
-            without giving up terminal-first workflows.
+            sidecar locally. It is for people who want a visual control room without
+            moving their workspace into a cloud product.
           </p>
           <div class="desktop-points">
             <span data-i18n="desktopPoint1">Bundled backend sidecar</span>
@@ -194,7 +196,7 @@ synced 4 panes</code></pre>
           </div>
           <div class="device-body">
             <aside>
-              <b>Projects</b>
+              <b data-i18n="deviceProjects">Projects</b>
               <span class="active">orbit</span>
               <span>atlas</span>
               <span>lab</span>
@@ -202,7 +204,7 @@ synced 4 panes</code></pre>
             <div class="device-main">
               <div class="device-summary">
                 <span>orbit</span>
-                <strong>Workspace ready</strong>
+                <strong data-i18n="deviceReady">Workspace ready</strong>
               </div>
               <div class="device-grid">
                 <span class="tile teal">codex</span>
@@ -220,35 +222,34 @@ synced 4 panes</code></pre>
           <p class="section-kicker" data-i18n="workflowKicker">Workspace anatomy</p>
           <h2 data-i18n="workflowTitle">One config. Multiple execution surfaces.</h2>
           <p data-i18n="workflowBody">
-            Use tmux when you want durable background sessions. Use direct mode when
-            the right answer is simply opening a local app or running a normal command.
-            Add SSH when a pane belongs on a server.
+            Use tmux for long-lived sessions, direct mode for local apps, and SSH when a
+            pane belongs on a remote machine.
           </p>
         </div>
         <div class="workspace-board" aria-label="Workspace layout example">
           <div class="board-header">
-            <span>project: orbit</span>
-            <span>layoutBackend: tmux</span>
+            <span data-i18n="boardProject">project: orbit</span>
+            <span data-i18n="boardLayout">layoutBackend: tmux</span>
           </div>
           <div class="board-grid">
             <div class="board-pane large">
-              <span>planner</span>
+              <span data-i18n="boardPlanner">planner</span>
               <strong>codex</strong>
             </div>
             <div class="board-pane">
-              <span>server</span>
+              <span data-i18n="boardServer">server</span>
               <strong>npm run dev</strong>
             </div>
             <div class="board-pane">
-              <span>review</span>
+              <span data-i18n="boardReview">review</span>
               <strong>claude</strong>
             </div>
             <div class="board-pane accent">
-              <span>remote qa</span>
+              <span data-i18n="boardRemote">remote qa</span>
               <strong>ssh lab</strong>
             </div>
             <div class="board-pane muted">
-              <span>editor</span>
+              <span data-i18n="boardEditor">editor</span>
               <strong>cursor</strong>
             </div>
           </div>
