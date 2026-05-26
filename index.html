@@ -6,13 +6,13 @@
     <title>CC Branch - Multi-agent workspace control</title>
     <meta
       name="description"
-      content="CC Branch turns a project workspace into committed config, reusable tmux sessions, local Web UI control, diagnostics, and AI agent launch plans."
+      content="CC Branch turns a project workspace into committed config, reusable tmux sessions, desktop control, local Web UI diagnostics, and AI agent launch plans."
     />
     <meta name="theme-color" content="#10292b" />
     <meta property="og:title" content="CC Branch - Multi-agent workspace control" />
     <meta
       property="og:description"
-      content="A CLI-first workspace orchestrator for developers running multiple AI agents, terminals, editors, and project commands."
+      content="A CLI-first workspace orchestrator with Web UI and desktop shell for developers running multiple AI agents, terminals, editors, and project commands."
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="assets/logo-512.png" />
@@ -20,8 +20,8 @@
     <link rel="apple-touch-icon" href="assets/logo-512.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+  <body data-theme="light">
+    <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
 
     <header class="topbar" aria-label="Primary navigation">
       <a class="brand" href="#top" aria-label="CC Branch home">
@@ -29,12 +29,20 @@
         <span>CC Branch</span>
       </a>
       <nav class="nav-links" aria-label="Site navigation">
-        <a href="#why">Why</a>
-        <a href="#workflow">Workflow</a>
-        <a href="#install">Install</a>
-        <a href="#docs">Docs</a>
+        <a href="#why" data-i18n="navWhy">Why</a>
+        <a href="#desktop" data-i18n="navDesktop">Desktop</a>
+        <a href="#workflow" data-i18n="navWorkflow">Workflow</a>
+        <a href="#install" data-i18n="navInstall">Install</a>
+        <a href="#docs" data-i18n="navDocs">Docs</a>
       </nav>
-      <a class="github-link" href="https://github.com/GeminiLight/cc-branch">GitHub</a>
+      <div class="top-actions" aria-label="Display controls">
+        <button class="mode-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">
+          <span class="sun" aria-hidden="true"></span>
+          <span class="moon" aria-hidden="true"></span>
+        </button>
+        <button class="lang-toggle" type="button" data-lang-toggle aria-label="Switch language">中文</button>
+        <a class="github-link" href="https://github.com/GeminiLight/cc-branch">GitHub</a>
+      </div>
     </header>
 
     <main id="main">
@@ -69,9 +77,9 @@ synced 4 panes</code></pre>
               <em>portable</em>
             </div>
             <div class="status-stack">
-              <span>state.yaml</span>
-              <strong>9 sessions</strong>
-              <em>local</em>
+              <span>desktop</span>
+              <strong>sidecar</strong>
+              <em>bundled</em>
             </div>
             <div class="status-stack">
               <span>doctor</span>
@@ -84,46 +92,47 @@ synced 4 panes</code></pre>
         </div>
 
         <div class="hero-content">
-          <p class="eyebrow">CLI-first control for AI development workspaces</p>
+          <p class="eyebrow" data-i18n="heroEyebrow">CLI-first control for AI development workspaces</p>
           <h1>CC Branch</h1>
-          <p class="hero-copy">
+          <p class="hero-copy" data-i18n="heroCopy">
             Commit the shape of your workspace. Reopen the same tmux sessions, agent
-            panes, commands, editors, remote targets, diagnostics, and browser controls
-            without rebuilding the room by hand.
+            panes, commands, editors, remote targets, diagnostics, desktop shell, and
+            browser controls without rebuilding the room by hand.
           </p>
           <div class="hero-actions">
-            <a class="primary-action" href="#install">Install from GitHub</a>
-            <a class="secondary-action" href="https://github.com/GeminiLight/cc-branch">View source</a>
+            <a class="primary-action" href="#install" data-i18n="heroPrimary">Install from GitHub</a>
+            <a class="secondary-action" href="https://github.com/GeminiLight/cc-branch" data-i18n="heroSecondary">View source</a>
           </div>
         </div>
       </section>
 
       <section class="ticker" aria-label="Core capabilities">
-        <span>tmux sessions</span>
-        <span>direct commands</span>
-        <span>SSH panes</span>
+        <span data-i18n="tickerTmux">tmux sessions</span>
+        <span data-i18n="tickerDirect">direct commands</span>
+        <span data-i18n="tickerSsh">SSH panes</span>
+        <span data-i18n="tickerDesktop">desktop shell</span>
         <span>Codex</span>
         <span>Claude Code</span>
         <span>Gemini CLI</span>
         <span>Cursor</span>
-        <span>Web UI</span>
+        <span data-i18n="tickerWeb">Web UI</span>
       </section>
 
       <section class="section split" id="why">
         <div>
-          <p class="section-kicker">The local control problem</p>
-          <h2>Your project is no longer one terminal.</h2>
+          <p class="section-kicker" data-i18n="whyKicker">The local control problem</p>
+          <h2 data-i18n="whyTitle">Your project is no longer one terminal.</h2>
         </div>
         <div class="statement">
-          <p>
+          <p data-i18n="whyBody1">
             Modern AI development means agents, shells, dev servers, editor windows,
-            long-lived sessions, and remote boxes all orbiting the same repo. CC Branch
-            gives that orbit a file format and a runtime.
+            desktop controls, long-lived sessions, and remote boxes all orbiting the
+            same repo. CC Branch gives that orbit a file format and a runtime.
           </p>
-          <p>
+          <p data-i18n="whyBody2">
             The committed config describes what should exist. The local state remembers
-            what is already running. The CLI and Web UI make the workspace inspectable
-            instead of mysterious.
+            what is already running. The CLI, Web UI, and desktop shell make the
+            workspace inspectable instead of mysterious.
           </p>
         </div>
       </section>
@@ -131,43 +140,86 @@ synced 4 panes</code></pre>
       <section class="feature-rail" aria-label="Feature highlights">
         <article class="feature-card">
           <span class="feature-number">01</span>
-          <h3>Config that survives the week</h3>
-          <p>
+          <h3 data-i18n="feature1Title">Config that survives the week</h3>
+          <p data-i18n="feature1Body">
             Put tabs, panes, agents, commands, directories, environment variables, and
             openers in `.cc-branch/config.yaml`.
           </p>
         </article>
         <article class="feature-card">
           <span class="feature-number">02</span>
-          <h3>Sessions that come back</h3>
-          <p>
+          <h3 data-i18n="feature2Title">Sessions that come back</h3>
+          <p data-i18n="feature2Body">
             Start, attach, stop, restart, inspect, prune, and render resume commands for
             long-running agent sessions.
           </p>
         </article>
         <article class="feature-card">
           <span class="feature-number">03</span>
-          <h3>Local truth, team shape</h3>
-          <p>
-            Commit the workspace shape. Keep machine-specific session state out of git.
-            Exactly where it belongs.
+          <h3 data-i18n="feature3Title">Desktop without setup drama</h3>
+          <p data-i18n="feature3Body">
+            The desktop shell bundles the backend sidecar, manages the local server, and
+            keeps project control visible outside the terminal.
           </p>
         </article>
         <article class="feature-card">
           <span class="feature-number">04</span>
-          <h3>Doctor before drama</h3>
-          <p>
+          <h3 data-i18n="feature4Title">Doctor before drama</h3>
+          <p data-i18n="feature4Body">
             Check tmux, paths, commands, agent references, state drift, and low-risk fixes
             before a broken workspace wastes the morning.
           </p>
         </article>
       </section>
 
+      <section class="section desktop" id="desktop">
+        <div class="desktop-copy">
+          <p class="section-kicker" data-i18n="desktopKicker">Desktop shell</p>
+          <h2 data-i18n="desktopTitle">A local control room, not another cloud dashboard.</h2>
+          <p data-i18n="desktopBody">
+            CC Branch Desktop wraps the Web UI in a native shell and runs the backend
+            sidecar locally. It is built for people who want visual project control
+            without giving up terminal-first workflows.
+          </p>
+          <div class="desktop-points">
+            <span data-i18n="desktopPoint1">Bundled backend sidecar</span>
+            <span data-i18n="desktopPoint2">Project switcher and diagnostics</span>
+            <span data-i18n="desktopPoint3">Local-only workspace data</span>
+          </div>
+        </div>
+        <div class="desktop-device" aria-label="Desktop app preview">
+          <div class="device-bar">
+            <span></span><span></span><span></span>
+            <strong>CC Branch Desktop</strong>
+          </div>
+          <div class="device-body">
+            <aside>
+              <b>Projects</b>
+              <span class="active">orbit</span>
+              <span>atlas</span>
+              <span>lab</span>
+            </aside>
+            <div class="device-main">
+              <div class="device-summary">
+                <span>orbit</span>
+                <strong>Workspace ready</strong>
+              </div>
+              <div class="device-grid">
+                <span class="tile teal">codex</span>
+                <span class="tile dark">server</span>
+                <span class="tile amber">doctor</span>
+                <span class="tile green">cursor</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="section workspace" id="workflow">
         <div class="workspace-copy">
-          <p class="section-kicker">Workspace anatomy</p>
-          <h2>One config. Multiple execution surfaces.</h2>
-          <p>
+          <p class="section-kicker" data-i18n="workflowKicker">Workspace anatomy</p>
+          <h2 data-i18n="workflowTitle">One config. Multiple execution surfaces.</h2>
+          <p data-i18n="workflowBody">
             Use tmux when you want durable background sessions. Use direct mode when
             the right answer is simply opening a local app or running a normal command.
             Add SSH when a pane belongs on a server.
@@ -219,9 +271,9 @@ synced 4 panes</code></pre>
 
       <section class="section install" id="install">
         <div>
-          <p class="section-kicker">Install today</p>
-          <h2>Use the GitHub source package while registries are being prepared.</h2>
-          <p>
+          <p class="section-kicker" data-i18n="installKicker">Install today</p>
+          <h2 data-i18n="installTitle">Use the GitHub source package while registries are being prepared.</h2>
+          <p data-i18n="installBody">
             PyPI, npm, Homebrew, and signed desktop releases are wired in the repo, but
             public registry publishing is intentionally gated. The source install works
             now and builds the bundled Web UI.
@@ -231,41 +283,42 @@ synced 4 panes</code></pre>
           <div class="code-window">
             <div class="code-top">
               <span>terminal</span>
-              <button class="copy-button" type="button" data-copy="pip install git+https://github.com/GeminiLight/cc-branch.git">Copy</button>
+              <button class="copy-button" type="button" data-copy="pip install git+https://github.com/GeminiLight/cc-branch.git" data-copy-label="Copy">Copy</button>
             </div>
             <pre><code>pip install git+https://github.com/GeminiLight/cc-branch.git
 cc-branch --help
 cc-branch serve</code></pre>
           </div>
           <div class="install-notes">
-            <span>Requires Python 3.10+</span>
-            <span>Node/npm builds the Web UI from source</span>
-            <span>tmux is needed only for tmux-backed tabs</span>
+            <span data-i18n="installNote1">Requires Python 3.10+</span>
+            <span data-i18n="installNote2">Node/npm builds the Web UI from source</span>
+            <span data-i18n="installNote3">tmux is needed only for tmux-backed tabs</span>
+            <span data-i18n="installNote4">Desktop installers are prepared through GitHub Releases</span>
           </div>
         </div>
       </section>
 
       <section class="section docs" id="docs">
         <div>
-          <p class="section-kicker">Read next</p>
-          <h2>Everything important is plain files.</h2>
+          <p class="section-kicker" data-i18n="docsKicker">Read next</p>
+          <h2 data-i18n="docsTitle">Everything important is plain files.</h2>
         </div>
         <div class="doc-grid">
           <a href="https://github.com/GeminiLight/cc-branch/blob/main/docs/getting-started.md">
-            <span>Start</span>
-            Getting Started
+            <span data-i18n="docStartLabel">Start</span>
+            <strong data-i18n="docStart">Getting Started</strong>
           </a>
           <a href="https://github.com/GeminiLight/cc-branch/blob/main/docs/features.md">
-            <span>Map</span>
-            Feature Reference
+            <span data-i18n="docMapLabel">Map</span>
+            <strong data-i18n="docMap">Feature Reference</strong>
           </a>
           <a href="https://github.com/GeminiLight/cc-branch/blob/main/docs/user-guide.md">
-            <span>Use</span>
-            User Guide
+            <span data-i18n="docUseLabel">Use</span>
+            <strong data-i18n="docUse">User Guide</strong>
           </a>
           <a href="https://github.com/GeminiLight/cc-branch/blob/main/docs/publishing.md">
-            <span>Ship</span>
-            Publishing Runbook
+            <span data-i18n="docShipLabel">Ship</span>
+            <strong data-i18n="docShip">Publishing Runbook</strong>
           </a>
         </div>
       </section>
@@ -276,7 +329,7 @@ cc-branch serve</code></pre>
         <img src="assets/logo.svg" alt="" />
         <span>CC Branch</span>
       </div>
-      <p>MIT licensed. Built for local-first agent workspaces.</p>
+      <p data-i18n="footer">MIT licensed. Built for local-first agent workspaces.</p>
     </footer>
 
     <script src="script.js"></script>
