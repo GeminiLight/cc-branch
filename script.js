@@ -1,18 +1,18 @@
 const translations = {
   en: {
-    pageTitle: "CC Branch - One command back to your AI dev setup",
+    pageTitle: "CC Branch - Restore CLI workbenches",
     description:
-      "CC Branch returns a repo to its AI dev setup in one command: agents, tmux sessions, dev servers, editors, SSH panes, Web UI, and desktop control.",
+      "CC Branch restores a CLI workbench in one command: agents, tmux sessions, dev servers, editors, SSH panes, Web UI, and desktop control.",
     ogDescription:
-      "A CLI-first workspace orchestrator for getting back to the same AI dev setup whenever you return to a repo.",
+      "A CLI-first workspace orchestrator for restoring the full CLI workbench whenever you return to a repo.",
     skip: "Skip to content",
     navWhy: "Why",
     navDesktop: "Desktop",
     navWorkflow: "Workflow",
     navInstall: "Install",
     navDocs: "Docs",
-    heroEyebrow: "AI workspace restore",
-    heroTitle: "Resume the whole dev setup.",
+    heroEyebrow: "Multi-agent CLI workbench",
+    heroTitle: "Restore the whole workbench.",
     heroCopy:
       "Agents, tmux panes, dev servers, editors, and SSH targets come back from one project config.",
     heroPrimary: "Install",
@@ -121,19 +121,19 @@ const translations = {
     select: "Select",
   },
   zh: {
-    pageTitle: "CC Branch - 一条命令回到 AI 开发现场",
+    pageTitle: "CC Branch - 一键恢复 CLI 工作台",
     description:
-      "CC Branch 让你一条命令回到 AI 开发现场：Agent、tmux 会话、开发服务、编辑器、SSH 窗格、Web UI 和桌面端控制。",
+      "CC Branch 一键恢复 CLI 工作台：Agent、tmux 会话、开发服务、编辑器、SSH 窗格、Web UI 和桌面端控制。",
     ogDescription:
-      "一个 CLI-first 工作空间编排器，让开发者每次回到项目都能恢复到同一个 AI 开发现场。",
+      "一个 CLI-first 工作空间编排器，让开发者每次回到项目都能恢复整套 CLI 工作台。",
     skip: "跳到正文",
     navWhy: "为什么",
     navDesktop: "桌面端",
     navWorkflow: "工作流",
     navInstall: "安装",
     navDocs: "文档",
-    heroEyebrow: "AI 工作空间恢复",
-    heroTitle: "一键接回完整开发现场。",
+    heroEyebrow: "多 Agent CLI 工作台",
+    heroTitle: "一键恢复整个工作台。",
     heroCopy:
       "Agent、tmux 窗格、开发服务、编辑器和 SSH 目标，都从一份项目配置恢复。",
     heroPrimary: "安装",
