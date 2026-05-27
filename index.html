@@ -52,28 +52,60 @@
         <div class="hero-scene" aria-hidden="true">
           <div class="hero-panel">
             <div class="hero-panel-head">
-              <span data-i18n="heroPanelLabel">workspace orbit</span>
-              <span data-i18n="heroPanelState">local-first</span>
+              <span data-i18n="heroPanelLabel">restore preview</span>
+              <span data-i18n="heroPanelState">ready in 1 command</span>
             </div>
             <div class="hero-panel-body">
-              <pre><code>$ cc-branch plan
-workspace orbit
-  tab dev       tmux  orbit-dev
-  pane planner  codex resume
-  pane server   npm run dev
-  pane qa       claude --session</code></pre>
+              <div class="restore-flow">
+                <div class="restore-step">
+                  <span data-i18n="restoreStep1">Committed config</span>
+                  <strong>.cc-branch/config.yaml</strong>
+                </div>
+                <div class="restore-arrow">→</div>
+                <div class="restore-step">
+                  <span data-i18n="restoreStep2">Run once</span>
+                  <strong>cc-branch start</strong>
+                </div>
+                <div class="restore-arrow">→</div>
+                <div class="restore-step active">
+                  <span data-i18n="restoreStep3">Workspace restored</span>
+                  <strong data-i18n="restoreStep3Value">4 panes attached</strong>
+                </div>
+              </div>
+              <div class="restored-workspace">
+                <div class="restore-pane pane-agent">
+                  <span data-i18n="panePlanner">planner</span>
+                  <strong>codex resume</strong>
+                  <em data-i18n="paneAttached">attached</em>
+                </div>
+                <div class="restore-pane pane-server">
+                  <span data-i18n="paneServer">server</span>
+                  <strong>npm run dev</strong>
+                  <em data-i18n="paneRunning">running</em>
+                </div>
+                <div class="restore-pane paneReview">
+                  <span data-i18n="paneReview">review</span>
+                  <strong>claude --session</strong>
+                  <em data-i18n="paneAttached">attached</em>
+                </div>
+                <div class="restore-pane paneRemote">
+                  <span data-i18n="paneRemote">remote qa</span>
+                  <strong>ssh lab</strong>
+                  <em data-i18n="paneReady">ready</em>
+                </div>
+              </div>
               <div class="hero-panel-summary" aria-label="Workspace summary">
                 <div>
-                  <span data-i18n="heroSummaryTabs">Tabs</span>
+                  <span data-i18n="heroSummaryTabs">Reusable tabs</span>
                   <strong>4</strong>
                 </div>
                 <div>
-                  <span data-i18n="heroSummarySurfaces">Surfaces</span>
-                  <strong>3</strong>
+                  <span data-i18n="heroSummarySurfaces">Launch surfaces</span>
+                  <strong>CLI · Web · Desktop</strong>
                 </div>
                 <div>
-                  <span data-i18n="heroSummaryState">State</span>
-                  <strong data-i18n="heroSummaryLocal">local</strong>
+                  <span data-i18n="heroSummaryState">State file</span>
+                  <strong data-i18n="heroSummaryLocal">local only</strong>
                 </div>
               </div>
             </div>
@@ -81,44 +113,44 @@ workspace orbit
         </div>
 
         <div class="hero-content">
-          <p class="eyebrow" data-i18n="heroEyebrow">CLI-first control for AI development workspaces</p>
-          <h1>CC Branch</h1>
+          <p class="eyebrow" data-i18n="heroEyebrow">CC Branch for terminal AI workflows</p>
+          <h1 data-i18n="heroTitle">Restore your AI workspace in one command.</h1>
           <p class="hero-copy" data-i18n="heroCopy">
-            Keep tabs, panes, agents, local apps, and remote work in one config. Reopen
-            the same layout without rebuilding it by hand.
+            Define tabs, panes, agents, commands, editors, and remote targets once.
+            CC Branch brings them back as reusable sessions whenever you return to the repo.
           </p>
           <div class="hero-actions">
-            <a class="primary-action" href="#install" data-i18n="heroPrimary">Install from GitHub</a>
-            <a class="secondary-action" href="https://github.com/GeminiLight/cc-branch" data-i18n="heroSecondary">View source</a>
+            <a class="primary-action" href="#install" data-i18n="heroPrimary">Install and try it</a>
+            <a class="secondary-action" href="#workflow" data-i18n="heroSecondary">See how it works</a>
           </div>
           <div class="hero-points" aria-label="Key benefits">
-            <span data-i18n="heroPoint1">CLI, Web UI, and desktop app share one workspace model</span>
-            <span data-i18n="heroPoint2">Chinese and English content switch from the top bar</span>
-            <span data-i18n="heroPoint3">Light and dark themes stay in sync with the page</span>
+            <span data-i18n="heroPoint1">One config committed with the project</span>
+            <span data-i18n="heroPoint2">Tmux sessions, agents, local apps, and SSH panes restore together</span>
+            <span data-i18n="heroPoint3">CLI, Web UI, and desktop app share the same model</span>
           </div>
         </div>
       </section>
 
       <section class="capabilities" aria-label="Core capabilities">
         <div>
-          <span data-i18n="capability1Kicker">Source install</span>
-          <strong data-i18n="capability1Title">Build from the repo today.</strong>
-          <p data-i18n="capability1Body">The Python package bundles the Web UI, so one install covers the CLI and the browser view.</p>
+          <span data-i18n="capability1Kicker">Define</span>
+          <strong data-i18n="capability1Title">Describe the workspace once.</strong>
+          <p data-i18n="capability1Body">Tabs, panes, agents, commands, directories, env vars, openers, and remote targets live in one YAML file.</p>
         </div>
         <div>
-          <span data-i18n="capability2Kicker">Desktop app</span>
-          <strong data-i18n="capability2Title">Use the native shell when you want it.</strong>
-          <p data-i18n="capability2Body">Desktop wraps the same workspace model without turning the project into a cloud dashboard.</p>
+          <span data-i18n="capability2Kicker">Preview</span>
+          <strong data-i18n="capability2Title">Know what will launch before it runs.</strong>
+          <p data-i18n="capability2Body">`cc-branch plan` resolves tmux sessions, direct commands, SSH panes, and agent resume commands.</p>
         </div>
         <div>
-          <span data-i18n="capability3Kicker">Language switch</span>
-          <strong data-i18n="capability3Title">Chinese and English stay aligned.</strong>
-          <p data-i18n="capability3Body">The page title, descriptions, buttons, and visible content all change with the selected language.</p>
+          <span data-i18n="capability3Kicker">Restore</span>
+          <strong data-i18n="capability3Title">Bring the room back.</strong>
+          <p data-i18n="capability3Body">Start, attach, restart, stop, and prune long-running workspace sessions from one CLI.</p>
         </div>
         <div>
-          <span data-i18n="capability4Kicker">Theme switch</span>
-          <strong data-i18n="capability4Title">Light and dark mode use the same layout.</strong>
-          <p data-i18n="capability4Body">The palette updates without changing the structure, so the page stays readable in both modes.</p>
+          <span data-i18n="capability4Kicker">Inspect</span>
+          <strong data-i18n="capability4Title">See and fix drift.</strong>
+          <p data-i18n="capability4Body">Doctor checks commands, tmux, paths, agent references, session IDs, and safe auto-fixes.</p>
         </div>
       </section>
 
@@ -129,12 +161,12 @@ workspace orbit
         </div>
         <div class="statement">
           <p data-i18n="whyBody1">
-            Modern AI work moves across terminals, editors, a browser, and desktop apps.
-            CC Branch keeps those surfaces in one file and one runtime.
+            Modern AI work spreads across agent CLIs, dev servers, editors, terminals,
+            browser diagnostics, desktop controls, and remote machines.
           </p>
           <p data-i18n="whyBody2">
-            The committed config describes what should exist. Local state remembers what
-            is already running, and the UI shows the result instead of hiding it.
+            CC Branch gives that workspace a contract: committed config defines what
+            should exist; local state remembers what is already running.
           </p>
         </div>
       </section>
@@ -142,34 +174,30 @@ workspace orbit
       <section class="feature-rail" aria-label="Feature highlights">
         <article class="feature-card">
           <span class="feature-number">01</span>
-          <h3 data-i18n="feature1Title">Config that survives the week</h3>
+          <h3 data-i18n="feature1Title">Config becomes the source of truth</h3>
           <p data-i18n="feature1Body">
-            Put tabs, panes, agents, commands, directories, environment variables, and
-            openers in `.cc-branch/config.yaml`.
+            Commit the workspace structure so teammates and future you know what should open.
           </p>
         </article>
         <article class="feature-card">
           <span class="feature-number">02</span>
-          <h3 data-i18n="feature2Title">Sessions that come back</h3>
+          <h3 data-i18n="feature2Title">Sessions resume instead of restarting blind</h3>
           <p data-i18n="feature2Body">
-            Start, attach, stop, restart, inspect, prune, and render resume commands for
-            long-running agent sessions.
+            Agent panes keep IDs and labels, so attach and resume commands stay predictable.
           </p>
         </article>
         <article class="feature-card">
           <span class="feature-number">03</span>
-          <h3 data-i18n="feature3Title">Desktop without setup drama</h3>
+          <h3 data-i18n="feature3Title">Open the same workspace from multiple surfaces</h3>
           <p data-i18n="feature3Body">
-            The desktop shell bundles the backend sidecar, manages the local server, and
-            keeps project control visible outside the terminal.
+            Use the CLI, Web UI, or desktop shell without changing the underlying model.
           </p>
         </article>
         <article class="feature-card">
           <span class="feature-number">04</span>
-          <h3 data-i18n="feature4Title">Doctor before drama</h3>
+          <h3 data-i18n="feature4Title">Doctor catches broken workspaces early</h3>
           <p data-i18n="feature4Body">
-            Check tmux, paths, commands, agent references, state drift, and low-risk fixes
-            before a broken workspace wastes the morning.
+            Check tmux, paths, commands, agent references, and state drift before launch.
           </p>
         </article>
       </section>
@@ -256,24 +284,39 @@ workspace orbit
         </div>
       </section>
 
-      <section class="commands" aria-label="Command flow">
-        <div class="command-track">
-          <span>init</span>
-          <i></i>
-          <span>plan</span>
-          <i></i>
-          <span>start</span>
-          <i></i>
-          <span>attach</span>
-          <i></i>
-          <span>doctor</span>
+      <section class="workflow-steps" aria-label="How CC Branch restores a workspace">
+        <div class="steps-copy">
+          <p class="section-kicker" data-i18n="stepsKicker">How it works</p>
+          <h2 data-i18n="stepsTitle">From empty terminal to restored workspace.</h2>
+        </div>
+        <div class="steps-grid">
+          <article>
+            <span>01</span>
+            <strong>init</strong>
+            <p data-i18n="stepInit">Create the project config and local state files.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <strong>plan</strong>
+            <p data-i18n="stepPlan">Preview tabs, panes, agents, commands, and remote targets before launch.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <strong>start / attach</strong>
+            <p data-i18n="stepStart">Start missing sessions or attach to the ones already running.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <strong>doctor</strong>
+            <p data-i18n="stepDoctor">Catch missing tools, broken paths, and state drift early.</p>
+          </article>
         </div>
       </section>
 
       <section class="section install" id="install">
         <div>
           <p class="section-kicker" data-i18n="installKicker">Install today</p>
-          <h2 data-i18n="installTitle">Use the GitHub source package while registries are being prepared.</h2>
+          <h2 data-i18n="installTitle">Install from source while registries are prepared.</h2>
           <p data-i18n="installBody">
             PyPI, npm, Homebrew, and signed desktop releases are wired in the repo, but
             public registry publishing is intentionally gated. The source install works
@@ -302,7 +345,7 @@ cc-branch serve</code></pre>
       <section class="section docs" id="docs">
         <div>
           <p class="section-kicker" data-i18n="docsKicker">Read next</p>
-          <h2 data-i18n="docsTitle">Everything important is plain files.</h2>
+          <h2 data-i18n="docsTitle">Start with the files you will actually use.</h2>
         </div>
         <div class="doc-grid">
           <a href="https://github.com/GeminiLight/cc-branch/blob/main/docs/getting-started.md">
