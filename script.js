@@ -12,7 +12,7 @@ const translations = {
     navInstall: "Install",
     navDocs: "Docs",
     heroEyebrow: "Multi-agent CLI workbench",
-    heroTitle: "Restore the whole workbench.",
+    heroTitle: "Restore it in one command.",
     heroCopy:
       "Agents, tmux panes, dev servers, editors, and SSH targets come back from one project config.",
     heroPrimary: "Install",
@@ -133,7 +133,7 @@ const translations = {
     navInstall: "安装",
     navDocs: "文档",
     heroEyebrow: "多 Agent CLI 工作台",
-    heroTitle: "一键恢复整个工作台。",
+    heroTitle: "一键恢复整套工作台。",
     heroCopy:
       "Agent、tmux 窗格、开发服务、编辑器和 SSH 目标，都从一份项目配置恢复。",
     heroPrimary: "安装",
