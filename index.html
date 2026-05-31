@@ -32,9 +32,9 @@
       </a>
       <nav class="nav-links" aria-label="Site navigation">
         <a href="#values" data-i18n="navValues">Value</a>
+        <a href="#workflow" data-i18n="navWorkflow">Workflow</a>
         <a href="#remote" data-i18n="navRemote">Remote</a>
-        <a href="#desktop" data-i18n="navDesktop">Desktop</a>
-        <a href="#install" data-i18n="navInstall">Install</a>
+        <a href="#install" data-i18n="navInstall">Download</a>
       </nav>
       <div class="top-actions">
         <button class="lang-toggle" type="button" data-lang-toggle aria-label="Switch language">中文</button>
@@ -52,13 +52,13 @@
             Bring back your Agent CLIs, terminal tasks, editors, and SSH machines as one project workspace.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#install" data-i18n="heroPrimary">Install CC Branch</a>
-            <a class="button secondary" href="#values" data-i18n="heroSecondary">See the value</a>
+            <a class="button primary" href="https://github.com/GeminiLight/cc-branch/releases/latest" data-i18n="heroPrimary">Download desktop app</a>
+            <a class="button secondary" href="#install" data-i18n="heroSecondary">CLI install</a>
           </div>
-          <div class="quick-command" aria-label="Install command">
-            <span>$</span>
-            <code>pip install git+https://github.com/GeminiLight/cc-branch.git</code>
-            <button type="button" data-copy="pip install git+https://github.com/GeminiLight/cc-branch.git" data-copy-label="Copy" data-i18n="copy">Copy</button>
+          <div class="release-line" aria-label="Latest release">
+            <span>latest</span>
+            <strong data-i18n="heroRelease">Desktop installers live on GitHub Releases</strong>
+            <a href="https://github.com/GeminiLight/cc-branch/releases/latest" data-i18n="heroReleaseCta">Open release</a>
           </div>
         </div>
 
@@ -90,7 +90,7 @@
                 <span class="project-icon pink">D</span>
                 <div>
                   <strong>desktop-app</strong>
-                  <small data-i18n="desktopMeta">web ui · sidecar · doctor clean</small>
+                  <small data-i18n="desktopMeta">desktop app · doctor clean</small>
                 </div>
                 <em>ready</em>
               </div>
@@ -162,15 +162,15 @@
 
       <section class="section workflow" id="workflow">
         <div class="section-copy">
-          <p class="section-kicker" data-i18n="workflowKicker">Daily flow</p>
-          <h2 data-i18n="workflowTitle">Start, resume, connect, inspect.</h2>
+          <p class="section-kicker" data-i18n="workflowKicker">Work scenario</p>
+          <h2 data-i18n="workflowTitle">From project to workbench, one line.</h2>
           <p data-i18n="workflowBody">
-            Use the CLI, Web UI, or Desktop to restore the environment, attach to existing sessions, open tools, and check what is broken.
+            Choose a project; CC Branch brings back its local folder, SSH machines, Agent CLIs, terminal commands, editor, and sessions together.
           </p>
         </div>
-        <div class="config-card" aria-label="Workspace config example">
+        <div class="config-card workflow-source" aria-label="Workspace config example">
           <div class="code-header">
-            <span>.cc-branch/config.yaml</span>
+            <span data-i18n="workflowSource">Project recipe</span>
             <button type="button" data-copy="cc-branch plan && cc-branch start" data-copy-label="Copy" data-i18n="copy">Copy</button>
           </div>
           <pre><code>workspace: orbit
@@ -192,26 +192,41 @@ tabs:
         </div>
       </section>
 
-      <section class="flow" aria-label="How CC Branch works">
-        <article>
+      <section class="workflow-map" aria-label="How CC Branch fits into a workday">
+        <div class="workflow-rail" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <article class="workflow-step">
           <span>01</span>
-          <strong>define</strong>
-          <p data-i18n="flowDefine">Save the agents, commands, tools, folders, and SSH targets a project needs.</p>
+          <div>
+            <strong data-i18n="flowSelectTitle">Choose the project</strong>
+            <p data-i18n="flowSelectBody">Pick a saved workspace from the desktop app or CLI. It can point to a local folder, an SSH directory, or both.</p>
+          </div>
+          <em data-i18n="flowSelectOut">Project context is in one place</em>
         </article>
-        <article>
+        <article class="workflow-step">
           <span>02</span>
-          <strong>preview</strong>
-          <p data-i18n="flowPreview">See which agents, commands, tools, and machines will be used before launch.</p>
+          <div>
+            <strong data-i18n="flowPlanTitle">See what will open</strong>
+            <p data-i18n="flowPlanBody">Before launching, check the agents, commands, editor, tmux panes, and remote machines that belong to this workspace.</p>
+          </div>
+          <em data-i18n="flowPlanOut">No blind startup</em>
         </article>
-        <article>
+        <article class="workflow-step">
           <span>03</span>
-          <strong>restore</strong>
-          <p data-i18n="flowRestore">Bring back the project environment with `cc-branch start`.</p>
+          <div>
+            <strong data-i18n="flowStartTitle">Restore the workbench</strong>
+            <p data-i18n="flowStartBody">Start the workspace once: Agent CLIs resume, local services run, editors open, and SSH/tmux sessions attach.</p>
+          </div>
+          <em data-i18n="flowStartOut">Ready to work, not ready to set up</em>
         </article>
-        <article>
+        <article class="workflow-step">
           <span>04</span>
-          <strong>inspect</strong>
-          <p data-i18n="flowInspect">Catch missing Agent CLIs, bad paths, failed SSH links, and stale state.</p>
+          <div>
+            <strong data-i18n="flowReturnTitle">Come back later</strong>
+            <p data-i18n="flowReturnBody">When you return, reattach to existing sessions and fix missing tools, bad paths, or failed SSH links from the same entry point.</p>
+          </div>
+          <em data-i18n="flowReturnOut">The environment keeps continuity</em>
         </article>
       </section>
 
@@ -247,64 +262,36 @@ tabs:
         </div>
       </section>
 
-      <section class="section desktop" id="desktop">
-        <div class="desktop-preview" aria-label="Desktop app preview">
-          <div class="desktop-bar">
-            <span></span><span></span><span></span>
-            <strong>CC Branch Desktop</strong>
-          </div>
-          <div class="desktop-body">
-            <aside>
-              <b data-i18n="desktopProjects">Projects</b>
-              <span class="selected">orbit</span>
-              <span>lab-ssh</span>
-              <span>desktop-app</span>
-            </aside>
-            <main>
-              <div class="desktop-status">
-                <span data-i18n="desktopReady">Workspace ready</span>
-                <strong>4/4</strong>
-              </div>
-              <div class="desktop-tiles">
-                <span>codex</span>
-                <span>server</span>
-                <span>ssh</span>
-                <span>doctor</span>
-              </div>
-            </main>
-          </div>
-        </div>
-        <div class="section-copy">
-          <p class="section-kicker" data-i18n="desktopKicker">Desktop shell</p>
-          <h2 data-i18n="desktopTitle">A quiet desktop shell for local work.</h2>
-          <p data-i18n="desktopBody">
-            The desktop app wraps the Web UI with a local sidecar, so switching projects, checking status, and restoring sessions feels like a native utility.
-          </p>
-        </div>
-      </section>
-
       <section class="section install" id="install">
         <div class="section-copy">
-          <p class="section-kicker" data-i18n="installKicker">Install</p>
-          <h2 data-i18n="installTitle">Start from the terminal.</h2>
+          <p class="section-kicker" data-i18n="installKicker">Download</p>
+          <h2 data-i18n="installTitle">Start with the desktop app.</h2>
           <p data-i18n="installBody">
-            Install from source while public registries and signed desktop releases are finalized.
+            The desktop app is the simplest entry point. Download the latest release from GitHub, or install the CLI if you prefer terminal-first workflows.
           </p>
         </div>
-        <div class="install-card">
-          <div class="code-header">
-            <span>terminal</span>
-            <button type="button" data-copy="pip install git+https://github.com/GeminiLight/cc-branch.git" data-copy-label="Copy" data-i18n="copy">Copy</button>
-          </div>
-          <pre><code>pip install git+https://github.com/GeminiLight/cc-branch.git
+        <div class="download-panel">
+          <article class="release-card">
+            <span data-i18n="downloadDesktopLabel">Desktop app</span>
+            <strong data-i18n="downloadDesktopTitle">Latest GitHub Release</strong>
+            <p data-i18n="downloadDesktopBody">Get the newest desktop installer and release notes from the official release page.</p>
+            <a class="release-button" href="https://github.com/GeminiLight/cc-branch/releases/latest" data-i18n="downloadDesktopCta">Download latest release</a>
+          </article>
+          <article class="install-card cli-card">
+            <div class="code-header">
+              <span data-i18n="downloadCliLabel">CLI install</span>
+              <button type="button" data-copy="pip install git+https://github.com/GeminiLight/cc-branch.git" data-copy-label="Copy" data-i18n="copy">Copy</button>
+            </div>
+            <pre><code>pip install git+https://github.com/GeminiLight/cc-branch.git
 cc-branch plan
 cc-branch start
 cc-branch doctor</code></pre>
-          <div class="install-notes">
-            <span data-i18n="installNote1">Python 3.11+ recommended</span>
-            <span data-i18n="installNote2">tmux only required for tmux-backed tabs</span>
-            <span data-i18n="installNote3">SSH targets use your existing SSH config</span>
-          </div>
+            <div class="install-notes">
+              <span data-i18n="installNote1">Python 3.11+ recommended</span>
+              <span data-i18n="installNote2">tmux only required for tmux-backed tabs</span>
+              <span data-i18n="installNote3">SSH targets use your existing SSH config</span>
+            </div>
+          </article>
         </div>
       </section>
 
