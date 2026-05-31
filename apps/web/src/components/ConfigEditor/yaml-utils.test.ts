@@ -1,0 +1,442 @@
+import { describe, expect, it } from "vitest";
+import { parseConfigYaml, parseConfigYamlStrict, serializeConfigForm, validateConfigForm } from "./yaml-utils";
+
+describe("ConfigEditor YAML session intent", () => {
+  it("validates duplicate tab names after trimming whitespace", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: main",
+      "  - name: \" dev \"",
+      "    panes:",
+      "      - name: review",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Duplicate slot names: dev");
+  });
+
+  it("validates target separators in tab and pane names", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev:ui",
+      "    panes:",
+      "      - name: main.shell",
+      "        command: zsh",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Names cannot contain ':' or '.': dev:ui, main.shell");
+  });
+
+  it("validates duplicate pane and nested tmux window names", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: main",
+      "        agent: codex",
+      "      - name: \" main \"",
+      "        command: zsh",
+      "      - name: agents",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: api",
+      "            agent: codex",
+      "          - name: \" api \"",
+      "            command: zsh",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("Duplicate pane/window names: dev/main, dev/agents/api");
+  });
+
+  it("validates panes without an agent or command before saving", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: empty",
+      "      - name: agents",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: worker",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain(
+      "These panes have nothing to launch yet: dev/empty, dev/agents/worker. Choose an Agent, use the default Shell, or enter a command."
+    );
+  });
+
+  it("round-trips disabled panes without writing enabled defaults", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: main",
+      "        command: zsh",
+      "      - name: docs",
+      "        enabled: false",
+      "        command: npm run docs",
+      "",
+    ].join("\n"));
+
+    const serialized = serializeConfigForm(data);
+
+    expect(data.slots[0].windows[0].enabled).toBeUndefined();
+    expect(data.slots[0].windows[1].enabled).toBe(false);
+    expect(serialized).toContain("enabled: false");
+    expect(serialized).not.toContain("enabled: true");
+  });
+
+  it("parses canonical workspace terms and pane shell overrides", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "openWith: cursor",
+      "layoutBackend: tmux",
+      "defaults:",
+      "  shell: system-default",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: planner",
+      "        agent: codex",
+      "      - name: server",
+      "        command: pnpm dev",
+      "        shell: zsh",
+      "",
+    ].join("\n"));
+
+    expect(data.openWith).toBe("cursor");
+    expect(data.layoutBackend).toBe("tmux");
+    expect(data.defaults?.shell).toBe("system-default");
+    expect(data.slots[0].runtime).toBe("tmux");
+    expect(data.slots[0].windows[0].name).toBe("planner");
+    expect(data.slots[0].windows[0].shell).toBeNull();
+    expect(data.slots[0].windows[1].shell).toBe("zsh");
+  });
+
+  it("round-trips remote SSH targets and inherited overrides", () => {
+    const yaml = [
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: train",
+      "    remote:",
+      "      host: gpu-dev",
+      "      user: ubuntu",
+      "      port: 2222",
+      "      cwd: /srv/app",
+      "      args:",
+      "        - -A",
+      "      options:",
+      "        ServerAliveInterval: 30",
+      "    panes:",
+      "      - name: worker",
+      "        command: python train.py",
+      "      - name: logs",
+      "        command: tail -f app.log",
+      "        remote:",
+      "          cwd: /var/log/app",
+      "      - name: local",
+      "        command: echo local",
+      "        remote: false",
+      "",
+    ].join("\n");
+
+    const parsed = parseConfigYaml(yaml);
+    const serialized = serializeConfigForm(parsed);
+    const reparsed = parseConfigYaml(serialized);
+
+    expect(parsed.slots[0].remote).toMatchObject({
+      host: "gpu-dev",
+      user: "ubuntu",
+      port: 2222,
+      cwd: "/srv/app",
+      args: ["-A"],
+      options: { ServerAliveInterval: 30 },
+    });
+    expect(parsed.slots[0].windows[1].remote).toEqual({ cwd: "/var/log/app" });
+    expect(parsed.slots[0].windows[2].remote).toBe(false);
+    expect(serialized).toContain("remote:");
+    expect(serialized).toContain("host: gpu-dev");
+    expect(serialized).toContain("remote: false");
+    const reparsedRemote = reparsed.slots[0].remote;
+    expect(reparsedRemote && typeof reparsedRemote === "object" ? reparsedRemote.host : null).toBe("gpu-dev");
+    expect(reparsed.slots[0].windows[1].remote).toEqual({ cwd: "/var/log/app" });
+    expect(reparsed.slots[0].windows[2].remote).toBe(false);
+  });
+
+  it("validates SSH remote host and port in form mode", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: train",
+      "    remote:",
+      "      port: 70000",
+      "    panes:",
+      "      - name: worker",
+      "        command: python train.py",
+      "      - name: local",
+      "        command: echo local",
+      "        remote: false",
+      "",
+    ].join("\n"));
+
+    expect(validateConfigForm(data)).toContain("SSH host is required for: train");
+    expect(validateConfigForm(data)).toContain("SSH port must be between 1 and 65535 for: train");
+  });
+
+  it("preserves final openWith ids and rejects old opener fields", () => {
+    expect(parseConfigYaml("version: 2\nproject: demo\nopenWith: terminal-app\n").openWith).toBe("terminal-app");
+    expect(parseConfigYaml("version: 2\nproject: demo\nopenWith: iterm2\n").openWith).toBe("iterm2");
+    expect(() => parseConfigYamlStrict("version: 2\nproject: demo\ndefault_opener: terminal\n")).toThrow("default_opener");
+  });
+
+  it("serializes canonical workspace terms without runtime windows wrappers", () => {
+    const yaml = serializeConfigForm({
+      version: 2,
+      project: "demo",
+      root: ".",
+      openWith: "warp",
+      layoutBackend: "tmux",
+      defaults: { shell: "system-default" },
+      display: { mode: "grid", columns: 2, dashboard: false },
+      agents: {},
+      slots: [
+        {
+          name: "dev",
+          runtime: "tmux",
+          cwd: ".",
+          env: {},
+          windows: [
+            {
+              name: "planner",
+              agent: "codex",
+              command: null,
+              cwd: null,
+              env: {},
+              session: null,
+              shell: null,
+              label: null,
+              label_template: null,
+              resume_mode: null,
+              resume_template: null,
+              create_mode: null,
+              create_template: null,
+              label_mode: null,
+              rename_template: null,
+            },
+            {
+              name: "server",
+              agent: null,
+              command: "pnpm dev",
+              cwd: null,
+              env: {},
+              session: null,
+              shell: "zsh",
+              label: null,
+              label_template: null,
+              resume_mode: null,
+              resume_template: null,
+              create_mode: null,
+              create_template: null,
+              label_mode: null,
+              rename_template: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(yaml).toContain("openWith: warp");
+    expect(yaml).toContain("layoutBackend: tmux");
+    expect(yaml).toContain("defaults:");
+    expect(yaml).toContain("shell: system-default");
+    expect(yaml).toContain("name: planner");
+    expect(yaml).toContain("name: server");
+    expect(yaml).toContain("shell: zsh");
+    expect(yaml).not.toContain("runtime:");
+    expect(yaml).not.toContain("windows:");
+  });
+
+  it("parses session intent from panes", () => {
+    const data = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: planner",
+      "        agent: codex",
+      "        session: fresh",
+      "",
+    ].join("\n"));
+
+    expect(data.slots[0].windows[0].session).toBe("fresh");
+  });
+
+  it("rejects old session_id config fields", () => {
+    expect(() => parseConfigYamlStrict([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: planner",
+      "        agent: codex",
+      "        session_id: old-session",
+      "",
+    ].join("\n"))).toThrow("session_id");
+  });
+
+  it("serializes session intent without writing session_id", () => {
+    const yaml = serializeConfigForm({
+      version: 2,
+      project: "demo",
+      root: ".",
+      display: { mode: "grid", columns: 2, dashboard: false },
+      agents: {},
+      slots: [
+        {
+          name: "dev",
+          runtime: "tmux",
+          cwd: ".",
+          env: {},
+          windows: [
+            {
+              name: "planner",
+              agent: "codex",
+              command: null,
+              cwd: null,
+              env: {},
+              session: "codex-session-123",
+              label: null,
+              label_template: null,
+              resume_mode: null,
+              resume_template: null,
+              create_mode: null,
+              create_template: null,
+              label_mode: null,
+              rename_template: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(yaml).toContain("session: codex-session-123");
+    expect(yaml).not.toContain("session_id");
+  });
+
+  it("round-trips a mixed tab with a terminal pane and a tmux window group", () => {
+    const yaml = [
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: ui",
+      "        agent: codex",
+      "        opener: cursor",
+      "      - name: tmux-dev",
+      "        layoutBackend: tmux",
+      "        layout: main-top",
+      "        opener: warp",
+      "        windows:",
+      "          - name: frontend",
+      "            agent: codex",
+      "          - name: backend",
+      "            command: pnpm api",
+      "",
+    ].join("\n");
+
+    const parsed = parseConfigYaml(yaml);
+    const serialized = serializeConfigForm(parsed);
+    const reparsed = parseConfigYaml(serialized);
+
+    expect(parsed.slots).toHaveLength(1);
+    expect(parsed.slots[0].windows).toHaveLength(2);
+    expect(parsed.slots[0].windows[0].name).toBe("ui");
+    expect(parsed.slots[0].windows[0].layoutBackend).toBe("direct");
+    expect(parsed.slots[0].windows[0].opener).toBe("cursor");
+    expect(parsed.slots[0].windows[1].name).toBe("tmux-dev");
+    expect(parsed.slots[0].windows[1].layoutBackend).toBe("tmux");
+    expect(parsed.slots[0].windows[1].layout).toBe("main-top");
+    expect(parsed.slots[0].windows[1].opener).toBe("warp");
+    expect(parsed.slots[0].windows[1].windows?.map((window) => window.name)).toEqual([
+      "frontend",
+      "backend",
+    ]);
+    expect(serialized).toContain("layoutBackend: tmux");
+    expect(serialized).toContain("opener: cursor");
+    expect(serialized).toContain("layout: main-top");
+    expect(serialized).toContain("opener: warp");
+    expect(serialized).toContain("windows:");
+    expect(reparsed.slots[0].windows[1].windows?.map((window) => window.name)).toEqual([
+      "frontend",
+      "backend",
+    ]);
+    expect(reparsed.slots[0].windows[1].layout).toBe("main-top");
+    expect(reparsed.slots[0].windows[1].opener).toBe("warp");
+  });
+
+  it("parses mixed panes under a tmux default as a canvas tab container", () => {
+    const yaml = [
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "layoutBackend: tmux",
+      "tabs:",
+      "  - name: dev",
+      "    panes:",
+      "      - name: ui",
+      "        layoutBackend: direct",
+      "        agent: codex",
+      "      - name: agents",
+      "        layoutBackend: tmux",
+      "        windows:",
+      "          - name: planner",
+      "            agent: codex",
+      "",
+    ].join("\n");
+
+    const parsed = parseConfigYaml(yaml);
+    const serialized = serializeConfigForm(parsed);
+
+    expect(parsed.layoutBackend).toBe("tmux");
+    expect(parsed.slots).toHaveLength(1);
+    expect(parsed.slots[0].runtime).toBe("terminal");
+    expect(parsed.slots[0].windows.map((window) => window.name)).toEqual(["ui", "agents"]);
+    expect(parsed.slots[0].windows[0].layoutBackend).toBe("direct");
+    expect(parsed.slots[0].windows[1].layoutBackend).toBe("tmux");
+    expect(serialized).toContain("layoutBackend: tmux");
+    expect(serialized).toContain("layoutBackend: direct");
+    expect(serialized).toContain("windows:");
+  });
+});

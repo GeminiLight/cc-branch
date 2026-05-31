@@ -1,0 +1,1195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cc-branch Sidebar Direction</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #07080a;
+        --ink: #f7f4eb;
+        --muted: rgba(247, 244, 235, 0.66);
+        --faint: rgba(247, 244, 235, 0.42);
+        --line: rgba(247, 244, 235, 0.14);
+        --soft-line: rgba(247, 244, 235, 0.08);
+        --success: #35d08f;
+        --warning: #f1b43f;
+        --danger: #ff6c6c;
+        font-family:
+          "Aptos", "IBM Plex Sans", "Helvetica Neue", ui-sans-serif,
+          system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        scroll-snap-type: y mandatory;
+        background: var(--page);
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--page);
+        color: var(--ink);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .jump {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        z-index: 50;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        max-width: min(620px, calc(100vw - 36px));
+        padding: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 8px;
+        background: rgba(7, 8, 10, 0.72);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
+      }
+
+      .jump a {
+        min-height: 30px;
+        border-radius: 7px;
+        padding: 7px 10px;
+        color: rgba(247, 244, 235, 0.74);
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: 850;
+      }
+
+      .jump a:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .candidate {
+        min-height: 100vh;
+        scroll-snap-align: start;
+        position: relative;
+        display: grid;
+        align-items: center;
+        overflow: hidden;
+        padding: 42px;
+        background:
+          radial-gradient(circle at 8% 4%, var(--halo-a), transparent 33rem),
+          radial-gradient(circle at 91% 18%, var(--halo-b), transparent 28rem),
+          linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      }
+
+      .candidate::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, var(--grid-alpha)) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, var(--grid-alpha)) 1px, transparent 1px);
+        background-size: 36px 36px;
+        mask-image: linear-gradient(90deg, transparent, black 16%, black 84%, transparent);
+      }
+
+      .stage {
+        position: relative;
+        z-index: 2;
+        width: min(1560px, 100%);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 330px minmax(0, 1fr);
+        gap: 34px;
+        align-items: center;
+      }
+
+      .brief {
+        display: grid;
+        gap: 18px;
+        align-content: center;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: max-content;
+        min-height: 28px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        padding: 5px 10px;
+        background: rgba(255, 255, 255, 0.045);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .index {
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 54px;
+        line-height: 0.92;
+        letter-spacing: 0;
+      }
+
+      .brief p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.55;
+      }
+
+      .rules {
+        display: grid;
+        gap: 8px;
+      }
+
+      .rule {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 9px;
+        align-items: start;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .rule span:first-child {
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 18%, transparent);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .pick {
+        width: max-content;
+        min-height: 42px;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        padding: 10px 15px;
+        background: color-mix(in srgb, var(--accent) 18%, transparent);
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .pick:hover,
+      .pick[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+
+      .screen {
+        height: min(780px, calc(100vh - 84px));
+        min-width: 0;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        border: 1px solid var(--frame-line);
+        border-radius: 8px;
+        background: var(--app-bg);
+        color: var(--app-ink);
+        box-shadow: var(--frame-shadow);
+      }
+
+      .project-sidebar {
+        position: relative;
+        width: 264px;
+        min-width: 264px;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        border-right: 1px solid var(--app-line);
+        background: var(--side-bg);
+        transition:
+          width 220ms ease,
+          min-width 220ms ease;
+      }
+
+      .screen.is-collapsed .project-sidebar {
+        width: 68px;
+        min-width: 68px;
+      }
+
+      .side-top {
+        min-height: 68px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 13px 12px;
+        border-bottom: 1px solid var(--app-line);
+      }
+
+      .side-logo,
+      .project-logo {
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        font-weight: 950;
+        letter-spacing: 0;
+        flex: none;
+      }
+
+      .side-logo {
+        width: 40px;
+        height: 40px;
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+
+      .side-title {
+        min-width: 0;
+      }
+
+      .side-title strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--app-ink);
+        font-size: 13px;
+        line-height: 1.15;
+      }
+
+      .side-title span,
+      .caption {
+        color: var(--app-muted);
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .collapse {
+        position: absolute;
+        top: 18px;
+        right: -15px;
+        z-index: 4;
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--button-line);
+        border-radius: 8px;
+        background: var(--button-bg);
+        color: var(--button-ink);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .screen.is-collapsed .side-title,
+      .screen.is-collapsed .section-label {
+        display: none;
+      }
+
+      .screen.is-collapsed .side-top {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        padding-inline: 10px;
+      }
+
+      .project-scroll {
+        min-height: 0;
+        overflow-y: auto;
+        padding: 12px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--app-line) transparent;
+      }
+
+      .project-scroll::-webkit-scrollbar {
+        width: 5px;
+      }
+
+      .project-scroll::-webkit-scrollbar-thumb {
+        background: var(--app-line);
+        border-radius: 999px;
+      }
+
+      .section-label {
+        margin: 4px 6px 9px;
+        color: var(--app-muted);
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .project-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .project-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 50px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 8px;
+        color: var(--app-muted);
+      }
+
+      .project-row.active {
+        background: var(--active-bg);
+        border-color: var(--active-line);
+        color: var(--app-ink);
+      }
+
+      .project-row:hover {
+        background: var(--hover-bg);
+      }
+
+      .project-logo {
+        width: 34px;
+        height: 34px;
+        color: #fff;
+        font-size: 12px;
+        text-transform: uppercase;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+      }
+
+      .p-teal { background: linear-gradient(135deg, #10b981, #0e7490); }
+      .p-amber { background: linear-gradient(135deg, #f59e0b, #b45309); }
+      .p-blue { background: linear-gradient(135deg, #2563eb, #0f766e); }
+      .p-rose { background: linear-gradient(135deg, #e11d48, #7c3aed); }
+      .p-ink { background: linear-gradient(135deg, #111827, #475569); }
+      .p-lime { background: linear-gradient(135deg, #65a30d, #15803d); }
+      .p-violet { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+
+      .project-copy {
+        min-width: 0;
+      }
+
+      .project-copy strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: currentColor;
+        font-size: 12px;
+        line-height: 1.15;
+      }
+
+      .project-copy span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-top: 3px;
+        color: var(--app-muted);
+        font-size: 10px;
+        line-height: 1.2;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--success);
+      }
+
+      .status-dot.idle { background: #8792a2; }
+      .status-dot.warn { background: var(--warning); }
+
+      .screen.is-collapsed .project-copy,
+      .screen.is-collapsed .status-dot {
+        display: none;
+      }
+
+      .screen.is-collapsed .project-scroll {
+        padding-inline: 10px;
+      }
+
+      .screen.is-collapsed .project-row {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        min-height: 44px;
+        padding: 5px;
+      }
+
+      .screen.is-collapsed .project-logo {
+        width: 38px;
+        height: 38px;
+      }
+
+      .side-bottom {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border-top: 1px solid var(--app-line);
+      }
+
+      .logo-picker {
+        padding: 10px;
+        border: 1px solid var(--app-line);
+        border-radius: 8px;
+        background: var(--picker-bg);
+      }
+
+      .picker-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--app-muted);
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .swatches {
+        display: flex;
+        gap: 7px;
+        margin-top: 10px;
+      }
+
+      .swatch {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.26);
+      }
+
+      .settings {
+        min-height: 42px;
+        border: 1px solid var(--button-line);
+        border-radius: 8px;
+        background: var(--button-bg);
+        color: var(--button-ink);
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .settings-icon {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: var(--active-bg);
+      }
+
+      .screen.is-collapsed .logo-picker {
+        display: none;
+      }
+
+      .screen.is-collapsed .settings {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        padding: 9px;
+      }
+
+      .screen.is-collapsed .settings span:last-child {
+        display: none;
+      }
+
+      .main {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        background: var(--main-bg);
+      }
+
+      .topbar {
+        min-height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--app-line);
+        background: var(--top-bg);
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--app-ink);
+        font-size: 14px;
+        line-height: 1.15;
+        font-weight: 950;
+      }
+
+      .mono {
+        font-family:
+          "SF Mono", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+      }
+
+      .tabs,
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .tab,
+      .button,
+      .pill {
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .tab {
+        min-height: 32px;
+        padding: 7px 10px;
+        color: var(--app-muted);
+      }
+
+      .tab.active {
+        background: var(--active-bg);
+        color: var(--app-ink);
+      }
+
+      .button {
+        min-height: 34px;
+        border: 1px solid var(--button-line);
+        padding: 7px 11px;
+        background: var(--button-bg);
+        color: var(--button-ink);
+      }
+
+      .button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+      }
+
+      .content {
+        min-height: 0;
+        padding: 18px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 318px;
+        gap: 14px;
+      }
+
+      .panel {
+        border: 1px solid var(--app-line);
+        border-radius: 8px;
+        background: var(--panel-bg);
+      }
+
+      .panel.pad {
+        padding: 14px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        gap: 14px;
+        min-width: 0;
+        min-height: 0;
+      }
+
+      .metric-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric b {
+        display: block;
+        color: var(--app-ink);
+        font-size: 30px;
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 6px;
+        color: var(--app-muted);
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .slot-list {
+        min-height: 0;
+        display: grid;
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .slot {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        min-height: 68px;
+        padding: 12px;
+        border: 1px solid var(--app-line);
+        border-radius: 8px;
+        background: var(--panel-bg);
+      }
+
+      .slot-icon {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        background: var(--active-bg);
+        color: var(--accent);
+        font-weight: 950;
+      }
+
+      .pill {
+        min-height: 24px;
+        padding: 4px 9px;
+        background: var(--pill-bg);
+        color: var(--pill-ink);
+        text-transform: uppercase;
+      }
+
+      .aside {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .terminal {
+        min-height: 0;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 1px solid var(--app-line);
+        background: var(--terminal-bg);
+      }
+
+      .terminal-head {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--app-line);
+      }
+
+      .code {
+        padding: 14px;
+        color: var(--code-ink);
+        font-size: 11px;
+        line-height: 1.8;
+      }
+
+      .v1 {
+        --bg-top: #0c1016;
+        --bg-bottom: #030405;
+        --halo-a: rgba(49, 229, 186, 0.16);
+        --halo-b: rgba(88, 166, 255, 0.10);
+        --grid-alpha: 0.04;
+        --accent: #31e5ba;
+        --accent-ink: #03110e;
+        --app-bg: #05080c;
+        --app-ink: #effff9;
+        --app-muted: #82958f;
+        --app-line: rgba(49, 229, 186, 0.14);
+        --side-bg: #07100f;
+        --main-bg: #05080c;
+        --top-bg: #070b10;
+        --panel-bg: rgba(255, 255, 255, 0.035);
+        --terminal-bg: #020604;
+        --code-ink: #9fffe5;
+        --active-bg: rgba(49, 229, 186, 0.13);
+        --active-line: rgba(49, 229, 186, 0.30);
+        --hover-bg: rgba(255, 255, 255, 0.045);
+        --button-bg: rgba(255, 255, 255, 0.045);
+        --button-ink: #d8fff5;
+        --button-line: rgba(49, 229, 186, 0.20);
+        --picker-bg: rgba(255, 255, 255, 0.03);
+        --pill-bg: rgba(49, 229, 186, 0.14);
+        --pill-ink: #8df7dc;
+        --frame-line: rgba(49, 229, 186, 0.20);
+        --frame-shadow: 0 36px 120px rgba(0, 0, 0, 0.56);
+      }
+
+      .v2 {
+        --bg-top: #f4efe3;
+        --bg-bottom: #dce8de;
+        --halo-a: rgba(36, 92, 71, 0.16);
+        --halo-b: rgba(242, 201, 76, 0.28);
+        --grid-alpha: 0.16;
+        --accent: #245c47;
+        --accent-ink: #fffdf7;
+        --ink: #151813;
+        --muted: rgba(21, 24, 19, 0.64);
+        --app-bg: #fbfaf4;
+        --app-ink: #151813;
+        --app-muted: #687267;
+        --app-line: #d6ddcf;
+        --side-bg: #edf4ea;
+        --main-bg: #fbfaf4;
+        --top-bg: #fffdf8;
+        --panel-bg: #ffffff;
+        --terminal-bg: #15291f;
+        --code-ink: #dff9ed;
+        --active-bg: #e4efe1;
+        --active-line: #c3d2bd;
+        --hover-bg: rgba(36, 92, 71, 0.07);
+        --button-bg: #ffffff;
+        --button-ink: #24352e;
+        --button-line: #cbd5c7;
+        --picker-bg: #fffdf8;
+        --pill-bg: #e4efe1;
+        --pill-ink: #245c47;
+        --frame-line: #ced8ca;
+        --frame-shadow: 0 34px 92px rgba(61, 76, 54, 0.25);
+      }
+
+      .v3 {
+        --bg-top: #e9eef5;
+        --bg-bottom: #cfd8e3;
+        --halo-a: rgba(47, 100, 214, 0.16);
+        --halo-b: rgba(255, 255, 255, 0.32);
+        --grid-alpha: 0;
+        --accent: #2f64d6;
+        --accent-ink: #ffffff;
+        --ink: #151922;
+        --muted: rgba(21, 25, 34, 0.66);
+        --app-bg: #f8fafc;
+        --app-ink: #151922;
+        --app-muted: #697487;
+        --app-line: #d9e0ea;
+        --side-bg: #edf2f8;
+        --main-bg: #f8fafc;
+        --top-bg: rgba(255, 255, 255, 0.88);
+        --panel-bg: #ffffff;
+        --terminal-bg: #172033;
+        --code-ink: #dfeaff;
+        --active-bg: #e8eefb;
+        --active-line: #c8d6f5;
+        --hover-bg: rgba(47, 100, 214, 0.07);
+        --button-bg: #ffffff;
+        --button-ink: #2b3444;
+        --button-line: #d3dbe7;
+        --picker-bg: #ffffff;
+        --pill-bg: #e8eefb;
+        --pill-ink: #214ba3;
+        --frame-line: rgba(28, 35, 45, 0.13);
+        --frame-shadow: 0 38px 100px rgba(43, 55, 73, 0.28);
+      }
+
+      .v4 {
+        --bg-top: #f8f2df;
+        --bg-bottom: #1b1a17;
+        --halo-a: rgba(240, 195, 86, 0.26);
+        --halo-b: rgba(32, 29, 22, 0.22);
+        --grid-alpha: 0.07;
+        --accent: #f0c356;
+        --accent-ink: #1c1912;
+        --app-bg: #fbf6e8;
+        --app-ink: #201d16;
+        --app-muted: #706959;
+        --app-line: #ddd1b5;
+        --side-bg: #f0e6cf;
+        --main-bg: #fbf6e8;
+        --top-bg: #fffaf0;
+        --panel-bg: #fffdf6;
+        --terminal-bg: #221f18;
+        --code-ink: #fff0c6;
+        --active-bg: #f8e8b7;
+        --active-line: #d6b75c;
+        --hover-bg: rgba(32, 29, 22, 0.055);
+        --button-bg: #fffdf6;
+        --button-ink: #322d22;
+        --button-line: #d2c39f;
+        --picker-bg: #fff7e5;
+        --pill-bg: #f8e8b7;
+        --pill-ink: #5e4505;
+        --frame-line: #cdbb93;
+        --frame-shadow: 0 36px 90px rgba(36, 30, 18, 0.44);
+      }
+
+      .v5 {
+        --bg-top: #171813;
+        --bg-bottom: #080906;
+        --halo-a: rgba(246, 168, 51, 0.18);
+        --halo-b: rgba(101, 163, 13, 0.10);
+        --grid-alpha: 0.05;
+        --accent: #f6a833;
+        --accent-ink: #141107;
+        --app-bg: #11130d;
+        --app-ink: #f8f0dc;
+        --app-muted: #a39b87;
+        --app-line: rgba(248, 240, 220, 0.12);
+        --side-bg: #15180f;
+        --main-bg: #11130d;
+        --top-bg: #181b13;
+        --panel-bg: rgba(248, 240, 220, 0.055);
+        --terminal-bg: #080a06;
+        --code-ink: #ffd891;
+        --active-bg: rgba(246, 168, 51, 0.14);
+        --active-line: rgba(246, 168, 51, 0.30);
+        --hover-bg: rgba(248, 240, 220, 0.07);
+        --button-bg: rgba(248, 240, 220, 0.06);
+        --button-ink: #f8f0dc;
+        --button-line: rgba(248, 240, 220, 0.14);
+        --picker-bg: rgba(248, 240, 220, 0.045);
+        --pill-bg: rgba(246, 168, 51, 0.14);
+        --pill-ink: #ffd891;
+        --frame-line: rgba(246, 168, 51, 0.20);
+        --frame-shadow: 0 36px 105px rgba(0, 0, 0, 0.50);
+      }
+
+      .v6 {
+        --bg-top: #fbf0f1;
+        --bg-bottom: #e8f4f0;
+        --halo-a: rgba(29, 79, 145, 0.15);
+        --halo-b: rgba(225, 29, 72, 0.10);
+        --grid-alpha: 0.18;
+        --accent: #1d4f91;
+        --accent-ink: #ffffff;
+        --ink: #142132;
+        --muted: rgba(20, 33, 50, 0.64);
+        --app-bg: #fffdfc;
+        --app-ink: #152033;
+        --app-muted: #687283;
+        --app-line: #dfe4ea;
+        --side-bg: #f8fbfa;
+        --main-bg: #fffdfc;
+        --top-bg: #fffdfc;
+        --panel-bg: #ffffff;
+        --terminal-bg: #152033;
+        --code-ink: #e6f0ff;
+        --active-bg: #e8eff8;
+        --active-line: #cbd9ec;
+        --hover-bg: rgba(29, 79, 145, 0.06);
+        --button-bg: #ffffff;
+        --button-ink: #25364e;
+        --button-line: #d7dee7;
+        --picker-bg: #ffffff;
+        --pill-bg: #e8eff8;
+        --pill-ink: #1d4f91;
+        --frame-line: #d3dbe5;
+        --frame-shadow: 0 34px 90px rgba(72, 89, 112, 0.24);
+      }
+
+      @media (max-width: 1120px) {
+        html {
+          scroll-snap-type: none;
+        }
+
+        .candidate {
+          padding: 78px 18px 26px;
+        }
+
+        .stage {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+
+        h1 {
+          font-size: 38px;
+          line-height: 0.98;
+        }
+
+        .brief {
+          gap: 12px;
+        }
+
+        .screen {
+          height: 720px;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .jump {
+          left: 10px;
+          right: 10px;
+          top: 10px;
+          overflow-x: auto;
+          flex-wrap: nowrap;
+        }
+
+        .screen {
+          height: 760px;
+        }
+
+        .project-sidebar {
+          width: 68px;
+          min-width: 68px;
+        }
+
+        .side-title,
+        .collapse,
+        .section-label,
+        .project-copy,
+        .status-dot,
+        .logo-picker,
+        .settings span:last-child {
+          display: none;
+        }
+
+        .side-top,
+        .project-row,
+        .settings {
+          grid-template-columns: 1fr;
+          justify-items: center;
+        }
+
+        .content {
+          grid-template-columns: 1fr;
+        }
+
+        .aside {
+          display: none;
+        }
+
+        .metric-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .tabs {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="jump" aria-label="Design navigation">
+      <a href="#c1">01 Terminal</a>
+      <a href="#c2">02 Light</a>
+      <a href="#c3">03 Native</a>
+      <a href="#c4">04 Workbench</a>
+      <a href="#c5">05 Matrix</a>
+      <a href="#c6">06 Studio</a>
+    </nav>
+
+    <main>
+      <section class="candidate v1" id="c1" data-id="01">
+        <div class="stage">
+          <aside class="brief">
+            <div class="kicker"><span class="index">01</span> Unified Sidebar</div>
+            <h1>Terminal Pro</h1>
+            <p>最贴近 CLI 工具本体。左侧项目栏是固定产品模型：展开看项目名，收起看彩色 initials，底部永远是 Settings。</p>
+            <div class="rules">
+              <div class="rule"><span>1</span><div>顶部保留 cc-branch logo，收起后仍然是稳定入口。</div></div>
+              <div class="rule"><span>2</span><div>项目列表独立滚动，默认当前项目排第一。</div></div>
+              <div class="rule"><span>3</span><div>项目 logo 可用 initials 加颜色，后续可以接用户自定义。</div></div>
+            </div>
+            <button class="pick" type="button" aria-pressed="false">Pick 01</button>
+          </aside>
+          <div class="screen">
+            <aside class="project-sidebar">
+              <div class="side-top">
+                <div class="side-logo">cc</div>
+                <div class="side-title"><strong>cc-branch</strong><span>Workspace control</span></div>
+                <button class="collapse" type="button" aria-label="Collapse sidebar">&lt;</button>
+              </div>
+              <div class="project-scroll">
+                <div class="section-label">Projects</div>
+                <div class="project-list">
+                  <div class="project-row active"><div class="project-logo p-teal">CW</div><div class="project-copy"><strong>cli-workspace</strong><span class="mono">4/6 slots running</span></div><span class="status-dot"></span></div>
+                  <div class="project-row"><div class="project-logo p-amber">AL</div><div class="project-copy"><strong>agent-lab</strong><span class="mono">1 warning</span></div><span class="status-dot warn"></span></div>
+                  <div class="project-row"><div class="project-logo p-blue">DS</div><div class="project-copy"><strong>desktop-shell</strong><span class="mono">ready</span></div><span class="status-dot"></span></div>
+                  <div class="project-row"><div class="project-logo p-rose">RX</div><div class="project-copy"><strong>runtime-x</strong><span class="mono">stopped</span></div><span class="status-dot idle"></span></div>
+                  <div class="project-row"><div class="project-logo p-ink">UI</div><div class="project-copy"><strong>web-ui-redesign</strong><span class="mono">2/3 slots</span></div><span class="status-dot"></span></div>
+                  <div class="project-row"><div class="project-logo p-lime">DK</div><div class="project-copy"><strong>docs-kit</strong><span class="mono">idle</span></div><span class="status-dot idle"></span></div>
+                </div>
+              </div>
+              <div class="side-bottom">
+                <div class="logo-picker"><div class="picker-top"><span>Logo</span><span>initials</span></div><div class="swatches"><span class="swatch p-teal"></span><span class="swatch p-amber"></span><span class="swatch p-blue"></span><span class="swatch p-rose"></span></div></div>
+                <div class="settings"><span class="settings-icon">S</span><span>Settings</span></div>
+              </div>
+            </aside>
+            <section class="main">
+              <header class="topbar"><div class="title-block"><div class="title">cli-workspace</div><div class="caption mono">/Users/geminilight/code/cli-workspace</div></div><div class="tabs"><span class="tab active">Dashboard</span><span class="tab">Config</span><span class="tab">Doctor</span></div><div class="actions"><span class="button">Warp</span><span class="button primary">Open workspace</span></div></header>
+              <div class="content"><section class="hero"><div class="panel pad"><div class="title">Workspace online</div><div class="caption mono">main branch, state synced 12s ago</div></div><div class="metric-row"><div class="panel pad metric"><b>4</b><span>running</span></div><div class="panel pad metric"><b>8</b><span>windows</span></div><div class="panel pad metric"><b>3</b><span>openers</span></div><div class="panel pad metric"><b>1</b><span>warning</span></div></div><div class="slot-list"><div class="slot"><div class="slot-icon">D</div><div><div class="title">dev</div><div class="caption mono">planner / coder / shell</div></div><span class="pill">running</span></div><div class="slot"><div class="slot-icon">R</div><div><div class="title">review</div><div class="caption mono">codex reviewer</div></div><span class="pill">running</span></div><div class="slot"><div class="slot-icon">W</div><div><div class="title">docs</div><div class="caption mono">writer / preview</div></div><span class="pill">stopped</span></div></div></section><aside class="aside"><div class="panel pad"><div class="title">Selected project logo</div><div class="caption">Users can pick a color or upload a logo later. Initials are the fallback.</div></div><div class="terminal"><div class="terminal-head"><b class="mono">cc-branch status</b><span class="pill">live</span></div><div class="code mono">$ cc-branch attach dev:coder<br />dev ........ running<br />review ..... running<br />docs ....... stopped<br />doctor ..... 1 warning</div></div></aside></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="candidate v2" id="c2" data-id="02">
+        <div class="stage">
+          <aside class="brief">
+            <div class="kicker"><span class="index">02</span> Unified Sidebar</div>
+            <h1>Light Operations</h1>
+            <p>同一套 Sidebar，换成更浅、更产品化的工作台气质。适合团队用户，也更像一个可长期维护的桌面 Web UI。</p>
+            <div class="rules">
+              <div class="rule"><span>1</span><div>展开态强调项目名字和状态，不抢主区域的注意力。</div></div>
+              <div class="rule"><span>2</span><div>收起态直接变成项目 logo rail，适合小屏或长期停靠。</div></div>
+              <div class="rule"><span>3</span><div>底部 Settings 固定，不参与项目列表滚动。</div></div>
+            </div>
+            <button class="pick" type="button" aria-pressed="false">Pick 02</button>
+          </aside>
+          <div class="screen">
+            <aside class="project-sidebar">
+              <div class="side-top"><div class="side-logo">cc</div><div class="side-title"><strong>cc-branch</strong><span>Local projects</span></div><button class="collapse" type="button" aria-label="Collapse sidebar">&lt;</button></div>
+              <div class="project-scroll"><div class="section-label">Projects</div><div class="project-list"><div class="project-row active"><div class="project-logo p-teal">CW</div><div class="project-copy"><strong>cli-workspace</strong><span class="mono">4/6 slots running</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-amber">AL</div><div class="project-copy"><strong>agent-lab</strong><span class="mono">1 warning</span></div><span class="status-dot warn"></span></div><div class="project-row"><div class="project-logo p-blue">DS</div><div class="project-copy"><strong>desktop-shell</strong><span class="mono">ready</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-violet">PX</div><div class="project-copy"><strong>plugin-x</strong><span class="mono">idle</span></div><span class="status-dot idle"></span></div></div></div>
+              <div class="side-bottom"><div class="logo-picker"><div class="picker-top"><span>Logo</span><span>color</span></div><div class="swatches"><span class="swatch p-teal"></span><span class="swatch p-amber"></span><span class="swatch p-blue"></span><span class="swatch p-violet"></span></div></div><div class="settings"><span class="settings-icon">S</span><span>Settings</span></div></div>
+            </aside>
+            <section class="main"><header class="topbar"><div class="title-block"><div class="title">Workspace overview</div><div class="caption mono">Project-path aware backend</div></div><div class="tabs"><span class="tab active">Dashboard</span><span class="tab">Config</span><span class="tab">Doctor</span></div><div class="actions"><span class="button">System Terminal</span><span class="button primary">Open</span></div></header><div class="content"><section class="hero"><div class="panel pad"><div class="title">cli-workspace is ready</div><div class="caption">A calmer product shell around the same project-sidebar model.</div></div><div class="metric-row"><div class="panel pad metric"><b>4</b><span>running</span></div><div class="panel pad metric"><b>6</b><span>slots</span></div><div class="panel pad metric"><b>12s</b><span>refresh</span></div><div class="panel pad metric"><b>0</b><span>errors</span></div></div><div class="slot-list"><div class="slot"><div class="slot-icon">D</div><div><div class="title">Development</div><div class="caption mono">planner, coder, shell</div></div><span class="pill">open</span></div><div class="slot"><div class="slot-icon">R</div><div><div class="title">Review</div><div class="caption mono">codex reviewer</div></div><span class="pill">open</span></div><div class="slot"><div class="slot-icon">F</div><div><div class="title">Fix doctor warning</div><div class="caption mono">session_id missing</div></div><span class="pill">fix</span></div></div></section><aside class="aside"><div class="panel pad"><div class="title">Logo fallback</div><div class="caption">Expanded: show project name. Collapsed: show initials only.</div></div><div class="terminal"><div class="terminal-head"><b class="mono">openers</b><span class="pill">3 found</span></div><div class="code mono">System Terminal available<br />Warp available<br />Cursor available<br />VS Code available</div></div></aside></div></section>
+          </div>
+        </div>
+      </section>
+
+      <section class="candidate v3" id="c3" data-id="03">
+        <div class="stage">
+          <aside class="brief">
+            <div class="kicker"><span class="index">03</span> Unified Sidebar</div>
+            <h1>Native Sidecar</h1>
+            <p>更接近 macOS 小工具。左侧就是项目切换器，收起来以后像桌面应用的 icon rail。</p>
+            <div class="rules">
+              <div class="rule"><span>1</span><div>适合 Tauri / desktop sidecar 的窗口感。</div></div>
+              <div class="rule"><span>2</span><div>项目 initials 在收起后仍然很容易识别。</div></div>
+              <div class="rule"><span>3</span><div>Settings 固定在底部，和本地偏好设置绑定。</div></div>
+            </div>
+            <button class="pick" type="button" aria-pressed="false">Pick 03</button>
+          </aside>
+          <div class="screen">
+            <aside class="project-sidebar">
+              <div class="side-top"><div class="side-logo">cc</div><div class="side-title"><strong>cc-branch</strong><span>Desktop sidecar</span></div><button class="collapse" type="button" aria-label="Collapse sidebar">&lt;</button></div>
+              <div class="project-scroll"><div class="section-label">Pinned</div><div class="project-list"><div class="project-row active"><div class="project-logo p-blue">CW</div><div class="project-copy"><strong>cli-workspace</strong><span class="mono">current</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-teal">DB</div><div class="project-copy"><strong>desktop-backend</strong><span class="mono">2 slots</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-ink">PK</div><div class="project-copy"><strong>packaging-kit</strong><span class="mono">idle</span></div><span class="status-dot idle"></span></div></div></div>
+              <div class="side-bottom"><div class="logo-picker"><div class="picker-top"><span>Project mark</span><span>editable</span></div><div class="swatches"><span class="swatch p-blue"></span><span class="swatch p-teal"></span><span class="swatch p-ink"></span><span class="swatch p-rose"></span></div></div><div class="settings"><span class="settings-icon">S</span><span>Settings</span></div></div>
+            </aside>
+            <section class="main"><header class="topbar"><div class="title-block"><div class="title">cli-workspace</div><div class="caption mono">Native window shell</div></div><div class="tabs"><span class="tab active">Workspace</span><span class="tab">Sessions</span><span class="tab">Doctor</span></div><div class="actions"><span class="button">Restart</span><span class="button primary">Open</span></div></header><div class="content"><section class="hero"><div class="panel pad"><div class="title">Local app behavior</div><div class="caption">Feels like a small desktop utility, with the same collapsible project rail.</div></div><div class="metric-row"><div class="panel pad metric"><b>4</b><span>running</span></div><div class="panel pad metric"><b>8</b><span>windows</span></div><div class="panel pad metric"><b>1</b><span>warning</span></div><div class="panel pad metric"><b>3</b><span>tools</span></div></div><div class="slot-list"><div class="slot"><div class="slot-icon">Cmd</div><div><div class="title">Open workspace</div><div class="caption mono">Warp Launch Configuration</div></div><span class="pill">ready</span></div><div class="slot"><div class="slot-icon">~</div><div><div class="title">Open project directory</div><div class="caption mono">Cursor / VS Code</div></div><span class="pill">ready</span></div></div></section><aside class="aside"><div class="panel pad"><div class="title">Collapsed state</div><div class="caption">Click the sidebar chevron. The width becomes 68px and only project logos remain.</div></div><div class="terminal"><div class="terminal-head"><b class="mono">doctor</b><span class="pill">ok</span></div><div class="code mono">tmux found<br />codex found<br />warp found<br />1 fix available</div></div></aside></div></section>
+          </div>
+        </div>
+      </section>
+
+      <section class="candidate v4" id="c4" data-id="04">
+        <div class="stage">
+          <aside class="brief">
+            <div class="kicker"><span class="index">04</span> Unified Sidebar</div>
+            <h1>Workbench</h1>
+            <p>温暖一点，像一个真实的本地工作台。项目栏保留你说的结构，但主区域更适合 slot map。</p>
+            <div class="rules">
+              <div class="rule"><span>1</span><div>项目栏不再变来变去，视觉风格跟着主题换。</div></div>
+              <div class="rule"><span>2</span><div>项目头像颜色更柔和，适合长时间使用。</div></div>
+              <div class="rule"><span>3</span><div>展开态显示项目名，收起态项目头像成为唯一信息。</div></div>
+            </div>
+            <button class="pick" type="button" aria-pressed="false">Pick 04</button>
+          </aside>
+          <div class="screen">
+            <aside class="project-sidebar">
+              <div class="side-top"><div class="side-logo">cc</div><div class="side-title"><strong>cc-branch</strong><span>Workbench</span></div><button class="collapse" type="button" aria-label="Collapse sidebar">&lt;</button></div>
+              <div class="project-scroll"><div class="section-label">Projects</div><div class="project-list"><div class="project-row active"><div class="project-logo p-amber">CW</div><div class="project-copy"><strong>cli-workspace</strong><span class="mono">ready</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-lime">DK</div><div class="project-copy"><strong>docs-kit</strong><span class="mono">idle</span></div><span class="status-dot idle"></span></div><div class="project-row"><div class="project-logo p-rose">PR</div><div class="project-copy"><strong>publishing-rig</strong><span class="mono">warning</span></div><span class="status-dot warn"></span></div></div></div>
+              <div class="side-bottom"><div class="logo-picker"><div class="picker-top"><span>Logo</span><span>palette</span></div><div class="swatches"><span class="swatch p-amber"></span><span class="swatch p-lime"></span><span class="swatch p-rose"></span><span class="swatch p-blue"></span></div></div><div class="settings"><span class="settings-icon">S</span><span>Settings</span></div></div>
+            </aside>
+            <section class="main"><header class="topbar"><div class="title-block"><div class="title">Slot workbench</div><div class="caption mono">cli-workspace / main</div></div><div class="tabs"><span class="tab active">Map</span><span class="tab">Config</span><span class="tab">Doctor</span></div><div class="actions"><span class="button primary">Run in Warp</span></div></header><div class="content"><section class="hero"><div class="panel pad"><div class="title">Every tile is launchable</div><div class="caption">The sidebar is stable. The main panel can change by tab.</div></div><div class="metric-row"><div class="panel pad metric"><b>6</b><span>slots</span></div><div class="panel pad metric"><b>4</b><span>running</span></div><div class="panel pad metric"><b>2</b><span>stopped</span></div><div class="panel pad metric"><b>1</b><span>fix</span></div></div><div class="slot-list"><div class="slot"><div class="slot-icon">D</div><div><div class="title">Development</div><div class="caption mono">planner / coder / shell</div></div><span class="pill">open</span></div><div class="slot"><div class="slot-icon">R</div><div><div class="title">Review</div><div class="caption mono">codex reviewer</div></div><span class="pill">open</span></div><div class="slot"><div class="slot-icon">F</div><div><div class="title">Fix missing session id</div><div class="caption mono">doctor --fix</div></div><span class="pill">fix</span></div></div></section><aside class="aside"><div class="panel pad"><div class="title">Project identity</div><div class="caption">Color plus initials is enough in collapsed mode. Custom image can override it later.</div></div><div class="terminal"><div class="terminal-head"><b class="mono">command</b><span class="pill">ready</span></div><div class="code mono">cc-branch dashboard<br />cc-branch attach dev<br />cc-branch doctor --fix</div></div></aside></div></section>
+          </div>
+        </div>
+      </section>
+
+      <section class="candidate v5" id="c5" data-id="05">
+        <div class="stage">
+          <aside class="brief">
+            <div class="kicker"><span class="index">05</span> Unified Sidebar</div>
+            <h1>Operator Matrix</h1>
+            <p>更硬核。Sidebar 仍然一致，但主区域变成高密度矩阵，给已经熟悉 target 语法的人用。</p>
+            <div class="rules">
+              <div class="rule"><span>1</span><div>左侧项目模型不变，减少学习成本。</div></div>
+              <div class="rule"><span>2</span><div>主区域高密度，不把产品做成营销页。</div></div>
+              <div class="rule"><span>3</span><div>收起项目栏后主区域得到更多宽度。</div></div>
+            </div>
+            <button class="pick" type="button" aria-pressed="false">Pick 05</button>
+          </aside>
+          <div class="screen">
+            <aside class="project-sidebar">
+              <div class="side-top"><div class="side-logo">cc</div><div class="side-title"><strong>cc-branch</strong><span>Operator mode</span></div><button class="collapse" type="button" aria-label="Collapse sidebar">&lt;</button></div>
+              <div class="project-scroll"><div class="section-label">Projects</div><div class="project-list"><div class="project-row active"><div class="project-logo p-ink">CW</div><div class="project-copy"><strong>cli-workspace</strong><span class="mono">4 active</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-amber">OP</div><div class="project-copy"><strong>ops-panel</strong><span class="mono">queued</span></div><span class="status-dot warn"></span></div><div class="project-row"><div class="project-logo p-violet">MX</div><div class="project-copy"><strong>matrix-x</strong><span class="mono">idle</span></div><span class="status-dot idle"></span></div></div></div>
+              <div class="side-bottom"><div class="logo-picker"><div class="picker-top"><span>Logo</span><span>initials</span></div><div class="swatches"><span class="swatch p-ink"></span><span class="swatch p-amber"></span><span class="swatch p-violet"></span><span class="swatch p-teal"></span></div></div><div class="settings"><span class="settings-icon">S</span><span>Settings</span></div></div>
+            </aside>
+            <section class="main"><header class="topbar"><div class="title-block"><div class="title">Operator matrix</div><div class="caption mono">fast scan, fast action</div></div><div class="tabs"><span class="tab active">Matrix</span><span class="tab">Queue</span><span class="tab">Logs</span></div><div class="actions"><span class="button primary">Open all</span></div></header><div class="content"><section class="hero"><div class="panel pad"><div class="title">Targets</div><div class="caption mono">dev, review, docs, doctor</div></div><div class="metric-row"><div class="panel pad metric"><b>12</b><span>targets</span></div><div class="panel pad metric"><b>4</b><span>active</span></div><div class="panel pad metric"><b>3</b><span>queued</span></div><div class="panel pad metric"><b>0</b><span>errors</span></div></div><div class="slot-list"><div class="slot"><div class="slot-icon">01</div><div><div class="title">dev:coder</div><div class="caption mono">attached</div></div><span class="pill">run</span></div><div class="slot"><div class="slot-icon">02</div><div><div class="title">review:codex</div><div class="caption mono">resume session</div></div><span class="pill">run</span></div><div class="slot"><div class="slot-icon">03</div><div><div class="title">docs:writer</div><div class="caption mono">stopped</div></div><span class="pill">start</span></div></div></section><aside class="aside"><div class="panel pad"><div class="title">Collapsed rail</div><div class="caption">This version benefits most from collapse because the main matrix wants width.</div></div><div class="terminal"><div class="terminal-head"><b class="mono">queue</b><span class="pill">3</span></div><div class="code mono">sync workspace<br />attach dev<br />open project folder</div></div></aside></div></section>
+          </div>
+        </div>
+      </section>
+
+      <section class="candidate v6" id="c6" data-id="06">
+        <div class="stage">
+          <aside class="brief">
+            <div class="kicker"><span class="index">06</span> Unified Sidebar</div>
+            <h1>Studio Console</h1>
+            <p>最柔和，适合新用户。Sidebar 仍然是同一套，但整体更轻，项目 initials 更像可配置的个人工作区标识。</p>
+            <div class="rules">
+              <div class="rule"><span>1</span><div>适合 onboarding，不会一上来像终端监控。</div></div>
+              <div class="rule"><span>2</span><div>项目 logo 选择可以做成 Settings 里的 Project Identity。</div></div>
+              <div class="rule"><span>3</span><div>默认展开，用户熟悉后再收起。</div></div>
+            </div>
+            <button class="pick" type="button" aria-pressed="false">Pick 06</button>
+          </aside>
+          <div class="screen">
+            <aside class="project-sidebar">
+              <div class="side-top"><div class="side-logo">cc</div><div class="side-title"><strong>cc-branch</strong><span>Studio</span></div><button class="collapse" type="button" aria-label="Collapse sidebar">&lt;</button></div>
+              <div class="project-scroll"><div class="section-label">Projects</div><div class="project-list"><div class="project-row active"><div class="project-logo p-blue">CW</div><div class="project-copy"><strong>cli-workspace</strong><span class="mono">today</span></div><span class="status-dot"></span></div><div class="project-row"><div class="project-logo p-rose">WD</div><div class="project-copy"><strong>web-design</strong><span class="mono">draft</span></div><span class="status-dot warn"></span></div><div class="project-row"><div class="project-logo p-teal">QA</div><div class="project-copy"><strong>qa-runs</strong><span class="mono">ready</span></div><span class="status-dot"></span></div></div></div>
+              <div class="side-bottom"><div class="logo-picker"><div class="picker-top"><span>Identity</span><span>choose</span></div><div class="swatches"><span class="swatch p-blue"></span><span class="swatch p-rose"></span><span class="swatch p-teal"></span><span class="swatch p-amber"></span></div></div><div class="settings"><span class="settings-icon">S</span><span>Settings</span></div></div>
+            </aside>
+            <section class="main"><header class="topbar"><div class="title-block"><div class="title">Today's workspace</div><div class="caption mono">Everything is ready except docs</div></div><div class="tabs"><span class="tab active">Home</span><span class="tab">Config</span><span class="tab">Help</span></div><div class="actions"><span class="button">Guide</span><span class="button primary">Open workspace</span></div></header><div class="content"><section class="hero"><div class="panel pad"><div class="title">You can keep coding</div><div class="caption">This is the gentlest wrapper around the same project sidebar contract.</div></div><div class="metric-row"><div class="panel pad metric"><b>4</b><span>running</span></div><div class="panel pad metric"><b>8</b><span>windows</span></div><div class="panel pad metric"><b>1</b><span>suggestion</span></div><div class="panel pad metric"><b>3</b><span>openers</span></div></div><div class="slot-list"><div class="slot"><div class="slot-icon">D</div><div><div class="title">Start docs slot</div><div class="caption mono">writer / preview</div></div><span class="pill">suggested</span></div><div class="slot"><div class="slot-icon">O</div><div><div class="title">Open current workspace</div><div class="caption mono">system terminal</div></div><span class="pill">ready</span></div></div></section><aside class="aside"><div class="panel pad"><div class="title">Project identity</div><div class="caption">The selected color and initials are visible in both expanded and collapsed states.</div></div><div class="terminal"><div class="terminal-head"><b class="mono">next action</b><span class="pill">1</span></div><div class="code mono">docs slot is configured<br />not currently running<br />start when needed</div></div></aside></div></section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const choiceKey = "cc-branch-sidebar-direction";
+
+      document.querySelectorAll(".screen").forEach((screen) => {
+        const button = screen.querySelector(".collapse");
+        if (!button) return;
+        button.addEventListener("click", () => {
+          const collapsed = screen.classList.toggle("is-collapsed");
+          button.textContent = collapsed ? ">" : "<";
+          button.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+        });
+      });
+
+      function setSelected(id) {
+        document.querySelectorAll(".candidate").forEach((candidate) => {
+          const selected = candidate.dataset.id === id;
+          const button = candidate.querySelector(".pick");
+          button.setAttribute("aria-pressed", selected ? "true" : "false");
+          button.textContent = selected ? "Selected " + id : "Pick " + id;
+        });
+        localStorage.setItem(choiceKey, id);
+      }
+
+      document.querySelectorAll(".candidate").forEach((candidate) => {
+        candidate.querySelector(".pick").addEventListener("click", () => {
+          setSelected(candidate.dataset.id);
+        });
+      });
+
+      const saved = localStorage.getItem(choiceKey);
+      if (saved) setSelected(saved);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard Header Candidates</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f5f6f2;
+      --ink: #151c19;
+      --muted: #66736d;
+      --faint: #8b9691;
+      --paper: #fcfdfb;
+      --paper-2: #f0f3ef;
+      --paper-3: #e9efeb;
+      --line: #dbe2dc;
+      --strong-line: #c8d2ca;
+      --green: #277468;
+      --green-2: #e2f0ec;
+      --blue: #2f5f92;
+      --blue-2: #e5eef8;
+      --amber: #b7791f;
+      --amber-2: #fff3d8;
+      --amber-line: #e5b95e;
+      --shadow: 0 18px 46px rgba(29, 39, 35, .10);
+      --soft-shadow: 0 8px 22px rgba(29, 39, 35, .07);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(21, 28, 25, .035) 1px, transparent 1px) 0 0 / 32px 32px,
+        radial-gradient(circle at 14% -8%, rgba(39, 116, 104, .12), transparent 31rem),
+        radial-gradient(circle at 95% 4%, rgba(47, 95, 146, .10), transparent 30rem),
+        linear-gradient(180deg, #fcfdfb 0, var(--page) 42rem);
+    }
+    button { font: inherit; }
+    .page { width: min(1200px, calc(100vw - 40px)); margin: 0 auto; padding: 34px 0 76px; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 25px; line-height: 1.1; letter-spacing: 0; }
+    .hero p { margin: 9px 0 0; max-width: 760px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .recommend { border: 1px solid #bfd7d1; color: #17453e; background: #f7fbf9; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 760; white-space: nowrap; }
+
+    .model {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0 24px;
+    }
+    .meaning {
+      border: 1px solid var(--line);
+      background: rgba(252, 253, 251, .78);
+      border-radius: 13px;
+      padding: 13px;
+      box-shadow: var(--soft-shadow);
+    }
+    .meaning-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .meaning h2 { margin: 0; font-size: 13px; }
+    .meaning p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .badge { height: 24px; display: inline-flex; align-items: center; border-radius: 999px; padding: 0 8px; font-size: 10px; font-weight: 820; letter-spacing: .01em; }
+    .badge.local { color: #36524b; background: var(--paper-2); }
+    .badge.primary { color: #17453e; background: var(--green-2); }
+    .badge.state { color: #74490e; background: var(--amber-2); }
+    .badge.system { color: #254c78; background: var(--blue-2); }
+
+    .candidate {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(252, 253, 251, .88);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .candidate-head {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 16px 18px 13px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(252, 253, 251, .72);
+    }
+    .index {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: var(--ink);
+      color: white;
+      font-size: 12px;
+      font-weight: 820;
+    }
+    .candidate h3 { margin: 0; font-size: 15px; letter-spacing: 0; }
+    .candidate .why { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .score { color: var(--green); font-size: 12px; font-weight: 820; padding-top: 2px; white-space: nowrap; }
+    .mock { padding: 16px 18px 18px; }
+    .shell {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 15px 16px;
+      min-height: 92px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: start;
+      border-bottom: 1px solid var(--line);
+    }
+    .project {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      min-width: 0;
+    }
+    .mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #bed7d1;
+      background: linear-gradient(180deg, #ecf7f4, #dceee9);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 860;
+    }
+    .project-title { font-size: 15px; line-height: 1.2; font-weight: 800; }
+    .path { margin-top: 3px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .quick-stats { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .stat { min-width: 68px; border-radius: 9px; background: var(--paper-2); padding: 7px 9px; }
+    .stat span { display: block; color: var(--faint); font-size: 9px; font-weight: 820; text-transform: uppercase; }
+    .stat b { display: block; margin-top: 2px; font-size: 13px; }
+
+    .actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+    .actions.stack { flex-direction: column; align-items: flex-end; }
+    .row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+    .group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 12px;
+    }
+    .group.plain { background: transparent; border-color: transparent; padding: 0; gap: 8px; }
+    .group.issue-group { background: var(--amber-2); border-color: rgba(183, 121, 31, .24); }
+    .btn {
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 760;
+      white-space: nowrap;
+      box-shadow: 0 1px 0 rgba(20, 28, 24, .04);
+    }
+    .btn.icon {
+      width: 34px;
+      padding: 0;
+      color: #596760;
+      background: #fff;
+    }
+    .group .btn.icon { background: transparent; border-color: transparent; box-shadow: none; }
+    .btn.open { border-color: #bad5cf; background: #f8fbfa; color: #143d37; }
+    .btn.open.solid { background: var(--green); color: white; border-color: var(--green); }
+    .btn.state { color: var(--amber); background: var(--amber-2); border-color: transparent; }
+    .btn.state.strong { border-color: rgba(183, 121, 31, .28); }
+    .btn.text { border-color: transparent; background: transparent; box-shadow: none; color: var(--muted); padding: 0 7px; }
+    .open-split { display: inline-flex; min-width: 0; }
+    .open-split .btn:first-child { border-radius: 9px 0 0 9px; }
+    .tool-select {
+      min-width: 126px;
+      justify-content: space-between;
+      color: var(--muted);
+      border-left: 0;
+      border-radius: 0 9px 9px 0;
+    }
+    .small-label {
+      color: var(--faint);
+      font-size: 10px;
+      font-weight: 820;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+    .divider { width: 1px; height: 24px; background: var(--line); }
+    .folder {
+      position: relative;
+      width: 15px;
+      height: 11px;
+      border: 1.7px solid currentColor;
+      border-radius: 3px;
+      transform: translateY(1px);
+    }
+    .folder::before {
+      content: "";
+      position: absolute;
+      left: 1px;
+      top: -5px;
+      width: 7px;
+      height: 5px;
+      border: 1.7px solid currentColor;
+      border-bottom: 0;
+      border-radius: 3px 3px 0 0;
+      background: currentColor;
+      opacity: .18;
+    }
+
+    .tabs-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px 8px;
+    }
+    .tabs-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+    }
+    .attention {
+      color: var(--amber);
+      background: var(--amber-2);
+      border: 1px solid rgba(183, 121, 31, .22);
+      border-radius: 7px;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 820;
+    }
+    .counts { color: var(--muted); font-size: 11px; }
+    .tabs { padding: 0 16px 16px; display: grid; gap: 10px; }
+    .tab {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .tab.issue { border-color: var(--amber-line); box-shadow: 0 0 0 3px rgba(255, 243, 216, .86); }
+    .tab-top {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+    }
+    .tab-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
+    .chip {
+      border-radius: 7px;
+      background: var(--paper-2);
+      color: var(--faint);
+      padding: 3px 6px;
+      font-size: 9px;
+      font-weight: 820;
+      text-transform: uppercase;
+    }
+    .pane {
+      margin: 0 12px 12px;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--paper-2);
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+    .pane.issue { border-color: var(--amber-line); background: #fff9ed; }
+    .pane-main { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .agent {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      border: 1px solid #d6ddd8;
+      background: #fff;
+      overflow: hidden;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .agent img { width: 15px; height: 15px; object-fit: contain; }
+    .pane-title { font-size: 12px; font-weight: 800; }
+    .pane-sub { margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .pane-actions { display: flex; gap: 4px; }
+    .mini {
+      width: 27px;
+      height: 27px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      padding: 0;
+    }
+
+    .v1 .actions { gap: 10px; }
+    .v1 .group.local { order: 1; }
+    .v1 .open-split { order: 2; }
+    .v1 .group.runtime { order: 3; }
+    .v2 .header { grid-template-columns: 1fr; }
+    .v2 .actions { width: 100%; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px; }
+    .v3 .header { grid-template-columns: 1fr auto; }
+    .v3 .actions { display: grid; gap: 8px; }
+    .v4 .header { grid-template-columns: 1fr; }
+    .v4 .command-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; border: 1px solid var(--line); background: var(--paper-2); padding: 6px; border-radius: 13px; }
+    .v5 .actions { align-items: stretch; }
+    .v5 .issue-group { order: -1; }
+    .v6 .actions { border-left: 1px solid var(--line); padding-left: 16px; }
+    .v7 .header { grid-template-columns: minmax(0, 1fr) minmax(440px, auto); }
+    .v7 .actions { display: grid; grid-template-columns: auto auto; gap: 8px; }
+    .v8 .actions { justify-content: flex-start; width: 100%; }
+    .v8 .header { grid-template-columns: 1fr; }
+    .v8 .open-split { margin-left: auto; }
+    .v9 .header { grid-template-columns: 1fr; }
+    .v9 .actions { margin-top: 12px; justify-content: space-between; border: 1px solid var(--line); background: #fff; border-radius: 13px; padding: 6px; }
+    .v10 .header { grid-template-columns: minmax(0, 1fr) auto; min-height: 82px; }
+    .v10 .actions { align-items: center; }
+    .v10 .group.runtime { margin-left: 4px; }
+
+    @media (max-width: 820px) {
+      .page { width: min(100vw - 20px, 1200px); padding-top: 18px; }
+      .hero, .model, .candidate-head, .header, .v3 .header, .v7 .header, .v10 .header { grid-template-columns: 1fr; }
+      .model { gap: 8px; }
+      .actions, .actions.stack, .row, .v2 .actions, .v9 .actions { justify-content: stretch; align-items: stretch; }
+      .group, .open-split, .command-bar { width: 100%; }
+      .open-split .btn:first-child { flex: 1; }
+      .tool-select { min-width: 112px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>仪表盘 Header 语义重排</h1>
+        <p>这次先固定按钮心智：打开工作空间是主动作；选择工具是主动作的一部分；打开目录和刷新只是本地辅助；同步/修复只有在运行态不一致时出现。下面 10 个方案都按这个语义重新排。</p>
+      </div>
+      <div class="recommend">建议优先看 01 / 05 / 09</div>
+    </section>
+
+    <section class="model" aria-label="按钮语义模型">
+      <article class="meaning">
+        <div class="meaning-top"><h2>打开目录</h2><span class="badge local">本地</span></div>
+        <p>只是在 Finder 里定位项目，不启动 agent，不应该抢主按钮视觉。</p>
+      </article>
+      <article class="meaning">
+        <div class="meaning-top"><h2>打开工作空间 + 工具</h2><span class="badge primary">主动作</span></div>
+        <p>用户最常点。工具选择必须贴着打开按钮，表达“用哪个工具打开”。</p>
+      </article>
+      <article class="meaning">
+        <div class="meaning-top"><h2>同步运行态</h2><span class="badge state">条件动作</span></div>
+        <p>只有状态漂移时出现，并且和具体问题窗格用同一套橙色语义。</p>
+      </article>
+      <article class="meaning">
+        <div class="meaning-top"><h2>刷新 / 诊断</h2><span class="badge system">系统</span></div>
+        <p>刷新是重新读取状态；诊断是排查环境。默认应该轻，不和启动竞争。</p>
+      </article>
+    </section>
+
+    <div id="candidates"></div>
+  </main>
+
+  <template id="project-template">
+    <div class="project">
+      <div class="mark">CW</div>
+      <div>
+        <div class="project-title">cli-workspace</div>
+        <div class="path">/Users/geminilight/code/cli-workspace</div>
+        <div class="quick-stats">
+          <div class="stat"><span>运行中</span><b>0/3</b></div>
+          <div class="stat"><span>需处理</span><b>1</b></div>
+          <div class="stat"><span>窗格</span><b>3</b></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tabs-template">
+    <div class="tabs-head">
+      <div class="tabs-title">标签页 <span class="attention">1 个 tmux window 未启动</span></div>
+      <div class="counts">3 个标签页 · 3 个窗格</div>
+    </div>
+    <div class="tabs">
+      <div class="tab">
+        <div class="tab-top"><div class="tab-name"><span class="chip">tab</span>UI</div><span class="counts">1 个终端</span></div>
+        <div class="pane">
+          <div class="pane-main"><span class="agent"><img src="/src/assets/agent-icons/openai.svg" alt="" /></span><div><div class="pane-title">Codex UI · 就绪</div><div class="pane-sub">会话已绑定</div></div></div>
+          <div class="pane-actions"><button class="mini">↗</button><button class="mini">✎</button></div>
+        </div>
+      </div>
+      <div class="tab">
+        <div class="tab-top"><div class="tab-name"><span class="chip">tab</span>Spec</div><span class="counts">1 个终端</span></div>
+        <div class="pane">
+          <div class="pane-main"><span class="agent"><img src="/src/assets/agent-icons/openai.svg" alt="" /></span><div><div class="pane-title">Codex Spec · 就绪</div><div class="pane-sub">会话已绑定</div></div></div>
+          <div class="pane-actions"><button class="mini">↗</button><button class="mini">✎</button></div>
+        </div>
+      </div>
+      <div class="tab issue">
+        <div class="tab-top"><div class="tab-name"><span class="chip">tab</span>Shell</div><span class="attention">tmux window 未启动</span></div>
+        <div class="pane issue">
+          <div class="pane-main"><span class="agent">$</span><div><div class="pane-title">Tmux 窗格 · 未启动</div><div class="pane-sub">shell window · zsh</div></div></div>
+          <div class="pane-actions"><button class="mini">↗</button><button class="mini">✎</button></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const iconFolder = '<span class="folder" aria-hidden="true"></span>';
+    const localGroup = '<div class="group local"><button class="btn icon" title="打开项目文件夹" aria-label="打开项目文件夹">' + iconFolder + '</button><button class="btn icon" title="刷新状态" aria-label="刷新状态">↻</button></div>';
+    const refreshOnly = '<button class="btn icon" title="刷新状态" aria-label="刷新状态">↻</button>';
+    const folderOnly = '<button class="btn icon" title="打开项目文件夹" aria-label="打开项目文件夹">' + iconFolder + '</button>';
+    const openSplit = '<div class="open-split"><button class="btn open">↗ 打开工作空间</button><button class="btn tool-select">Warp ▾</button></div>';
+    const openSolid = '<div class="open-split"><button class="btn open solid">↗ 打开工作空间</button><button class="btn tool-select">Warp ▾</button></div>';
+    const runtimeGroup = '<div class="group runtime issue-group"><button class="btn state strong">同步运行态 1</button><button class="btn icon" title="诊断" aria-label="诊断">⊙</button></div>';
+    const runtimeQuiet = '<button class="btn state">同步运行态 1</button>';
+    const systemGroup = '<div class="group system"><button class="btn icon" title="刷新状态" aria-label="刷新状态">↻</button><button class="btn icon" title="诊断" aria-label="诊断">⊙</button></div>';
+
+    const candidates = [
+      {
+        id: '01',
+        cls: 'v1',
+        title: 'Primary Dock',
+        score: '推荐 A+',
+        why: '主动作固定在右侧最稳定位置；打开目录和刷新合成一个轻工具组；运行态问题另起一组，不混进打开按钮。',
+        header: '<x-project></x-project><div class="actions">' + localGroup + openSplit + runtimeGroup + '</div>'
+      },
+      {
+        id: '02',
+        cls: 'v2',
+        title: 'Project First Rail',
+        score: '推荐 A',
+        why: '项目信息独占第一行，动作 rail 在下方。适合你觉得右上角太乱时，视觉最稳。',
+        header: '<x-project></x-project><div class="actions"><div class="row">' + localGroup + runtimeQuiet + '</div>' + openSplit + '</div>'
+      },
+      {
+        id: '03',
+        cls: 'v3',
+        title: 'Open Stack',
+        score: '推荐 A-',
+        why: '右侧上层只做打开，下层只放辅助状态。扫描路径很清楚，但会稍微占高。',
+        header: '<x-project></x-project><div class="actions stack">' + openSolid + '<div class="row">' + localGroup + runtimeQuiet + '</div></div>'
+      },
+      {
+        id: '04',
+        cls: 'v4',
+        title: 'Command Bar',
+        score: '推荐 B+',
+        why: '把 Header 变成命令条：左侧项目，底部一条可操作栏。很规整，但主动作不如 01 突出。',
+        header: '<div><x-project></x-project><div class="command-bar"><div class="row">' + folderOnly + refreshOnly + runtimeQuiet + '</div>' + openSplit + '</div></div>'
+      },
+      {
+        id: '05',
+        cls: 'v5',
+        title: 'Issue First',
+        score: '推荐 A',
+        why: '当有需要处理的窗口时，先呈现“同步运行态”。适合降低用户困惑：先修状态，再打开。',
+        header: '<x-project></x-project><div class="actions">' + runtimeGroup + '<div class="divider"></div>' + localGroup + openSplit + '</div>'
+      },
+      {
+        id: '06',
+        cls: 'v6',
+        title: 'Inspector Split',
+        score: '推荐 B+',
+        why: '用竖线把项目和控制区切开，像专业 IDE 的 inspector。干净，但略正式。',
+        header: '<x-project></x-project><div class="actions stack"><div class="row">' + openSplit + '</div><div class="row">' + folderOnly + refreshOnly + runtimeQuiet + '</div></div>'
+      },
+      {
+        id: '07',
+        cls: 'v7',
+        title: 'Two Lanes',
+        score: '推荐 B',
+        why: '打开类和运行态类分成两列。语义强，但视觉密度稍高，适合高级用户。',
+        header: '<x-project></x-project><div class="actions"><div class="row">' + folderOnly + openSplit + '</div><div class="row">' + runtimeGroup + '</div></div>'
+      },
+      {
+        id: '08',
+        cls: 'v8',
+        title: 'Loose Toolbar',
+        score: '推荐 A-',
+        why: '所有动作一行铺开，主按钮自动贴右。轻、现代，但窄屏需要折行。',
+        header: '<x-project></x-project><div class="actions">' + folderOnly + refreshOnly + runtimeQuiet + openSplit + '</div>'
+      },
+      {
+        id: '09',
+        cls: 'v9',
+        title: 'Control Strip',
+        score: '推荐 A',
+        why: '用一个浅色控制条承载所有动作，项目区域不被污染。最适合现在仪表盘的“干净但可控”方向。',
+        header: '<x-project></x-project><div class="actions"><div class="row"><span class="small-label">本地</span>' + folderOnly + refreshOnly + '</div><div class="row"><span class="small-label">运行态</span>' + runtimeQuiet + '</div>' + openSplit + '</div>'
+      },
+      {
+        id: '10',
+        cls: 'v10',
+        title: 'Minimal Launch',
+        score: '推荐 B+',
+        why: '只保留主打开和一个轻量更多菜单，其他按钮退到菜单。最轻，但需要额外菜单承载。',
+        header: '<x-project></x-project><div class="actions">' + openSolid + '<div class="group runtime"><button class="btn icon" title="打开项目文件夹" aria-label="打开项目文件夹">' + iconFolder + '</button><button class="btn icon" title="更多操作" aria-label="更多操作">•••</button></div></div>'
+      }
+    ];
+
+    const root = document.getElementById('candidates');
+    root.innerHTML = candidates.map((item) => `
+      <section class="candidate ${item.cls}">
+        <div class="candidate-head">
+          <span class="index">${item.id}</span>
+          <div><h3>${item.title}</h3><p class="why">${item.why}</p></div>
+          <div class="score">${item.score}</div>
+        </div>
+        <div class="mock">
+          <div class="shell">
+            <div class="header">${item.header}</div>
+            <x-tabs></x-tabs>
+          </div>
+        </div>
+      </section>
+    `).join('');
+
+    customElements.define('x-project', class extends HTMLElement {
+      connectedCallback() { this.replaceWith(document.getElementById('project-template').content.cloneNode(true)); }
+    });
+    customElements.define('x-tabs', class extends HTMLElement {
+      connectedCallback() { this.replaceWith(document.getElementById('tabs-template').content.cloneNode(true)); }
+    });
+  </script>
+</body>
+</html>

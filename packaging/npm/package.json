@@ -1,0 +1,39 @@
+{
+  "name": "cc-branch",
+  "version": "1.0.0",
+  "description": "Multi-agent workspace orchestrator for shell and tmux runtimes",
+  "license": "MIT",
+  "homepage": "https://github.com/GeminiLight/cc-branch#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GeminiLight/cc-branch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GeminiLight/cc-branch/issues"
+  },
+  "type": "commonjs",
+  "bin": {
+    "cc-branch": "bin/cc-branch.js",
+    "ccb": "bin/cc-branch.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "vendor",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "agents",
+    "ai",
+    "cli",
+    "tmux",
+    "workspace"
+  ]
+}

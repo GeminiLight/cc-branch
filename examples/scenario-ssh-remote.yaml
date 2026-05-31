@@ -1,0 +1,30 @@
+version: 2
+project: ssh-remote-demo
+root: .
+layoutBackend: tmux
+
+tabs:
+  - name: gpu
+    remote:
+      host: gpu-dev
+      user: ubuntu
+      cwd: /srv/app
+      args:
+        - -A
+      options:
+        ServerAliveInterval: 30
+    panes:
+      - name: train
+        command: uv run python train.py
+      - name: agent
+        agent: codex
+      - name: logs
+        remote:
+          cwd: /var/log/app
+        command: tail -f app.log
+
+  - name: local
+    layoutBackend: direct
+    panes:
+      - name: editor
+        command: code .

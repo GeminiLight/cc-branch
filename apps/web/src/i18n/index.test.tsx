@@ -1,0 +1,125 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { I18nProvider, useI18n } from './index'
+
+function TestComponent() {
+  const { t, lang, setLang } = useI18n()
+  return (
+    <div>
+      <span data-testid="lang">{lang}</span>
+      <span data-testid="title">{t('appTitle')}</span>
+      <button onClick={() => setLang('zh')}>Switch</button>
+    </div>
+  )
+}
+
+describe('i18n', () => {
+  beforeEach(() => {
+    document.documentElement.lang = 'en'
+    localStorage.removeItem('cc-branch-lang')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('renders with default language', () => {
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+    expect(screen.getByTestId('lang').textContent).toBe('en')
+    expect(screen.getByTestId('title').textContent).toBe('CC Branch')
+  })
+
+  it('uses the browser language when no preference is stored', () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      language: 'zh-CN',
+      languages: ['zh-CN', 'en-US'],
+    })
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+    expect(screen.getByTestId('lang').textContent).toBe('zh')
+    expect(document.documentElement.lang).toBe('zh-CN')
+  })
+
+  it('ignores invalid stored languages', () => {
+    localStorage.setItem('cc-branch-lang', 'broken')
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+    expect(screen.getByTestId('lang').textContent).toBe('en')
+  })
+
+  it('switches language', () => {
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+    fireEvent.click(screen.getByText('Switch'))
+    expect(screen.getByTestId('lang').textContent).toBe('zh')
+    expect(screen.getByTestId('title').textContent).toBe('CC Branch')
+    expect(document.documentElement.lang).toBe('zh-CN')
+  })
+
+  it('still switches language when storage writes fail', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked')
+    })
+
+    render(
+      <I18nProvider>
+        <TestComponent />
+      </I18nProvider>
+    )
+
+    fireEvent.click(screen.getByText('Switch'))
+    expect(screen.getByTestId('lang').textContent).toBe('zh')
+    expect(document.documentElement.lang).toBe('zh-CN')
+  })
+
+  it('interpolates variables', () => {
+    function InterpolationTest() {
+      const { t } = useI18n()
+      return <span>{t('confirmStop', { name: 'test-slot' })}</span>
+    }
+    render(
+      <I18nProvider>
+        <InterpolationTest />
+      </I18nProvider>
+    )
+    expect(screen.getByText('Stop "test-slot"?')).toBeInTheDocument()
+  })
+
+  it('keeps tmux window labels localized in Chinese', () => {
+    localStorage.setItem('cc-branch-lang', 'zh')
+
+    function TmuxLabelTest() {
+      const { t } = useI18n()
+      return (
+        <div>
+          <span>{t('tmuxWindowGroupSummary_one', { count: 1 })}</span>
+          <span>{t('tmuxWindowCount', { count: 2 })}</span>
+        </div>
+      )
+    }
+
+    render(
+      <I18nProvider>
+        <TmuxLabelTest />
+      </I18nProvider>
+    )
+
+    expect(screen.getByText('内含 1 个 tmux 窗口')).toBeInTheDocument()
+    expect(screen.getByText('2 个 tmux 窗口')).toBeInTheDocument()
+  })
+})

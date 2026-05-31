@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Tab：浏览器标签层叠，深色底 + 白标签 + 青色标题栏 -->
+  <rect x="10" y="40" width="100" height="64" rx="12" fill="#0f172a"/>
+  <rect x="18" y="24" width="84" height="64" rx="12" fill="#ffffff"/>
+  <rect x="18" y="24" width="84" height="10" rx="5" fill="#06b6d4"/>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="gradC" x1="64" y1="110" x2="64" y2="12" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4c0f99"/>
+      <stop offset="100%" stop-color="#b347ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="#f5f0ff"/>
+
+  <!-- 左C -->
+  <path d="M58 34 A29 29 0 1 0 58 94"
+        stroke="url(#gradC)" stroke-width="11" fill="none" stroke-linecap="round"/>
+
+  <!-- 右C -->
+  <path d="M70 34 A29 29 0 1 1 70 94"
+        stroke="url(#gradC)" stroke-width="11" fill="none" stroke-linecap="round"/>
+
+  <!-- 向上分支（从两C交汇处向上） -->
+  <path d="M64 56 L64 20" stroke="url(#gradC)" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- 顶部节点 -->
+  <circle cx="64" cy="20" r="9" fill="url(#gradC)"/>
+
+  <!-- 中心节点（装饰，突出交汇感） -->
+  <circle cx="64" cy="56" r="6.5" fill="#fff"/>
+</svg>

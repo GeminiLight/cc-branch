@@ -1,0 +1,66 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CC Branch",
+  "version": "1.0.0",
+  "identifier": "com.gemini-light.cc-branch",
+  "build": {
+    "frontendDist": "../../web/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "cd ../web && npm run dev",
+    "beforeBuildCommand": "cd ../web && npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "CC Branch Dashboard",
+        "width": 960,
+        "height": 720,
+        "minWidth": 640,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "visible": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 12,
+          "y": 14
+        }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws:; img-src 'self' data:;"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": false,
+    "macOS": {
+      "entitlements": "entitlements.plist"
+    },
+    "externalBin": [
+      "binaries/cc-branch-backend"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRCMTBFRDk3QjBDRDQxQzIKUldUQ1FjMndsKzBRU3pVcUNzcXpoMUJ2OWdXajlnMm00aXkrdnVTQWFOYzE5UWwwbzVtUEdSQWMK",
+      "endpoints": [
+        "https://github.com/GeminiLight/cc-branch/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

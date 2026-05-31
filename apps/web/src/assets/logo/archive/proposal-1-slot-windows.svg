@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="gradA" x1="64" y1="104" x2="64" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5b0db5"/>
+      <stop offset="50%" stop-color="#7e14ff"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#f5f0ff"/>
+
+  <!-- 连接线：slot → hub → windows -->
+  <g stroke="url(#gradA)" stroke-width="5" stroke-linecap="round" fill="none">
+    <path d="M64 80 L64 64"/>
+    <path d="M64 64 Q64 64 44 50"/>
+    <path d="M64 64 Q64 64 84 50"/>
+    <path d="M64 64 L64 46"/>
+  </g>
+
+  <!-- Slot（底部主矩形，代表 tmux session） -->
+  <rect x="34" y="82" width="60" height="24" rx="8" fill="#5b0db5"/>
+  <circle cx="48" cy="94" r="3" fill="#fff"/>
+  <circle cx="58" cy="94" r="3" fill="#fff" opacity="0.5"/>
+  <circle cx="68" cy="94" r="3" fill="#fff" opacity="0.5"/>
+  <circle cx="78" cy="94" r="3" fill="#fff" opacity="0.5"/>
+
+  <!-- Windows（顶部小矩形，代表执行单元） -->
+  <rect x="30" y="32" width="24" height="18" rx="6" fill="#fff" stroke="url(#gradA)" stroke-width="3"/>
+  <rect x="52" y="26" width="24" height="18" rx="6" fill="#fff" stroke="url(#gradA)" stroke-width="3"/>
+  <rect x="74" y="32" width="24" height="18" rx="6" fill="#fff" stroke="url(#gradA)" stroke-width="3"/>
+
+  <!-- Agents（圆点，代表 AI CLI） -->
+  <circle cx="42" cy="41" r="3.5" fill="url(#gradA)"/>
+  <circle cx="64" cy="35" r="3.5" fill="url(#gradA)"/>
+  <circle cx="86" cy="41" r="3.5" fill="url(#gradA)"/>
+
+  <!-- Hub（中心连接点） -->
+  <circle cx="64" cy="64" r="6.5" fill="#fff" stroke="url(#gradA)" stroke-width="3"/>
+</svg>

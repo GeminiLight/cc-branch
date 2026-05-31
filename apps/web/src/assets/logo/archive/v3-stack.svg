@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Stack：两个 pane 像扑克牌错开层叠，青色是活跃窗口 -->
+  <rect x="10" y="32" width="70" height="64" rx="14" fill="#0f172a"/>
+  <rect x="40" y="14" width="70" height="64" rx="14" fill="#06b6d4"/>
+</svg>
