@@ -586,6 +586,16 @@ h2 {
   font-weight: 560;
 }
 
+.value-tag {
+  display: inline-flex;
+  margin-bottom: 28px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 560;
+  text-transform: uppercase;
+}
+
 .problem-grid p,
 .flow p {
   margin-bottom: 0;

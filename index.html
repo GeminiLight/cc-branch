@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title data-i18n="pageTitle">CC Branch - Restore agent workspaces</title>
+    <title data-i18n="pageTitle">CC Branch - Restore multi-agent CLI environments</title>
     <meta
       data-i18n-meta="description"
       name="description"
-      content="CC Branch restores every agent, terminal, dev server, editor, and SSH workspace from one local project config."
+      content="CC Branch restores your multi-agent CLI environment: Agent CLIs, terminal tasks, editors, and SSH machines."
     />
     <meta name="theme-color" content="#f7f5ef" />
-    <meta data-i18n-meta="pageTitle" property="og:title" content="CC Branch - Restore agent workspaces" />
+    <meta data-i18n-meta="pageTitle" property="og:title" content="CC Branch - Restore multi-agent CLI environments" />
     <meta
       data-i18n-meta="ogDescription"
       property="og:description"
-      content="A local control plane for agentic CLI work. Define the workspace once, then reopen it from CLI, Web, or Desktop."
+      content="Restore Agent CLIs, terminal tasks, editors, and SSH machines from CLI, Web UI, or Desktop."
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="assets/logo-512.png" />
@@ -31,7 +31,7 @@
         <span>CC Branch</span>
       </a>
       <nav class="nav-links" aria-label="Site navigation">
-        <a href="#workflow" data-i18n="navWorkflow">Workflow</a>
+        <a href="#values" data-i18n="navValues">Value</a>
         <a href="#remote" data-i18n="navRemote">Remote</a>
         <a href="#desktop" data-i18n="navDesktop">Desktop</a>
         <a href="#install" data-i18n="navInstall">Install</a>
@@ -46,14 +46,14 @@
     <main id="main">
       <section class="hero" id="top">
         <div class="hero-copy">
-          <p class="eyebrow" data-i18n="heroEyebrow">Local workspace control for agentic CLI work</p>
-          <h1 data-i18n="heroTitle">Reopen every agent workspace.</h1>
+          <p class="eyebrow" data-i18n="heroEyebrow">Multi-agent CLI workspace</p>
+          <h1 data-i18n="heroTitle">Restore your multi-agent CLI environment.</h1>
           <p class="hero-lede" data-i18n="heroLede">
-            Define the workspace once. CC Branch brings back the agents, terminals, dev servers, editors, and SSH machines behind a project.
+            Bring back your Agent CLIs, terminal tasks, editors, and SSH machines as one project workspace.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#install" data-i18n="heroPrimary">Install CC Branch</a>
-            <a class="button secondary" href="#workflow" data-i18n="heroSecondary">See the workflow</a>
+            <a class="button secondary" href="#values" data-i18n="heroSecondary">See the value</a>
           </div>
           <div class="quick-command" aria-label="Install command">
             <span>$</span>
@@ -129,40 +129,43 @@
       </section>
 
       <section class="trust-strip" aria-label="CC Branch essentials">
-        <span data-i18n="stripCli">CLI-first</span>
-        <span data-i18n="stripLocal">Local state</span>
-        <span data-i18n="stripTmux">Tmux sessions</span>
-        <span data-i18n="stripSsh">SSH workspaces</span>
-        <span data-i18n="stripDesktop">Desktop shell</span>
+        <span data-i18n="stripCli">Multi-agent CLI</span>
+        <span data-i18n="stripSsh">SSH projects</span>
+        <span data-i18n="stripResume">Session resume</span>
+        <span data-i18n="stripPreview">Plan before run</span>
+        <span data-i18n="stripDesktop">Web + Desktop</span>
       </section>
 
-      <section class="section problem">
+      <section class="section problem values" id="values">
         <div class="section-copy">
-          <p class="section-kicker" data-i18n="problemKicker">Why it exists</p>
-          <h2 data-i18n="problemTitle">A project is no longer one terminal.</h2>
+          <p class="section-kicker" data-i18n="problemKicker">User value</p>
+          <h2 data-i18n="problemTitle">Stop rebuilding the same agent environment.</h2>
         </div>
         <div class="problem-grid">
           <article>
-            <strong data-i18n="problem1Title">Agent sessions scatter</strong>
-            <p data-i18n="problem1Body">Codex, Claude, Gemini, review panes, and long-running terminals all need a stable place to return to.</p>
+            <span class="value-tag" data-i18n="value1Tag">Restore</span>
+            <strong data-i18n="problem1Title">Come back to the same setup</strong>
+            <p data-i18n="problem1Body">No more reopening agents, terminals, editors, and SSH links by hand. Restore the project environment together.</p>
           </article>
           <article>
-            <strong data-i18n="problem2Title">Context lives in terminals</strong>
-            <p data-i18n="problem2Body">Dev servers, logs, shell state, and editor launch commands are part of the workspace, not afterthoughts.</p>
+            <span class="value-tag" data-i18n="value2Tag">Agents</span>
+            <strong data-i18n="problem2Title">Keep Agent CLIs organized</strong>
+            <p data-i18n="problem2Body">Codex, Claude Code, Gemini CLI, Cursor CLI, Kimi, and custom agents stay in one project workspace.</p>
           </article>
           <article>
-            <strong data-i18n="problem3Title">Remote machines matter</strong>
-            <p data-i18n="problem3Body">Some panes belong on SSH hosts. CC Branch treats them as first-class workspace targets.</p>
+            <span class="value-tag" data-i18n="value3Tag">Remote</span>
+            <strong data-i18n="problem3Title">Use local and SSH as one environment</strong>
+            <p data-i18n="problem3Body">Local folders, SSH projects, GPU boxes, test machines, and tmux sessions can belong to the same workflow.</p>
           </article>
         </div>
       </section>
 
       <section class="section workflow" id="workflow">
         <div class="section-copy">
-          <p class="section-kicker" data-i18n="workflowKicker">The model</p>
-          <h2 data-i18n="workflowTitle">One local contract for the whole workspace.</h2>
+          <p class="section-kicker" data-i18n="workflowKicker">Daily flow</p>
+          <h2 data-i18n="workflowTitle">Start, resume, connect, inspect.</h2>
           <p data-i18n="workflowBody">
-            Keep the workspace contract in `.cc-branch/config.yaml`. Runtime state stays local, so teams can share the shape without sharing machine-specific sessions.
+            Use the CLI, Web UI, or Desktop to restore the environment, attach to existing sessions, open tools, and check what is broken.
           </p>
         </div>
         <div class="config-card" aria-label="Workspace config example">
@@ -193,22 +196,22 @@ tabs:
         <article>
           <span>01</span>
           <strong>define</strong>
-          <p data-i18n="flowDefine">Describe tabs, panes, agents, commands, openers, and SSH targets.</p>
+          <p data-i18n="flowDefine">Save the agents, commands, tools, folders, and SSH targets a project needs.</p>
         </article>
         <article>
           <span>02</span>
           <strong>preview</strong>
-          <p data-i18n="flowPreview">Run `cc-branch plan` to see what will start, attach, or open.</p>
+          <p data-i18n="flowPreview">See which agents, commands, tools, and machines will be used before launch.</p>
         </article>
         <article>
           <span>03</span>
           <strong>restore</strong>
-          <p data-i18n="flowRestore">Bring the whole workspace back with `cc-branch start`.</p>
+          <p data-i18n="flowRestore">Bring back the project environment with `cc-branch start`.</p>
         </article>
         <article>
           <span>04</span>
           <strong>inspect</strong>
-          <p data-i18n="flowInspect">Use doctor checks to catch missing tools, bad paths, and state drift.</p>
+          <p data-i18n="flowInspect">Catch missing Agent CLIs, bad paths, failed SSH links, and stale state.</p>
         </article>
       </section>
 
@@ -326,7 +329,7 @@ cc-branch doctor</code></pre>
         <img src="assets/logo.svg" alt="" />
         <span>CC Branch</span>
       </div>
-      <p data-i18n="footer">MIT licensed. Built for local-first agent workspaces.</p>
+      <p data-i18n="footer">MIT licensed. Built for multi-agent CLI workspaces.</p>
     </footer>
 
     <script src="script.js"></script>
