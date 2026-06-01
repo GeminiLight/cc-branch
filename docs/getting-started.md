@@ -65,7 +65,7 @@ During `init`, CC Branch typically:
 - bootstraps `session_id` values when needed
 - updates `.gitignore` for local state
 
-Use `--profile design` for product/design work or `--profile minimal` for a single-pane workspace.
+Use `--profile research` for research work or `--profile minimal` for a single-pane workspace.
 
 ### 2. Know the two files it creates
 
@@ -133,7 +133,7 @@ When a token is configured, open the printed `/?token=...` URL once to establish
 | Profile | Best for |
 | --- | --- |
 | `development` | One development tab with frontend, backend, algorithm, and docs panes |
-| `design` | Product discussion and implementation, plus a separate design tab |
+| `research` | Idea and paper work, plus code and experiment panes |
 | `minimal` | One tab with one agent pane |
 
 Starter profiles keep `.cc-branch/config.yaml` focused on workspace structure. Built-in agent profiles are available automatically, so generated configs reference `agent: codex` or `agent: claude` without copying the full agent definition into every project.

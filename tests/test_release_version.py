@@ -26,7 +26,7 @@ class ReleaseVersionTests(unittest.TestCase):
 
     def test_release_version_rejects_bare_tag_when_v_prefix_required(self):
         with self.assertRaisesRegex(ValueError, "must start with 'v'"):
-            verify_versions("1.0.0", require_v_prefix=True)
+            verify_versions("1.1.0", require_v_prefix=True)
 
     def test_release_version_rejects_wrong_tag(self):
         with self.assertRaisesRegex(ValueError, "does not match expected"):
@@ -39,7 +39,7 @@ class ReleaseVersionTests(unittest.TestCase):
 
     def test_require_v_prefixed_tag_rejects_bare_version(self):
         with self.assertRaisesRegex(ValueError, "must start with 'v'"):
-            require_v_prefixed_tag("1.0.0")
+            require_v_prefixed_tag("1.1.0")
 
 
 if __name__ == "__main__":

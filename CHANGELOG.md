@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-02
+
+### Added
+- Added a built-in `research` starter profile for idea, paper, code, and experiment workflows.
+- Added LINUX DO community acknowledgements to the English and Chinese README files.
+
+### Changed
+- Changed the default `development` starter profile to use direct terminal panes instead of tmux-backed tabs.
+- Replaced the old `design` starter profile with the `research` profile across the CLI, Web UI, setup flow, and documentation.
+
 ## [1.0.0] - 2026-06-01
 
 ### Added
@@ -16,4 +26,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tmux and direct-layout workspace execution, SSH targets, opener integrations, diagnostics, and local project index.
 - Desktop release packaging with bundled backend sidecar and GitHub release verification.
 
+[1.1.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.0
 [1.0.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.0.0

@@ -54,7 +54,7 @@ cc-branch init
 - 在需要时补齐 `session_id`
 - 更新 `.gitignore`
 
-`development` 是默认模板；检测到可用 Agent CLI 时，session metadata 会自动初始化。产品/设计工作可以用 `--profile design`，只需要一个窗格时可以用 `--profile minimal`。
+`development` 是默认模板；检测到可用 Agent CLI 时，session metadata 会自动初始化。研究工作可以用 `--profile research`，只需要一个窗格时可以用 `--profile minimal`。
 
 ### 最简方式
 
@@ -67,7 +67,7 @@ cc-branch init --minimal
 ### 可选模板
 
 ```bash
-cc-branch init --profile design
+cc-branch init --profile research
 cc-branch init --profile minimal
 ```
 

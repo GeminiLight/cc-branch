@@ -62,12 +62,12 @@ cc-branch init
 - 创建 `.cc-branch/state.yaml`
 - 自动把本地状态文件加入 `.gitignore`
 
-如果主要做产品/设计工作，可以使用 `--profile design`；如果只需要一个窗格，可以使用 `--profile minimal`。
+如果主要做研究工作，可以使用 `--profile research`；如果只需要一个窗格，可以使用 `--profile minimal`。
 
 内置模板：
 
 - `development`
-- `design`
+- `research`
 - `minimal`
 
 ## 4. 先看启动结果

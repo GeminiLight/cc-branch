@@ -1106,15 +1106,17 @@ describe('Dashboard actions', () => {
     expect(within(dialog).getByDisplayValue('frontend')).toBeInTheDocument()
     expect(within(dialog).getByDisplayValue('algorithm')).toBeInTheDocument()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: /Design/ }))
-    expect(within(dialog).getByDisplayValue('product')).toBeInTheDocument()
-    expect(within(dialog).getByDisplayValue('directions')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: /Research/ }))
+    expect(within(dialog).getAllByDisplayValue('idea')).toHaveLength(2)
+    expect(within(dialog).getByDisplayValue('paper')).toBeInTheDocument()
+    expect(within(dialog).getAllByDisplayValue('code')).toHaveLength(2)
+    expect(within(dialog).getByDisplayValue('exp')).toBeInTheDocument()
     expect(within(dialog).queryByDisplayValue('algorithm')).not.toBeInTheDocument()
 
     fireEvent.click(within(dialog).getByRole('button', { name: /Minimal/ }))
     expect(within(dialog).getByDisplayValue('main')).toBeInTheDocument()
     expect(within(dialog).getByDisplayValue('agent')).toBeInTheDocument()
-    expect(within(dialog).queryByDisplayValue('directions')).not.toBeInTheDocument()
+    expect(within(dialog).queryByDisplayValue('paper')).not.toBeInTheDocument()
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create workspace' }))
 
@@ -1125,7 +1127,7 @@ describe('Dashboard actions', () => {
     const savedYaml = YAML.load(saved.content) as { tabs?: Array<{ name?: string; panes?: Array<{ name?: string }> }> }
     expect(savedYaml.tabs?.[0]?.name).toBe('main')
     expect(savedYaml.tabs?.[0]?.panes?.[0]?.name).toBe('agent')
-    expect(saved.content).not.toContain('directions')
+    expect(saved.content).not.toContain('paper')
     expect(saved.scope).toEqual({
       projectPath: '/tmp/demo',
       configPath: undefined,

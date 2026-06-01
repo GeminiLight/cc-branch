@@ -55,29 +55,13 @@ def build_tabs_section(
         layout_backend = tab.get("layoutBackend", "tmux")
 
         if layout_backend in {"direct", "terminal"} or not tmux_available:
-            if layout_backend == "direct":
-                selected_agent = None
-                terminal_name = _unique_tab_name(tab_name, emitted_names)
-            else:
-                panes = tab.get("panes") or []
-                if panes:
-                    for pane in panes:
-                        pane_name = pane["name"]
-                        selected_agent = _first_available(
-                            pane.get("preferred_agents", []),
-                            available_agents,
-                        )
-                        terminal_name = _unique_tab_name(pane_name, emitted_names)
-                        lines.extend(_terminal_tab_lines(terminal_name, shell_command=shell_command, agent=selected_agent))
-                    continue
-                selected_agent = None
-                terminal_name = _unique_tab_name(tab_name, emitted_names)
-
+            terminal_name = _unique_tab_name(tab_name, emitted_names)
             lines.extend(
-                _terminal_tab_lines(
+                _direct_tab_lines(
                     terminal_name,
+                    tab.get("panes") or [],
+                    available_agents,
                     shell_command=shell_command,
-                    agent=selected_agent,
                 )
             )
             continue
@@ -121,6 +105,34 @@ def _terminal_tab_lines(
         lines.append(f'        agent: "{agent}"')
     else:
         lines.append(f'        command: "{shell_command}"')
+    return lines
+
+
+def _direct_tab_lines(
+    tab_name: str,
+    panes: list[dict[str, Any]],
+    available_agents: set[str],
+    *,
+    shell_command: str,
+) -> list[str]:
+    lines = [
+        f'  - name: "{tab_name}"',
+        '    cwd: "."',
+        "    panes:",
+    ]
+    if not panes:
+        lines.append(f'      - name: "{tab_name}"')
+        lines.append(f'        command: "{shell_command}"')
+        return lines
+
+    for pane in panes:
+        pane_name = pane["name"]
+        selected_agent = _first_available(pane.get("preferred_agents", []), available_agents)
+        lines.append(f'      - name: "{pane_name}"')
+        if selected_agent:
+            lines.append(f'        agent: "{selected_agent}"')
+        else:
+            lines.append(f'        command: "{shell_command}"')
     return lines
 
 

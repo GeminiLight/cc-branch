@@ -6,34 +6,37 @@ from typing import Any
 
 PROFILES: dict[str, dict[str, Any]] = {
     "development": {
-        "description": "Development workspace with one tab for frontend, backend, algorithm, and docs panes",
+        "description": "Development workspace with one terminal tab for frontend, backend, algorithm, and docs panes",
         "tabs": [
             {
                 "name": "development",
+                "layoutBackend": "direct",
                 "panes": [
                     {"name": "frontend", "preferred_agents": ["codex", "claude", "gemini"]},
-                    {"name": "backend", "preferred_agents": ["codex", "gemini", "claude"]},
-                    {"name": "algorithm", "preferred_agents": ["gemini", "codex", "claude"]},
+                    {"name": "backend", "preferred_agents": ["codex", "claude", "gemini"]},
+                    {"name": "algorithm", "preferred_agents": ["claude", "gemini", "codex"]},
                     {"name": "docs", "preferred_agents": ["claude", "gemini", "codex"]},
                 ],
             },
         ],
     },
-    "design": {
-        "description": "Design workspace with product discussion, product implementation, and design direction tabs",
+    "research": {
+        "description": "Research workspace with idea, paper, code, and experiment panes",
         "tabs": [
             {
-                "name": "product",
+                "name": "idea",
+                "layoutBackend": "direct",
                 "panes": [
-                    {"name": "discussion", "preferred_agents": ["claude", "gemini", "codex"]},
-                    {"name": "implementation", "preferred_agents": ["codex", "claude", "gemini"]},
+                    {"name": "idea", "preferred_agents": ["codex", "claude", "gemini"]},
+                    {"name": "paper", "preferred_agents": ["codex", "claude", "gemini"]},
                 ],
             },
             {
-                "name": "design",
+                "name": "code",
+                "layoutBackend": "direct",
                 "panes": [
-                    {"name": "directions", "preferred_agents": ["claude", "gemini", "codex"]},
-                    {"name": "review", "preferred_agents": ["claude", "codex", "gemini"]},
+                    {"name": "code", "preferred_agents": ["claude", "codex", "gemini"]},
+                    {"name": "exp", "preferred_agents": ["claude", "codex", "gemini"]},
                 ],
             },
         ],

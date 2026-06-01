@@ -3,7 +3,7 @@ import {
   CheckCircle2,
   ChevronsUpDown,
   Code2,
-  Feather,
+  FlaskConical,
   Layers3,
   Loader2,
   Minimize2,
@@ -45,19 +45,19 @@ type Step = "select" | "done";
 
 const profileIcons: Record<string, React.ReactNode> = {
   development: <Code2 className="w-4 h-4" />,
-  design: <Feather className="w-4 h-4" />,
+  research: <FlaskConical className="w-4 h-4" />,
   minimal: <Minimize2 className="w-4 h-4" />,
 };
 
 const profileLabelKeys: Record<string, string> = {
   development: "profileDevelopmentName",
-  design: "profileDesignName",
+  research: "profileResearchName",
   minimal: "profileMinimalName",
 };
 
 const fallbackProfiles: Profile[] = [
   { id: "development", description: "" },
-  { id: "design", description: "" },
+  { id: "research", description: "" },
   { id: "minimal", description: "" },
 ];
 

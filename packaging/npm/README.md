@@ -10,7 +10,7 @@ Requirements:
 Install from a local package artifact:
 
 ```bash
-npm install -g ./cc-branch-1.0.0.tgz
+npm install -g ./cc-branch-1.1.0.tgz
 cc-branch --version
 ```
 

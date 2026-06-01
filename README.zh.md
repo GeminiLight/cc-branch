@@ -8,7 +8,7 @@
 
 [![CI](https://github.com/GeminiLight/cc-branch/actions/workflows/ci.yml/badge.svg)](https://github.com/GeminiLight/cc-branch/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Status](https://img.shields.io/badge/status-v1.0.0-green)
+![Status](https://img.shields.io/badge/status-v1.1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
@@ -134,6 +134,10 @@ tabs:
 - [SSH Remote Workspaces](docs/ssh-remote-workspaces.md)
 - [Install Troubleshooting](docs/install-troubleshooting.md)
 - [Publishing Runbook](docs/publishing.md)
+
+## 🙏 致谢
+
+本项目已发布到 LINUX DO 社区。我们由衷感谢社区的支持与反馈。
 
 ## 许可证
 

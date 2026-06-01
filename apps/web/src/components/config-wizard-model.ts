@@ -42,23 +42,23 @@ export const templateSpecs: Record<string, TemplateSpec> = {
       },
     ],
   },
-  design: {
-    id: "design",
+  research: {
+    id: "research",
     tabs: [
       {
-        name: "product",
-        layoutBackend: "tmux",
+        name: "idea",
+        layoutBackend: "direct",
         panes: [
-          { name: "discussion", preferredAgents: ["claude", "gemini", "codex"] },
-          { name: "implementation", preferredAgents: ["codex", "claude", "gemini"] },
+          { name: "idea", preferredAgents: ["codex", "claude", "gemini"] },
+          { name: "paper", preferredAgents: ["codex", "claude", "gemini"] },
         ],
       },
       {
-        name: "design",
-        layoutBackend: "tmux",
+        name: "code",
+        layoutBackend: "direct",
         panes: [
-          { name: "directions", preferredAgents: ["claude", "gemini", "codex"] },
-          { name: "review", preferredAgents: ["claude", "codex", "gemini"] },
+          { name: "code", preferredAgents: ["claude", "codex", "gemini"] },
+          { name: "exp", preferredAgents: ["claude", "codex", "gemini"] },
         ],
       },
     ],
@@ -77,7 +77,7 @@ export const templateSpecs: Record<string, TemplateSpec> = {
   },
 };
 
-export const profileOrder = ["development", "design", "minimal"] as const;
+export const profileOrder = ["development", "research", "minimal"] as const;
 export const defaultProfileId = "development";
 const USER_TEMPLATES_STORAGE_KEY = "cc-branch-user-templates";
 

@@ -18,7 +18,7 @@ export default function SetupGuide({ projectPath, configPath, onRefresh }: Setup
   const { t } = useI18n();
   const [wizardOpen, setWizardOpen] = useState(false);
   const projectName = projectPath?.split(/[\\/]/).filter(Boolean).pop() || t("project");
-  const onboardingSteps = [t("profileDevelopmentName"), t("profileDesignName"), t("profileMinimalName")];
+  const onboardingSteps = [t("profileDevelopmentName"), t("profileResearchName"), t("profileMinimalName")];
 
   return (
     <div className="page-shell py-4 sm:py-6">

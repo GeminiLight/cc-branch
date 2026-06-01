@@ -13,7 +13,7 @@ vi.mock("../hooks", () => ({
   useProfiles: () => ({
     data: [
       { id: "development", description: "One tab for frontend, backend, algorithm, and docs work." },
-      { id: "design", description: "Product discussion and implementation, plus a separate design tab." },
+      { id: "research", description: "Idea and paper work, plus code and experiment panes." },
       { id: "minimal", description: "One tab, one agent pane." },
     ],
   }),
@@ -61,7 +61,7 @@ describe("ConfigWizard", () => {
 
     expect(screen.getByRole("button", { name: /Review loop/ })).toBeInTheDocument();
     expect(screen.queryByText("One tab for frontend, backend, algorithm, and docs work.")).not.toBeInTheDocument();
-    expect(screen.queryByText("Product discussion and implementation, plus a separate design tab.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Idea and paper work, plus code and experiment panes.")).not.toBeInTheDocument();
     expect(screen.queryByText("One tab, one agent pane.")).not.toBeInTheDocument();
     expect(screen.getAllByLabelText("Workspace shape").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Tab").length).toBeGreaterThan(0);

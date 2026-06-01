@@ -381,7 +381,7 @@ Responsibilities:
 Built-in profiles:
 
 - `development`
-- `design`
+- `research`
 - `minimal`
 
 ## 15. Current design constraints

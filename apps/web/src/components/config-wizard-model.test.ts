@@ -123,6 +123,17 @@ describe("config wizard model", () => {
     expect(raw.tabs?.[0]?.panes?.some((pane) => "windows" in pane)).toBe(false);
   });
 
+  it("fills the research workspace with idea, paper, code, and experiment panes", () => {
+    const data = configDataForTemplate(templateSpecs.research, "demo", ["codex", "claude"]);
+
+    expect(data.slots.map((slot) => slot.name)).toEqual(["idea", "code"]);
+    expect(data.slots.map((slot) => slot.runtime)).toEqual(["terminal", "terminal"]);
+    expect(data.slots[0].windows.map((pane) => pane.name)).toEqual(["idea", "paper"]);
+    expect(data.slots[0].windows.map((pane) => pane.agent)).toEqual(["codex", "codex"]);
+    expect(data.slots[1].windows.map((pane) => pane.name)).toEqual(["code", "exp"]);
+    expect(data.slots[1].windows.map((pane) => pane.agent)).toEqual(["claude", "claude"]);
+  });
+
   it("serializes valid YAML even when names contain YAML-sensitive characters", () => {
     const yaml = yamlForTemplate(mixedSpec, 'demo: "quoted"', ["claude"]);
     const raw = YAML.load(yaml) as Record<string, unknown>;

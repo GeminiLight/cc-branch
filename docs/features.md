@@ -95,7 +95,7 @@ CC Branch 不只是一个 CLI。当前包也导出了带类型的 Python API，�
 
 ### 双人或双角色协作
 
-用 `development`、`design`、`minimal` 三种模板按工作形态快速起步，避免一开始就让用户理解内部配置结构。
+用 `development`、`research`、`minimal` 三种模板按工作形态快速起步，避免一开始就让用户理解内部配置结构。
 
 ### 长期项目
 

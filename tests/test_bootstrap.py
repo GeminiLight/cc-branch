@@ -149,7 +149,7 @@ class TestProfileTemplates(unittest.TestCase):
         """Test getting list of available profiles."""
         profiles = get_available_profiles()
         self.assertIsInstance(profiles, list)
-        self.assertEqual(profiles, ["development", "design", "minimal"])
+        self.assertEqual(profiles, ["development", "research", "minimal"])
 
     def test_get_profile_description(self):
         """Test getting profile description."""
@@ -184,10 +184,11 @@ class TestConfigGeneration(unittest.TestCase):
 
         self.assertIn("version: 2", config)
         self.assertIn('project: "test-project"', config)
+        self.assertNotIn('layoutBackend: "tmux"', config)
         self.assertNotIn("agents:", config)
         self.assertIn('agent: "codex"', config)
         self.assertIn('agent: "claude"', config)
-        self.assertIn('agent: "gemini"', config)
+        self.assertNotIn('agent: "gemini"', config)
         self.assertIn("development", config)
         self.assertIn("frontend", config)
         self.assertIn("backend", config)
@@ -204,7 +205,7 @@ class TestConfigGeneration(unittest.TestCase):
 
         summary = summarize_config(config)
 
-        self.assertEqual(summary.agents, 3)
+        self.assertEqual(summary.agents, 2)
 
     def test_generate_config_with_one_agent(self):
         """Test config generation when only one agent is available."""
@@ -239,23 +240,21 @@ class TestConfigGeneration(unittest.TestCase):
         with self.assertRaises(ValueError):
             generate_starter_config("test-project", ["claude"], "nonexistent")
 
-    def test_generate_config_design_profile(self):
-        """Test config generation with design profile."""
+    def test_generate_config_research_profile(self):
+        """Test config generation with research profile."""
         config = generate_starter_config(
             "test-project",
             ["codex", "claude"],
-            "design"
+            "research"
         )
 
         self.assertNotIn("agents:", config)
         self.assertIn('agent: "codex"', config)
         self.assertIn('agent: "claude"', config)
-        self.assertIn("product", config)
-        self.assertIn("discussion", config)
-        self.assertIn("implementation", config)
-        self.assertIn("design", config)
-        self.assertIn("directions", config)
-        self.assertIn("review", config)
+        self.assertIn("idea", config)
+        self.assertIn("paper", config)
+        self.assertIn("code", config)
+        self.assertIn("exp", config)
 
     def test_generate_config_minimal_profile(self):
         """Test config generation with minimal profile."""

@@ -8,7 +8,7 @@ English | [中文](README.zh.md)
 
 [![CI](https://github.com/GeminiLight/cc-branch/actions/workflows/ci.yml/badge.svg)](https://github.com/GeminiLight/cc-branch/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Status](https://img.shields.io/badge/status-v1.0.0-green)
+![Status](https://img.shields.io/badge/status-v1.1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
@@ -134,6 +134,10 @@ Built-in agent profiles are available automatically. Add an `agents` section onl
 - [SSH Remote Workspaces](docs/ssh-remote-workspaces.md)
 - [Install Troubleshooting](docs/install-troubleshooting.md)
 - [Publishing Runbook](docs/publishing.md)
+
+## 🙏 Acknowledgements
+
+This project has been published on the LINUX DO community, and we deeply appreciate the community's support and feedback.
 
 ## License
 
