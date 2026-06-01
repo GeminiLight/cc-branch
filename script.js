@@ -8,7 +8,7 @@ const translations = {
     skip: "Skip to content",
     navValues: "Value",
     navWorkflow: "Workflow",
-    navRemote: "Remote",
+    navFeatures: "Features",
     navInstall: "Download",
     navCta: "Get started",
     heroEyebrow: "Multi-agent CLI workspace",
@@ -66,14 +66,26 @@ const translations = {
     flowReturnBody:
       "When you return, reattach to existing sessions and fix missing tools, bad paths, or failed SSH links from the same entry point.",
     flowReturnOut: "The environment keeps continuity",
-    remoteKicker: "Remote workspaces",
-    remoteTitle: "Local project. Remote machine. Same workspace.",
-    remoteBody:
-      "Add projects and panes that live on SSH hosts, then launch them beside local agents and servers. The directory can be local or remote; the workspace still opens as one unit.",
+    featuresKicker: "Features",
+    featuresTitle: "Everything an agent workspace needs to reopen cleanly.",
+    featuresBody:
+      "CC Branch is built around the things developers actually reopen every day: agent CLIs, terminals, editors, openers, local folders, and SSH machines.",
+    featureAgentsLabel: "Multi-agent",
+    featureAgentsTitle: "Run many Agent CLIs in one project",
+    featureAgentsBody:
+      "Codex, Claude Code, Gemini CLI, Cursor CLI, Kimi, custom commands, and reusable resume labels can live together.",
+    featureTerminalLabel: "Terminals and openers",
+    featureTerminalTitle: "Restore terminals, panes, and tools",
+    featureTerminalBody:
+      "Use tmux for long-running panes, direct commands for local tools, and openers for Cursor, VS Code, Warp, terminal, Web UI, or Desktop.",
+    featureRemoteLabel: "Local and remote",
+    featureRemoteTitle: "Treat local and SSH machines as one workspace",
+    featureRemoteBody:
+      "A workspace can include a local repo, remote project directory, GPU box, remote tmux session, and local editor without splitting the workflow.",
     installKicker: "Download",
-    installTitle: "Start with the desktop app.",
+    installTitle: "Install the desktop app or copy the pip command.",
     installBody:
-      "The desktop app is the simplest entry point. Download the latest release from GitHub, or install the CLI if you prefer terminal-first workflows.",
+      "Download the native desktop app from GitHub Releases, or install the CLI/backend and browser Web UI directly from PyPI.",
     downloadDesktopLabel: "Desktop app",
     downloadDesktopTitle: "Latest GitHub Release",
     downloadDesktopBody:
@@ -100,7 +112,7 @@ const translations = {
     skip: "跳到正文",
     navValues: "价值",
     navWorkflow: "工作流",
-    navRemote: "远程",
+    navFeatures: "功能",
     navInstall: "下载",
     navCta: "开始使用",
     heroEyebrow: "多 Agent CLI 工作空间",
@@ -158,14 +170,26 @@ const translations = {
     flowReturnBody:
       "重新进入时接回已有会话，并在同一个入口发现缺工具、路径错误或 SSH 连接失败。",
     flowReturnOut: "工作环境保持连续",
-    remoteKicker: "远程工作空间",
-    remoteTitle: "本地项目。远程机器。同一个工作空间。",
-    remoteBody:
-      "添加位于 SSH 主机上的项目和窗格，然后和本地 Agent、服务一起启动。目录可以在本机，也可以在远程；工作空间仍然作为一个整体打开。",
+    featuresKicker: "功能",
+    featuresTitle: "Agent 工作空间需要的能力，都围绕恢复体验设计。",
+    featuresBody:
+      "CC Branch 聚焦开发者每天反复打开的东西：Agent CLI、终端、编辑器、打开方式、本机目录和 SSH 机器。",
+    featureAgentsLabel: "多 Agent",
+    featureAgentsTitle: "一个项目里管理多个 Agent CLI",
+    featureAgentsBody:
+      "Codex、Claude Code、Gemini CLI、Cursor CLI、Kimi、自定义命令和可复用 resume 标签可以放在一起。",
+    featureTerminalLabel: "终端和打开方式",
+    featureTerminalTitle: "恢复终端、窗格和工具",
+    featureTerminalBody:
+      "长期运行的窗格用 tmux，本地工具用 direct commands，编辑器和工具通过 openers 打开，比如 Cursor、VS Code、Warp、terminal、Web UI 或 Desktop。",
+    featureRemoteLabel: "本机和远程",
+    featureRemoteTitle: "把本机和 SSH 机器当成一个工作空间",
+    featureRemoteBody:
+      "一个 workspace 可以同时包含本机仓库、远程项目目录、GPU 机器、远程 tmux 会话和本机编辑器，不用拆成几套流程。",
     installKicker: "下载",
-    installTitle: "从桌面端开始。",
+    installTitle: "下载桌面端，或复制 pip 安装命令。",
     installBody:
-      "桌面端是最简单的入口。你可以从 GitHub 下载最新版本；如果更习惯终端，也可以直接安装 CLI。",
+      "从 GitHub Releases 下载原生桌面端；如果更习惯终端，也可以直接从 PyPI 安装 CLI/backend 和浏览器 Web UI。",
     downloadDesktopLabel: "桌面端",
     downloadDesktopTitle: "最新 GitHub Release",
     downloadDesktopBody:
@@ -207,7 +231,7 @@ function translate(language) {
     }
   });
 
-  document.querySelectorAll("[data-copy-label]").forEach((button) => {
+  document.querySelectorAll("[data-copy-label][data-i18n='copy']").forEach((button) => {
     button.dataset.copyLabel = dictionary.copy;
     button.textContent = dictionary.copy;
   });
@@ -227,15 +251,15 @@ document.querySelector("[data-lang-toggle]")?.addEventListener("click", () => {
 
 document.querySelectorAll("[data-copy]").forEach((button) => {
   button.addEventListener("click", async () => {
-    const label = button.dataset.copyLabel || translations[activeLanguage].copy;
+    const originalHtml = button.innerHTML;
     try {
       await navigator.clipboard.writeText(button.dataset.copy || "");
       button.textContent = translations[activeLanguage].copied;
       window.setTimeout(() => {
-        button.textContent = label;
+        button.innerHTML = originalHtml;
       }, 1400);
     } catch {
-      button.textContent = label;
+      button.innerHTML = originalHtml;
     }
   });
 });

@@ -33,7 +33,7 @@
       <nav class="nav-links" aria-label="Site navigation">
         <a href="#values" data-i18n="navValues">Value</a>
         <a href="#workflow" data-i18n="navWorkflow">Workflow</a>
-        <a href="#remote" data-i18n="navRemote">Remote</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
         <a href="#install" data-i18n="navInstall">Download</a>
       </nav>
       <div class="top-actions">
@@ -53,7 +53,10 @@
           </p>
           <div class="hero-actions">
             <a class="button primary" href="https://github.com/GeminiLight/cc-branch/releases/latest" data-i18n="heroPrimary">Download desktop app</a>
-            <a class="button secondary" href="#install" data-i18n="heroSecondary">CLI install</a>
+            <button class="button command-copy" type="button" data-copy="pip install cc-branch">
+              <span data-i18n="heroSecondary">CLI install</span>
+              <code>pip install cc-branch</code>
+            </button>
           </div>
           <div class="release-line" aria-label="Latest release">
             <span>latest</span>
@@ -230,35 +233,40 @@ tabs:
         </article>
       </section>
 
-      <section class="section remote" id="remote">
+      <section class="section features" id="features">
         <div class="section-copy">
-          <p class="section-kicker" data-i18n="remoteKicker">Remote workspaces</p>
-          <h2 data-i18n="remoteTitle">Local project. Remote machine. Same workspace.</h2>
-          <p data-i18n="remoteBody">
-            Add projects and panes that live on SSH hosts, then launch them beside local agents and servers. The directory can be local or remote; the workspace still opens as one unit.
+          <p class="section-kicker" data-i18n="featuresKicker">Features</p>
+          <h2 data-i18n="featuresTitle">Everything an agent workspace needs to reopen cleanly.</h2>
+          <p data-i18n="featuresBody">
+            CC Branch is built around the things developers actually reopen every day: agent CLIs, terminals, editors, openers, local folders, and SSH machines.
           </p>
         </div>
-        <div class="remote-panel">
-          <div class="remote-line">
-            <span>local</span>
-            <strong>~/code/orbit</strong>
-            <em>cursor</em>
-          </div>
-          <div class="remote-line">
-            <span>ssh</span>
-            <strong>gpu-dev:/srv/orbit</strong>
-            <em>tmux</em>
-          </div>
-          <div class="remote-line">
-            <span>agent</span>
-            <strong>codex resume planner</strong>
-            <em>attached</em>
-          </div>
-          <div class="remote-line">
-            <span>server</span>
-            <strong>npm run dev</strong>
-            <em>running</em>
-          </div>
+        <div class="feature-stack" aria-label="Product features">
+          <article class="feature-item">
+            <span data-i18n="featureAgentsLabel">Multi-agent</span>
+            <strong data-i18n="featureAgentsTitle">Run many Agent CLIs in one project</strong>
+            <p data-i18n="featureAgentsBody">Codex, Claude Code, Gemini CLI, Cursor CLI, Kimi, custom commands, and reusable resume labels can live together.</p>
+            <div class="feature-chips" aria-label="Agent examples">
+              <em>Codex</em><em>Claude</em><em>Gemini</em><em>Cursor</em>
+            </div>
+          </article>
+          <article class="feature-item">
+            <span data-i18n="featureTerminalLabel">Terminals and openers</span>
+            <strong data-i18n="featureTerminalTitle">Restore terminals, panes, and tools</strong>
+            <p data-i18n="featureTerminalBody">Use tmux for long-running panes, direct commands for local tools, and openers for Cursor, VS Code, Warp, terminal, Web UI, or Desktop.</p>
+            <div class="feature-chips" aria-label="Opener examples">
+              <em>tmux</em><em>Cursor</em><em>VS Code</em><em>Warp</em>
+            </div>
+          </article>
+          <article class="feature-item">
+            <span data-i18n="featureRemoteLabel">Local and remote</span>
+            <strong data-i18n="featureRemoteTitle">Treat local and SSH machines as one workspace</strong>
+            <p data-i18n="featureRemoteBody">A workspace can include a local repo, remote project directory, GPU box, remote tmux session, and local editor without splitting the workflow.</p>
+            <div class="feature-paths" aria-label="Local and remote workspace paths">
+              <b>~/code/orbit</b>
+              <b>gpu-dev:/srv/orbit</b>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -280,9 +288,10 @@ tabs:
           <article class="install-card cli-card">
             <div class="code-header">
               <span data-i18n="downloadCliLabel">CLI install</span>
-              <button type="button" data-copy="pip install git+https://github.com/GeminiLight/cc-branch.git" data-copy-label="Copy" data-i18n="copy">Copy</button>
+              <button type="button" data-copy="pip install cc-branch" data-copy-label="Copy" data-i18n="copy">Copy</button>
             </div>
-            <pre><code>pip install git+https://github.com/GeminiLight/cc-branch.git
+            <pre><code>pip install cc-branch
+cc-branch service start
 cc-branch plan
 cc-branch start
 cc-branch doctor</code></pre>

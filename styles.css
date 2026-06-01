@@ -249,12 +249,35 @@ h1 {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.64);
   border: 1px solid var(--line);
+  cursor: pointer;
 }
 
 .button.primary {
   color: #fff;
   background: #17201e;
   border-color: var(--dark);
+}
+
+.command-copy {
+  gap: 12px;
+  padding-right: 12px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.command-copy span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.command-copy code {
+  padding: 6px 9px;
+  color: #17201e;
+  background: rgba(242, 240, 233, 0.9);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
 }
 
 .release-line {
@@ -744,45 +767,74 @@ pre {
   border-radius: 999px;
 }
 
-.remote-panel {
+.feature-stack {
   display: grid;
-  gap: 8px;
-  padding: 10px;
-}
-
-.remote-line {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  align-items: center;
   gap: 12px;
-  min-height: 62px;
-  padding: 0 14px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid var(--line-soft);
-  border-radius: 7px;
 }
 
-.remote-line span,
-.remote-line em {
-  color: var(--muted);
+.feature-item {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 10px 22px;
+  min-width: 0;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  box-shadow: 0 14px 36px rgba(22, 26, 24, 0.045);
+}
+
+.feature-item > span {
+  color: var(--accent);
   font-family: var(--mono);
   font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.feature-item strong {
+  display: block;
+  min-width: 0;
+  font-size: 1.08rem;
+  font-weight: 560;
+}
+
+.feature-item p {
+  grid-column: 2;
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.62;
+}
+
+.feature-chips,
+.feature-paths {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.feature-chips em,
+.feature-paths b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 9px;
+  color: var(--ink-soft);
+  background: rgba(242, 240, 233, 0.74);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
   font-style: normal;
   font-weight: 560;
 }
 
-.remote-line strong {
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 560;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.remote-line em {
-  padding: 4px 8px;
-  background: var(--paper);
-  border-radius: 999px;
+.feature-paths b {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border-radius: 6px;
 }
 
 .install {
@@ -1033,13 +1085,17 @@ pre {
     overflow-x: auto;
   }
 
-  .remote-line {
-    grid-template-columns: 58px minmax(0, 1fr);
+  .feature-item {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .remote-line em {
-    grid-column: 2;
-    justify-self: start;
+  .feature-item p,
+  .feature-chips,
+  .feature-paths {
+    grid-column: 1;
   }
 
+  .command-copy {
+    justify-content: space-between;
+  }
 }
