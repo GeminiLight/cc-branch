@@ -20,7 +20,7 @@
     <meta property="og:image" content="assets/logo-512.png" />
     <link rel="icon" href="assets/favicon.svg" />
     <link rel="apple-touch-icon" href="assets/logo-512.png" />
-    <link rel="stylesheet" href="styles.css?v=hero-actions-side-by-side" />
+    <link rel="stylesheet" href="styles.css?v=hero-product-tools" />
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
@@ -70,7 +70,11 @@
             <div class="command-input">
               <span class="spark"></span>
               <strong data-i18n="commandPrompt">Restore workspace</strong>
-              <kbd>⌘</kbd><kbd>K</kbd>
+              <div class="mini-stack" aria-label="Workspace tools">
+                <span class="tool-logo codex" title="Codex">Cx</span>
+                <span class="tool-logo claude" title="Claude Code">Cl</span>
+                <span class="tool-logo tmux" title="tmux">tm</span>
+              </div>
             </div>
             <div class="command-list">
               <div class="command-row active">
@@ -78,6 +82,12 @@
                 <div>
                   <strong>orbit</strong>
                   <small data-i18n="orbitMeta">5 panes · Codex · Claude · localhost:3000</small>
+                </div>
+                <div class="tool-stack" aria-label="orbit tools">
+                  <span class="tool-logo codex" title="Codex">Cx</span>
+                  <span class="tool-logo claude" title="Claude Code">Cl</span>
+                  <span class="tool-logo gemini" title="Gemini CLI">G</span>
+                  <span class="tool-logo terminal" title="Terminal">⌁</span>
                 </div>
                 <em data-i18n="current">current</em>
               </div>
@@ -87,6 +97,11 @@
                   <strong>lab-ssh</strong>
                   <small data-i18n="labMeta">remote repo · tmux · gpu-dev</small>
                 </div>
+                <div class="tool-stack" aria-label="lab tools">
+                  <span class="tool-logo ssh" title="SSH">ssh</span>
+                  <span class="tool-logo tmux" title="tmux">tm</span>
+                  <span class="tool-logo codex" title="Codex">Cx</span>
+                </div>
                 <em>ssh</em>
               </div>
               <div class="command-row">
@@ -94,6 +109,11 @@
                 <div>
                   <strong>desktop-app</strong>
                   <small data-i18n="desktopMeta">desktop app · doctor clean</small>
+                </div>
+                <div class="tool-stack" aria-label="desktop tools">
+                  <span class="tool-logo cursor" title="Cursor">Cu</span>
+                  <span class="tool-logo code" title="VS Code">VS</span>
+                  <span class="tool-logo terminal" title="Terminal">⌁</span>
                 </div>
                 <em>ready</em>
               </div>
@@ -125,6 +145,15 @@
                 <span>remote</span>
                 <p>ssh gpu-dev</p>
                 <code>/srv/orbit</code>
+              </article>
+              <article class="pane pane-opener">
+                <span>openers</span>
+                <p>cursor .</p>
+                <div class="pane-tools" aria-label="opened tools">
+                  <span class="tool-logo cursor" title="Cursor">Cu</span>
+                  <span class="tool-logo code" title="VS Code">VS</span>
+                  <span class="tool-logo terminal" title="Warp terminal">⌁</span>
+                </div>
               </article>
             </div>
           </div>

@@ -358,7 +358,7 @@ h1 {
   z-index: 2;
   max-width: 630px;
   margin-left: auto;
-  padding: 8px;
+  padding: 10px;
   box-shadow: 0 22px 64px rgba(22, 26, 24, 0.12);
 }
 
@@ -367,7 +367,7 @@ h1 {
   align-items: center;
   gap: 10px;
   min-height: 48px;
-  padding: 0 14px;
+  padding: 0 12px 0 14px;
   color: var(--ink);
   background: rgba(246, 244, 238, 0.9);
   border: 1px solid var(--line-soft);
@@ -386,6 +386,84 @@ h1 {
   font-weight: 560;
 }
 
+.mini-stack,
+.tool-stack,
+.pane-tools {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mini-stack {
+  gap: 5px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+}
+
+.tool-stack {
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tool-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #17201e;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 720;
+  letter-spacing: 0;
+  border: 1px solid rgba(23, 32, 30, 0.1);
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.tool-logo.codex {
+  color: #eff8f3;
+  background: #17201e;
+}
+
+.tool-logo.claude {
+  color: #fff7ef;
+  background: #b66a42;
+}
+
+.tool-logo.gemini {
+  color: #f8fbff;
+  background: #4963aa;
+}
+
+.tool-logo.cursor {
+  color: #17201e;
+  background: #f6f3e9;
+}
+
+.tool-logo.code {
+  color: #f6fbff;
+  background: #1673b9;
+}
+
+.tool-logo.tmux {
+  color: #17322b;
+  background: #9ed8ba;
+}
+
+.tool-logo.ssh {
+  width: 34px;
+  color: #effbf7;
+  background: #168673;
+}
+
+.tool-logo.terminal {
+  color: #18211f;
+  background: #dcc06f;
+}
+
 kbd {
   min-width: 25px;
   padding: 3px 7px;
@@ -400,17 +478,17 @@ kbd {
 
 .command-list {
   display: grid;
-  gap: 6px;
-  padding-top: 7px;
+  gap: 8px;
+  padding-top: 9px;
 }
 
 .command-row {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) minmax(120px, auto) 66px;
   align-items: center;
   gap: 12px;
-  min-height: 64px;
-  padding: 9px 10px;
+  min-height: 68px;
+  padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 7px;
 }
@@ -439,11 +517,14 @@ kbd {
 }
 
 .command-row em {
-  padding: 4px 8px;
+  justify-self: end;
+  min-width: 54px;
+  padding: 5px 9px;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-style: normal;
   font-weight: 560;
+  text-align: center;
   background: var(--paper);
   border-radius: 999px;
 }
@@ -557,6 +638,20 @@ kbd {
 
 .pane-accent {
   background: #182221;
+}
+
+.pane-opener {
+  background: #222b27;
+}
+
+.pane-tools {
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.pane-tools .tool-logo {
+  border-color: rgba(255, 255, 255, 0.11);
+  box-shadow: none;
 }
 
 .trust-strip {
@@ -1064,11 +1159,24 @@ pre {
   }
 
   .command-row {
-    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+    row-gap: 6px;
+  }
+
+  .mini-stack {
+    display: none;
+  }
+
+  .command-row .tool-stack {
+    grid-column: 2;
+    grid-row: 2;
+    justify-content: flex-start;
   }
 
   .command-row em {
     grid-column: 2;
+    grid-row: 3;
     justify-self: start;
   }
 
