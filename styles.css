@@ -237,9 +237,11 @@ h1 {
 }
 
 .hero-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(176px, max-content) minmax(240px, max-content);
+  align-items: stretch;
   gap: 12px;
+  max-width: 560px;
   margin-bottom: 18px;
 }
 
@@ -250,6 +252,10 @@ h1 {
   background: rgba(255, 255, 255, 0.64);
   border: 1px solid var(--line);
   cursor: pointer;
+}
+
+.hero-actions .button {
+  min-width: 0;
 }
 
 .button.primary {
@@ -1018,11 +1024,16 @@ pre {
 
   .hero-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 8px;
   }
 
-  .button {
+  .hero-actions .button {
     width: 100%;
+    min-height: 52px;
+    padding: 0 10px;
+    white-space: normal;
+    line-height: 1.18;
   }
 
   .release-line {
@@ -1096,6 +1107,24 @@ pre {
   }
 
   .command-copy {
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 8px;
+    text-align: center;
+  }
+
+  .command-copy span {
+    font-size: 0.74rem;
+  }
+
+  .command-copy code {
+    max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    border: 0;
+    font-size: 0.66rem;
+    text-overflow: ellipsis;
   }
 }
