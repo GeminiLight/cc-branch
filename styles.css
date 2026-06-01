@@ -181,17 +181,18 @@ button {
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
-  gap: clamp(44px, 6vw, 84px);
-  align-items: center;
+  gap: clamp(36px, 5vw, 72px);
+  align-items: start;
   max-width: 1320px;
-  min-height: min(860px, calc(100vh - 64px));
+  min-height: min(760px, calc(100vh - 64px));
   margin: 0 auto;
-  padding: clamp(72px, 9vw, 116px) clamp(20px, 5vw, 74px) clamp(70px, 8vw, 104px);
+  padding: clamp(24px, 3.8vw, 46px) clamp(20px, 5vw, 74px) clamp(58px, 7vw, 92px);
 }
 
 .hero-copy {
   max-width: 650px;
   min-width: 0;
+  padding-top: clamp(28px, 5vw, 72px);
 }
 
 .eyebrow,
@@ -336,7 +337,7 @@ h1 {
 .hero-product {
   position: relative;
   min-width: 0;
-  min-height: 560px;
+  padding-top: 0;
 }
 
 .command-shell,
@@ -356,10 +357,11 @@ h1 {
 
 .command-shell {
   z-index: 2;
-  max-width: 630px;
+  max-width: 660px;
   margin-left: auto;
-  padding: 10px;
-  box-shadow: 0 22px 64px rgba(22, 26, 24, 0.12);
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 22px 62px rgba(22, 26, 24, 0.1);
 }
 
 .command-input {
@@ -394,7 +396,7 @@ h1 {
 }
 
 .mini-stack {
-  gap: 5px;
+  gap: 6px;
   padding: 4px;
   background: rgba(255, 255, 255, 0.58);
   border: 1px solid var(--line-soft);
@@ -403,7 +405,7 @@ h1 {
 
 .tool-stack {
   justify-content: flex-end;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -413,55 +415,45 @@ h1 {
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: #17201e;
+  flex: 0 0 auto;
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 0.58rem;
-  font-weight: 720;
+  font-size: 0.54rem;
+  font-weight: 700;
   letter-spacing: 0;
-  border: 1px solid rgba(23, 32, 30, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 244, 238, 0.9));
+  border: 1px solid rgba(23, 32, 30, 0.12);
   border-radius: 7px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  box-shadow:
+    0 1px 2px rgba(18, 24, 22, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
-.tool-logo.codex {
-  color: #eff8f3;
-  background: #17201e;
+.tool-logo img {
+  display: block;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
-.tool-logo.claude {
-  color: #fff7ef;
-  background: #b66a42;
-}
-
-.tool-logo.gemini {
-  color: #f8fbff;
-  background: #4963aa;
-}
-
-.tool-logo.cursor {
-  color: #17201e;
-  background: #f6f3e9;
-}
-
-.tool-logo.code {
-  color: #f6fbff;
-  background: #1673b9;
-}
-
-.tool-logo.tmux {
-  color: #17322b;
-  background: #9ed8ba;
+.tool-logo.text-logo {
+  width: auto;
+  min-width: 34px;
+  padding: 0 7px;
+  text-transform: lowercase;
 }
 
 .tool-logo.ssh {
-  width: 34px;
-  color: #effbf7;
+  color: #eefbf7;
   background: #168673;
+  border-color: rgba(22, 134, 115, 0.4);
 }
 
-.tool-logo.terminal {
-  color: #18211f;
-  background: #dcc06f;
+.tool-logo.tmux {
+  color: #17342d;
+  background: #9ed8ba;
+  border-color: rgba(28, 125, 108, 0.18);
 }
 
 kbd {
@@ -478,16 +470,16 @@ kbd {
 
 .command-list {
   display: grid;
-  gap: 8px;
-  padding-top: 9px;
+  gap: 9px;
+  padding-top: 10px;
 }
 
 .command-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) minmax(120px, auto) 66px;
+  grid-template-columns: 42px minmax(0, 1fr) minmax(136px, auto) 66px;
   align-items: center;
-  gap: 12px;
-  min-height: 68px;
+  gap: 14px;
+  min-height: 70px;
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -555,12 +547,12 @@ kbd {
 .workspace-window {
   z-index: 1;
   max-width: 680px;
-  margin: -18px 0 0 auto;
+  margin: 16px 0 0 auto;
   overflow: hidden;
   color: #e7ece9;
   background: var(--dark);
   border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 34px 90px rgba(18, 24, 22, 0.24);
+  box-shadow: 0 30px 76px rgba(18, 24, 22, 0.22);
 }
 
 .window-bar {
@@ -651,7 +643,7 @@ kbd {
 
 .pane-tools .tool-logo {
   border-color: rgba(255, 255, 255, 0.11);
-  box-shadow: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
 }
 
 .trust-strip {
@@ -1068,8 +1060,12 @@ pre {
     min-height: auto;
   }
 
+  .hero-copy {
+    padding-top: 0;
+  }
+
   .hero-product {
-    min-height: 548px;
+    min-height: auto;
   }
 
   .problem-grid,
