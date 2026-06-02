@@ -137,7 +137,7 @@ Built-in agent profiles are available automatically. Add an `agents` section onl
 
 ## 🙏 Acknowledgements
 
-This project has been published on the LINUX DO community, and we deeply appreciate the community's support and feedback.
+This project has been published on the [LINUX DO](https://linux.do/) community, and we deeply appreciate the community's support and feedback.
 
 ## License
 
