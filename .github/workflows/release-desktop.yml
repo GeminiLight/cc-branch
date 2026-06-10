@@ -294,10 +294,9 @@ jobs:
 
             ## CLI package
 
-            The desktop app includes the bundled backend sidecar. The Python CLI
-            package is released separately after PyPI Trusted Publishing or
-            `PYPI_API_TOKEN` is configured. Until that channel is published, use
-            the source install documented in the repository README.
+            CLI users can install the Python package from PyPI with
+            `python3.10 -m pip install --upgrade cc-branch` or any newer
+            supported Python. The desktop app already bundles its backend.
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: false

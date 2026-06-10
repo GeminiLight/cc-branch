@@ -170,7 +170,7 @@ def render_release_notes(
             "",
             "## CLI package",
             "",
-            "The Python CLI package is released separately. Until that channel is published, use the source install documented in the repository README.",
+            "CLI users can install the Python package from PyPI with `python3.10 -m pip install --upgrade cc-branch` or any newer supported Python. The desktop app already bundles its backend.",
         ]
     )
     return "\n".join(lines) + "\n"
