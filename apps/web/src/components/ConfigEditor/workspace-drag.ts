@@ -36,17 +36,12 @@ export function isPointerAfterDropMidpoint(
 }
 
 export function paneDropTargetIndex(
-  drag: PaneDragState,
-  targetSlotIndex: number,
+  _drag: PaneDragState,
+  _targetSlotIndex: number,
   targetPaneIndex: number,
   after: boolean,
 ): number {
-  if (!drag) return targetPaneIndex + (after ? 1 : 0);
-  if (drag.slotIndex !== targetSlotIndex || drag.paneIndex === targetPaneIndex) {
-    return targetPaneIndex + (after ? 1 : 0);
-  }
-  if (drag.paneIndex < targetPaneIndex) return targetPaneIndex + 1;
-  return targetPaneIndex;
+  return targetPaneIndex + (after ? 1 : 0);
 }
 
 export function useWorkspaceDrag({ slots, onMoveTab, onMovePane }: WorkspaceDragOptions) {

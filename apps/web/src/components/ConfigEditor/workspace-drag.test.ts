@@ -59,9 +59,11 @@ describe("workspace drag helpers", () => {
     expect(isPointerAfterDropMidpoint("vertical", { clientX: 110, clientY: 59 }, rect)).toBe(false);
   });
 
-  it("turns same-tab pane drops onto another pane into an actual reorder", () => {
-    expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 0 }, 0, 1, false)).toBe(2);
-    expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 2 }, 0, 1, true)).toBe(1);
+  it("uses the target pane boundary for same-tab pane reorders", () => {
+    expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 0 }, 0, 1, false)).toBe(1);
+    expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 0 }, 0, 1, true)).toBe(2);
+    expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 2 }, 0, 1, false)).toBe(1);
+    expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 2 }, 0, 1, true)).toBe(2);
     expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 1 }, 0, 1, false)).toBe(1);
     expect(paneDropTargetIndex({ slotIndex: 0, paneIndex: 0 }, 1, 1, false)).toBe(1);
   });
