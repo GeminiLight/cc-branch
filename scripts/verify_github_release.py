@@ -156,6 +156,7 @@ def verify_macos_dmg_asset(
     verify_stale_backend_rejection: bool | None = None,
     verify_gatekeeper_check: bool = False,
     expected_version: str | None = None,
+    launch_timeout: float = 30.0,
 ) -> dict[str, Any]:
     script_path = Path(__file__).with_name("verify-macos-dmg.py")
     spec = importlib.util.spec_from_file_location("verify_macos_dmg", script_path)
@@ -175,6 +176,7 @@ def verify_macos_dmg_asset(
         ),
         verify_gatekeeper_check=verify_gatekeeper_check,
         expected_version=expected_version,
+        launch_timeout=launch_timeout,
     )
 
 
@@ -187,6 +189,7 @@ def verify_platform_installers(
     launch_linux_packages: bool = False,
     launch_windows_msi: bool = False,
     launch_windows_nsis: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict[str, Any]:
     script_path = Path(__file__).with_name("verify-desktop-installers.py")
     spec = importlib.util.spec_from_file_location("verify_desktop_installers", script_path)
@@ -202,6 +205,7 @@ def verify_platform_installers(
         launch_linux_packages=launch_linux_packages,
         launch_windows_msi=launch_windows_msi,
         launch_windows_nsis=launch_windows_nsis,
+        launch_timeout=launch_timeout,
     )
 
 
@@ -677,6 +681,7 @@ def verify_github_release(
     verify_windows_installer: bool = False,
     launch_windows_msi: bool = False,
     launch_windows_nsis: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict[str, Any]:
     release = run_json(release_view_command(tag, repo))
     release_tag = release.get("tagName")
@@ -747,6 +752,7 @@ def verify_github_release(
                     verify_stale_backend_rejection=launch_dmg_app and label == launch_label,
                     verify_gatekeeper_check=verify_macos_gatekeeper,
                     expected_version=expected_version,
+                    launch_timeout=launch_timeout,
                 )
                 for label, asset in dmgs.items()
             }
@@ -766,6 +772,7 @@ def verify_github_release(
                 expected_version=expected_version,
                 launch_appimage=launch_linux_appimage,
                 launch_linux_packages=launch_linux_packages,
+                launch_timeout=launch_timeout,
             )
 
         windows_verification = None
@@ -782,6 +789,7 @@ def verify_github_release(
                 expected_version=expected_version,
                 launch_windows_msi=launch_windows_msi,
                 launch_windows_nsis=launch_windows_nsis,
+                launch_timeout=launch_timeout,
             )
         checksum_manifest = None
         download_assets = canary.get("download_assets") if isinstance(canary, dict) else None
@@ -944,6 +952,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="after downloading the Windows NSIS setup EXE, extract and launch it to verify the backend starts",
     )
+    parser.add_argument(
+        "--launch-timeout",
+        type=float,
+        default=30.0,
+        help="seconds to wait for launched desktop installers to report bundled backend startup",
+    )
     dmg_group = parser.add_mutually_exclusive_group()
     dmg_group.add_argument(
         "--verify-dmg",
@@ -977,6 +991,7 @@ def main(argv: list[str] | None = None) -> int:
         verify_windows_installer=args.verify_windows_installer,
         launch_windows_msi=args.launch_windows_msi,
         launch_windows_nsis=args.launch_windows_nsis,
+        launch_timeout=args.launch_timeout,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

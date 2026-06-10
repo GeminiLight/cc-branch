@@ -270,6 +270,7 @@ def verify_deb(
     *,
     expected_version: str | None = None,
     launch_app: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict:
     require_tool("dpkg-deb")
     deb = find_one(bundle_dir, "*.deb")
@@ -294,6 +295,7 @@ def verify_deb(
                 target,
                 label=deb.name,
                 expected_version=expected_version,
+                launch_timeout=launch_timeout,
             )
     return {
         "asset": str(deb),
@@ -309,6 +311,7 @@ def verify_rpm(
     *,
     expected_version: str | None = None,
     launch_app: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict:
     require_tool("rpm")
     require_tool("rpm2cpio")
@@ -354,6 +357,7 @@ def verify_rpm(
                 target,
                 label=rpm.name,
                 expected_version=expected_version,
+                launch_timeout=launch_timeout,
             )
     return {
         "asset": str(rpm),
@@ -376,6 +380,7 @@ def verify_desktop_app_launch(
     expected_version: str | None = None,
     expected_platform: str | None = None,
     expected_arch: str | None = None,
+    timeout: float = 30.0,
 ) -> dict:
     script_path = Path(__file__).with_name("smoke-test-desktop-app.py")
     spec = importlib.util.spec_from_file_location("smoke_test_desktop_app", script_path)
@@ -385,7 +390,7 @@ def verify_desktop_app_launch(
     spec.loader.exec_module(module)
     return module.verify_desktop_app(
         executable,
-        timeout=30.0,
+        timeout=timeout,
         expected_version=expected_version,
         expected_platform=expected_platform,
         expected_arch=expected_arch,
@@ -397,6 +402,7 @@ def verify_desktop_app_stale_backend_rejection(
     executable: Path,
     *,
     sidecar_executable: Path,
+    timeout: float = 30.0,
 ) -> dict:
     script_path = Path(__file__).with_name("smoke-test-desktop-app.py")
     spec = importlib.util.spec_from_file_location("smoke_test_desktop_app", script_path)
@@ -407,7 +413,7 @@ def verify_desktop_app_stale_backend_rejection(
     return module.verify_desktop_rejects_stale_backend(
         executable,
         sidecar_executable=sidecar_executable,
-        timeout=30.0,
+        timeout=timeout,
     )
 
 
@@ -483,6 +489,7 @@ def verify_extracted_linux_package_launch(
     *,
     label: str,
     expected_version: str | None = None,
+    launch_timeout: float = 30.0,
 ) -> dict:
     app, backend = find_extracted_linux_executables(root, label=label)
     launch = require_bundled_backend_launch(
@@ -491,12 +498,14 @@ def verify_extracted_linux_package_launch(
             expected_version=expected_version,
             expected_platform="linux" if expected_version else None,
             expected_arch="x86_64" if expected_version else None,
+            timeout=launch_timeout,
         )
     )
     stale_backend_rejection = require_stale_backend_rejection(
         verify_desktop_app_stale_backend_rejection(
             app,
             sidecar_executable=backend,
+            timeout=launch_timeout,
         )
     )
     return {
@@ -512,6 +521,7 @@ def verify_appimage(
     *,
     expected_version: str | None = None,
     launch_app: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict:
     appimage = find_one(bundle_dir, "*.AppImage")
     require_asset_name_version(appimage, expected_version, label="AppImage")
@@ -544,12 +554,14 @@ def verify_appimage(
                     expected_version=expected_version,
                     expected_platform="linux" if expected_version else None,
                     expected_arch="x86_64" if expected_version else None,
+                    timeout=launch_timeout,
                 )
             )
             stale_backend_rejection = require_stale_backend_rejection(
                 verify_desktop_app_stale_backend_rejection(
                     appimage,
                     sidecar_executable=backend,
+                    timeout=launch_timeout,
                 )
             )
         else:
@@ -572,6 +584,7 @@ def verify_msi(
     *,
     expected_version: str | None = None,
     launch_app: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict:
     msi = find_one(bundle_dir, "*.msi")
     require_asset_name_version(msi, expected_version, label="MSI")
@@ -620,12 +633,14 @@ def verify_msi(
                     expected_version=expected_version,
                     expected_platform="windows" if expected_version else None,
                     expected_arch="x86_64" if expected_version else None,
+                    timeout=launch_timeout,
                 )
             )
             stale_backend_rejection = require_stale_backend_rejection(
                 verify_desktop_app_stale_backend_rejection(
                     app,
                     sidecar_executable=backend,
+                    timeout=launch_timeout,
                 )
             )
         else:
@@ -649,6 +664,7 @@ def verify_nsis(
     *,
     expected_version: str | None = None,
     launch_app: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict:
     nsis = find_one(bundle_dir, "*setup*.exe")
     require_asset_name_version(nsis, expected_version, label="NSIS")
@@ -694,12 +710,14 @@ def verify_nsis(
                     expected_version=expected_version,
                     expected_platform="windows" if expected_version else None,
                     expected_arch="x86_64" if expected_version else None,
+                    timeout=launch_timeout,
                 )
             )
             stale_backend_rejection = require_stale_backend_rejection(
                 verify_desktop_app_stale_backend_rejection(
                     app,
                     sidecar_executable=backend,
+                    timeout=launch_timeout,
                 )
             )
         else:
@@ -727,6 +745,7 @@ def verify_installers(
     launch_linux_packages: bool = False,
     launch_windows_msi: bool = False,
     launch_windows_nsis: bool = False,
+    launch_timeout: float = 30.0,
 ) -> dict:
     if target_platform == "linux":
         return {
@@ -736,16 +755,19 @@ def verify_installers(
                 bundle_dir,
                 expected_version=expected_version,
                 launch_app=launch_linux_packages,
+                launch_timeout=launch_timeout,
             ),
             "rpm": verify_rpm(
                 bundle_dir,
                 expected_version=expected_version,
                 launch_app=launch_linux_packages,
+                launch_timeout=launch_timeout,
             ),
             "appimage": verify_appimage(
                 bundle_dir,
                 expected_version=expected_version,
                 launch_app=launch_appimage,
+                launch_timeout=launch_timeout,
             ),
         }
     if target_platform == "windows":
@@ -756,11 +778,13 @@ def verify_installers(
                 bundle_dir,
                 expected_version=expected_version,
                 launch_app=launch_windows_msi,
+                launch_timeout=launch_timeout,
             ),
             "nsis": verify_nsis(
                 bundle_dir,
                 expected_version=expected_version,
                 launch_app=launch_windows_nsis,
+                launch_timeout=launch_timeout,
             ),
         }
     raise ValueError(f"Unsupported installer verification platform: {target_platform}")
@@ -800,6 +824,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="extract the Windows NSIS setup EXE and launch cc-branch.exe to verify the backend starts",
     )
+    parser.add_argument(
+        "--launch-timeout",
+        type=float,
+        default=30.0,
+        help="seconds to wait for launched desktop installers to report bundled backend startup",
+    )
     args = parser.parse_args(argv)
 
     result = verify_installers(
@@ -810,6 +840,7 @@ def main(argv: list[str] | None = None) -> int:
         launch_linux_packages=args.launch_linux_packages,
         launch_windows_msi=args.launch_windows_msi,
         launch_windows_nsis=args.launch_windows_nsis,
+        launch_timeout=args.launch_timeout,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

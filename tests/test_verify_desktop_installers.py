@@ -42,6 +42,21 @@ class VerifyDesktopInstallersTests(unittest.TestCase):
             use_auto_port=True,
         )
 
+    def test_verify_desktop_app_launch_accepts_custom_timeout(self):
+        with mock.patch("importlib.util.spec_from_file_location") as spec_from_file_location, \
+             mock.patch("importlib.util.module_from_spec") as module_from_spec:
+            module = mock.Mock()
+            module.verify_desktop_app.return_value = {"ok": True}
+            module_from_spec.return_value = module
+            spec_from_file_location.return_value = mock.Mock(loader=mock.Mock())
+
+            verify_desktop_installers.verify_desktop_app_launch(
+                Path("/tmp/cc-branch"),
+                timeout=90.0,
+            )
+
+        self.assertEqual(module.verify_desktop_app.call_args.kwargs["timeout"], 90.0)
+
     def test_find_one_returns_first_matching_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -684,6 +699,7 @@ class VerifyDesktopInstallersTests(unittest.TestCase):
             Path("/tmp/release"),
             expected_version="1.0.2",
             launch_app=True,
+            launch_timeout=30.0,
         )
 
     def test_verify_installers_passes_linux_package_launch_flag(self):
@@ -701,11 +717,13 @@ class VerifyDesktopInstallersTests(unittest.TestCase):
             Path("/tmp/release"),
             expected_version="1.0.2",
             launch_app=True,
+            launch_timeout=30.0,
         )
         rpm.assert_called_once_with(
             Path("/tmp/release"),
             expected_version="1.0.2",
             launch_app=True,
+            launch_timeout=30.0,
         )
 
     def test_verify_msi_can_launch_extracted_app(self):
@@ -1102,12 +1120,14 @@ class VerifyDesktopInstallersTests(unittest.TestCase):
                 Path("/tmp/release"),
                 "windows",
                 launch_windows_msi=True,
+                launch_timeout=90.0,
             )
 
         msi.assert_called_once_with(
             Path("/tmp/release"),
             expected_version=None,
             launch_app=True,
+            launch_timeout=90.0,
         )
 
     def test_verify_installers_passes_windows_nsis_launch_flag(self):
@@ -1117,12 +1137,14 @@ class VerifyDesktopInstallersTests(unittest.TestCase):
                 Path("/tmp/release"),
                 "windows",
                 launch_windows_nsis=True,
+                launch_timeout=90.0,
             )
 
         nsis.assert_called_once_with(
             Path("/tmp/release"),
             expected_version=None,
             launch_app=True,
+            launch_timeout=90.0,
         )
 
 

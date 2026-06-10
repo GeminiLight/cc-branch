@@ -333,6 +333,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
             verify_stale_backend_rejection=True,
             verify_gatekeeper_check=False,
             expected_version=None,
+            launch_timeout=30.0,
         )
 
     def test_verify_macos_dmg_asset_passes_installed_copy_flag(self):
@@ -364,6 +365,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
             verify_stale_backend_rejection=False,
             verify_gatekeeper_check=False,
             expected_version=None,
+            launch_timeout=30.0,
         )
 
     def test_verify_macos_dmg_asset_passes_gatekeeper_flag(self):
@@ -391,6 +393,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
             verify_stale_backend_rejection=False,
             verify_gatekeeper_check=True,
             expected_version="1.0.2",
+            launch_timeout=30.0,
         )
 
     def test_verify_platform_installers_delegates_to_installer_verifier(self):
@@ -409,6 +412,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
                 launch_linux_packages=True,
                 launch_windows_msi=True,
                 launch_windows_nsis=True,
+                launch_timeout=90.0,
             )
 
         self.assertTrue(result["ok"])
@@ -420,6 +424,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
             launch_linux_packages=True,
             launch_windows_msi=True,
             launch_windows_nsis=True,
+            launch_timeout=90.0,
         )
 
     def test_verify_github_release_downloads_and_launches_windows_msi_and_nsis(self):
@@ -521,6 +526,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
                 verify_windows_installer=True,
                 launch_windows_msi=True,
                 launch_windows_nsis=True,
+                launch_timeout=90.0,
             )
 
         self.assertTrue(result["ok"])
@@ -574,6 +580,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
         installers.assert_called_once()
         self.assertTrue(installers.call_args.kwargs["launch_windows_msi"])
         self.assertTrue(installers.call_args.kwargs["launch_windows_nsis"])
+        self.assertEqual(installers.call_args.kwargs["launch_timeout"], 90.0)
 
     def test_verify_github_release_rejects_missing_checksum_verification_for_downloaded_installer(self):
         release = {
@@ -894,6 +901,7 @@ class VerifyGithubReleaseTests(unittest.TestCase):
             verify_gatekeeper_check,
             expected_version,
             verify_installed_copy=False,
+            launch_timeout=30.0,
         ):
             return {
                 "ok": True,

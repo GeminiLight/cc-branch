@@ -510,7 +510,7 @@ jobs:
           dmg_path="$(cat "$dmg_paths_file")"
           mkdir -p smoke-reports
           report="smoke-reports/dmg-verification-${{ matrix.sidecar-target }}.json"
-          python scripts/verify-macos-dmg.py "$dmg_path" --launch-app --verify-installed-copy --verify-stale-backend-rejection --expected-version "$version" | tee "$report"
+          python scripts/verify-macos-dmg.py "$dmg_path" --launch-app --verify-installed-copy --verify-stale-backend-rejection --expected-version "$version" --launch-timeout "${{ matrix.desktop-smoke-timeout }}" | tee "$report"
           {
             echo "### macOS DMG verification: ${{ matrix.name }}"
             echo '```json'
@@ -532,6 +532,7 @@ jobs:
             --bundle-dir apps/desktop/src-tauri/target/release/bundle \
             --platform linux \
             --expected-version "$version" \
+            --launch-timeout "${{ matrix.desktop-smoke-timeout }}" \
             --launch-linux-packages --launch-appimage | tee "$report"
           {
             echo "### Linux installer verification: ${{ matrix.name }}"
@@ -553,6 +554,7 @@ jobs:
             --bundle-dir apps/desktop/src-tauri/target/release/bundle `
             --platform windows `
             --expected-version $version `
+            --launch-timeout "${{ matrix.desktop-smoke-timeout }}" `
             --launch-windows-msi `
             --launch-windows-nsis | Tee-Object -FilePath $report
           "### Windows installer verification: ${{ matrix.name }}" >> $env:GITHUB_STEP_SUMMARY
@@ -889,12 +891,14 @@ jobs:
               "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --expected-version "$version" \
+              --launch-timeout 90 \
               ${{ matrix.verifier-args }} | tee "$report"
           else
             python scripts/verify_github_release.py \
               "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --expected-version "$version" \
+              --launch-timeout 90 \
               ${{ matrix.verifier-args }} | tee "$report"
           fi
           {
@@ -1004,6 +1008,7 @@ jobs:
               --expected-version "$version" \
               --require-latest \
               --require-public \
+              --launch-timeout 90 \
               ${{ matrix.verifier-args }} | tee "$report"
           else
             python scripts/verify_github_release.py \
@@ -1012,6 +1017,7 @@ jobs:
               --expected-version "$version" \
               --require-latest \
               --require-public \
+              --launch-timeout 90 \
               ${{ matrix.verifier-args }} | tee "$report"
           fi
           {
