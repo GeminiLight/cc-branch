@@ -98,6 +98,7 @@ cc-branch start
 | `cc-branch sync` | Apply config changes to running tmux targets |
 | `cc-branch doctor --fix` | Diagnose and repair low-risk environment, config, or state issues |
 | `cc-branch session list` | List known agent session metadata |
+| `cc-branch session hook` | Let agent-native hooks write session IDs and transcript paths back to local state |
 
 ## Example Config
 

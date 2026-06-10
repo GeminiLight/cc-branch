@@ -49,6 +49,12 @@ def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> W
                 session_binding_status=existing.session_binding_status,
                 session_binding_source=existing.session_binding_source,
                 session_binding_updated_at=existing.session_binding_updated_at,
+                session_hook_event=update.get("session_hook_event", existing.session_hook_event),
+                session_hook_updated_at=update.get("session_hook_updated_at", existing.session_hook_updated_at),
+                session_runtime_status=update.get("session_runtime_status", existing.session_runtime_status),
+                session_transcript_path=update.get("session_transcript_path", existing.session_transcript_path),
+                session_pid=update.get("session_pid", existing.session_pid),
+                session_exit_code=update.get("session_exit_code", existing.session_exit_code),
             )
         else:
             merged.windows[key] = WindowState(
@@ -57,6 +63,12 @@ def merge_state(state: WorkspaceState, plan_state_updates: dict[str, dict]) -> W
                 agent=update.get("agent"),
                 slot=update.get("slot"),
                 window=update.get("window"),
+                session_hook_event=update.get("session_hook_event"),
+                session_hook_updated_at=update.get("session_hook_updated_at"),
+                session_runtime_status=update.get("session_runtime_status"),
+                session_transcript_path=update.get("session_transcript_path"),
+                session_pid=update.get("session_pid"),
+                session_exit_code=update.get("session_exit_code"),
             )
     return merged
 

@@ -34,6 +34,12 @@ class SessionInfo:
     session_binding_status: str = "none"
     session_binding_source: str | None = None
     session_binding_updated_at: str | None = None
+    session_hook_event: str | None = None
+    session_hook_updated_at: str | None = None
+    session_runtime_status: str | None = None
+    session_transcript_path: str | None = None
+    session_pid: int | None = None
+    session_exit_code: int | None = None
 
 
 def _binding_status(agent, session_id, entry, window_plan) -> str:
@@ -122,6 +128,12 @@ def list_sessions(
                 session_binding_status=_binding_status(entry.agent, entry.session_id, entry, window_plan),
                 session_binding_source=entry.session_binding_source,
                 session_binding_updated_at=entry.session_binding_updated_at,
+                session_hook_event=entry.session_hook_event,
+                session_hook_updated_at=entry.session_hook_updated_at,
+                session_runtime_status=entry.session_runtime_status,
+                session_transcript_path=entry.session_transcript_path,
+                session_pid=entry.session_pid,
+                session_exit_code=entry.session_exit_code,
             )
         )
 
@@ -198,6 +210,12 @@ def inspect_session(
                 session_binding_status=_binding_status(entry.agent, entry.session_id, entry, window_plan),
                 session_binding_source=entry.session_binding_source,
                 session_binding_updated_at=entry.session_binding_updated_at,
+                session_hook_event=entry.session_hook_event,
+                session_hook_updated_at=entry.session_hook_updated_at,
+                session_runtime_status=entry.session_runtime_status,
+                session_transcript_path=entry.session_transcript_path,
+                session_pid=entry.session_pid,
+                session_exit_code=entry.session_exit_code,
             )
         session_exists = tmux_has_session(slot_plan.tmux_session)
         if not session_exists:
@@ -219,6 +237,12 @@ def inspect_session(
             session_binding_status=_binding_status(entry.agent, entry.session_id, entry, window_plan),
             session_binding_source=entry.session_binding_source,
             session_binding_updated_at=entry.session_binding_updated_at,
+            session_hook_event=entry.session_hook_event,
+            session_hook_updated_at=entry.session_hook_updated_at,
+            session_runtime_status=entry.session_runtime_status,
+            session_transcript_path=entry.session_transcript_path,
+            session_pid=entry.session_pid,
+            session_exit_code=entry.session_exit_code,
         )
 
     # Check if the window exists in the plan but not in state

@@ -280,6 +280,37 @@ session: "..."  # 显式恢复这个真实 session id
 
 真实的运行时会话 ID 保存在 `.cc-branch/state.yaml`，不需要写进项目配置。对于 Codex、Claude、Gemini、Cursor、Kimi 等可扫描本地会话的 Agent，`session: auto` 启动后会尝试把新创建的 session 绑定回 state；如果暂时识别不到，状态会显示为等待识别，后续仍可手动选择历史会话。
 
+### Agent hook 回写
+
+Agent pane 启动时，CC Branch 会自动注入一组环境变量，方便 Codex、Claude 等工具自己的 hook 脚本把真实 session 信息写回 `.cc-branch/state.yaml`：
+
+- `CC_BRANCH_SESSION_TARGET`，例如 `dev:planner`
+- `CC_BRANCH_SESSION_KEY`，例如 `dev.planner`
+- `CC_BRANCH_AGENT`，例如 `codex`
+- `CC_BRANCH_PROJECT`
+- `CC_BRANCH_PROJECT_DIR`
+
+Agent hook 拿到真实 session id 或 transcript 路径后，可以调用：
+
+```bash
+cc-branch --project "$CC_BRANCH_PROJECT_DIR" session hook "$CC_BRANCH_SESSION_TARGET" \
+  --event started \
+  --agent "$CC_BRANCH_AGENT" \
+  --session-id "$AGENT_SESSION_ID" \
+  --transcript "$AGENT_TRANSCRIPT_PATH"
+```
+
+退出时可以继续记录生命周期：
+
+```bash
+cc-branch --project "$CC_BRANCH_PROJECT_DIR" session hook "$CC_BRANCH_SESSION_TARGET" \
+  --event exited \
+  --agent "$CC_BRANCH_AGENT" \
+  --exit-code "$EXIT_CODE"
+```
+
+支持的事件包括 `started`、`updated`、`exited` 和 `error`。只要 hook 写回了 `session_id`，下一次 `cc-branch plan`、`open`、`start` 或 GUI 状态刷新都会把这个 pane 当作已绑定会话处理，并优先生成恢复命令。没有 hook 时，CC Branch 仍会保留原来的本地会话扫描和手动选择能力。
+
 常见模式包括：
 
 - `resume_mode = flag`
@@ -428,6 +459,15 @@ cc-branch session command dev:planner
 ```
 
 这个命令会优先返回已经解析好的 `launch_command`。
+
+### 记录 hook 事件
+
+```bash
+cc-branch session hook dev:planner --event started --agent codex --session-id <id>
+cc-branch session hook dev:planner --event exited --agent codex --exit-code 0
+```
+
+这个入口主要给 agent-native hook 使用。它只更新本地 state，不会启动或停止 agent。
 
 ## Web UI
 

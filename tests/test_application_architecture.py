@@ -650,6 +650,65 @@ class RuntimeBoundaryTests(unittest.TestCase):
             self.assertEqual(status["slots"][0]["windows"][0]["status"], "running")
             self.assertEqual(status["slots"][0]["windows"][0]["sync_status"], "untracked")
 
+    def test_workspace_status_includes_hook_captured_session_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                agents:
+                  codex:
+                    command: codex
+                    resume_mode: flag
+                    resume_template: resume {session_id}
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            state = WorkspaceState(
+                windows={
+                    "dev.planner": WindowState(
+                        session_id="codex-session-1",
+                        agent="codex",
+                        slot="dev",
+                        window="planner",
+                        session_binding_status="bound",
+                        session_binding_source=str(root / "transcript.jsonl"),
+                        session_hook_event="started",
+                        session_hook_updated_at="2026-06-06T01:02:03Z",
+                        session_runtime_status="running",
+                        session_transcript_path=str(root / "transcript.jsonl"),
+                        session_pid=1234,
+                    )
+                }
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            status = build_workspace_status(
+                workspace,
+                plan,
+                state,
+                config_path=root / ".cc-branch/config.yaml",
+                state_path=root / ".cc-branch/state.yaml",
+                session_exists=lambda _session: False,
+                window_exists=lambda _session, _window: False,
+            )
+
+        window = status["slots"][0]["windows"][0]
+        self.assertEqual(window["session_id"], "codex-session-1")
+        self.assertEqual(window["session_hook_event"], "started")
+        self.assertEqual(window["session_runtime_status"], "running")
+        self.assertEqual(window["session_transcript_path"], str(root / "transcript.jsonl"))
+        self.assertEqual(window["session_pid"], 1234)
+
     def test_workspace_status_query_owns_setup_and_invalid_config_states(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2516,7 +2575,8 @@ class WorkspaceActionsTests(unittest.TestCase):
             self.assertRegex(updated.windows["coding.main"].session_id or "", r"^[0-9a-f-]{36}$")
             specs = open_command_layout.call_args.args[1]
             self.assertEqual(len(specs), 1)
-            self.assertEqual(specs[0].command, f"demo-agent --session-id {updated.windows['coding.main'].session_id}")
+            self.assertIn("CC_BRANCH_SESSION_TARGET=coding:main", specs[0].command)
+            self.assertTrue(specs[0].command.endswith(f"demo-agent --session-id {updated.windows['coding.main'].session_id}"))
 
     def test_execute_workspace_action_open_project_folder_does_not_bootstrap_sessions(self):
         from unittest.mock import patch

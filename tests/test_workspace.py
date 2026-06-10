@@ -99,7 +99,8 @@ class WorkspacePlannerTests(unittest.TestCase):
             self.assertEqual(
                 window.resolved_session_id, "11111111-1111-1111-1111-111111111111"
             )
-            self.assertEqual(window.launch_command, "codex resume 11111111-1111-1111-1111-111111111111")
+            self.assertIn("CC_BRANCH_SESSION_TARGET=research:writer", window.launch_command)
+            self.assertTrue(window.launch_command.endswith("codex resume 11111111-1111-1111-1111-111111111111"))
 
     def test_save_state_round_trips_bootstrapped_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

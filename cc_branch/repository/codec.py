@@ -44,6 +44,12 @@ def yaml_to_state(data: dict[str, Any]) -> WorkspaceState:
                 session_binding_status=entry.get("session_binding_status"),
                 session_binding_source=entry.get("session_binding_source"),
                 session_binding_updated_at=entry.get("session_binding_updated_at"),
+                session_hook_event=entry.get("session_hook_event"),
+                session_hook_updated_at=entry.get("session_hook_updated_at"),
+                session_runtime_status=entry.get("session_runtime_status"),
+                session_transcript_path=entry.get("session_transcript_path"),
+                session_pid=entry.get("session_pid"),
+                session_exit_code=entry.get("session_exit_code"),
             )
     raw_slots = data.get("slots", {})
     if isinstance(raw_slots, dict):

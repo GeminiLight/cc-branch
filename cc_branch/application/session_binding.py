@@ -205,6 +205,12 @@ def _upsert_binding_state(
         session_binding_status=status,
         session_binding_source=source or (existing.session_binding_source if existing else None),
         session_binding_updated_at=updated_at,
+        session_hook_event=existing.session_hook_event if existing else None,
+        session_hook_updated_at=existing.session_hook_updated_at if existing else None,
+        session_runtime_status=existing.session_runtime_status if existing else None,
+        session_transcript_path=existing.session_transcript_path if existing else None,
+        session_pid=existing.session_pid if existing else None,
+        session_exit_code=existing.session_exit_code if existing else None,
     )
 
 

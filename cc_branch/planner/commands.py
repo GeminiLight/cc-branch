@@ -116,6 +116,8 @@ def _build_window_plan(
     }
 
     env = {**dict(slot.env or {}), **dict(window.env or {})}
+    if agent_name and not has_command_override:
+        env.update(_session_hook_env(workspace, slot_name, window_name, key, agent_name))
     launch_command = window.command or ""
     post_launch_commands: list[str] = []
     command_binary = shlex.split(launch_command)[0] if launch_command else ""
@@ -173,3 +175,20 @@ def _build_window_plan(
         create_mode=create_mode,
         agent_declared=agent_declared,
     )
+
+
+def _session_hook_env(
+    workspace: WorkspaceConfig,
+    slot_name: str,
+    window_name: str,
+    key: str,
+    agent_name: str,
+) -> dict[str, str]:
+    """Return stable environment variables consumed by agent-native hooks."""
+    return {
+        "CC_BRANCH_AGENT": agent_name,
+        "CC_BRANCH_PROJECT": workspace.project,
+        "CC_BRANCH_PROJECT_DIR": str(workspace.root),
+        "CC_BRANCH_SESSION_KEY": key,
+        "CC_BRANCH_SESSION_TARGET": f"{slot_name}:{window_name}",
+    }

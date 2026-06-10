@@ -7,6 +7,7 @@ import json
 
 from rich.table import Table
 
+from ...application.session_hooks import SessionHookEvent, apply_session_hook_event, normalize_session_hook_key
 from ...application.state_store import StateStore
 from ...context import WorkspaceContext
 from ...text import count_label
@@ -24,6 +25,8 @@ def run_session(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan
         return _run_session_prune(ctx, args, workspace, plan, state)
     if args.session_command == "command":
         return _run_session_command(args, workspace, plan, state)
+    if args.session_command == "hook":
+        return _run_session_hook(ctx, args)
 
     parser.error("session subcommand required")
     return 2
@@ -80,6 +83,12 @@ def _run_session_inspect(args: argparse.Namespace, workspace, plan, state) -> in
     cli.console.print(f"  Session binding: {_binding_display(info.session_binding_status)}")
     if info.session_binding_source:
         cli.console.print(f"  Binding source: {info.session_binding_source}")
+    if info.session_runtime_status:
+        cli.console.print(f"  Runtime status: {info.session_runtime_status}")
+    if info.session_transcript_path:
+        cli.console.print(f"  Transcript: {info.session_transcript_path}")
+    if info.session_hook_event:
+        cli.console.print(f"  Last hook: {info.session_hook_event}")
     cli.console.print(f"  Label: {info.label or '[dim]none[/dim]'}")
     color = status_color(info.status)
     cli.console.print(f"  Status: [{color}]{info.status}[/{color}]")
@@ -123,6 +132,36 @@ def _run_session_command(args: argparse.Namespace, workspace, plan, state) -> in
     return 0
 
 
+def _run_session_hook(ctx: WorkspaceContext, args: argparse.Namespace) -> int:
+    import cc_branch.cli as cli
+
+    updated = apply_session_hook_event(
+        ctx.state_path,
+        SessionHookEvent(
+            key=args.key,
+            event=args.event,
+            agent=args.agent,
+            session_id=args.session_id,
+            transcript_path=args.transcript,
+            label=args.label,
+            pid=args.pid,
+            exit_code=args.exit_code,
+            timestamp=args.timestamp,
+        ),
+    )
+    key = normalize_session_hook_key(args.key)
+    entry = updated.windows[key]
+    payload = {"key": key, **entry.to_dict()}
+    if output_format(args) == "json":
+        print(json.dumps(payload, indent=2))
+        return 0
+    cli.console.print(
+        f"[green]✓[/green] Recorded {args.event} hook for {key}"
+        f"{f' ({entry.session_id})' if entry.session_id else ''}"
+    )
+    return 0
+
+
 def _session_display(session_id: str | None, binding_status: str) -> str:
     if binding_status == "fresh":
         return _binding_display(binding_status)
@@ -139,6 +178,7 @@ def _binding_display(status: str) -> str:
         "will_create": "will start",
         "pending_capture": "detecting",
         "ambiguous": "needs choice",
+        "capture_failed": "capture failed",
         "fresh": "fresh",
         "none": "-",
     }.get(status, status or "-")

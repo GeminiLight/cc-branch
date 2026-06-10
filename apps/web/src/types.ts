@@ -24,6 +24,12 @@ export interface WindowInfo {
     | string;
   session_binding_source?: string | null;
   session_binding_updated_at?: string | null;
+  session_hook_event?: "started" | "updated" | "exited" | "error" | string | null;
+  session_hook_updated_at?: string | null;
+  session_runtime_status?: "running" | "stopped" | "failed" | string | null;
+  session_transcript_path?: string | null;
+  session_pid?: number | null;
+  session_exit_code?: number | null;
   label: string | null;
   cwd: string;
   status?: "running" | "stopped" | "external" | "disabled";

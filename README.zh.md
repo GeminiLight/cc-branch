@@ -98,6 +98,7 @@ cc-branch start
 | `cc-branch sync` | 把配置变更同步到正在运行的 tmux targets |
 | `cc-branch doctor --fix` | 诊断并修复低风险环境、配置或状态问题 |
 | `cc-branch session list` | 列出已知 agent session metadata |
+| `cc-branch session hook` | 让 agent-native hook 把 session id 和 transcript 路径写回本地 state |
 
 ## 配置示例
 

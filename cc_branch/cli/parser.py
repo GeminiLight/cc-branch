@@ -280,3 +280,29 @@ def _add_session_group(
 
     command_cmd = nested.add_parser("command", help="print the launch command for a target", description="Print the launch command for a target")
     command_cmd.add_argument("key", metavar="tab[:pane]", help="target such as dev:planner")
+
+    hook_cmd = nested.add_parser(
+        "hook",
+        help="record an agent session lifecycle event",
+        description="Record an agent session lifecycle event",
+    )
+    hook_cmd.add_argument("key", metavar="tab:pane", help="target such as dev:planner")
+    hook_cmd.add_argument(
+        "--event",
+        required=True,
+        choices=["started", "updated", "exited", "error"],
+        help="agent lifecycle event",
+    )
+    hook_cmd.add_argument("--agent", type=str, default=None, help="agent id such as codex or claude")
+    hook_cmd.add_argument("--session-id", type=str, default=None, help="agent-native session id")
+    hook_cmd.add_argument("--transcript", type=str, default=None, help="agent transcript path")
+    hook_cmd.add_argument("--label", type=str, default=None, help="human-readable session label")
+    hook_cmd.add_argument("--pid", type=int, default=None, help="agent process id")
+    hook_cmd.add_argument("--exit-code", type=int, default=None, help="agent process exit code")
+    hook_cmd.add_argument("--timestamp", type=str, default=None, help="event timestamp as ISO-8601")
+    hook_cmd.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default=argparse.SUPPRESS,
+        help="output format",
+    )

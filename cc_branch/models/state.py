@@ -21,6 +21,12 @@ class WindowState:
     session_binding_status: str | None = None
     session_binding_source: str | None = None
     session_binding_updated_at: str | None = None
+    session_hook_event: str | None = None
+    session_hook_updated_at: str | None = None
+    session_runtime_status: str | None = None
+    session_transcript_path: str | None = None
+    session_pid: int | None = None
+    session_exit_code: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -50,6 +56,18 @@ class WindowState:
             result["session_binding_source"] = self.session_binding_source
         if self.session_binding_updated_at is not None:
             result["session_binding_updated_at"] = self.session_binding_updated_at
+        if self.session_hook_event is not None:
+            result["session_hook_event"] = self.session_hook_event
+        if self.session_hook_updated_at is not None:
+            result["session_hook_updated_at"] = self.session_hook_updated_at
+        if self.session_runtime_status is not None:
+            result["session_runtime_status"] = self.session_runtime_status
+        if self.session_transcript_path is not None:
+            result["session_transcript_path"] = self.session_transcript_path
+        if self.session_pid is not None:
+            result["session_pid"] = self.session_pid
+        if self.session_exit_code is not None:
+            result["session_exit_code"] = self.session_exit_code
         return result
 
 
@@ -103,6 +121,12 @@ class WorkspaceState:
                     session_binding_status=entry.get("session_binding_status"),
                     session_binding_source=entry.get("session_binding_source"),
                     session_binding_updated_at=entry.get("session_binding_updated_at"),
+                    session_hook_event=entry.get("session_hook_event"),
+                    session_hook_updated_at=entry.get("session_hook_updated_at"),
+                    session_runtime_status=entry.get("session_runtime_status"),
+                    session_transcript_path=entry.get("session_transcript_path"),
+                    session_pid=entry.get("session_pid"),
+                    session_exit_code=entry.get("session_exit_code"),
                 )
         raw_slots = data.get("slots", {})
         slots: dict[str, SlotState] = {}

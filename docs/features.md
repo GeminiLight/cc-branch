@@ -53,8 +53,11 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 - `session inspect`
 - `session prune`
 - `session command`
+- `session hook`
 
 这对于长期项目尤其有用，因为你可以更清楚地区分正在运行、已经停止和已经孤立的记录。
+
+`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
 
 ### 诊断与自动修复
 

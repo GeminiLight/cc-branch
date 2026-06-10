@@ -166,7 +166,8 @@ class PlannerTests(unittest.TestCase):
 
             window = plan.slots[0].windows[0]
             self.assertEqual(window.resolved_session_id, "codex-session-123")
-            self.assertEqual(window.launch_command, "codex resume codex-session-123")
+            self.assertIn("CC_BRANCH_SESSION_TARGET=dev:planner", window.launch_command)
+            self.assertTrue(window.launch_command.endswith("codex resume codex-session-123"))
 
     def test_plan_workspace_fresh_session_ignores_existing_state_session(self):
         """session: fresh means start clean and do not bind the old state session."""
@@ -203,7 +204,8 @@ class PlannerTests(unittest.TestCase):
 
             window = plan.slots[0].windows[0]
             self.assertIsNone(window.resolved_session_id)
-            self.assertEqual(window.launch_command, "codex")
+            self.assertIn("CC_BRANCH_SESSION_TARGET=dev:planner", window.launch_command)
+            self.assertTrue(window.launch_command.endswith("codex"))
             self.assertNotIn("session_id", plan.state_updates.get("dev.planner", {}))
 
     def test_plan_workspace_auto_session_uses_bound_state_session(self):
@@ -241,7 +243,38 @@ class PlannerTests(unittest.TestCase):
 
             window = plan.slots[0].windows[0]
             self.assertEqual(window.resolved_session_id, "bound-session-id")
-            self.assertEqual(window.launch_command, "codex resume bound-session-id")
+            self.assertIn("CC_BRANCH_SESSION_TARGET=dev:planner", window.launch_command)
+            self.assertTrue(window.launch_command.endswith("codex resume bound-session-id"))
+
+    def test_agent_launch_command_includes_session_hook_environment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: test
+                root: .
+                agents:
+                  codex:
+                    command: codex
+                tabs:
+                - name: dev
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            command = plan.slots[0].windows[0].launch_command
+            self.assertIn("CC_BRANCH_AGENT=codex", command)
+            self.assertIn(f"CC_BRANCH_PROJECT_DIR={root.resolve()}", command)
+            self.assertIn("CC_BRANCH_SESSION_KEY=dev.planner", command)
+            self.assertIn("CC_BRANCH_SESSION_TARGET=dev:planner", command)
 
     def test_plan_workspace_wraps_remote_commands_with_ssh(self):
         with tempfile.TemporaryDirectory() as tmp:

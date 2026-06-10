@@ -843,8 +843,9 @@ class CLITests(unittest.TestCase):
                 exit_code = main(["session", "command", "dev:planner"])
 
             rendered = stdout.getvalue()
+            normalized = " ".join(rendered.split())
             self.assertEqual(exit_code, 0)
-            self.assertIn("claude resume 11111111-1111-1111-1111-111111111111", rendered)
+            self.assertIn("claude resume 11111111-1111-1111-1111-111111111111", normalized)
             self.assertNotIn("{11111111-1111-1111-1111-111111111111}", rendered)
             self.assertNotIn("{session_id}", rendered)
 
