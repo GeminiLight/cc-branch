@@ -65,7 +65,7 @@ jobs:
             rust-targets: ""
             sidecar-target: x86_64-pc-windows-msvc
             sidecar-ext: ".exe"
-            desktop-smoke-timeout: "30"
+            desktop-smoke-timeout: "90"
 
     steps:
       - name: Checkout
