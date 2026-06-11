@@ -94,6 +94,11 @@ apple-signing/
 *-secrets/
 .*-secrets/
 
-wiki/
+wiki/*
+!wiki/features-overview.md
+!wiki/refs/
+wiki/refs/*
+!wiki/refs/agent-cli-coordination/
+!wiki/refs/agent-cli-coordination/**
 discussions/
 marketing/
