@@ -104,6 +104,20 @@ class ProjectIndexStoreTests(unittest.TestCase):
         self.assertEqual(payload["projects"][0]["id"], "current")
         self.assertNotIn(current_project_id, {item["id"] for item in payload["projects"]})
 
+    def test_inject_current_can_activate_current_project(self):
+        self.store.add_project("/tmp/current")
+        second = self.store.add_project("/tmp/research")
+        research_project_id = second["projects"][1]["id"]
+        self.store.activate_project(research_project_id)
+
+        payload = self.store.inject_current_project(
+            "/tmp/current",
+            selected_config_path="/tmp/current/.cc-branch/config.yaml",
+            activate_current=True,
+        )
+
+        self.assertEqual(payload["active_project_id"], "current")
+
     def test_set_project_config_updates_record(self):
         self.store.add_project("/tmp/demo")
 

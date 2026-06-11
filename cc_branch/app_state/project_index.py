@@ -188,6 +188,7 @@ class ProjectIndexStore:
         project_path: str,
         *,
         selected_config_path: str | None = None,
+        activate_current: bool = False,
     ) -> dict[str, object]:
         normalized_path = _normalize_path(project_path)
         if not normalized_path:
@@ -234,11 +235,15 @@ class ProjectIndexStore:
             projects.insert(0, project)
 
         data["projects"] = projects
-        data["active_project_id"] = _active_after_current_injection(
-            projects,
-            previous_active_id=previous_active_id,
-            injected_path=normalized_path,
-            replaced_project_id=same_path_id,
+        data["active_project_id"] = (
+            "current"
+            if activate_current
+            else _active_after_current_injection(
+                projects,
+                previous_active_id=previous_active_id,
+                injected_path=normalized_path,
+                replaced_project_id=same_path_id,
+            )
         )
         self._save(data)
         return self.payload()

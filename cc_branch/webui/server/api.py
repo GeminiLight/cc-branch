@@ -458,6 +458,7 @@ def api_projects_current(handler) -> None:
         payload = ProjectIndexStore().inject_current_project(
             str(project_dir),
             selected_config_path=str(config_path),
+            activate_current=True,
         )
         handler._send_json(payload)
     except ValueError as error:

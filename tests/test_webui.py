@@ -1255,6 +1255,10 @@ tabs:
                     with_alt = json.loads(response.read().decode())
                 alt_project_id = with_alt["projects"][1]["id"]
 
+                with urlopen(current_request, timeout=HTTP_TIMEOUT) as response:
+                    current_again = json.loads(response.read().decode())
+                self.assertEqual(current_again["active_project_id"], "current")
+
                 reorder_request = Request(
                     f"http://127.0.0.1:{port}/api/projects/reorder",
                     data=json.dumps({"id": alt_project_id, "before_id": "current"}).encode(),
