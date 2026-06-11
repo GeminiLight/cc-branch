@@ -1,4 +1,4 @@
-import type { DragEvent, KeyboardEvent } from "react";
+import type { DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Eye, EyeOff, GripVertical, Plus, SquareTerminal, Terminal, Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import AgentMark from "../ui/AgentMark";
@@ -40,6 +40,10 @@ type WorkspaceCanvasProps = {
   onPaneDragOver: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
   onPaneDrop: (event: DragEvent<HTMLElement>, slotIndex: number, paneIndex: number) => void;
   onPaneAppendDrop: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
+  onPanePointerDown: (event: ReactPointerEvent<HTMLElement>, slotIndex: number, paneIndex: number) => void;
+  onPanePointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  onPanePointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
+  onPanePointerCancel: (event: ReactPointerEvent<HTMLElement>) => void;
   onPaneDragEnd: () => void;
 };
 
@@ -63,6 +67,10 @@ export default function WorkspaceCanvas({
   onPaneDragOver,
   onPaneDrop,
   onPaneAppendDrop,
+  onPanePointerDown,
+  onPanePointerMove,
+  onPanePointerUp,
+  onPanePointerCancel,
   onPaneDragEnd,
 }: WorkspaceCanvasProps) {
   const { t } = useI18n();
@@ -184,6 +192,8 @@ export default function WorkspaceCanvas({
                         style={workspacePaneGridStyle(slot, canvasPanes.length)}
                         onDragOver={(event) => onPaneDragOver(event, slotIndex)}
                         onDrop={(event) => onPaneAppendDrop(event, slotIndex)}
+                        data-workspace-pane-drop-zone="true"
+                        data-workspace-slot-index={slotIndex}
                       >
                         {canvasPanes.map((pane, paneIndex) => {
                           const selectedPane =
@@ -221,6 +231,8 @@ export default function WorkspaceCanvas({
                               onDragOver={(event) => onPaneDragOver(event, slotIndex)}
                               onDrop={(event) => onPaneDrop(event, slotIndex, paneIndex)}
                               onDragEnd={onPaneDragEnd}
+                              data-workspace-slot-index={slotIndex}
+                              data-workspace-pane-index={paneIndex}
                               onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
                                 if (event.key === "Enter" || event.key === " ") {
                                   event.preventDefault();
@@ -276,6 +288,11 @@ export default function WorkspaceCanvas({
                                     <span
                                       className="inline-flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted cursor-grab active:cursor-grabbing"
                                       title={t("dragPane")}
+                                      draggable={false}
+                                      onPointerDown={(event) => onPanePointerDown(event, slotIndex, paneIndex)}
+                                      onPointerMove={onPanePointerMove}
+                                      onPointerUp={onPanePointerUp}
+                                      onPointerCancel={onPanePointerCancel}
                                     >
                                       <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
                                     </span>
@@ -326,7 +343,7 @@ export default function WorkspaceCanvas({
                                   onTogglePaneEnabled(slotIndex, pane.windowIndex);
                                 }}
                                 onMouseDown={(event) => event.stopPropagation()}
-                                className="absolute right-8 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-default bg-[var(--bg-card)]/95 text-muted opacity-0 shadow-sm backdrop-blur transition-all hover:border-[var(--border-strong)] hover:text-primary focus:opacity-100 group-hover/pane-cell:opacity-100"
+                                className="pointer-events-none absolute right-16 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-default bg-[var(--bg-card)]/95 text-muted opacity-0 shadow-sm backdrop-blur transition-all hover:border-[var(--border-strong)] hover:text-primary focus:pointer-events-auto focus:opacity-100 group-hover/pane-cell:pointer-events-auto group-hover/pane-cell:opacity-100"
                                 aria-label={paneEnabled ? t("disableWindowNamed", { name: paneName }) : t("enableWindowNamed", { name: paneName })}
                                 title={paneEnabled ? t("disableWindowNamed", { name: paneName }) : t("enableWindowNamed", { name: paneName })}
                               >
@@ -345,7 +362,7 @@ export default function WorkspaceCanvas({
                                   onDeletePane(slotIndex, pane.windowIndex);
                                 }}
                                 onMouseDown={(event) => event.stopPropagation()}
-                                className="absolute right-1.5 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--danger)]/20 bg-[var(--bg-card)]/95 text-muted opacity-0 shadow-sm backdrop-blur transition-all hover:border-[var(--danger)]/45 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] focus:opacity-100 group-hover/pane-cell:opacity-100"
+                                className="pointer-events-none absolute right-9 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--danger)]/20 bg-[var(--bg-card)]/95 text-muted opacity-0 shadow-sm backdrop-blur transition-all hover:border-[var(--danger)]/45 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] focus:pointer-events-auto focus:opacity-100 group-hover/pane-cell:pointer-events-auto group-hover/pane-cell:opacity-100"
                                 aria-label={t("removeWindow", { name: paneName })}
                                 title={t("removeWindow", { name: paneName })}
                               >

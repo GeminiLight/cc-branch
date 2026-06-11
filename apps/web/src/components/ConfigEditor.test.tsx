@@ -1244,6 +1244,66 @@ describe('ConfigEditor diagnostics', () => {
     })
   })
 
+  it('reorders panes by dragging the pane grip with pointer events', async () => {
+    const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
+    mocks.configResult.current = {
+      ...currentResult,
+      data: {
+        ...currentResult.data,
+        content: [
+          'version: 2',
+          'project: demo',
+          'root: .',
+          'tabs:',
+          '  - name: dev',
+          '    panes:',
+          '      - name: ui',
+          '        command: npm run dev',
+          '      - name: spec',
+          '        command: npm test',
+          '      - name: docs',
+          '        command: npm run docs',
+          '',
+        ].join('\n'),
+      },
+    }
+
+    renderConfigEditor()
+
+    const uiPane = screen.getByRole('button', { name: 'Edit pane ui' })
+    const docsPane = screen.getByRole('button', { name: 'Edit pane docs' })
+    docsPane.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 120,
+      bottom: 60,
+      width: 120,
+      height: 60,
+      toJSON: () => ({}),
+    })
+    const elementFromPoint = vi.fn(() => docsPane)
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: elementFromPoint,
+    })
+
+    const grip = within(uiPane).getByTitle('Drag pane')
+    fireEvent.pointerDown(grip, { pointerId: 1, button: 0, clientX: 8, clientY: 8 })
+    fireEvent.pointerMove(grip, { pointerId: 1, button: 0, clientX: 28, clientY: 8 })
+    fireEvent.pointerUp(grip, { pointerId: 1, button: 0, clientX: 20, clientY: 20 })
+
+    await waitFor(() => {
+      const paneLabels = screen
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((label): label is string => Boolean(label?.match(/^Edit pane /)))
+
+      expect(paneLabels).toEqual(['Edit pane spec', 'Edit pane ui', 'Edit pane docs'])
+    })
+  })
+
   it('moves a selected pane to another compatible tab from the inspector', async () => {
     const currentResult = mocks.configResult.current as { data: Record<string, unknown> }
     mocks.configResult.current = {

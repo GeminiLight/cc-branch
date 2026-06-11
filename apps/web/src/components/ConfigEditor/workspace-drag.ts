@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { SlotConfig } from "./types";
 import { canDragPane, normalizedLayout } from "./workspace-model";
 import { paneCount } from "./workspace-display";
@@ -11,6 +11,14 @@ type WorkspaceDragOptions = {
   slots: SlotConfig[];
   onMoveTab: (fromSlotIndex: number, toSlotIndex: number) => void;
   onMovePane: (fromSlotIndex: number, fromPaneIndex: number, toSlotIndex: number, toPaneIndex: number) => void;
+};
+
+type PointerPaneDrag = {
+  source: NonNullable<PaneDragState>;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  active: boolean;
 };
 
 function paneDragFromEvent(event: DragEvent<HTMLElement>): PaneDragState {
@@ -48,10 +56,39 @@ export function useWorkspaceDrag({ slots, onMoveTab, onMovePane }: WorkspaceDrag
   const [paneDrag, setPaneDrag] = useState<PaneDragState>(null);
   const [tabDrag, setTabDrag] = useState<TabDragState>(null);
   const paneDragRef = useRef<PaneDragState>(null);
+  const pointerPaneDragRef = useRef<PointerPaneDrag | null>(null);
 
   function clearPaneDrag() {
     paneDragRef.current = null;
+    pointerPaneDragRef.current = null;
     setPaneDrag(null);
+  }
+
+  function resolvePointerDropTarget(
+    drag: NonNullable<PaneDragState>,
+    pointer: { clientX: number; clientY: number },
+  ): { slotIndex: number; paneIndex: number } | null {
+    if (typeof document === "undefined" || typeof document.elementFromPoint !== "function") return null;
+    const element = document.elementFromPoint(pointer.clientX, pointer.clientY);
+    if (!element) return null;
+    const paneElement = element.closest<HTMLElement>("[data-workspace-pane-index][data-workspace-slot-index]");
+    if (paneElement) {
+      const slotIndex = Number(paneElement.dataset.workspaceSlotIndex);
+      const paneIndex = Number(paneElement.dataset.workspacePaneIndex);
+      const target = slots[slotIndex];
+      if (!Number.isInteger(slotIndex) || !Number.isInteger(paneIndex) || !target) return null;
+      const after = isPointerAfterDropMidpoint(dropAxisForSlot(target), pointer, paneElement.getBoundingClientRect());
+      return {
+        slotIndex,
+        paneIndex: paneDropTargetIndex(drag, slotIndex, paneIndex, after),
+      };
+    }
+    const dropZone = element.closest<HTMLElement>("[data-workspace-pane-drop-zone]");
+    if (!dropZone) return null;
+    const slotIndex = Number(dropZone.dataset.workspaceSlotIndex);
+    const target = slots[slotIndex];
+    if (!Number.isInteger(slotIndex) || !target) return null;
+    return { slotIndex, paneIndex: paneCount(target) };
   }
 
   function handleTabDragStart(event: DragEvent<HTMLElement>, slotIndex: number) {
@@ -123,6 +160,51 @@ export function useWorkspaceDrag({ slots, onMoveTab, onMovePane }: WorkspaceDrag
     clearPaneDrag();
   }
 
+  function handlePanePointerDown(event: ReactPointerEvent<HTMLElement>, slotIndex: number, paneIndex: number) {
+    if (event.button !== 0) return;
+    const slot = slots[slotIndex];
+    if (!slot || !canDragPane(slot)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    pointerPaneDragRef.current = {
+      source: { slotIndex, paneIndex },
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handlePanePointerMove(event: ReactPointerEvent<HTMLElement>) {
+    const drag = pointerPaneDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const moved = Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY);
+    if (!drag.active && moved < 6) return;
+    if (!drag.active) {
+      drag.active = true;
+      paneDragRef.current = drag.source;
+      setPaneDrag(drag.source);
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handlePanePointerEnd(event: ReactPointerEvent<HTMLElement>) {
+    const drag = pointerPaneDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (drag.active) {
+      event.preventDefault();
+      event.stopPropagation();
+      const target = resolvePointerDropTarget(drag.source, { clientX: event.clientX, clientY: event.clientY });
+      if (target) {
+        onMovePane(drag.source.slotIndex, drag.source.paneIndex, target.slotIndex, target.paneIndex);
+      }
+    }
+    clearPaneDrag();
+  }
+
   return {
     tabDrag,
     paneDrag,
@@ -134,6 +216,9 @@ export function useWorkspaceDrag({ slots, onMoveTab, onMovePane }: WorkspaceDrag
     handlePaneDragOver,
     handlePaneDrop,
     handlePaneAppendDrop,
+    handlePanePointerDown,
+    handlePanePointerMove,
+    handlePanePointerEnd,
     clearPaneDrag,
   };
 }

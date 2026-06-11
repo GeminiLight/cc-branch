@@ -380,6 +380,10 @@ export default function SlotsSection({
     onPaneDragOver: workspaceDrag.handlePaneDragOver,
     onPaneDrop: workspaceDrag.handlePaneDrop,
     onPaneAppendDrop: workspaceDrag.handlePaneAppendDrop,
+    onPanePointerDown: workspaceDrag.handlePanePointerDown,
+    onPanePointerMove: workspaceDrag.handlePanePointerMove,
+    onPanePointerUp: workspaceDrag.handlePanePointerEnd,
+    onPanePointerCancel: workspaceDrag.handlePanePointerEnd,
     onPaneDragEnd: workspaceDrag.clearPaneDrag,
   };
   const pendingDeleteTab = pendingDeleteTabIndex == null ? null : slots[pendingDeleteTabIndex];
