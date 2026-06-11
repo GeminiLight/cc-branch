@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-06-11
+
+### Fixed
+- Fixed Workspace pane grip dragging in the GUI so the drag handle is no longer covered by invisible pane action buttons, pointer dragging reorders panes, and saved YAML preserves the new order.
+
 ## [1.1.3] - 2026-06-11
 
 ### Fixed
@@ -40,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tmux and direct-layout workspace execution, SSH targets, opener integrations, diagnostics, and local project index.
 - Desktop release packaging with bundled backend sidecar and GitHub release verification.
 
+[1.1.4]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.4
 [1.1.3]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.3
 [1.1.2]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.2
 [1.1.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.0
