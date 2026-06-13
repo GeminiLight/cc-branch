@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-14
+
+### Added
+- Added file-level workspace snapshots with `cc-branch snapshot create --include-files`, restore preview file diffs, and `snapshot restore --state-only`.
+- Added `cc-branch session restore --session-id` and matching Web API support for binding a specific agent-native session.
+- Added remote agent selection to the desktop/Web SSH Add Project flow.
+- Added automatic npm registry publishing on GitHub release events when `NPM_TOKEN` is configured.
+
+### Changed
+- Workspace snapshot file capture now prunes heavy runtime/build directories and enforces bounded file-size and total-size limits.
+
 ## [1.3.0] - 2026-06-14
 
 ### Added
@@ -62,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tmux and direct-layout workspace execution, SSH targets, opener integrations, diagnostics, and local project index.
 - Desktop release packaging with bundled backend sidecar and GitHub release verification.
 
+[1.4.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.4.0
 [1.3.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.3.0
 [1.1.5]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.5
 [1.1.4]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.4

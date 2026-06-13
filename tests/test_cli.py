@@ -957,6 +957,55 @@ class CLITests(unittest.TestCase):
             listed = json.loads(stdout.getvalue())
             self.assertEqual(listed[0]["name"], "before-change")
 
+    def test_snapshot_cli_can_capture_files_and_restore_state_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            state_path = root / ".cc-branch/state.yaml"
+            (root / "notes.md").write_text("original\n", encoding="utf-8")
+            state = load_state(state_path)
+            state.windows["dev.planner"] = WindowState(session_id="snapshot-session")
+            save_state(state_path, state)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "create", "--name", "full", "--include-files", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            created = json.loads(stdout.getvalue())
+            self.assertIn("notes.md", created["files"]["entries"])
+
+            (root / "notes.md").write_text("changed\n", encoding="utf-8")
+            state.windows["dev.planner"] = WindowState(session_id="mutated-session")
+            save_state(state_path, state)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "restore", created["id"], "--state-only", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(load_state(state_path).windows["dev.planner"].session_id, "snapshot-session")
+            self.assertEqual((root / "notes.md").read_text(encoding="utf-8"), "changed\n")
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "restore", created["id"], "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual((root / "notes.md").read_text(encoding="utf-8"), "original\n")
+
     def test_project_cli_previews_remote_without_workspace_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

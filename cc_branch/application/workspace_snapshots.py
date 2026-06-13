@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
+import os
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -19,6 +22,23 @@ from .workspace_status import SessionExists, WindowExists, build_workspace_statu
 
 Clock = Callable[[], str]
 GitProbe = Callable[[Path], dict[str, object]]
+
+DEFAULT_EXCLUDED_FILE_DIRS = {
+    ".git",
+    ".cc-branch/app",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "node_modules",
+    "dist",
+    "build",
+}
+DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024
+DEFAULT_MAX_TOTAL_BYTES = 50 * 1024 * 1024
 
 
 def _utc_now() -> str:
@@ -84,6 +104,9 @@ def capture_workspace_snapshot(
     git_probe: GitProbe | None = None,
     session_exists: SessionExists | None = None,
     window_exists: WindowExists | None = None,
+    include_files: bool = False,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES,
 ) -> dict[str, object]:
     """Capture workspace config/state/runtime status into a local snapshot."""
     store = store or WorkspaceSnapshotStore()
@@ -111,6 +134,12 @@ def capture_workspace_snapshot(
         "runtime_sync": status.get("runtime_sync"),
         "state": state.to_dict(),
     }
+    if include_files:
+        snapshot["files"] = capture_workspace_files(
+            Path(str(workspace.root)),
+            max_file_bytes=max_file_bytes,
+            max_total_bytes=max_total_bytes,
+        )
     return store.save(snapshot)
 
 
@@ -120,6 +149,7 @@ def restore_workspace_snapshot(
     store: WorkspaceSnapshotStore | None = None,
     state_path: Path | None = None,
     dry_run: bool = False,
+    restore_files: bool | None = None,
 ) -> dict[str, object]:
     """Restore saved session/runtime metadata from a snapshot into state.yaml."""
     store = store or WorkspaceSnapshotStore()
@@ -133,14 +163,23 @@ def restore_workspace_snapshot(
     if dry_run:
         preview = preview_workspace_snapshot_restore(snapshot_id, store=store, state_path=target_state_path)
         return {"success": True, "dry_run": True, **preview}
+    files_payload = snapshot.get("files")
+    should_restore_files = bool(files_payload) if restore_files is None else restore_files
+    file_result: dict[str, object] | None = None
+    if should_restore_files and isinstance(files_payload, dict):
+        file_result = restore_workspace_files(files_payload)
     save_state(target_state_path, WorkspaceState.from_dict(raw_state))
-    return {
+    result = {
         "success": True,
         "snapshot_id": snapshot.get("id"),
         "name": snapshot.get("name"),
         "state_path": str(target_state_path),
         "config_path": snapshot.get("config_path"),
+        "files_restored": bool(file_result),
     }
+    if file_result:
+        result["files"] = file_result
+    return result
 
 
 def preview_workspace_snapshot_restore(
@@ -168,6 +207,10 @@ def preview_workspace_snapshot_restore(
         cast(dict[str, object], current_state.get("slots") or {}),
         cast(dict[str, object], snapshot_state.get("slots") or {}),
     )
+    file_changes: dict[str, object] | None = None
+    files_payload = snapshot.get("files")
+    if isinstance(files_payload, dict):
+        file_changes = preview_workspace_files_restore(files_payload)
     return {
         "snapshot_id": snapshot.get("id"),
         "name": snapshot.get("name"),
@@ -178,10 +221,12 @@ def preview_workspace_snapshot_restore(
         "changes": {
             "windows": window_changes,
             "slots": slot_changes,
+            **({"files": file_changes} if file_changes is not None else {}),
         },
         "summary": {
             "windows": _section_counts(window_changes),
             "slots": _section_counts(slot_changes),
+            **({"files": _section_counts(file_changes)} if file_changes is not None else {}),
         },
     }
 
@@ -259,6 +304,7 @@ def capture_snapshot_for_workspace(
     state_path: Path,
     *,
     name: str | None = None,
+    include_files: bool = False,
 ) -> dict[str, object]:
     """Load config/state and capture a snapshot for API callers."""
     workspace = load_workspace(config_path)
@@ -271,7 +317,132 @@ def capture_snapshot_for_workspace(
         config_path=config_path,
         state_path=state_path,
         name=name,
+        include_files=include_files,
     )
+
+
+def capture_workspace_files(
+    root: Path,
+    *,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES,
+) -> dict[str, object]:
+    """Capture a bounded file-level image of the workspace root."""
+    root = root.resolve(strict=False)
+    entries: dict[str, object] = {}
+    skipped: list[dict[str, object]] = []
+    total_bytes = 0
+    for path in _iter_snapshot_file_candidates(root):
+        rel = path.relative_to(root).as_posix()
+        try:
+            if path.is_symlink():
+                target = os.readlink(path)
+                entries[rel] = {"kind": "symlink", "target": target}
+                continue
+            size = path.stat().st_size
+            if size > max_file_bytes:
+                skipped.append({"path": rel, "reason": "too_large", "size": size})
+                continue
+            if total_bytes + size > max_total_bytes:
+                skipped.append({"path": rel, "reason": "total_limit", "size": size})
+                continue
+            content = path.read_bytes()
+        except OSError as error:
+            skipped.append({"path": rel, "reason": "read_error", "error": str(error)})
+            continue
+        total_bytes += len(content)
+        entries[rel] = {
+            "kind": "file",
+            "encoding": "base64",
+            "size": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "content": base64.b64encode(content).decode("ascii"),
+        }
+    return {
+        "version": 1,
+        "root": str(root),
+        "entries": entries,
+        "skipped": skipped,
+        "limits": {
+            "max_file_bytes": max_file_bytes,
+            "max_total_bytes": max_total_bytes,
+        },
+        "summary": {
+            "files": sum(1 for item in entries.values() if isinstance(item, dict) and item.get("kind") == "file"),
+            "symlinks": sum(1 for item in entries.values() if isinstance(item, dict) and item.get("kind") == "symlink"),
+            "bytes": total_bytes,
+            "skipped": len(skipped),
+        },
+    }
+
+
+def _iter_snapshot_file_candidates(root: Path) -> list[Path]:
+    paths: list[Path] = []
+    for current, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        kept_dirs: list[str] = []
+        for dirname in sorted(dirnames):
+            rel = (current_path / dirname).relative_to(root).as_posix()
+            if _is_excluded_snapshot_path(rel):
+                continue
+            kept_dirs.append(dirname)
+        dirnames[:] = kept_dirs
+        for filename in sorted(filenames):
+            path = current_path / filename
+            rel = path.relative_to(root).as_posix()
+            if _is_excluded_snapshot_path(rel):
+                continue
+            paths.append(path)
+    return paths
+
+
+def preview_workspace_files_restore(files_payload: dict[str, object]) -> dict[str, object]:
+    root = Path(str(files_payload.get("root") or ""))
+    if not root:
+        raise ValueError("Snapshot file payload does not include a root")
+    target = _snapshot_file_entries(files_payload)
+    current_payload = capture_workspace_files(root, **_snapshot_limits(files_payload))
+    current = _snapshot_file_entries(current_payload)
+    return _state_section_diff(current, target)
+
+
+def restore_workspace_files(files_payload: dict[str, object]) -> dict[str, object]:
+    root = Path(str(files_payload.get("root") or ""))
+    if not root:
+        raise ValueError("Snapshot file payload does not include a root")
+    root = root.resolve(strict=False)
+    preview = preview_workspace_files_restore(files_payload)
+    entries = _snapshot_file_entries(files_payload)
+    for rel in cast(list[str], preview.get("removed") or []):
+        target = _safe_snapshot_path(root, rel)
+        if target.is_symlink() or target.is_file():
+            target.unlink()
+            _remove_empty_parents(target.parent, root)
+    for rel, raw_entry in entries.items():
+        entry = raw_entry if isinstance(raw_entry, dict) else {}
+        target = _safe_snapshot_path(root, rel)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists() or target.is_symlink():
+            if target.is_dir() and not target.is_symlink():
+                raise ValueError(f"Cannot restore file over directory: {rel}")
+            target.unlink()
+        kind = entry.get("kind")
+        if kind == "symlink":
+            os.symlink(str(entry.get("target") or ""), target)
+        elif kind == "file":
+            content = base64.b64decode(str(entry.get("content") or "").encode("ascii"))
+            expected = str(entry.get("sha256") or "")
+            actual = hashlib.sha256(content).hexdigest()
+            if expected and expected != actual:
+                raise ValueError(f"Snapshot content hash mismatch: {rel}")
+            target.write_bytes(content)
+        else:
+            raise ValueError(f"Unknown snapshot file entry kind for {rel}: {kind}")
+    return {
+        "root": str(root),
+        "changes": preview,
+        "summary": _section_counts(preview),
+    }
 
 
 def _state_section_diff(current: dict[str, object], target: dict[str, object]) -> dict[str, object]:
@@ -304,6 +475,52 @@ def _section_counts(section: dict[str, object]) -> dict[str, int]:
         "changed": len(cast(list[object], section.get("changed") or [])),
         "unchanged": len(cast(list[object], section.get("unchanged") or [])),
     }
+
+
+def _snapshot_file_entries(files_payload: dict[str, object]) -> dict[str, object]:
+    entries = files_payload.get("entries")
+    if not isinstance(entries, dict):
+        raise ValueError("Snapshot file payload does not include entries")
+    return {str(key): value for key, value in entries.items()}
+
+
+def _snapshot_limits(files_payload: dict[str, object]) -> dict[str, int]:
+    raw_limits = files_payload.get("limits")
+    limits = raw_limits if isinstance(raw_limits, dict) else {}
+    return {
+        "max_file_bytes": int(limits.get("max_file_bytes") or DEFAULT_MAX_FILE_BYTES),
+        "max_total_bytes": int(limits.get("max_total_bytes") or DEFAULT_MAX_TOTAL_BYTES),
+    }
+
+
+def _is_excluded_snapshot_path(rel: str) -> bool:
+    parts = Path(rel).parts
+    if not parts:
+        return True
+    joined_prefixes = ["/".join(parts[:idx]) for idx in range(1, len(parts) + 1)]
+    return any(prefix in DEFAULT_EXCLUDED_FILE_DIRS for prefix in joined_prefixes)
+
+
+def _safe_snapshot_path(root: Path, rel: str) -> Path:
+    candidate = Path(rel)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"Unsafe snapshot file path: {rel}")
+    target = (root / candidate).resolve(strict=False)
+    try:
+        target.relative_to(root)
+    except ValueError as error:
+        raise ValueError(f"Unsafe snapshot file path: {rel}") from error
+    return target
+
+
+def _remove_empty_parents(path: Path, root: Path) -> None:
+    current = path
+    while current != root:
+        try:
+            current.rmdir()
+        except OSError:
+            return
+        current = current.parent
 
 
 def probe_git(path: Path) -> dict[str, object]:

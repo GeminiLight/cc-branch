@@ -15,6 +15,7 @@ from .agent_sessions import AgentSessionOption, agent_session_options_for_projec
 from .results import ActionResult
 
 Clock = Callable[[], str]
+SessionCandidatesProvider = Callable[..., list[AgentSessionOption]]
 
 
 def _utc_now() -> str:
@@ -34,11 +35,15 @@ def restore_sessions_from_local_transcripts(
     dry_run: bool = False,
     force: bool = False,
     limit: int = 20,
+    session_id: str | None = None,
+    candidates_provider: SessionCandidatesProvider | None = None,
 ) -> ActionResult:
     """Bind unbound agent panes to matching local transcript/session records."""
     project_dir = Path(workspace.root)
     normalized_target = _normalize_target(target)
     normalized_agent = (agent or "").strip() or None
+    selected_session_id = (session_id or "").strip() or None
+    candidates_provider = candidates_provider or agent_session_options_for_project
     candidates_by_agent: dict[str, list[AgentSessionOption]] = {}
     matched_target = normalized_target is None
     for slot, window in plan.iter_windows():
@@ -50,7 +55,7 @@ def restore_sessions_from_local_transcripts(
         if normalized_agent is not None and window.agent != normalized_agent:
             continue
         if window.agent not in candidates_by_agent:
-            candidates_by_agent[window.agent] = agent_session_options_for_project(
+            candidates_by_agent[window.agent] = candidates_provider(
                 project_dir,
                 window.agent,
                 home=home,
@@ -91,9 +96,12 @@ def restore_sessions_from_local_transcripts(
             for candidate in candidates_by_agent.get(window.agent, [])
             if candidate.id not in used_session_ids
         ]
+        if selected_session_id:
+            candidates = [candidate for candidate in candidates if candidate.id == selected_session_id]
         candidate_payload[target_name] = [_candidate_payload(candidate) for candidate in candidates[:limit]]
         if not candidates:
-            skipped.append({"target": target_name, "agent": window.agent, "reason": "no_candidates"})
+            reason = "session_id_not_found" if selected_session_id else "no_candidates"
+            skipped.append({"target": target_name, "agent": window.agent, "reason": reason})
             continue
         candidate = candidates[0]
         binding = {
@@ -103,6 +111,7 @@ def restore_sessions_from_local_transcripts(
             "session_id": candidate.id,
             "label": candidate.label,
             "source": candidate.source,
+            "selection": "session_id" if selected_session_id else "latest",
         }
         bindings.append(binding)
         if dry_run:
@@ -126,6 +135,7 @@ def restore_sessions_from_local_transcripts(
         "candidates": candidate_payload,
         "dry_run": dry_run,
         "force": force,
+        "session_id": selected_session_id,
     }
     if changed and dry_run:
         return ActionResult(
@@ -216,6 +226,7 @@ def restore_sessions_for_workspace(
     dry_run: bool = False,
     force: bool = False,
     limit: int = 20,
+    session_id: str | None = None,
 ) -> ActionResult:
     """Load a workspace and restore matching local transcript sessions."""
     workspace = load_workspace(config_path)
@@ -232,4 +243,5 @@ def restore_sessions_for_workspace(
         dry_run=dry_run,
         force=force,
         limit=limit,
+        session_id=session_id,
     )

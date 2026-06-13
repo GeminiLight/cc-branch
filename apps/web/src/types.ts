@@ -121,6 +121,23 @@ export interface WorkspaceSnapshotsData {
   snapshots: WorkspaceSnapshot[];
 }
 
+export interface SessionRestoreRequest {
+  target?: string;
+  agent?: string;
+  sessionId?: string;
+  dryRun?: boolean;
+  force?: boolean;
+  limit?: number;
+}
+
+export interface CreateSnapshotOptions {
+  includeFiles?: boolean;
+}
+
+export interface RestoreSnapshotOptions {
+  restoreFiles?: boolean;
+}
+
 export interface WorktreesData {
   worktrees: AgentWorktreeStatus[];
 }
@@ -427,6 +444,7 @@ export interface RemoteDirectoryListing {
 export interface AddProjectRequest {
   path?: string;
   name?: string;
+  agent?: string;
   remote?: RemoteProjectInput;
 }
 

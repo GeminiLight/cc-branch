@@ -44,6 +44,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
   const [remotePort, setRemotePort] = useState("");
   const [remotePath, setRemotePath] = useState("");
   const [remoteName, setRemoteName] = useState("");
+  const [remoteAgent, setRemoteAgent] = useState("codex");
   const [remoteBrowserOpen, setRemoteBrowserOpen] = useState(false);
   const [remoteListing, setRemoteListing] = useState<RemoteDirectoryListing | null>(null);
   const [remoteBrowseError, setRemoteBrowseError] = useState("");
@@ -128,6 +129,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
       const request: AddProjectRequest = mode === "ssh"
         ? {
             name: inferredRemoteName,
+            agent: remoteAgent,
             remote: {
               host: remoteHost.trim(),
               user: remoteUser.trim() || null,
@@ -148,7 +150,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
     } finally {
       setAdding(false);
     }
-  }, [canAddRemote, inferredRemoteName, mode, onAdd, onClose, path, remoteHost, remotePath, remotePort, remoteUser, scanResult, toast, t]);
+  }, [canAddRemote, inferredRemoteName, mode, onAdd, onClose, path, remoteAgent, remoteHost, remotePath, remotePort, remoteUser, scanResult, toast, t]);
 
   function applySshTarget(alias: string) {
     if (!alias) {
@@ -467,37 +469,56 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
                   />
                   </div>
                   <div>
-                  <label htmlFor="remote-port-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                    {t("sshPort")}
-                  </label>
-                  <input
-                    id="remote-port-input"
-                    type="number"
-                    min={1}
-                    max={65535}
-                    value={remotePort}
-                    onChange={(e) => setRemotePort(e.target.value)}
-                    placeholder="22"
-                    className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
-                  />
+                    <label htmlFor="remote-port-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
+                      {t("sshPort")}
+                    </label>
+                    <input
+                      id="remote-port-input"
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={remotePort}
+                      onChange={(e) => setRemotePort(e.target.value)}
+                      placeholder="22"
+                      className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
+                    />
                   </div>
                 </div>
 
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
-                  <label htmlFor="remote-user-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                    {t("sshUser")}
-                  </label>
-                  <input
-                    id="remote-user-input"
-                    type="text"
-                    value={remoteUser}
-                    onChange={(e) => setRemoteUser(e.target.value)}
-                    placeholder="ubuntu"
-                    className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
-                  />
+                    <label htmlFor="remote-user-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
+                      {t("sshUser")}
+                    </label>
+                    <input
+                      id="remote-user-input"
+                      type="text"
+                      value={remoteUser}
+                      onChange={(e) => setRemoteUser(e.target.value)}
+                      placeholder="ubuntu"
+                      className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
+                    />
                   </div>
                   <div>
+                    <label htmlFor="remote-agent-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
+                      {t("agent")}
+                    </label>
+                    <select
+                      id="remote-agent-input"
+                      value={remoteAgent}
+                      onChange={(e) => setRemoteAgent(e.target.value)}
+                      className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors focus:border-[var(--accent)] focus:outline-none"
+                    >
+                      <option value="codex">Codex</option>
+                      <option value="claude">Claude</option>
+                      <option value="gemini">Gemini</option>
+                      <option value="cursor">Cursor</option>
+                      <option value="kimi">Kimi</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-2">
                   <label htmlFor="remote-name-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
                     {t("sshProjectName")}
                   </label>
@@ -509,7 +530,6 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
                     placeholder={t("sshProjectNamePlaceholder")}
                     className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
                   />
-                  </div>
                 </div>
               </div>
 

@@ -47,6 +47,7 @@ def _run_snapshot_create(ctx: WorkspaceContext, args: argparse.Namespace, worksp
         config_path=ctx.config_path,
         state_path=ctx.state_path,
         name=args.name,
+        include_files=args.include_files,
     )
     if output_format(args) == "json":
         print(json.dumps(snapshot, indent=2))
@@ -76,6 +77,7 @@ def _run_snapshot_restore(args: argparse.Namespace) -> int:
         args.snapshot_id,
         state_path=Path(args.state_path) if args.state_path else None,
         dry_run=args.dry_run,
+        restore_files=False if args.state_only else None,
     )
     if output_format(args) == "json":
         print(json.dumps(result, indent=2))

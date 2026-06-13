@@ -31,6 +31,20 @@ def _read_json_version(path: Path) -> str:
     return version
 
 
+def _read_package_lock_version(path: Path, package_key: str) -> str:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    packages = data.get("packages")
+    if not isinstance(packages, dict):
+        raise ValueError(f"{path} is missing a packages table")
+    package = packages.get(package_key)
+    if not isinstance(package, dict):
+        raise ValueError(f"{path} is missing package entry {package_key!r}")
+    version = package.get("version")
+    if not isinstance(version, str) or not version:
+        raise ValueError(f"{path} package {package_key!r} is missing a non-empty version")
+    return version
+
+
 def _read_assignment_version(path: Path, pattern: str) -> str:
     content = path.read_text(encoding="utf-8")
     match = re.search(pattern, content, re.MULTILINE)
@@ -50,6 +64,10 @@ def collect_versions() -> dict[str, str]:
             r'^__version__\s*=\s*"([^"]+)"$',
         ),
         "apps_workspace": _read_json_version(VERSION_FILES["apps_workspace"]),
+        "apps_lockfile": _read_json_version(ROOT / "apps" / "package-lock.json"),
+        "apps_lockfile_root": _read_package_lock_version(ROOT / "apps" / "package-lock.json", ""),
+        "apps_lockfile_desktop": _read_package_lock_version(ROOT / "apps" / "package-lock.json", "desktop"),
+        "apps_lockfile_web": _read_package_lock_version(ROOT / "apps" / "package-lock.json", "web"),
         "web_package": _read_json_version(VERSION_FILES["web_package"]),
         "desktop_package": _read_json_version(VERSION_FILES["desktop_package"]),
         "tauri_config": _read_json_version(VERSION_FILES["tauri_config"]),

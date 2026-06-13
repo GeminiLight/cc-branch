@@ -113,12 +113,12 @@ jobs:
           echo "::notice::Skipped PyPI upload. Configure PYPI_API_TOKEN or run this workflow with publish_to_pypi=true after setting up PyPI Trusted Publishing."
 
       - name: Publish to npm registry
-        if: ${{ env.NPM_TOKEN != '' && inputs.publish_to_npm == 'true' }}
+        if: ${{ env.NPM_TOKEN != '' && (github.event_name == 'release' || inputs.publish_to_npm == 'true') }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
           npm publish dist/cc-branch-*.tgz --access public
 
       - name: Report npm skip
-        if: ${{ env.NPM_TOKEN == '' || inputs.publish_to_npm != 'true' }}
+        if: ${{ env.NPM_TOKEN == '' || (github.event_name != 'release' && inputs.publish_to_npm != 'true') }}
         run: |
-          echo "::notice::Skipped npm registry upload. Configure NPM_TOKEN and run this workflow with publish_to_npm=true to publish cc-branch to npm."
+          echo "::notice::Skipped npm registry upload. Configure NPM_TOKEN; workflow_dispatch also requires publish_to_npm=true."

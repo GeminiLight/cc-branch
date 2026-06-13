@@ -38,6 +38,9 @@ import type {
   AgentBusData,
   WorkspaceSnapshotsData,
   WorkspaceSnapshot,
+  SessionRestoreRequest,
+  CreateSnapshotOptions,
+  RestoreSnapshotOptions,
   WorktreesData,
   AgentWorktreeStatus,
   WorktreeSetupRequest,
@@ -65,10 +68,10 @@ export interface APIClient {
   getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData>;
   getAgentBus(scope?: (WorkspaceScope & { target?: string }) | string, signal?: AbortSignal): Promise<AgentBusData>;
   markAgentInboxRead(scope?: WorkspaceScope | string, target?: string): Promise<ActionResult>;
-  restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult>;
+  restoreSessions(scope?: WorkspaceScope | string, request?: SessionRestoreRequest): Promise<ActionResult>;
   getSnapshots(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceSnapshotsData>;
-  createSnapshot(scope?: WorkspaceScope | string, name?: string): Promise<WorkspaceSnapshot>;
-  restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string): Promise<ActionResult>;
+  createSnapshot(scope?: WorkspaceScope | string, name?: string, options?: CreateSnapshotOptions): Promise<WorkspaceSnapshot>;
+  restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string, options?: RestoreSnapshotOptions): Promise<ActionResult>;
   getWorktrees(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorktreesData>;
   setupWorktree(scope: WorkspaceScope | string | undefined, request: WorktreeSetupRequest): Promise<AgentWorktreeStatus>;
   finishWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus>;
@@ -142,6 +145,17 @@ function qsWith(scope?: WorkspaceScope | string, values?: Record<string, string 
   });
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+function sessionRestoreBody(request?: SessionRestoreRequest): Record<string, unknown> {
+  return {
+    target: request?.target,
+    agent: request?.agent,
+    session_id: request?.sessionId,
+    dry_run: request?.dryRun,
+    force: request?.force,
+    limit: request?.limit,
+  };
 }
 
 // API endpoints return different payload shapes; callers cast after checking HTTP status.
@@ -386,11 +400,11 @@ export class HTTPClient implements APIClient {
     return data as ActionResult;
   }
 
-  async restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult> {
+  async restoreSessions(scope?: WorkspaceScope | string, request?: SessionRestoreRequest): Promise<ActionResult> {
     const res = await fetchApi(`${this.baseUrl}/api/session/restore${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(sessionRestoreBody(request)),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -404,22 +418,22 @@ export class HTTPClient implements APIClient {
     return data as WorkspaceSnapshotsData;
   }
 
-  async createSnapshot(scope?: WorkspaceScope | string, name?: string): Promise<WorkspaceSnapshot> {
+  async createSnapshot(scope?: WorkspaceScope | string, name?: string, options?: CreateSnapshotOptions): Promise<WorkspaceSnapshot> {
     const res = await fetchApi(`${this.baseUrl}/api/snapshots/create${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, include_files: options?.includeFiles }),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as WorkspaceSnapshot;
   }
 
-  async restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string): Promise<ActionResult> {
+  async restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string, options?: RestoreSnapshotOptions): Promise<ActionResult> {
     const res = await fetchApi(`${this.baseUrl}/api/snapshots/restore${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, restore_files: options?.restoreFiles }),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -914,12 +928,12 @@ export class TauriClient implements APIClient {
     return data as ActionResult;
   }
 
-  async restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult> {
+  async restoreSessions(scope?: WorkspaceScope | string, request?: SessionRestoreRequest): Promise<ActionResult> {
     const baseUrl = await this._baseUrl();
     const res = await this._fetchApi(`${baseUrl}/api/session/restore${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(sessionRestoreBody(request)),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -934,24 +948,24 @@ export class TauriClient implements APIClient {
     return data as WorkspaceSnapshotsData;
   }
 
-  async createSnapshot(scope?: WorkspaceScope | string, name?: string): Promise<WorkspaceSnapshot> {
+  async createSnapshot(scope?: WorkspaceScope | string, name?: string, options?: CreateSnapshotOptions): Promise<WorkspaceSnapshot> {
     const baseUrl = await this._baseUrl();
     const res = await this._fetchApi(`${baseUrl}/api/snapshots/create${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, include_files: options?.includeFiles }),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as WorkspaceSnapshot;
   }
 
-  async restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string): Promise<ActionResult> {
+  async restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string, options?: RestoreSnapshotOptions): Promise<ActionResult> {
     const baseUrl = await this._baseUrl();
     const res = await this._fetchApi(`${baseUrl}/api/snapshots/restore${qs(scope)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, restore_files: options?.restoreFiles }),
     });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);

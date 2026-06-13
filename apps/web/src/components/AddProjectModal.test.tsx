@@ -235,6 +235,7 @@ describe('AddProjectModal', () => {
     await waitFor(() => {
       expect(onAdd).toHaveBeenCalledWith({
         name: 'app',
+        agent: 'codex',
         remote: {
           host: 'gpu-dev',
           user: 'ubuntu',
@@ -270,6 +271,42 @@ describe('AddProjectModal', () => {
     expect(screen.getByDisplayValue('gpu-dev')).toBeInTheDocument()
     expect(screen.getByText('ubuntu@gpu.example.com:2222')).toBeInTheDocument()
     expect(screen.getByText('Selected target')).toBeInTheDocument()
+  })
+
+  it('adds an SSH project with the selected agent', async () => {
+    const onAdd = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <I18nProvider>
+        <ToastProvider>
+          <AddProjectModal
+            api={api}
+            isOpen
+            onClose={vi.fn()}
+            onAdd={onAdd}
+          />
+        </ToastProvider>
+      </I18nProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'SSH machine' }))
+    fireEvent.change(await screen.findByLabelText(/ssh host/i), { target: { value: 'gpu-dev' } })
+    fireEvent.change(screen.getByLabelText('Remote directory'), { target: { value: '/srv/app' } })
+    fireEvent.change(screen.getByLabelText('Agent'), { target: { value: 'claude' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add SSH Project' }))
+
+    await waitFor(() => {
+      expect(onAdd).toHaveBeenCalledWith({
+        name: 'app',
+        agent: 'claude',
+        remote: {
+          host: 'gpu-dev',
+          user: null,
+          port: null,
+          cwd: '/srv/app',
+        },
+      })
+    })
   })
 
   it('browses directories on the selected SSH target', async () => {

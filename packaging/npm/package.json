@@ -1,6 +1,6 @@
 {
   "name": "cc-branch",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Multi-agent workspace orchestrator for shell and tmux runtimes",
   "license": "MIT",
   "homepage": "https://github.com/GeminiLight/cc-branch#readme",

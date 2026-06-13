@@ -315,6 +315,7 @@ def api_snapshots_create(handler) -> None:
             config_path=config_path,
             state_path=state_path,
             name=str(data.get("name") or "").strip() or None,
+            include_files=bool(data.get("include_files")),
         )
         handler._send_json(snapshot)
     except ValueError as error:
@@ -334,7 +335,13 @@ def api_snapshots_restore(handler) -> None:
             handler._send_json({"error": "Missing snapshot id"}, 400)
             return
         state_path = Path(str(data.get("state_path"))) if data.get("state_path") else None
-        result = restore_workspace_snapshot(snapshot_id, state_path=state_path, dry_run=bool(data.get("dry_run")))
+        restore_files = data.get("restore_files")
+        result = restore_workspace_snapshot(
+            snapshot_id,
+            state_path=state_path,
+            dry_run=bool(data.get("dry_run")),
+            restore_files=bool(restore_files) if restore_files is not None else None,
+        )
         handler._send_json(result)
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
@@ -860,6 +867,7 @@ def api_session_restore(handler) -> None:
             dry_run=bool(data.get("dry_run")),
             force=bool(data.get("force")),
             limit=limit,
+            session_id=str(data.get("session_id") or "").strip() or None,
         )
         handler._send_action_result(result)
     except ValueError as error:

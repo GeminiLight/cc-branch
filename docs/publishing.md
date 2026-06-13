@@ -154,8 +154,8 @@ npm uninstall -g cc-branch
 
 推荐走 GitHub Actions：
 
-1. 打开 `Publish Python Package` workflow。
-2. `publish_to_npm` 设为 `true`。
+1. 创建 GitHub Release 时，`Publish Python Package` workflow 会自动构建 npm tarball；如果 `NPM_TOKEN` 已配置，会自动发布到 npm registry。
+2. 手动运行 `Publish Python Package` workflow 时，只有把 `publish_to_npm` 设为 `true` 才会发布 npm。
 3. 如果同次也发 PyPI，把 `publish_to_pypi` 设为 `true`，否则保持 `false`。
 
 手动发布也可以：

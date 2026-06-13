@@ -474,7 +474,7 @@ describe("HTTPClient workspace scope", () => {
     const client = new HTTPClient();
     await client.getAgentBus({ projectPath: "/tmp/demo", target: "dev:planner" });
     await client.markAgentInboxRead({ projectPath: "/tmp/demo" }, "dev:planner");
-    await client.restoreSessions({ projectPath: "/tmp/demo" });
+    await client.restoreSessions({ projectPath: "/tmp/demo" }, { sessionId: "session-1", dryRun: true });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -496,7 +496,7 @@ describe("HTTPClient workspace scope", () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({ session_id: "session-1", dry_run: true }),
       },
     );
   });
@@ -535,8 +535,8 @@ describe("HTTPClient workspace scope", () => {
 
     const client = new HTTPClient();
     await client.getSnapshots({ projectPath: "/tmp/demo" });
-    await client.createSnapshot({ projectPath: "/tmp/demo" }, "after-change");
-    await client.restoreSnapshot({ projectPath: "/tmp/demo" }, "snap-1");
+    await client.createSnapshot({ projectPath: "/tmp/demo" }, "after-change", { includeFiles: true });
+    await client.restoreSnapshot({ projectPath: "/tmp/demo" }, "snap-1", { restoreFiles: false });
     await client.getWorktrees({ projectPath: "/tmp/demo" });
     await client.setupWorktree({ projectPath: "/tmp/demo" }, { target: "dev:planner", branch: "cc-branch/dev-planner" });
     await client.finishWorktree({ projectPath: "/tmp/demo" }, "dev:planner");
@@ -545,11 +545,11 @@ describe("HTTPClient workspace scope", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/snapshots?project_path=%2Ftmp%2Fdemo", { signal: undefined });
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/snapshots/create?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
       method: "POST",
-      body: JSON.stringify({ name: "after-change" }),
+      body: JSON.stringify({ name: "after-change", include_files: true }),
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/snapshots/restore?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
       method: "POST",
-      body: JSON.stringify({ id: "snap-1" }),
+      body: JSON.stringify({ id: "snap-1", restore_files: false }),
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/worktrees?project_path=%2Ftmp%2Fdemo", { signal: undefined });
     expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/worktrees/setup?project_path=%2Ftmp%2Fdemo", expect.objectContaining({

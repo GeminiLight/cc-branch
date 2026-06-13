@@ -1461,6 +1461,7 @@ tabs:
             },
         }
         self.state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.cwd / "notes.md").write_text("snapshot\n", encoding="utf-8")
         home_dir = self.cwd / "home-snapshots"
 
         server, port = self._start_test_server()
@@ -1468,7 +1469,7 @@ tabs:
             with patch("cc_branch.app_state.paths.Path.home", return_value=home_dir):
                 create = Request(
                     f"http://127.0.0.1:{port}/api/snapshots/create",
-                    data=json.dumps({"name": "before-change"}).encode(),
+                    data=json.dumps({"name": "before-change", "include_files": True}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
@@ -1476,6 +1477,7 @@ tabs:
                     created = json.loads(response.read().decode())
 
                 self.state_path.write_text("version: 1\nwindows: {}\n", encoding="utf-8")
+                (self.cwd / "notes.md").write_text("mutated\n", encoding="utf-8")
                 preview_request = Request(
                     f"http://127.0.0.1:{port}/api/snapshots/preview",
                     data=json.dumps({"id": created["id"]}).encode(),
@@ -1487,7 +1489,7 @@ tabs:
 
                 restore = Request(
                     f"http://127.0.0.1:{port}/api/snapshots/restore",
-                    data=json.dumps({"id": created["id"]}).encode(),
+                    data=json.dumps({"id": created["id"], "restore_files": False}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
@@ -1497,10 +1499,13 @@ tabs:
                     listed = json.loads(response.read().decode())
 
             self.assertEqual(created["name"], "before-change")
+            self.assertIn("files", created)
             self.assertEqual(preview["summary"]["windows"]["added"], 1)
+            self.assertIn("notes.md", preview["changes"]["files"]["changed"])
             self.assertEqual(restored["snapshot_id"], created["id"])
             self.assertEqual(listed["snapshots"][0]["name"], "before-change")
             self.assertIn("snapshot-session", self.state_path.read_text(encoding="utf-8"))
+            self.assertEqual((self.cwd / "notes.md").read_text(encoding="utf-8"), "mutated\n")
         finally:
             self._stop_test_server(server)
 
@@ -1592,7 +1597,7 @@ tabs:
             with patch("cc_branch.application.agent_bus.Path.home", return_value=home_dir), patch("pathlib.Path.home", return_value=home_dir):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/session/restore?project_path={quote(str(project))}",
-                    data=b"{}",
+                    data=json.dumps({"session_id": "codex-session-web"}).encode(),
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
@@ -1601,6 +1606,8 @@ tabs:
 
             self.assertEqual(payload["code"], "sessions_restored")
             self.assertEqual(payload["changed_targets"], ["dev:planner"])
+            self.assertEqual(payload["session_id"], "codex-session-web")
+            self.assertEqual(payload["bindings"][0]["selection"], "session_id")
         finally:
             self._stop_test_server(server)
 

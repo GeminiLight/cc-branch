@@ -22,6 +22,7 @@ from cc_branch.application.session_restore import restore_sessions_from_local_tr
 from cc_branch.application.workspace_snapshots import (
     WorkspaceSnapshotStore,
     capture_workspace_snapshot,
+    preview_workspace_snapshot_restore,
     restore_workspace_snapshot,
 )
 from cc_branch.application.workspace_status import build_workspace_status, get_workspace_status
@@ -243,6 +244,129 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertEqual(result["snapshot_id"], "snap-1")
         self.assertEqual(restored.windows["dev.planner"].session_id, "restored-session")
         self.assertEqual(restored.windows["dev.planner"].session_transcript_path, "/tmp/transcript.jsonl")
+
+    def test_workspace_snapshot_with_files_restores_workspace_file_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            (root / "notes").mkdir()
+            (root / "notes/today.md").write_text("original notes\n", encoding="utf-8")
+            (root / "todo.txt").write_text("ship snapshot\n", encoding="utf-8")
+            (root / ".git").mkdir()
+            (root / ".git/HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+            (root / "node_modules").mkdir()
+            (root / "node_modules/cache.txt").write_text("ignored cache\n", encoding="utf-8")
+            state_path = root / ".cc-branch/state.yaml"
+            save_state(
+                state_path,
+                WorkspaceState(
+                    windows={
+                        "dev.planner": WindowState(
+                            session_id="snapshot-session",
+                            agent="codex",
+                            slot="dev",
+                            window="planner",
+                        )
+                    }
+                ),
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(state_path)
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            store = WorkspaceSnapshotStore(root / ".cc-branch/app/snapshots.json")
+
+            snapshot = capture_workspace_snapshot(
+                workspace,
+                plan,
+                state,
+                config_path=root / ".cc-branch/config.yaml",
+                state_path=state_path,
+                store=store,
+                name="full-before-change",
+                include_files=True,
+            )
+
+            (root / "notes/today.md").write_text("mutated notes\n", encoding="utf-8")
+            (root / "todo.txt").unlink()
+            (root / "later.txt").write_text("new file should disappear\n", encoding="utf-8")
+            preview = preview_workspace_snapshot_restore(snapshot["id"], store=store, state_path=state_path)
+
+            self.assertEqual(preview["summary"]["files"]["changed"], 1)
+            self.assertEqual(preview["summary"]["files"]["added"], 1)
+            self.assertEqual(preview["summary"]["files"]["removed"], 1)
+            result = restore_workspace_snapshot(snapshot["id"], store=store, state_path=state_path)
+
+            self.assertTrue(result["files_restored"])
+            self.assertEqual((root / "notes/today.md").read_text(encoding="utf-8"), "original notes\n")
+            self.assertEqual((root / "todo.txt").read_text(encoding="utf-8"), "ship snapshot\n")
+            self.assertFalse((root / "later.txt").exists())
+            self.assertEqual((root / "node_modules/cache.txt").read_text(encoding="utf-8"), "ignored cache\n")
+
+    def test_session_restore_can_bind_a_selected_session_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "workspace"
+            self._write(
+                project / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            state_path = project / ".cc-branch/state.yaml"
+            save_state(state_path, WorkspaceState())
+            workspace = load_workspace(project / ".cc-branch/config.yaml")
+            state = load_state(state_path)
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            result = restore_sessions_from_local_transcripts(
+                workspace,
+                plan,
+                state_path,
+                state,
+                session_id="older-session",
+                candidates_provider=lambda _project, _agent, **_kwargs: [
+                    AgentSessionOption(
+                        agent="codex",
+                        id="newer-session",
+                        label="newer",
+                        updated_at="2026-06-13T02:00:00Z",
+                        source="/tmp/newer.jsonl",
+                        project_path=str(project),
+                    ),
+                    AgentSessionOption(
+                        agent="codex",
+                        id="older-session",
+                        label="chosen",
+                        updated_at="2026-06-13T01:00:00Z",
+                        source="/tmp/older.jsonl",
+                        project_path=str(project),
+                    ),
+                ],
+            )
+            updated = load_state(state_path)
+
+        self.assertEqual(result.code, "sessions_restored")
+        self.assertEqual(updated.windows["dev.planner"].session_id, "older-session")
+        self.assertEqual(result.payload["bindings"][0]["selection"], "session_id")
 
     def test_worktree_setup_creates_branch_copies_ignored_files_runs_hook_and_records_agent(self):
         with tempfile.TemporaryDirectory() as tmp:

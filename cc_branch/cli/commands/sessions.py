@@ -136,6 +136,7 @@ def _run_session_restore(ctx: WorkspaceContext, args: argparse.Namespace, worksp
         dry_run=args.dry_run,
         force=args.force,
         limit=args.limit,
+        session_id=args.session_id,
     )
     payload = {
         "success": result.ok,
