@@ -364,6 +364,17 @@ cc-branch status [--write-state] [--json]
 - 当前 `session_id`
 - 当前 label
 - agent 名称
+- 顶层 `agents` 状态中心数据，包括 Agent 位置、session、transcript、最近活动、inbox 和可用操作
+
+### `send`
+
+```bash
+cc-branch send dev:planner "看一下 reviewer 的输出，整理最关键的风险。"
+```
+
+`send` 会把消息发送到正在运行的 tmux 托管 pane。它适合在不切换终端的情况下调度某个 Agent。当前版本不向 direct 布局的外部进程发送消息。
+
+发送记录会写入本机 Agent Bus 事件日志，Web UI 的 Agent 状态中心会显示每个 Agent 的 inbox 未读数和最近消息。标为已读时，CC Branch 会追加一条 read receipt；原始消息事件仍保留在本地日志里。
 
 ### `attach`
 
@@ -404,6 +415,8 @@ cc-branch doctor [--write-state] [--fix]
 
 - `tmux` 是否存在
 - 配置里的命令是否存在
+- 远程 pane 所需的本机 `ssh` 是否存在
+- SSH 目标上的远程 `cwd`、`tmux` 和 pane/agent 命令是否存在
 - 是否有重复的 tmux 会话或窗口
 - agent 名称是否无效
 - 环境变量名是否非法
@@ -460,6 +473,14 @@ cc-branch session command dev:planner
 
 这个命令会优先返回已经解析好的 `launch_command`。
 
+### 扫描并恢复本地 session 绑定
+
+```bash
+cc-branch session restore
+```
+
+这个命令会扫描本机 Agent transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。它是 `session hook` 的兜底路径：hook 是快路径，restore 是本地扫描兜底。
+
 ### 记录 hook 事件
 
 ```bash
@@ -489,6 +510,7 @@ cc-branch serve --host 0.0.0.0 --token "$CC_BRANCH_WEB_TOKEN"
 ### 现在可以做什么
 
 - 查看状态
+- 查看 Agent 状态中心，并向正在运行的 tmux 托管 Agent 发送消息
 - 查看和保存配置
 - 查看诊断结果
 - 查看可用模板

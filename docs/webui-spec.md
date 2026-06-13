@@ -66,6 +66,7 @@ This is important for desktop wrappers or multi-project frontends.
 | `GET` | `/api/openers` | Return detected local applications that can open the workspace |
 | `GET` | `/api/agents` | Return effective agent profiles from built-in, user, workspace, and project layers |
 | `GET` | `/api/agents/global` | Return editable user-level agent overrides from `~/.cc-branch/agents.yaml` |
+| `GET` | `/api/agent-bus` | Return local Agent Bus events plus unread inbox entries, optionally filtered by target |
 | `GET` | `/api/info` | Return backend info |
 | `GET` | `/api/project/probe` | Probe whether a project path is missing, needs init, invalid, or ready |
 | `GET` | `/api/projects` | Return global project index from `~/.cc-branch/app/projects.yaml` |
@@ -78,6 +79,8 @@ This is important for desktop wrappers or multi-project frontends.
 | `POST` | `/api/config` | Save config contents |
 | `POST` | `/api/agents/global` | Save user-level agent overrides |
 | `POST` | `/api/action` | Execute a supported workspace action |
+| `POST` | `/api/agent-bus/read` | Append a read receipt for unread Agent Bus messages |
+| `POST` | `/api/session/restore` | Scan local agent transcripts and bind matching sessions back to workspace state |
 | `POST` | `/api/projects/add` | Add or upsert a project in the global project index |
 | `POST` | `/api/projects/remove` | Remove a project from the global project index |
 | `POST` | `/api/projects/activate` | Set the active project in the global project index |

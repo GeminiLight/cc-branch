@@ -93,11 +93,13 @@ cc-branch start
 | `cc-branch plan` | 启动前展示 Agent、命令、窗格、打开方式和 SSH 目标 |
 | `cc-branch start` | 启动缺失目标，或接回可复用的 tmux 会话 |
 | `cc-branch attach [tab[:pane]]` | 进入正在运行的 tab、pane 或 tmux target |
+| `cc-branch send <tab[:pane]> <message>` | 向正在运行的 tmux 托管 Agent 窗格发送消息 |
 | `cc-branch open --opener <tool>` | 用 VS Code、Cursor、Warp、terminal、Web UI 或桌面端打开项目 |
 | `cc-branch status` | 查看 runtime 状态 |
 | `cc-branch sync` | 把配置变更同步到正在运行的 tmux targets |
 | `cc-branch doctor --fix` | 诊断并修复低风险环境、配置或状态问题 |
 | `cc-branch session list` | 列出已知 agent session metadata |
+| `cc-branch session restore` | 扫描本地 Agent transcript，把可恢复 session 绑定回 pane |
 | `cc-branch session hook` | 让 agent-native hook 把 session id 和 transcript 路径写回本地 state |
 
 ## 配置示例
@@ -117,7 +119,7 @@ tabs:
       - name: review
         agent: claude
   - name: remote-lab
-    ssh:
+    remote:
       host: gpu-dev
       cwd: /srv/my-app
     panes:

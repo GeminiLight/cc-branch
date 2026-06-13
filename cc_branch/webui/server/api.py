@@ -14,6 +14,7 @@ from json import JSONDecodeError
 from pathlib import Path
 
 from ...app_state import ProjectIndexStore
+from ...application.agent_bus import AgentBusStore
 from ...application.config_workflows import (
     agent_options,
     agent_session_options,
@@ -32,6 +33,7 @@ from ...application.diagnostics import get_diagnostic_bundle, get_doctor_payload
 from ...application.global_agents import read_global_agents, save_global_agents
 from ...application.global_openers import read_global_openers, save_global_openers
 from ...application.remote_directory import list_remote_directories
+from ...application.session_restore import restore_sessions_for_workspace
 from ...application.ssh_config import discover_ssh_hosts
 from ...application.system_paths import reveal_path
 from ...application.workspace_actions import execute_workspace_action
@@ -232,6 +234,44 @@ def api_agent_sessions(handler) -> None:
         handler._send_json(agent_session_options(config_path, agent=agent).payload)
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_agent_bus(handler) -> None:
+    try:
+        query = handler._get_query()
+        target = (query.get("target", [None])[0] or "").strip() or None
+        limit_raw = (query.get("limit", ["100"])[0] or "100").strip()
+        try:
+            limit = max(1, min(500, int(limit_raw)))
+        except ValueError:
+            limit = 100
+        store = AgentBusStore()
+        handler._send_json({
+            "events": store.events(target=target, limit=limit),
+            "inbox": store.inbox(target=target, unread_only=True, limit=limit),
+            "storage_path": str(store.path),
+        })
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_agent_bus_read(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        target = str(data.get("target") or "").strip() or None
+        event_id = str(data.get("event_id") or "").strip() or None
+        receipt = AgentBusStore().mark_read(target=target, event_id=event_id)
+        handler._send_json({
+            "success": True,
+            "code": "agent_inbox_marked_read",
+            "message": f"Marked {receipt['count']} message(s) as read",
+            "receipt": receipt,
+        })
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 
@@ -577,6 +617,7 @@ def api_action(handler) -> None:
             target=data.get("target"),
             opener=data.get("opener") or "auto-terminal",
             intent=data.get("intent"),
+            message=data.get("message"),
             stop_removed=data.get("stop_removed") is True,
             cli=_handler_cli_command(),
         )
@@ -584,6 +625,21 @@ def api_action(handler) -> None:
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
     except OpenerError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_session_restore(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        _read_json_body(handler)
+        config_path, state_path = handler._resolve_paths()
+        result = restore_sessions_for_workspace(config_path, state_path)
+        handler._send_action_result(result)
+    except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)

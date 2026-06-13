@@ -7,6 +7,7 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 - **把工作空间写进配置**：用 `.cc-branch/config.yaml` 描述 workspace、tab、pane、agent、目录和环境变量。
 - **用同一套命令管理全流程**：从 `init`、`plan`、`start` 到 `status`、`doctor`、`session`，入口保持一致。
 - **让恢复更稳定**：把本地运行信息写进 `.cc-branch/state.yaml`，回到项目时更容易接上之前的会话。
+- **看清并操作 Agent**：状态 payload 和 Web UI 会把 agent pane 汇总成 Agent 状态中心，显示位置、session、最近活动和可用操作。
 - **给浏览器一层可视化入口**：除了 CLI，也可以通过内置 Web UI 查看状态、配置和诊断结果。
 
 ## 主要功能
@@ -43,6 +44,21 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 
 对支持恢复的命令行工具，CC Branch 会结合配置和本地状态，生成更稳定的启动或恢复命令。
 
+`cc-branch send <tab[:pane]> <message>` 可以把一条消息发送到正在运行的 tmux 托管窗格。Web UI 的 Agent 状态中心也使用同一条 action 路径发送消息。每次发送都会写入本机 Agent Bus 事件日志，状态中心会显示目标 Agent 的 inbox 未读数和最近消息，并可追加 read receipt 把未读消息标为已读。
+
+### Agent 状态中心
+
+`cc-branch status --format json` 会返回顶层 `agents` 列表。每个条目包含：
+
+- agent 名称和 CLI
+- local / SSH 位置
+- cwd、tmux session/window
+- session id、transcript path
+- 最近活动摘要
+- inbox 未读数和最近消息
+- busy、stale、stopped、error 等状态
+- attach、send、restart、stop 等可用操作
+
 ### 会话管理
 
 `session` 子命令把会话元数据当成单独对象来管理，而不只是附着在 `status` 输出里。
@@ -53,11 +69,12 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 - `session inspect`
 - `session prune`
 - `session command`
+- `session restore`
 - `session hook`
 
 这对于长期项目尤其有用，因为你可以更清楚地区分正在运行、已经停止和已经孤立的记录。
 
-`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
+`session restore` 会扫描本机 Codex、Claude 等 Agent 的 transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
 
 ### 诊断与自动修复
 
@@ -68,6 +85,7 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 - `tmux` 是否可用
 - 配置里的命令是否存在
 - 远程 pane 所需的本机 `ssh` 是否存在
+- 远程 pane 的 SSH 目标是否可达，远端 `cwd`、`tmux` 和命令是否存在
 - `cwd` 是否存在
 - agent 名称是否可识别
 - 需要恢复的窗格是否缺少 `session_id`
@@ -79,6 +97,7 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 它适合用来：
 
 - 查看工作空间状态
+- 查看 Agent 状态中心并向正在运行的 agent pane 发送消息
 - 查看或保存配置
 - 查看诊断结果
 - 使用内置模板初始化项目

@@ -452,7 +452,7 @@ def _path_identity(path: Path) -> str:
     expanded = path.expanduser()
     if not expanded.is_absolute():
         expanded = Path.cwd() / expanded
-    return os.path.normcase(os.path.normpath(str(expanded)))
+    return os.path.normcase(os.path.realpath(os.path.normpath(str(expanded))))
 
 
 def _mtime_iso(path: Path) -> str | None:

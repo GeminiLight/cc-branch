@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Callable
+
+TRANSCRIPT_TAIL_BYTES = 64 * 1024
 
 from ..config import load_workspace, project_dir_for_config
 from ..models import WorkspaceConfig, WorkspacePlan, WorkspaceState
@@ -11,6 +14,7 @@ from ..planner import plan_workspace
 from ..runtime.capabilities import is_external_process_runtime, is_managed_runtime
 from ..runtime.sync import build_runtime_sync_report
 from ..state import load_state
+from .agent_bus import AgentBusStore
 from .results import ActionResult
 from .runtime_environment import runtime_availability
 
@@ -48,6 +52,100 @@ def _session_binding_status(window, state_entry) -> str:
     return "none"
 
 
+def _activity_from_transcript(path: str | None) -> dict:
+    if not path:
+        return {"summary": None, "source": None}
+    transcript_path = Path(path)
+    if not transcript_path.exists():
+        return {"summary": None, "source": "transcript", "path": path}
+    try:
+        with transcript_path.open("rb") as file:
+            file.seek(0, 2)
+            size = file.tell()
+            file.seek(max(0, size - TRANSCRIPT_TAIL_BYTES))
+            chunk = file.read().decode("utf-8", errors="replace")
+        lines = [line.strip() for line in chunk.splitlines() if line.strip()]
+    except OSError:
+        return {"summary": None, "source": "transcript", "path": path}
+    if not lines:
+        return {"summary": None, "source": "transcript", "path": path}
+    last = lines[-1]
+    try:
+        parsed = json.loads(last)
+    except json.JSONDecodeError:
+        summary = last
+    else:
+        summary = _summarize_transcript_record(parsed) or last
+    return {"summary": summary[-500:], "source": "transcript", "path": path}
+
+
+def _summarize_transcript_record(record) -> str | None:
+    if isinstance(record, str):
+        return record
+    if not isinstance(record, dict):
+        return None
+    for key in ("message", "text", "content", "summary"):
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _agent_status_value(window_status: str, state_entry) -> str:
+    if window_status == "disabled":
+        return "disabled"
+    if state_entry and (
+        state_entry.session_hook_event == "error"
+        or (
+            state_entry.session_exit_code is not None
+            and state_entry.session_exit_code != 0
+        )
+    ):
+        return "error"
+    if window_status == "running":
+        return "busy"
+    if state_entry and state_entry.session_runtime_status == "running":
+        return "stale"
+    if window_status == "external":
+        return "external"
+    return "stopped"
+
+
+def _remote_payload(remote) -> dict | None:
+    if remote is None:
+        return None
+    return {
+        "host": remote.host,
+        "user": remote.user,
+        "port": remote.port,
+        "cwd": remote.cwd,
+        "target": remote.target(),
+    }
+
+
+def _agent_actions(slot_runtime: str, window_status: str) -> list[str]:
+    if window_status == "disabled":
+        return []
+    if is_managed_runtime(slot_runtime):
+        if window_status == "running":
+            return ["attach", "send", "restart", "stop"]
+        return ["attach", "restart"]
+    if is_external_process_runtime(slot_runtime):
+        return ["open"]
+    return []
+
+
+def _agent_inbox_summary(bus_store: AgentBusStore, target: str) -> dict:
+    messages = bus_store.inbox(target=target, unread_only=False, limit=20)
+    unread = bus_store.inbox(target=target, unread_only=True)
+    last = messages[-1] if messages else None
+    return {
+        "unread": len(unread),
+        "last_message": last.get("message") if last else None,
+        "updated_at": last.get("timestamp") if last else None,
+    }
+
+
 def workspace_setup_payload(
     status: str,
     config_path: Path,
@@ -64,6 +162,7 @@ def workspace_setup_payload(
         "state_path": str(state_path),
         "project_name": project_dir.name or "project",
         "slots": [],
+        "agents": [],
     }
     if error:
         payload["error"] = error
@@ -79,14 +178,17 @@ def build_workspace_status(
     state_path: Path | None = None,
     session_exists: SessionExists | None = None,
     window_exists: WindowExists | None = None,
+    bus_store: AgentBusStore | None = None,
 ) -> dict:
     """Return the shared status payload used by presentation surfaces."""
     session_exists = session_exists or _default_session_exists
     window_exists = window_exists or _default_window_exists
+    bus_store = bus_store or AgentBusStore()
     sync_report = build_runtime_sync_report(workspace, plan, state) if state is not None else None
     sync_slots = {slot.name: slot for slot in sync_report.slots} if sync_report else {}
 
     slots: list[dict] = []
+    agents: list[dict] = []
     for slot in plan.slots:
         slot_sync = sync_slots.get(slot.name)
         if sync_report is not None and slot_sync is not None:
@@ -118,7 +220,7 @@ def build_workspace_status(
                 window_status = "disabled"
             if is_external_process_runtime(slot.runtime):
                 window_status = "disabled" if not window.enabled else "external"
-            windows.append(
+            window_payload = (
                 {
                     "name": window.name,
                     "enabled": window.enabled,
@@ -142,6 +244,38 @@ def build_workspace_status(
                     "needs_restart": bool(sync and sync.needs_restart),
                 }
             )
+            windows.append(window_payload)
+
+            if window.agent:
+                remote = window.remote
+                target = f"{slot.name}:{window.name}"
+                agents.append(
+                    {
+                        "target": target,
+                        "name": window.resolved_label or window.agent or window.name,
+                        "agent": window.agent,
+                        "cli": workspace.agents.get(window.agent).command
+                        if window.agent in workspace.agents
+                        else window.command_binary,
+                        "command": window.launch_command,
+                        "location": "ssh" if remote else "local",
+                        "remote": _remote_payload(remote),
+                        "cwd": remote.cwd if remote and remote.cwd else window.cwd,
+                        "runtime": slot.runtime,
+                        "slot": slot.name,
+                        "window": window.name,
+                        "tmux_session": slot.tmux_session if is_managed_runtime(slot.runtime) else None,
+                        "tmux_window": window.name if is_managed_runtime(slot.runtime) else None,
+                        "session_id": window.resolved_session_id,
+                        "transcript_path": state_entry.session_transcript_path if state_entry else None,
+                        "status": _agent_status_value(window_status, state_entry),
+                        "activity": _activity_from_transcript(
+                            state_entry.session_transcript_path if state_entry else None
+                        ),
+                        "inbox": _agent_inbox_summary(bus_store, target),
+                        "actions": _agent_actions(slot.runtime, window_status),
+                    }
+                )
 
         slots.append(
             {
@@ -163,6 +297,7 @@ def build_workspace_status(
         "root": str(workspace.root),
         "runtimes": runtime_availability(),
         "slots": slots,
+        "agents": agents,
     }
     if config_path is not None:
         payload["config_path"] = str(config_path)

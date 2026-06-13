@@ -1,3 +1,4 @@
+import json
 import tempfile
 import textwrap
 import unittest
@@ -15,6 +16,9 @@ from cc_branch.application.workspace_actions import (
     stop_workspace,
     sync_workspace,
 )
+from cc_branch.application.agent_bus import AgentBusStore
+from cc_branch.application.agent_messages import send_agent_message
+from cc_branch.application.session_restore import restore_sessions_from_local_transcripts
 from cc_branch.application.workspace_status import build_workspace_status, get_workspace_status
 from cc_branch.backends import get_backend, set_backend
 from cc_branch.config import load_workspace
@@ -75,6 +79,15 @@ class FakeBackend:
         raise AssertionError("not used")
 
 
+class RecordingBackend(FakeBackend):
+    def __init__(self, windows_by_session: dict[str, set[str]]) -> None:
+        super().__init__(windows_by_session)
+        self.sent: list[tuple[str, str]] = []
+
+    def send_keys(self, target: str, keys: str) -> None:
+        self.sent.append((target, keys))
+
+
 class RuntimeBoundaryTests(unittest.TestCase):
     def test_cli_module_is_package_facade(self):
         import importlib
@@ -87,6 +100,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
             "commands.init",
             "commands.open",
             "commands.serve",
+            "commands.send",
             "commands.sessions",
             "commands.sync",
             "commands.workspace",
@@ -708,6 +722,413 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertEqual(window["session_runtime_status"], "running")
         self.assertEqual(window["session_transcript_path"], str(root / "transcript.jsonl"))
         self.assertEqual(window["session_pid"], 1234)
+
+    def test_workspace_status_exposes_agent_status_center_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transcript = root / "transcript.jsonl"
+            transcript.write_text(
+                '{"message":"old"}\n{"message":"review complete"}\n',
+                encoding="utf-8",
+            )
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                agents:
+                  codex:
+                    command: codex
+                    resume_mode: flag
+                    resume_template: resume {session_id}
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  remote:
+                    host: gpu-dev
+                    user: ubuntu
+                    cwd: /srv/app
+                  panes:
+                  - name: reviewer
+                    agent: codex
+                """,
+            )
+            state = WorkspaceState(
+                windows={
+                    "dev.reviewer": WindowState(
+                        session_id="codex-session-1",
+                        agent="codex",
+                        slot="dev",
+                        window="reviewer",
+                        session_binding_status="bound",
+                        session_hook_event="started",
+                        session_runtime_status="running",
+                        session_transcript_path=str(transcript),
+                    )
+                }
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            previous_backend = get_backend()
+            set_backend(FakeBackend({"demo-dev": {"reviewer"}}))
+            try:
+                status = build_workspace_status(
+                    workspace,
+                    plan,
+                    state,
+                    config_path=root / ".cc-branch/config.yaml",
+                    state_path=root / ".cc-branch/state.yaml",
+                    session_exists=lambda _session: True,
+                    window_exists=lambda _session, _window: True,
+                )
+            finally:
+                set_backend(previous_backend)
+
+        self.assertEqual(len(status["agents"]), 1)
+        agent = status["agents"][0]
+        self.assertEqual(agent["target"], "dev:reviewer")
+        self.assertEqual(agent["agent"], "codex")
+        self.assertEqual(agent["cli"], "codex")
+        self.assertEqual(agent["location"], "ssh")
+        self.assertEqual(agent["remote"]["target"], "ubuntu@gpu-dev")
+        self.assertEqual(agent["remote"]["cwd"], "/srv/app")
+        self.assertEqual(agent["cwd"], "/srv/app")
+        self.assertEqual(agent["tmux_session"], "demo-dev")
+        self.assertEqual(agent["tmux_window"], "reviewer")
+        self.assertEqual(agent["session_id"], "codex-session-1")
+        self.assertEqual(agent["transcript_path"], str(transcript))
+        self.assertEqual(agent["status"], "busy")
+        self.assertEqual(agent["activity"]["summary"], "review complete")
+        self.assertEqual(agent["actions"], ["attach", "send", "restart", "stop"])
+
+    def test_workspace_status_includes_agent_inbox_summary_from_bus(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: reviewer
+                    agent: codex
+                """,
+            )
+
+            bus = AgentBusStore(root / ".cc-branch/agent-bus.jsonl")
+            bus.record_message_sent(
+                target="dev:reviewer",
+                message="Please review the current diff.",
+                delivery="tmux",
+                now=lambda: "2026-06-12T01:00:00Z",
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            previous_backend = get_backend()
+            set_backend(RecordingBackend({}))
+            try:
+                status = build_workspace_status(
+                    workspace,
+                    plan,
+                    state,
+                    config_path=root / ".cc-branch/config.yaml",
+                    state_path=root / ".cc-branch/state.yaml",
+                    bus_store=bus,
+                )
+            finally:
+                set_backend(previous_backend)
+
+        inbox = status["agents"][0]["inbox"]
+        self.assertEqual(inbox["unread"], 1)
+        self.assertEqual(inbox["last_message"], "Please review the current diff.")
+        self.assertEqual(inbox["updated_at"], "2026-06-12T01:00:00Z")
+
+    def test_agent_bus_mark_read_hides_messages_from_unread_inbox(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bus = AgentBusStore(Path(tmp) / "agent-bus.jsonl")
+            first = bus.record_message_sent(
+                target="dev:reviewer",
+                message="Please review the current diff.",
+                delivery="tmux",
+                now=lambda: "2026-06-12T01:00:00Z",
+            )
+            bus.record_message_sent(
+                target="dev:planner",
+                message="Plan next step.",
+                delivery="tmux",
+                now=lambda: "2026-06-12T01:01:00Z",
+            )
+
+            receipt = bus.mark_read(
+                target="dev:reviewer",
+                now=lambda: "2026-06-12T01:02:00Z",
+            )
+
+            self.assertEqual(receipt["type"], "message.read")
+            self.assertEqual(receipt["event_ids"], [first["id"]])
+            self.assertEqual(receipt["count"], 1)
+            self.assertEqual(bus.inbox(target="dev:reviewer", unread_only=True), [])
+            self.assertEqual(len(bus.inbox(target="dev:planner", unread_only=True)), 1)
+
+    def test_workspace_status_hides_send_action_for_stopped_managed_agent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: reviewer
+                    agent: codex
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            previous_backend = get_backend()
+            set_backend(RecordingBackend({}))
+            try:
+                status = build_workspace_status(
+                    workspace,
+                    plan,
+                    state,
+                    config_path=root / ".cc-branch/config.yaml",
+                    state_path=root / ".cc-branch/state.yaml",
+                )
+            finally:
+                set_backend(previous_backend)
+
+        self.assertEqual(status["agents"][0]["status"], "stopped")
+        self.assertEqual(status["agents"][0]["actions"], ["attach", "restart"])
+
+    def test_send_agent_message_pastes_text_into_tmux_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: reviewer
+                    command: codex
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            backend = RecordingBackend({"demo-dev": {"reviewer"}})
+            previous_backend = get_backend()
+            set_backend(backend)
+            try:
+                result = send_agent_message(workspace, plan, "dev:reviewer", "Summarize current failures.")
+            finally:
+                set_backend(previous_backend)
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.code, "message_sent")
+        self.assertEqual(backend.sent, [("demo-dev:reviewer", "Summarize current failures.")])
+
+    def test_send_agent_message_records_bus_event_and_inbox_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: reviewer
+                    agent: codex
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            bus = AgentBusStore(root / ".cc-branch" / "agent-bus.jsonl")
+            backend = RecordingBackend({"demo-dev": {"reviewer"}})
+            previous_backend = get_backend()
+            set_backend(backend)
+            try:
+                result = send_agent_message(
+                    workspace,
+                    plan,
+                    "dev:reviewer",
+                    "Check planner output.",
+                    bus_store=bus,
+                    sender="user",
+                    now=lambda: "2026-06-12T01:02:03Z",
+                )
+            finally:
+                set_backend(previous_backend)
+
+            events = bus.events()
+
+        self.assertTrue(result.ok)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["type"], "message.sent")
+        self.assertEqual(events[0]["target"], "dev:reviewer")
+        self.assertEqual(events[0]["sender"], "user")
+        self.assertEqual(events[0]["message"], "Check planner output.")
+        self.assertEqual(events[0]["delivery"], "tmux")
+
+    def test_session_restore_scans_transcripts_and_binds_matching_agent_pane(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            project = root / "workspace"
+            transcript = home / ".codex" / "sessions" / "2026" / "06" / "12" / "rollout-current.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                "\n".join([
+                    json.dumps({
+                        "timestamp": "2026-06-12T01:00:00Z",
+                        "type": "session_meta",
+                        "payload": {
+                            "id": "codex-session-restore",
+                            "cwd": str(project),
+                        },
+                    }),
+                    json.dumps({"timestamp": "2026-06-12T01:02:00Z", "type": "event_msg"}),
+                ]),
+                encoding="utf-8",
+            )
+            self._write(
+                project / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            state_path = project / ".cc-branch/state.yaml"
+            save_state(
+                state_path,
+                WorkspaceState(
+                    windows={
+                        "dev.planner": WindowState(
+                            agent="codex",
+                            slot="dev",
+                            window="planner",
+                            session_binding_status="pending_capture",
+                        )
+                    }
+                ),
+            )
+            workspace = load_workspace(project / ".cc-branch/config.yaml")
+            state = load_state(state_path)
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            result = restore_sessions_from_local_transcripts(
+                workspace,
+                plan,
+                state_path,
+                state,
+                home=home,
+                now=lambda: "2026-06-12T01:03:00Z",
+            )
+            updated = load_state(state_path)
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.code, "sessions_restored")
+        self.assertEqual(result.changed_targets, ("dev:planner",))
+        entry = updated.windows["dev.planner"]
+        self.assertEqual(entry.session_id, "codex-session-restore")
+        self.assertEqual(entry.session_transcript_path, str(transcript))
+        self.assertEqual(entry.session_binding_status, "bound")
+        self.assertEqual(entry.session_binding_source, str(transcript))
+        self.assertEqual(entry.session_binding_updated_at, "2026-06-12T01:03:00Z")
+
+    def test_workspace_action_executor_routes_send_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: reviewer
+                    command: codex
+                """,
+            )
+            state_path = root / ".cc-branch/state.yaml"
+            save_state(state_path, WorkspaceState())
+            backend = RecordingBackend({"demo-dev": {"reviewer"}})
+            previous_backend = get_backend()
+            set_backend(backend)
+            try:
+                result = execute_workspace_action(
+                    root / ".cc-branch/config.yaml",
+                    state_path,
+                    action="send",
+                    target="dev:reviewer",
+                    message="Check planner output.",
+                )
+            finally:
+                set_backend(previous_backend)
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.code, "message_sent")
+        self.assertEqual(backend.sent, [("demo-dev:reviewer", "Check planner output.")])
+
+    def test_send_agent_message_returns_action_error_for_invalid_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: reviewer
+                    command: codex
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            result = send_agent_message(workspace, plan, "dev.reviewer", "hello")
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.code, "target_not_found")
 
     def test_workspace_status_query_owns_setup_and_invalid_config_states(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -416,6 +416,91 @@ describe("HTTPClient workspace scope", () => {
     );
   });
 
+  it("posts send action messages to the backend", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, message: "Sent message to dev:reviewer" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new HTTPClient().runWorkspaceAction({
+      action: "send",
+      target: "dev:reviewer",
+      message: "Check planner output.",
+      projectPath: "/tmp/demo",
+      configPath: "/tmp/demo/.cc-branch/config.yaml",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/action?project_path=%2Ftmp%2Fdemo&config_path=%2Ftmp%2Fdemo%2F.cc-branch%2Fconfig.yaml",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          action: "send",
+          target: "dev:reviewer",
+          message: "Check planner output.",
+          stop_removed: undefined,
+        }),
+      })
+    );
+  });
+
+  it("loads agent bus events and triggers session restore", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ events: [], inbox: [], storage_path: "/tmp/bus.jsonl" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          success: true,
+          code: "agent_inbox_marked_read",
+          message: "Marked 1 message(s) as read",
+          receipt: { count: 1 },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          success: true,
+          code: "sessions_restored",
+          message: "Restored 1 session binding(s)",
+          changed_targets: ["dev:planner"],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new HTTPClient();
+    await client.getAgentBus({ projectPath: "/tmp/demo", target: "dev:planner" });
+    await client.markAgentInboxRead({ projectPath: "/tmp/demo" }, "dev:planner");
+    await client.restoreSessions({ projectPath: "/tmp/demo" });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/agent-bus?project_path=%2Ftmp%2Fdemo&target=dev%3Aplanner",
+      { signal: undefined },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/agent-bus/read?project_path=%2Ftmp%2Fdemo",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "dev:planner" }),
+      },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "/api/session/restore?project_path=%2Ftmp%2Fdemo",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      },
+    );
+  });
+
   it("saves global agents settings", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

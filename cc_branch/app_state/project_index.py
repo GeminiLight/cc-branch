@@ -8,8 +8,9 @@ import secrets
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from ..models.config import RemoteConfig
 from .paths import projects_index_path
 
 _yaml: Any | None
@@ -55,6 +56,7 @@ class ProjectIndexStore:
         name: str | None = None,
         display_path: str | None = None,
         remote: dict[str, object] | None = None,
+        remote_preflight: dict[str, object] | None = None,
     ) -> dict[str, object]:
         normalized_path = _normalize_path(path)
         if not normalized_path:
@@ -76,6 +78,8 @@ class ProjectIndexStore:
                 project["display_path"] = normalized_display_path
             if normalized_remote:
                 project["remote"] = normalized_remote
+            if remote_preflight:
+                project["remote_preflight"] = remote_preflight
             projects[existing_path_idx] = project
             data["active_project_id"] = project["id"]
         else:
@@ -89,6 +93,8 @@ class ProjectIndexStore:
                 project["display_path"] = normalized_display_path
             if normalized_remote:
                 project["remote"] = normalized_remote
+            if remote_preflight:
+                project["remote_preflight"] = remote_preflight
             projects.append(project)
             data["active_project_id"] = project_id
 
@@ -96,13 +102,20 @@ class ProjectIndexStore:
         self._save(data)
         return self.payload()
 
-    def add_remote_project(self, remote: dict[str, object], *, name: str | None = None) -> dict[str, object]:
+    def add_remote_project(
+        self,
+        remote: dict[str, object],
+        *,
+        name: str | None = None,
+        remote_probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict] | None = None,
+    ) -> dict[str, object]:
         normalized_remote = _normalize_remote(remote)
         if not normalized_remote:
             raise ValueError("remote target is required")
         if not str(normalized_remote.get("cwd") or "").strip():
             raise ValueError("remote cwd is required")
 
+        preflight = _preflight_remote_project(normalized_remote, remote_probe=remote_probe)
         display_path = _remote_display_path(normalized_remote)
         project_name = name or _remote_project_name(normalized_remote)
         storage_path = _remote_project_storage_path(self._path.parent, normalized_remote, project_name)
@@ -113,6 +126,7 @@ class ProjectIndexStore:
             name=project_name,
             display_path=display_path,
             remote=normalized_remote,
+            remote_preflight=preflight,
         )
         return self.set_project_config(str(storage_path), str(selected_config_path))
 
@@ -333,6 +347,9 @@ def _normalize_data(raw: dict[str, object]) -> dict[str, object]:
             remote = _normalize_remote(item.get("remote") if isinstance(item, dict) else None)
             if remote:
                 record["remote"] = remote
+            remote_preflight = item.get("remote_preflight")
+            if isinstance(remote_preflight, dict):
+                record["remote_preflight"] = remote_preflight
             selected = str(item.get("selected_config_path") or "").strip()
             if selected:
                 record["selected_config_path"] = _normalize_path(selected)
@@ -419,6 +436,35 @@ def _remote_project_storage_path(base_dir: Path, remote: dict[str, object], name
     return base_dir / "remote-projects" / f"{slug}-{digest}"
 
 
+def _preflight_remote_project(
+    remote: dict[str, object],
+    *,
+    remote_probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict] | None,
+) -> dict[str, object]:
+    if remote_probe is None:
+        from ..doctor.checks import _probe_remote as remote_probe
+
+    remote_config = RemoteConfig.from_dict(remote)
+    if remote_config is None:
+        raise ValueError("remote target is required")
+    result = remote_probe((remote_config, ("codex",)))
+    if result.get("error"):
+        raise ValueError(f"Cannot inspect SSH target {remote_config.target()}: {result['error']}")
+    if result.get("cwd") is False:
+        raise ValueError(f"Remote working directory does not exist: {remote.get('cwd')}")
+    if result.get("tmux") is False:
+        raise ValueError(f"tmux is missing on SSH target {remote_config.target()}")
+    commands = result.get("commands") if isinstance(result.get("commands"), dict) else {}
+    missing_commands = [name for name, ok in sorted(commands.items()) if ok is False]
+    if missing_commands:
+        raise ValueError(f"Remote command not found on {remote_config.target()}: {', '.join(missing_commands)}")
+    return {
+        "cwd": result.get("cwd") is True,
+        "tmux": result.get("tmux") is True,
+        "commands": dict(commands),
+    }
+
+
 def _safe_slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._")
     return slug[:48] or "remote-project"
@@ -448,11 +494,12 @@ def _ensure_remote_workspace(storage_path: Path, name: str, remote: dict[str, ob
             "tabs": [
                 {
                     "name": "remote",
+                    "layoutBackend": "tmux",
                     "remote": remote_config,
                     "panes": [
                         {
-                            "name": "shell",
-                            "command": "$SHELL",
+                            "name": "agent",
+                            "agent": "codex",
                         }
                     ],
                 }

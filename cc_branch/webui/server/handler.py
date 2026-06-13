@@ -251,6 +251,8 @@ class WebUIHandler(BaseHTTPRequestHandler):
             api.api_global_agents(self)
         elif path == "/api/agent-sessions" and self._require_auth():
             api.api_agent_sessions(self)
+        elif path == "/api/agent-bus" and self._require_auth():
+            api.api_agent_bus(self)
         elif path == "/api/info" and self._require_auth():
             api.api_info(self)
         elif path == "/api/project/probe" and self._require_auth():
@@ -284,6 +286,11 @@ class WebUIHandler(BaseHTTPRequestHandler):
         if path == "/api/action":
             if self._require_auth():
                 api.api_action(self)
+        elif path == "/api/session/restore":
+            if self._require_auth():
+                api.api_session_restore(self)
+        elif path == "/api/agent-bus/read" and self._require_auth():
+            api.api_agent_bus_read(self)
         elif path == "/api/init":
             if self._require_auth():
                 api.api_init(self)

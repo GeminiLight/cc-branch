@@ -204,6 +204,8 @@ Snapshot 应包含：
 - 这会改变用户 Git 工作流，必须可选。
 - 需要清晰的 cleanup、merge、discard、open diff 操作。
 - 不应该成为初始配置的默认复杂度。
+- 外部调研见 [Agent CLI 协同与跨终端通信调研](./refs/agent-cli-coordination/index.md)。高相关项目已经收敛到 `agent session -> branch -> git worktree -> terminal/PTY/tmux -> diff/status -> finish/cleanup` 模型。
+- 如果落地，第一版至少要覆盖：创建/导入 worktree、显示 branch/diff、复制或软链 gitignored 文件、setup hook、finish/cleanup，以及同一 repo 下 worktree 操作串行化。
 
 ### P2: 可选 Memory / MCP 集成
 

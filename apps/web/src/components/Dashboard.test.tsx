@@ -8,6 +8,7 @@ import { ToastProvider } from './ui/Toast'
 
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
+  markAgentInboxRead: vi.fn(),
   windowEnabledMutateAsync: vi.fn(),
   saveConfigMutateAsync: vi.fn(),
   refetch: vi.fn(),
@@ -106,6 +107,7 @@ vi.mock('../hooks', () => ({
   }),
   useApiClient: () => ({
     getConfig: vi.fn(),
+    markAgentInboxRead: mocks.markAgentInboxRead,
   }),
   useProfiles: () => ({
     data: [],
@@ -191,6 +193,8 @@ describe('Dashboard actions', () => {
     }
     mocks.mutateAsync.mockReset()
     mocks.mutateAsync.mockResolvedValue({ success: true, message: 'ok' })
+    mocks.markAgentInboxRead.mockReset()
+    mocks.markAgentInboxRead.mockResolvedValue({ success: true, message: 'Marked 2 message(s) as read' })
     mocks.windowEnabledMutateAsync.mockReset()
     mocks.windowEnabledMutateAsync.mockResolvedValue({ success: true, message: 'ok' })
     mocks.saveConfigMutateAsync.mockReset()
@@ -593,6 +597,63 @@ describe('Dashboard actions', () => {
     renderDashboard()
 
     expect(screen.getByText(/Bound session-/)).toBeInTheDocument()
+  })
+
+  it('renders the agent status center and sends a message to an agent', async () => {
+    const result = readyWorkspaceResult()
+    ;(result.data as Record<string, unknown>).agents = [
+      {
+        target: 'dev:reviewer',
+        name: 'codex',
+        agent: 'codex',
+        cli: 'codex',
+        command: 'codex',
+        location: 'ssh',
+        remote: { host: 'gpu-dev', user: 'ubuntu', port: 2222, cwd: '/srv/app', target: 'ubuntu@gpu-dev' },
+        cwd: '/srv/app',
+        runtime: 'tmux',
+        slot: 'dev',
+        window: 'reviewer',
+        tmux_session: 'demo-dev',
+        tmux_window: 'reviewer',
+        session_id: 'session-1234567890',
+        transcript_path: '/tmp/transcript.jsonl',
+        status: 'busy',
+        activity: { summary: 'review complete', source: 'transcript' },
+        inbox: { unread: 2, last_message: 'Please check planner.', updated_at: '2026-06-12T01:00:00Z' },
+        actions: ['attach', 'send', 'restart', 'stop'],
+      },
+    ]
+    mocks.workspaceResult.current = result
+    renderDashboard()
+
+    expect(screen.getByText('Agent status')).toBeInTheDocument()
+    expect(screen.getByText('dev:reviewer')).toBeInTheDocument()
+    expect(screen.getByText('ubuntu@gpu-dev')).toBeInTheDocument()
+    expect(screen.getByText('review complete')).toBeInTheDocument()
+    expect(screen.getByText('2 unread')).toBeInTheDocument()
+    expect(screen.getByText('Please check planner.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark dev:reviewer inbox read' }))
+
+    await waitFor(() => {
+      expect(mocks.markAgentInboxRead).toHaveBeenCalledWith({ projectPath: '/tmp/demo' }, 'dev:reviewer')
+      expect(mocks.refetch).toHaveBeenCalled()
+    })
+
+    fireEvent.change(screen.getByLabelText('Message dev:reviewer'), {
+      target: { value: 'Check planner output.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send to dev:reviewer' }))
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        action: 'send',
+        target: 'dev:reviewer',
+        message: 'Check planner output.',
+        projectPath: '/tmp/demo',
+      })
+    })
   })
 
   it('shows agent windows without a session as launch-time capture', () => {

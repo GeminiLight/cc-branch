@@ -37,6 +37,66 @@ export interface WindowInfo {
   needs_restart?: boolean;
 }
 
+export interface WorkspaceAgentActivity {
+  summary?: string | null;
+  source?: "tmux" | "transcript" | string | null;
+  path?: string | null;
+}
+
+export interface WorkspaceAgentInbox {
+  unread: number;
+  last_message?: string | null;
+  updated_at?: string | null;
+}
+
+export interface WorkspaceAgentRemote {
+  host: string;
+  user?: string | null;
+  port?: number | null;
+  cwd?: string | null;
+  target: string;
+}
+
+export interface WorkspaceAgentStatus {
+  target: string;
+  name: string;
+  agent: string;
+  cli: string;
+  command: string;
+  location: "local" | "ssh" | string;
+  remote?: WorkspaceAgentRemote | null;
+  cwd: string;
+  runtime: string;
+  slot: string;
+  window: string;
+  tmux_session?: string | null;
+  tmux_window?: string | null;
+  session_id?: string | null;
+  transcript_path?: string | null;
+  status: "busy" | "idle" | "stopped" | "stale" | "error" | "external" | "disabled" | string;
+  activity?: WorkspaceAgentActivity;
+  inbox?: WorkspaceAgentInbox;
+  actions?: string[];
+}
+
+export interface AgentBusEvent {
+  id?: string;
+  timestamp?: string;
+  type: string;
+  sender?: string;
+  target?: string;
+  message?: string;
+  delivery?: string;
+  status?: string;
+  read?: boolean;
+}
+
+export interface AgentBusData {
+  events: AgentBusEvent[];
+  inbox: AgentBusEvent[];
+  storage_path: string;
+}
+
 export interface SlotInfo {
   name: string;
   runtime: string;
@@ -95,6 +155,7 @@ export interface WorkspaceStatus {
   config_path: string;
   state_path: string;
   slots: SlotInfo[];
+  agents?: WorkspaceAgentStatus[];
   runtimes?: RuntimeAvailability;
   runtime_sync?: RuntimeSyncReport;
   error?: string;
@@ -197,7 +258,7 @@ export interface WindowEnabledRequest {
   configPath?: string;
 }
 
-export type WorkspaceAction = "launch" | "restart" | "stop" | "open" | "sync" | "prune_state";
+export type WorkspaceAction = "launch" | "restart" | "stop" | "open" | "send" | "sync" | "prune_state";
 export type OpenIntent = "workspace_dashboard" | "attach_target" | "project_folder";
 
 export interface WorkspaceActionRequest {
@@ -205,6 +266,7 @@ export interface WorkspaceActionRequest {
   target?: string;
   opener?: string;
   intent?: OpenIntent;
+  message?: string;
   projectPath?: string;
   configPath?: string;
   stopRemoved?: boolean;

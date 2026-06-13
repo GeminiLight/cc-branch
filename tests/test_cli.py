@@ -120,6 +120,7 @@ class CLITests(unittest.TestCase):
                 "attach",
                 "stop",
                 "restart",
+                "send",
                 "sync",
                 "doctor",
                 "dashboard",

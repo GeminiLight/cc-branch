@@ -31,6 +31,10 @@ def _get_fix_suggestion(issue_type: str, context: dict) -> str:
         "missing_cwd": f"Create directory: mkdir -p {context.get('cwd', 'unknown')}",
         "missing_launch_command": "Add a 'command' or 'agent' to this window",
         "missing_tmux": tmux_install_hint(),
+        "remote_missing_cwd": f"Create remote directory: mkdir -p {context.get('cwd', 'unknown')}",
+        "remote_missing_command": f"Install the command on {context.get('target', 'the SSH target')}: {context.get('command', 'unknown')}",
+        "remote_missing_tmux": f"Install tmux on {context.get('target', 'the SSH target')}",
+        "remote_unreachable": f"Check SSH access to {context.get('target', 'the SSH target')}",
         "orphaned_state": "Run: cc-branch session prune",
     }
     return suggestions.get(issue_type, "Check your configuration")
@@ -61,6 +65,14 @@ def _describe_issue(issue_type: str, context: dict) -> str:
         return "missing launch command"
     if issue_type == "missing_tmux":
         return "missing tmux"
+    if issue_type == "remote_missing_cwd":
+        return f"remote missing cwd '{context.get('cwd', 'unknown')}'"
+    if issue_type == "remote_missing_command":
+        return f"remote missing command '{context.get('command', 'unknown')}'"
+    if issue_type == "remote_missing_tmux":
+        return "remote missing tmux"
+    if issue_type == "remote_unreachable":
+        return f"remote unreachable: {context.get('error', 'unknown error')}"
     if issue_type == "orphaned_state":
         return count_label(int(context.get("count", 0) or 0), "stale local session record")
     return issue_type.replace("_", " ")

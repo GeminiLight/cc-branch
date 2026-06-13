@@ -3,7 +3,9 @@ import textwrap
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
+import json
 from pathlib import Path
+from unittest.mock import patch
 
 from cc_branch.application.session_hooks import SessionHookEvent, apply_session_hook_event
 from cc_branch.cli import main
@@ -151,6 +153,41 @@ class SessionHookTests(unittest.TestCase):
             self.assertEqual(entry.session_id, "codex-session-cli")
             self.assertEqual(entry.session_binding_status, "bound")
             self.assertEqual(entry.session_runtime_status, "running")
+
+    def test_session_restore_cli_scans_local_transcripts_and_updates_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            self._write_workspace(root)
+            transcript = home / ".codex" / "sessions" / "2026" / "06" / "12" / "rollout-current.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                json.dumps({
+                    "timestamp": "2026-06-12T01:00:00Z",
+                    "type": "session_meta",
+                    "payload": {"id": "codex-session-scan", "cwd": str(root)},
+                }) + "\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with patch("pathlib.Path.home", return_value=home), redirect_stdout(stdout):
+                exit_code = main([
+                    "--project",
+                    str(root),
+                    "session",
+                    "restore",
+                    "--format",
+                    "json",
+                ])
+
+            payload = json.loads(stdout.getvalue())
+            state = load_state(root / ".cc-branch/state.yaml")
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["code"], "sessions_restored")
+        self.assertEqual(payload["changed_targets"], ["dev:planner"])
+        self.assertEqual(state.windows["dev.planner"].session_id, "codex-session-scan")
 
 
 if __name__ == "__main__":

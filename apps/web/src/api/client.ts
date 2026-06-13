@@ -35,6 +35,7 @@ import type {
   AddProjectRequest,
   RemoteDirectoryListing,
   RemoteProjectInput,
+  AgentBusData,
 } from "../types";
 
 export interface APIClient {
@@ -57,6 +58,9 @@ export interface APIClient {
   getGlobalAgents(signal?: AbortSignal): Promise<GlobalAgentsData>;
   saveGlobalAgents(content: string, baseMtime?: number | null, baseContentHash?: string | null): Promise<GlobalAgentsSaveResult>;
   getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData>;
+  getAgentBus(scope?: (WorkspaceScope & { target?: string }) | string, signal?: AbortSignal): Promise<AgentBusData>;
+  markAgentInboxRead(scope?: WorkspaceScope | string, target?: string): Promise<ActionResult>;
+  restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult>;
   runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
   runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult>;
   setWindowEnabled(request: WindowEnabledRequest): Promise<ActionResult>;
@@ -349,6 +353,36 @@ export class HTTPClient implements APIClient {
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentSessionsData;
+  }
+
+  async getAgentBus(scope?: (WorkspaceScope & { target?: string }) | string, signal?: AbortSignal): Promise<AgentBusData> {
+    const target = typeof scope === "object" ? scope.target : undefined;
+    const res = await fetchApi(`${this.baseUrl}/api/agent-bus${qsWith(scope, { target })}`, { signal });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentBusData;
+  }
+
+  async markAgentInboxRead(scope?: WorkspaceScope | string, target?: string): Promise<ActionResult> {
+    const res = await fetchApi(`${this.baseUrl}/api/agent-bus/read${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ActionResult;
+  }
+
+  async restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult> {
+    const res = await fetchApi(`${this.baseUrl}/api/session/restore${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ActionResult;
   }
 
   async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
@@ -776,6 +810,39 @@ export class TauriClient implements APIClient {
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentSessionsData;
+  }
+
+  async getAgentBus(scope?: (WorkspaceScope & { target?: string }) | string, signal?: AbortSignal): Promise<AgentBusData> {
+    const baseUrl = await this._baseUrl(signal);
+    const target = typeof scope === "object" ? scope.target : undefined;
+    const res = await this._fetchApi(`${baseUrl}/api/agent-bus${qsWith(scope, { target })}`, { signal });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentBusData;
+  }
+
+  async markAgentInboxRead(scope?: WorkspaceScope | string, target?: string): Promise<ActionResult> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/agent-bus/read${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ActionResult;
+  }
+
+  async restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/session/restore${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ActionResult;
   }
 
   async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {

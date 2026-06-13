@@ -93,11 +93,13 @@ cc-branch start
 | `cc-branch plan` | Show the agents, commands, panes, openers, and SSH targets before launch |
 | `cc-branch start` | Start missing targets or reconnect reusable tmux-backed sessions |
 | `cc-branch attach [tab[:pane]]` | Jump into a running tab, pane, or tmux target |
+| `cc-branch send <tab[:pane]> <message>` | Send a message into a running tmux-managed agent pane |
 | `cc-branch open --opener <tool>` | Open the project with VS Code, Cursor, Warp, terminal, Web UI, or desktop |
 | `cc-branch status` | Show runtime status |
 | `cc-branch sync` | Apply config changes to running tmux targets |
 | `cc-branch doctor --fix` | Diagnose and repair low-risk environment, config, or state issues |
 | `cc-branch session list` | List known agent session metadata |
+| `cc-branch session restore` | Scan local agent transcripts and bind resumable sessions back to panes |
 | `cc-branch session hook` | Let agent-native hooks write session IDs and transcript paths back to local state |
 
 ## Example Config
@@ -117,7 +119,7 @@ tabs:
       - name: review
         agent: claude
   - name: remote-lab
-    ssh:
+    remote:
       host: gpu-dev
       cwd: /srv/my-app
     panes:

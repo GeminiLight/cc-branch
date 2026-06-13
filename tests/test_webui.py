@@ -1317,7 +1317,14 @@ tabs:
 
         server, port = self._start_test_server()
         try:
-            with patch("cc_branch.app_state.paths.Path.home", return_value=home_dir):
+            with (
+                patch("cc_branch.app_state.paths.Path.home", return_value=home_dir),
+                patch("cc_branch.app_state.project_index._preflight_remote_project", return_value={
+                    "cwd": True,
+                    "tmux": True,
+                    "commands": {"codex": True},
+                }),
+            ):
                 request = Request(
                     f"http://127.0.0.1:{port}/api/projects/add",
                     data=json.dumps({
@@ -1337,6 +1344,106 @@ tabs:
             config_path = Path(project["selected_config_path"])
             self.assertTrue(config_path.exists())
             self.assertIn("cwd: /srv/app", config_path.read_text(encoding="utf-8"))
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_agent_bus_returns_message_events(self):
+        from unittest.mock import patch
+
+        from cc_branch.application.agent_bus import AgentBusStore
+
+        home_dir = self.cwd / "home"
+        bus = AgentBusStore(home_dir / ".cc-branch/app/agent-bus.jsonl")
+        bus.record_message_sent(
+            target="dev:planner",
+            message="Summarize status.",
+            delivery="tmux",
+            now=lambda: "2026-06-12T01:00:00Z",
+        )
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.app_state.paths.Path.home", return_value=home_dir):
+                with urlopen(f"http://127.0.0.1:{port}/api/agent-bus?target=dev%3Aplanner", timeout=HTTP_TIMEOUT) as response:
+                    payload = json.loads(response.read().decode())
+
+            self.assertEqual(payload["events"][0]["target"], "dev:planner")
+            self.assertEqual(payload["events"][0]["message"], "Summarize status.")
+            self.assertEqual(payload["inbox"][0]["type"], "message.sent")
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_agent_bus_read_marks_target_inbox_read(self):
+        from unittest.mock import patch
+
+        from cc_branch.application.agent_bus import AgentBusStore
+
+        home_dir = self.cwd / "home"
+        bus = AgentBusStore(home_dir / ".cc-branch/app/agent-bus.jsonl")
+        bus.record_message_sent(
+            target="dev:planner",
+            message="Summarize status.",
+            delivery="tmux",
+            now=lambda: "2026-06-12T01:00:00Z",
+        )
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.app_state.paths.Path.home", return_value=home_dir):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/agent-bus/read",
+                    data=json.dumps({"target": "dev:planner"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+                    marked = json.loads(response.read().decode())
+                with urlopen(f"http://127.0.0.1:{port}/api/agent-bus?target=dev%3Aplanner", timeout=HTTP_TIMEOUT) as response:
+                    payload = json.loads(response.read().decode())
+
+            self.assertTrue(marked["success"])
+            self.assertEqual(marked["receipt"]["count"], 1)
+            self.assertEqual(payload["inbox"], [])
+            self.assertEqual(payload["events"][-1]["type"], "message.read")
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_session_restore_binds_local_transcript_session(self):
+        from unittest.mock import patch
+
+        home_dir = self.cwd / "home"
+        project = self.cwd / "restore-project"
+        transcript = home_dir / ".codex/sessions/2026/06/12/rollout-current.jsonl"
+        transcript.parent.mkdir(parents=True)
+        transcript.write_text(
+            json.dumps({
+                "timestamp": "2026-06-12T01:00:00Z",
+                "type": "session_meta",
+                "payload": {"id": "codex-session-web", "cwd": str(project)},
+            }) + "\n",
+            encoding="utf-8",
+        )
+        config_path = project / ".cc-branch/config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(
+            "version: 2\nproject: demo\nroot: .\ntabs:\n- name: dev\n  panes:\n  - name: planner\n    agent: codex\n",
+            encoding="utf-8",
+        )
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.application.agent_bus.Path.home", return_value=home_dir), patch("pathlib.Path.home", return_value=home_dir):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/session/restore?project_path={quote(str(project))}",
+                    data=b"{}",
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+                    payload = json.loads(response.read().decode())
+
+            self.assertEqual(payload["code"], "sessions_restored")
+            self.assertEqual(payload["changed_targets"], ["dev:planner"])
         finally:
             self._stop_test_server(server)
 
@@ -1382,6 +1489,39 @@ tabs:
                 data = json.loads(response.read().decode())
                 self.assertTrue(data["success"])
                 self.assertEqual(data["message"], "Stopped dev")
+        finally:
+            self._stop_test_server(server)
+
+    def test_action_send_forwards_message_to_workspace_action(self):
+        """Web action API should preserve send message text."""
+        from unittest.mock import patch
+
+        from cc_branch.application.results import ActionResult
+
+        server, port = self._start_test_server()
+        try:
+            with patch(
+                "cc_branch.webui.server.api.execute_workspace_action",
+                return_value=ActionResult(ok=True, code="message_sent", message="Sent message to dev:reviewer"),
+            ) as execute:
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/action",
+                    data=json.dumps({
+                        "action": "send",
+                        "target": "dev:reviewer",
+                        "message": "Check planner output.",
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+                    data = json.loads(response.read().decode())
+
+            self.assertTrue(data["success"])
+            self.assertEqual(data["code"], "message_sent")
+            self.assertEqual(execute.call_args.kwargs["action"], "send")
+            self.assertEqual(execute.call_args.kwargs["target"], "dev:reviewer")
+            self.assertEqual(execute.call_args.kwargs["message"], "Check planner output.")
         finally:
             self._stop_test_server(server)
 

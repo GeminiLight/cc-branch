@@ -8,6 +8,7 @@ import json
 from rich.table import Table
 
 from ...application.session_hooks import SessionHookEvent, apply_session_hook_event, normalize_session_hook_key
+from ...application.session_restore import restore_sessions_from_local_transcripts
 from ...application.state_store import StateStore
 from ...context import WorkspaceContext
 from ...text import count_label
@@ -23,6 +24,8 @@ def run_session(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan
         return _run_session_inspect(args, workspace, plan, state)
     if args.session_command == "prune":
         return _run_session_prune(ctx, args, workspace, plan, state)
+    if args.session_command == "restore":
+        return _run_session_restore(ctx, args, workspace, plan, state)
     if args.session_command == "command":
         return _run_session_command(args, workspace, plan, state)
     if args.session_command == "hook":
@@ -118,6 +121,29 @@ def _run_session_prune(ctx: WorkspaceContext, args: argparse.Namespace, workspac
     else:
         cli.console.print("[dim]No stale local session records to prune.[/dim]")
     return 0
+
+
+def _run_session_restore(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, state) -> int:
+    import cc_branch.cli as cli
+
+    result = restore_sessions_from_local_transcripts(workspace, plan, ctx.state_path, state)
+    payload = {
+        "success": result.ok,
+        "code": result.code,
+        "message": result.message,
+        "changed_targets": list(result.changed_targets),
+        "warnings": list(result.warnings),
+    }
+    if output_format(args) == "json":
+        print(json.dumps(payload, indent=2))
+        return 0 if result.ok else result.exit_code
+    if result.changed_targets:
+        cli.console.print(f"[green]✓[/green] {result.message}:")
+        for target in result.changed_targets:
+            cli.console.print(f"  [green]- {target}[/green]")
+    else:
+        cli.console.print(f"[dim]{result.message}[/dim]")
+    return 0 if result.ok else result.exit_code
 
 
 def _run_session_command(args: argparse.Namespace, workspace, plan, state) -> int:

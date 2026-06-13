@@ -49,6 +49,12 @@ class ProjectIndexStoreTests(unittest.TestCase):
         payload = self.store.add_remote_project(
             {"host": "gpu-dev", "user": "ubuntu", "port": 2222, "cwd": "/srv/app"},
             name="remote-app",
+            remote_probe=lambda command: {
+                "cwd": True,
+                "tmux": True,
+                "commands": {"codex": True},
+                "error": None,
+            },
         )
 
         project = payload["projects"][0]
@@ -62,6 +68,47 @@ class ProjectIndexStoreTests(unittest.TestCase):
         self.assertIn("host: gpu-dev", content)
         self.assertIn("cwd: /srv/app", content)
         self.assertEqual(project["selected_config_path"], str(config_path.resolve(strict=False)))
+
+    def test_add_remote_project_requires_successful_preflight_before_writing_workspace(self):
+        def failing_probe(command):
+            self.assertEqual(command[0].host, "gpu-dev")
+            self.assertEqual(command[1], ("codex",))
+            return {
+                "cwd": False,
+                "tmux": True,
+                "commands": {"codex": True},
+                "error": None,
+            }
+
+        with self.assertRaisesRegex(ValueError, "Remote working directory does not exist"):
+            self.store.add_remote_project(
+                {"host": "gpu-dev", "cwd": "/srv/missing"},
+                name="remote-app",
+                remote_probe=failing_probe,
+            )
+
+        self.assertEqual(self.store.payload()["projects"], [])
+
+    def test_add_remote_project_records_preflight_and_agent_command_in_metadata_workspace(self):
+        payload = self.store.add_remote_project(
+            {"host": "gpu-dev", "user": "ubuntu", "cwd": "/srv/app"},
+            name="remote-app",
+            remote_probe=lambda command: {
+                "cwd": True,
+                "tmux": True,
+                "commands": {"codex": True},
+                "error": None,
+            },
+        )
+
+        project = payload["projects"][0]
+        self.assertEqual(project["remote_preflight"]["cwd"], True)
+        self.assertEqual(project["remote_preflight"]["tmux"], True)
+        self.assertEqual(project["remote_preflight"]["commands"], {"codex": True})
+        config_path = Path(str(project["selected_config_path"]))
+        content = config_path.read_text(encoding="utf-8")
+        self.assertIn("agent: codex", content)
+        self.assertIn("layoutBackend: tmux", content)
 
     def test_remove_active_project_falls_back_to_previous(self):
         added = self.store.add_project("/tmp/a")

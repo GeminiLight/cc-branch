@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import re
+import shlex
+import subprocess
 from pathlib import Path
+from typing import Callable
 
 from ..models import DoctorReport, Issue, WorkspaceConfig, WorkspacePlan, WorkspaceState
+from ..models.config import RemoteConfig
 from ..planner.remote import effective_remote
 from ..runtime import which
 from ..runtime.capabilities import is_managed_runtime
@@ -261,6 +265,168 @@ def _build_window_issues(plan: WorkspacePlan) -> list[Issue]:
     return issues
 
 
+RemoteProbe = Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict]
+
+
+def _remote_key(remote: RemoteConfig) -> tuple:
+    return (
+        remote.host,
+        remote.user,
+        remote.port,
+        remote.cwd,
+        tuple(remote.args),
+        tuple(sorted(remote.options.items())),
+    )
+
+
+def _ssh_command(remote: RemoteConfig, remote_command: str) -> list[str]:
+    target = remote.target()
+    command = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8"]
+    if remote.port is not None:
+        command.extend(["-p", str(remote.port)])
+    for key, value in sorted(remote.options.items()):
+        option = str(key) if value is None else f"{key}={value}"
+        command.extend(["-o", option])
+    command.extend(remote.args)
+    command.extend([target, remote_command])
+    return command
+
+
+def _probe_remote(command: tuple[RemoteConfig, tuple[str, ...]], *, timeout: int = 8) -> dict:
+    remote, command_binaries = command
+    cwd = remote.cwd or "."
+    checks = [
+        f"if test -d {shlex.quote(cwd)}; then echo cwd=ok; else echo cwd=missing; fi",
+        "if command -v tmux >/dev/null 2>&1; then echo tmux=ok; else echo tmux=missing; fi",
+    ]
+    for binary in command_binaries:
+        safe_binary = shlex.quote(binary)
+        safe_label = binary.replace("\n", " ")
+        checks.append(
+            f"if command -v {safe_binary} >/dev/null 2>&1; "
+            f"then echo cmd:{shlex.quote(safe_label)}=ok; "
+            f"else echo cmd:{shlex.quote(safe_label)}=missing; fi"
+        )
+    result = subprocess.run(
+        _ssh_command(remote, " && ".join(checks)),
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        return {
+            "cwd": None,
+            "tmux": None,
+            "commands": {},
+            "error": result.stderr.strip() or result.stdout.strip() or "SSH remote check failed",
+        }
+    payload = {"cwd": None, "tmux": None, "commands": {}, "error": None}
+    for raw_line in result.stdout.splitlines():
+        line = raw_line.strip()
+        if line == "cwd=ok":
+            payload["cwd"] = True
+        elif line == "cwd=missing":
+            payload["cwd"] = False
+        elif line == "tmux=ok":
+            payload["tmux"] = True
+        elif line == "tmux=missing":
+            payload["tmux"] = False
+        elif line.startswith("cmd:") and "=" in line:
+            name, value = line[4:].rsplit("=", 1)
+            payload["commands"][name] = value == "ok"
+    return payload
+
+
+def _remote_command_binary(workspace: WorkspaceConfig, window) -> str:
+    if window.agent and window.agent in workspace.agents:
+        command = workspace.agents[window.agent].command or window.agent
+        return command.split()[0]
+    return window.command_binary
+
+
+def _build_remote_issues(
+    workspace: WorkspaceConfig,
+    plan: WorkspacePlan,
+    *,
+    remote_probe: RemoteProbe | None,
+) -> list[Issue]:
+    if remote_probe is None:
+        return []
+
+    remotes: dict[tuple, tuple[RemoteConfig, set[str]]] = {}
+    for slot in plan.slots:
+        for window in slot.windows:
+            remote = window.remote
+            if remote is None:
+                continue
+            entry = remotes.setdefault(_remote_key(remote), (remote, set()))
+            command_binary = _remote_command_binary(workspace, window)
+            if command_binary and command_binary != "ssh" and not _is_default_shell_placeholder(command_binary):
+                entry[1].add(command_binary)
+
+    issues: list[Issue] = []
+    for remote, command_binaries in remotes.values():
+        target = f"remote:{remote.target()}"
+        context = {
+            "host": remote.host,
+            "target": remote.target(),
+            "cwd": remote.cwd,
+        }
+        try:
+            result = remote_probe((remote, tuple(sorted(command_binaries))))
+        except subprocess.TimeoutExpired as error:
+            result = {"cwd": None, "tmux": None, "commands": {}, "error": str(error)}
+        except OSError as error:
+            result = {"cwd": None, "tmux": None, "commands": {}, "error": str(error)}
+
+        if result.get("error"):
+            issues.append(
+                Issue(
+                    "remote_unreachable",
+                    "error",
+                    f"Cannot inspect SSH target {remote.target()}: {result['error']}",
+                    target=target,
+                    context={**context, "error": result["error"]},
+                )
+            )
+            continue
+        if result.get("cwd") is False:
+            issues.append(
+                Issue(
+                    "remote_missing_cwd",
+                    "error",
+                    f"Remote working directory does not exist on {remote.target()}: {remote.cwd}",
+                    target=target,
+                    context=context,
+                    fixable=True,
+                )
+            )
+        if result.get("tmux") is False:
+            issues.append(
+                Issue(
+                    "remote_missing_tmux",
+                    "error",
+                    f"tmux is missing on SSH target {remote.target()}",
+                    target=target,
+                    context=context,
+                )
+            )
+        commands = result.get("commands") or {}
+        for command, ok in sorted(commands.items()):
+            if ok is False:
+                issues.append(
+                    Issue(
+                        "remote_missing_command",
+                        "error",
+                        f"Remote command not found on {remote.target()}: {command}",
+                        target=target,
+                        context={**context, "command": command},
+                    )
+                )
+    return issues
+
+
 def _build_state_issues(plan: WorkspacePlan, state: WorkspaceState | None) -> list[Issue]:
     if state is None:
         return []
@@ -308,6 +474,8 @@ def collect_doctor_report(
     workspace: WorkspaceConfig,
     plan: WorkspacePlan,
     state: WorkspaceState | None = None,
+    *,
+    remote_probe: RemoteProbe | None = _probe_remote,
 ) -> DoctorReport:
     """Build a structured doctor report."""
     issues: list[Issue] = []
@@ -319,6 +487,7 @@ def collect_doctor_report(
     issues.extend(_build_agent_issues(workspace))
     issues.extend(_build_slot_issues(plan))
     issues.extend(_build_window_issues(plan))
+    issues.extend(_build_remote_issues(workspace, plan, remote_probe=remote_probe))
     issues.extend(_build_state_issues(plan, state))
 
     return DoctorReport(project=workspace.project, issues=issues)

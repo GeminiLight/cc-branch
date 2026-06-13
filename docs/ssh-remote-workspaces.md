@@ -11,6 +11,12 @@ In the desktop/web editor, the Run location control can stay local, inherit a
 parent target, or switch to SSH. SSH targets from `~/.ssh/config` are shown as a
 picker so users can choose an existing alias without retyping host details.
 
+The desktop/Web Add Project flow can also register a directory on an SSH
+machine. CC Branch creates a local metadata workspace under `~/.cc-branch/app`
+and writes a normal `.cc-branch/config.yaml` whose panes execute in the remote
+directory. The project list stays local; commands run through the user's SSH
+setup.
+
 ```yaml
 version: 2
 project: demo
@@ -117,6 +123,12 @@ remote:
 
 - CC Branch does not store passwords, private keys, or passphrases.
 - Authentication is delegated to the user's SSH config, agent, and local `ssh` command.
-- Doctor checks the local `ssh` executable for remote panes. It does not require the remote agent CLI to exist locally.
+- Adding an SSH project performs a preflight before writing the local metadata
+  workspace: remote `cwd`, remote `tmux`, and the default remote Agent command
+  must be reachable.
+- Doctor checks the local `ssh` executable for remote panes, then performs a
+  lightweight SSH health check for the remote `cwd`, remote `tmux`, and remote
+  pane/agent command binaries. It does not require the remote agent CLI to exist
+  locally.
 - Local `cwd` still controls where the local terminal/editor opens. `remote.cwd` controls where the command runs after SSH connects.
 - Remote filesystem sync is not implemented. Use Git, rsync, NFS, or an existing remote workspace mount when code needs to be present on the server.

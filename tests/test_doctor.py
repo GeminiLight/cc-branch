@@ -402,13 +402,76 @@ class DoctorTests(unittest.TestCase):
                 "cc_branch.doctor.checks.which",
                 side_effect=lambda command: "/usr/bin/ssh" if command == "ssh" else None,
             ):
-                report = collect_doctor_report(workspace, plan, state)
+                report = collect_doctor_report(
+                    workspace,
+                    plan,
+                    state,
+                    remote_probe=lambda _command: {"cwd": True, "tmux": True, "commands": {}, "error": None},
+                )
 
             self.assertFalse(report.has_errors)
             self.assertNotIn(
                 "definitely-nonexistent-remote-agent",
                 {issue.context.get("command") for issue in report.issues},
             )
+
+    def test_doctor_checks_remote_cwd_tmux_and_agent_command_over_ssh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: test
+                root: .
+                agents:
+                  remote-agent:
+                    command: remote-agent --flag
+                tabs:
+                - name: remote-dev
+                  layoutBackend: tmux
+                  remote:
+                    host: gpu-dev
+                    user: ubuntu
+                    port: 2222
+                    cwd: /srv/app
+                  panes:
+                  - name: worker
+                    agent: remote-agent
+                """,
+            )
+
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = load_state(root / ".cc-branch/state.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+
+            calls = []
+
+            def run_remote(command, *, timeout=8):
+                calls.append(command)
+                return {
+                    "cwd": False,
+                    "tmux": True,
+                    "commands": {"remote-agent": False},
+                    "error": None,
+                }
+
+            with patch(
+                "cc_branch.doctor.checks.which",
+                side_effect=lambda command: "/usr/bin/ssh" if command == "ssh" else None,
+            ):
+                report = collect_doctor_report(workspace, plan, state, remote_probe=run_remote)
+
+        self.assertEqual(len(calls), 1)
+        remote, command_binaries = calls[0]
+        self.assertEqual(remote.target(), "ubuntu@gpu-dev")
+        self.assertEqual(remote.cwd, "/srv/app")
+        self.assertEqual(command_binaries, ("remote-agent",))
+        self.assertTrue(report.has_errors)
+        issue_types = [issue.issue_type for issue in report.issues]
+        self.assertIn("remote_missing_cwd", issue_types)
+        self.assertIn("remote_missing_command", issue_types)
+        self.assertNotIn("remote_missing_tmux", issue_types)
 
     def test_doctor_accepts_default_shell_placeholder(self):
         """$SHELL is a runtime shell placeholder, not a literal binary name."""

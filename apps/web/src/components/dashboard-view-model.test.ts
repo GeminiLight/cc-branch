@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { RuntimeSyncReport, SlotInfo, WorkspaceStatus } from "../types";
+import type { RuntimeSyncReport, SlotInfo, WorkspaceAgentStatus, WorkspaceStatus } from "../types";
 import {
+  agentLocationLabel,
+  agentStatusItems,
+  agentStatusTone,
+  buildAgentStatusSummary,
   actionableRuntimeDriftCount,
   buildDashboardRuntimeSummary,
   groupedSlotDisplayName,
@@ -70,9 +74,61 @@ describe("dashboard-view-model", () => {
     return (templates[key] || key).replace(/\{(\w+)\}/g, (_, name) => String(vars?.[name] ?? ""));
   };
 
+  const sshAgent: WorkspaceAgentStatus = {
+    target: "dev:reviewer",
+    name: "codex",
+    agent: "codex",
+    cli: "codex",
+    command: "codex",
+    location: "ssh",
+    remote: { host: "gpu-dev", user: "ubuntu", port: 2222, cwd: "/srv/app", target: "ubuntu@gpu-dev" },
+    cwd: "/srv/app",
+    runtime: "tmux",
+    slot: "dev",
+    window: "reviewer",
+    tmux_session: "demo-dev",
+    tmux_window: "reviewer",
+    session_id: "session-1234567890",
+    transcript_path: "/tmp/transcript.jsonl",
+    status: "busy",
+    activity: { summary: "review complete", source: "transcript" },
+    actions: ["attach", "send", "restart", "stop"],
+  };
+
   it("does not treat stopped missing panes as actionable drift", () => {
     expect(isActionableSyncStatus("missing", "stopped")).toBe(false);
     expect(isActionableSyncStatus("missing", "running")).toBe(true);
+  });
+
+  it("normalizes agent status center data from optional status payloads", () => {
+    expect(agentStatusItems(workspace([], {
+      changed: 0,
+      current: 0,
+      external: 0,
+      extra: 0,
+      missing: 0,
+      orphaned: 0,
+      untracked: 0,
+    }))).toEqual([]);
+
+    const data = workspace([], {
+      changed: 0,
+      current: 0,
+      external: 0,
+      extra: 0,
+      missing: 0,
+      orphaned: 0,
+      untracked: 0,
+    });
+    data.agents = [sshAgent, { ...sshAgent, target: "dev:qa", status: "stale" }];
+
+    expect(agentStatusItems(data)).toHaveLength(2);
+    expect(buildAgentStatusSummary(data.agents)).toEqual({ total: 2, busy: 1, needsAttention: 1 });
+    expect(agentStatusTone("busy")).toBe("success");
+    expect(agentStatusTone("stale")).toBe("warning");
+    expect(agentStatusTone("unknown")).toBe("neutral");
+    expect(agentLocationLabel(t, sshAgent)).toBe("ubuntu@gpu-dev");
+    expect(agentLocationLabel(t, { ...sshAgent, location: "local", remote: null })).toBe("agentLocationLocal");
   });
 
   it("counts tmux tabs as one dashboard pane", () => {

@@ -15,9 +15,10 @@ def collect_doctor_report(
     workspace: WorkspaceConfig,
     plan: WorkspacePlan,
     state: WorkspaceState | None = None,
+    **kwargs,
 ) -> DoctorReport:
     _checks.which = which
-    return _checks.collect_doctor_report(workspace, plan, state)
+    return _checks.collect_doctor_report(workspace, plan, state, **kwargs)
 
 
 def build_doctor_report(

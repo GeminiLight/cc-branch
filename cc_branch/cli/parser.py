@@ -186,6 +186,16 @@ def build_parser() -> argparse.ArgumentParser:
     restart_cmd.add_argument("--prepare", action="store_true", help="write missing generated state metadata before restart")
     restart_cmd.add_argument("--detach", action="store_true", help="restart without attaching")
 
+    send_cmd = sub.add_parser(
+        "send",
+        help="send a message to a tab or pane",
+        description="Send a message to a tab or pane",
+        add_help=False,
+    )
+    send_cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
+    send_cmd.add_argument("target", metavar="tab[:pane]", help="target such as dev:planner")
+    send_cmd.add_argument("message", nargs="+", help="message text to paste into the target")
+
     def add_apply_options(command: argparse.ArgumentParser) -> None:
         command.add_argument("-h", "--help", action="store_true", help="show this help message")
         command.add_argument("target", nargs="?", metavar="tab[:pane]", help="optional target such as dev or dev:planner")
@@ -277,6 +287,18 @@ def _add_session_group(
         description="Remove stale local session records that no longer belong to the current config",
     )
     prune_cmd.add_argument("--dry-run", action="store_true", help="show what would be removed")
+
+    restore_cmd = nested.add_parser(
+        "restore",
+        help="scan local agent transcripts and bind matching sessions",
+        description="Scan local agent transcripts and bind matching sessions",
+    )
+    restore_cmd.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default=argparse.SUPPRESS,
+        help="output format",
+    )
 
     command_cmd = nested.add_parser("command", help="print the launch command for a target", description="Print the launch command for a target")
     command_cmd.add_argument("key", metavar="tab[:pane]", help="target such as dev:planner")

@@ -12,6 +12,7 @@ from ...runtime.capabilities import is_external_process_runtime
 from ...runtime.sessions import prune_sessions
 from ...state import load_state, merge_state, save_state
 from ...text import count_label
+from ..agent_messages import send_agent_message
 from ..results import ActionResult
 from .command_specs import command_specs
 from .dependencies import WorkspaceActionDependencies
@@ -38,6 +39,7 @@ class WorkspaceActionExecutor:
         target: str | None = None,
         opener: str | None = None,
         intent: str | None = None,
+        message: str | None = None,
         stop_removed: bool = False,
         cli: str = "cc-branch",
     ) -> ActionResult:
@@ -165,6 +167,9 @@ class WorkspaceActionExecutor:
             if result.code == "sync_noop":
                 return replace(result, message="No config changes to sync")
             return result
+
+        if action == "send":
+            return send_agent_message(workspace, plan, public_target or "", message or "")
 
         if action == "prune_state":
             removed = prune_sessions(workspace, plan, state)

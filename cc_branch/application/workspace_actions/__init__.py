@@ -128,6 +128,7 @@ def execute_workspace_action(
     target: str | None = None,
     opener: str | None = None,
     intent: str | None = None,
+    message: str | None = None,
     stop_removed: bool = False,
     cli: str = "cc-branch",
 ):
@@ -139,6 +140,7 @@ def execute_workspace_action(
         target=target,
         opener=opener,
         intent=intent,
+        message=message,
         stop_removed=stop_removed,
         cli=cli,
     )

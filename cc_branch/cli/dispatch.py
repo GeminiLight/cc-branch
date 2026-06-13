@@ -7,6 +7,7 @@ from .commands.doctor import run_doctor
 from .commands.init import run_init
 from .commands.open import run_open
 from .commands.serve import run_serve
+from .commands.send import run_send
 from .commands.service import run_service
 from .commands.sessions import run_session
 from .commands.sync import run_sync
@@ -98,6 +99,8 @@ def main_impl(argv: list[str] | None = None) -> int:
         return run_start(ctx, args, workspace, plan, state)
     if args.command == "restart":
         return run_restart(ctx, args, workspace, plan, state)
+    if args.command == "send":
+        return run_send(ctx, args, workspace, plan, state)
     if args.command == "sync":
         return run_sync(ctx, args, workspace, plan, state)
     if args.command == "doctor":

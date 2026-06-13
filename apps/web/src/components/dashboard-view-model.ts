@@ -1,4 +1,4 @@
-import type { SlotInfo, SyncStatus, WindowInfo, WorkspaceStatus } from "../types";
+import type { SlotInfo, SyncStatus, WindowInfo, WorkspaceAgentStatus, WorkspaceStatus } from "../types";
 import {
   runningWorkspaceTabCount,
   tabPaneCount,
@@ -26,6 +26,41 @@ export interface DashboardRuntimeSummary {
   driftCount: number;
   syncCount: number;
   issueCount: number;
+}
+
+export interface AgentStatusSummary {
+  total: number;
+  busy: number;
+  needsAttention: number;
+}
+
+export function agentStatusItems(data: WorkspaceStatus): WorkspaceAgentStatus[] {
+  return Array.isArray(data.agents) ? data.agents : [];
+}
+
+export function buildAgentStatusSummary(agents: WorkspaceAgentStatus[] = []): AgentStatusSummary {
+  return agents.reduce(
+    (summary, agent) => {
+      summary.total += 1;
+      if (agent.status === "busy" || agent.status === "running") summary.busy += 1;
+      if (agent.status === "stale" || agent.status === "error") summary.needsAttention += 1;
+      return summary;
+    },
+    { total: 0, busy: 0, needsAttention: 0 },
+  );
+}
+
+export function agentStatusTone(status: string): "success" | "warning" | "danger" | "neutral" {
+  if (status === "busy" || status === "running") return "success";
+  if (status === "stale") return "warning";
+  if (status === "error") return "danger";
+  return "neutral";
+}
+
+export function agentLocationLabel(t: Translate, agent: WorkspaceAgentStatus): string {
+  if (agent.location === "ssh" && agent.remote?.target) return agent.remote.target;
+  if (agent.location === "ssh" && agent.remote?.host) return agent.remote.host;
+  return t("agentLocationLocal");
 }
 
 export function isActionableSyncStatus(status?: SyncStatus, slotStatus?: SlotInfo["status"]): boolean {
