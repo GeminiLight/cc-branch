@@ -83,12 +83,16 @@ This is important for desktop wrappers or multi-project frontends.
 | `POST` | `/api/action` | Execute a supported workspace action |
 | `POST` | `/api/agent-bus/read` | Append a read receipt for unread Agent Bus messages |
 | `POST` | `/api/snapshots/create` | Capture the current workspace runtime state |
+| `POST` | `/api/snapshots/preview` | Preview state changes before restoring a snapshot |
 | `POST` | `/api/snapshots/restore` | Restore saved workspace state from a snapshot |
+| `POST` | `/api/snapshots/export` | Export a snapshot to a JSON file path visible to the backend |
+| `POST` | `/api/snapshots/import` | Import a snapshot JSON file into the local snapshot store |
 | `POST` | `/api/worktrees/setup` | Create an optional git worktree for one agent target |
 | `POST` | `/api/worktrees/finish` | Mark an agent worktree as finished for review/merge |
 | `POST` | `/api/worktrees/cleanup` | Remove an agent worktree and registry entry |
 | `POST` | `/api/session/restore` | Scan local agent transcripts and bind matching sessions back to workspace state |
 | `POST` | `/api/projects/add` | Add or upsert a project in the global project index |
+| `POST` | `/api/projects/preview-remote` | Preflight an SSH project without writing the project index |
 | `POST` | `/api/projects/remove` | Remove a project from the global project index |
 | `POST` | `/api/projects/activate` | Set the active project in the global project index |
 | `POST` | `/api/projects/current` | Inject/update the current workspace as project id `current` |

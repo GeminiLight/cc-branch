@@ -1347,6 +1347,44 @@ tabs:
         finally:
             self._stop_test_server(server)
 
+    def test_api_projects_preview_remote_does_not_write_index(self):
+        """Remote project preflight should be available without saving metadata."""
+        from unittest.mock import patch
+
+        home_dir = self.cwd / "home-preview-remote"
+        home_dir.mkdir()
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.app_state.paths.Path.home", return_value=home_dir),
+                patch("cc_branch.app_state.project_index._preflight_remote_project", return_value={
+                    "cwd": True,
+                    "tmux": True,
+                    "agent": "claude",
+                    "commands": {"claude": True},
+                }),
+            ):
+                request = Request(
+                    f"http://127.0.0.1:{port}/api/projects/preview-remote",
+                    data=json.dumps({
+                        "name": "remote-app",
+                        "agent": "claude",
+                        "remote": {"host": "gpu-dev", "cwd": "/srv/app"},
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+                    preview = json.loads(response.read().decode())
+
+            self.assertTrue(preview["dry_run"])
+            self.assertEqual(preview["agent"], "claude")
+            self.assertEqual(preview["remote_preflight"]["commands"], {"claude": True})
+            self.assertFalse((home_dir / ".cc-branch/app/projects.yaml").exists())
+        finally:
+            self._stop_test_server(server)
+
     def test_api_agent_bus_returns_message_events(self):
         from unittest.mock import patch
 
@@ -1438,6 +1476,15 @@ tabs:
                     created = json.loads(response.read().decode())
 
                 self.state_path.write_text("version: 1\nwindows: {}\n", encoding="utf-8")
+                preview_request = Request(
+                    f"http://127.0.0.1:{port}/api/snapshots/preview",
+                    data=json.dumps({"id": created["id"]}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(preview_request, timeout=HTTP_TIMEOUT) as response:
+                    preview = json.loads(response.read().decode())
+
                 restore = Request(
                     f"http://127.0.0.1:{port}/api/snapshots/restore",
                     data=json.dumps({"id": created["id"]}).encode(),
@@ -1450,6 +1497,7 @@ tabs:
                     listed = json.loads(response.read().decode())
 
             self.assertEqual(created["name"], "before-change")
+            self.assertEqual(preview["summary"]["windows"]["added"], 1)
             self.assertEqual(restored["snapshot_id"], created["id"])
             self.assertEqual(listed["snapshots"][0]["name"], "before-change")
             self.assertIn("snapshot-session", self.state_path.read_text(encoding="utf-8"))

@@ -46,6 +46,9 @@ from ...application.agent_worktrees import (
 from ...application.workspace_snapshots import (
     WorkspaceSnapshotStore,
     capture_snapshot_for_workspace,
+    export_workspace_snapshot,
+    import_workspace_snapshot,
+    preview_workspace_snapshot_restore,
     restore_workspace_snapshot,
 )
 from ...application.workspace_actions import execute_workspace_action
@@ -330,8 +333,66 @@ def api_snapshots_restore(handler) -> None:
         if not snapshot_id:
             handler._send_json({"error": "Missing snapshot id"}, 400)
             return
-        result = restore_workspace_snapshot(snapshot_id)
+        state_path = Path(str(data.get("state_path"))) if data.get("state_path") else None
+        result = restore_workspace_snapshot(snapshot_id, state_path=state_path, dry_run=bool(data.get("dry_run")))
         handler._send_json(result)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_snapshots_preview(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        snapshot_id = str(data.get("id") or data.get("snapshot_id") or "").strip()
+        if not snapshot_id:
+            handler._send_json({"error": "Missing snapshot id"}, 400)
+            return
+        state_path = Path(str(data.get("state_path"))) if data.get("state_path") else None
+        handler._send_json(preview_workspace_snapshot_restore(snapshot_id, state_path=state_path))
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_snapshots_export(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        snapshot_id = str(data.get("id") or data.get("snapshot_id") or "").strip()
+        output = str(data.get("path") or data.get("output") or "").strip()
+        if not snapshot_id:
+            handler._send_json({"error": "Missing snapshot id"}, 400)
+            return
+        if not output:
+            handler._send_json({"error": "Missing output path"}, 400)
+            return
+        handler._send_json(export_workspace_snapshot(snapshot_id, Path(output)))
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_snapshots_import(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        path = str(data.get("path") or "").strip()
+        if not path:
+            handler._send_json({"error": "Missing path"}, 400)
+            return
+        name = str(data.get("name") or "").strip() or None
+        handler._send_json(import_workspace_snapshot(Path(path), name=name))
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
     except Exception as error:
@@ -547,7 +608,8 @@ def api_projects_add(handler) -> None:
         name = data.get("name")
         remote = data.get("remote")
         if isinstance(remote, dict):
-            payload = ProjectIndexStore().add_remote_project(remote, name=str(name) if name else None)
+            agent = str(data.get("agent") or remote.get("agent") or "codex")
+            payload = ProjectIndexStore().add_remote_project(remote, name=str(name) if name else None, agent=agent)
             handler._send_json(payload)
             return
         if not path:
@@ -555,6 +617,23 @@ def api_projects_add(handler) -> None:
             return
         payload = ProjectIndexStore().add_project(path, name=str(name) if name else None)
         handler._send_json(payload)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_projects_preview_remote(handler) -> None:
+    try:
+        data = _read_json_body(handler)
+        remote = data.get("remote")
+        if not isinstance(remote, dict):
+            handler._send_json({"error": "Missing 'remote' field"}, 400)
+            return
+        name = data.get("name")
+        agent = str(data.get("agent") or remote.get("agent") or "codex")
+        payload = ProjectIndexStore().preview_remote_project(remote, name=str(name) if name else None, agent=agent)
+        handler._send_json({"success": True, "dry_run": True, **payload})
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
     except Exception as error:
@@ -766,9 +845,22 @@ def api_session_restore(handler) -> None:
         return
 
     try:
-        _read_json_body(handler)
+        data = _read_json_body(handler)
         config_path, state_path = handler._resolve_paths()
-        result = restore_sessions_for_workspace(config_path, state_path)
+        limit_raw = data.get("limit") or 20
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            limit = 20
+        result = restore_sessions_for_workspace(
+            config_path,
+            state_path,
+            target=str(data.get("target") or "").strip() or None,
+            agent=str(data.get("agent") or "").strip() or None,
+            dry_run=bool(data.get("dry_run")),
+            force=bool(data.get("force")),
+            limit=limit,
+        )
         handler._send_action_result(result)
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)

@@ -33,7 +33,7 @@ from .repository import StateRepository
 from .sessions import inspect_session, list_sessions, prune_sessions, restore_session
 from .state import load_state, merge_state, save_state
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 
 def main(argv: list[str] | None = None) -> int:

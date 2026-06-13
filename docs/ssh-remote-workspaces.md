@@ -124,8 +124,10 @@ remote:
 - CC Branch does not store passwords, private keys, or passphrases.
 - Authentication is delegated to the user's SSH config, agent, and local `ssh` command.
 - Adding an SSH project performs a preflight before writing the local metadata
-  workspace: remote `cwd`, remote `tmux`, and the default remote Agent command
-  must be reachable.
+  workspace: remote `cwd`, remote `tmux`, and the selected remote Agent command
+  must be reachable. Use `cc-branch project add-remote --dry-run --host <host>
+  --cwd <path> --agent <agent>` to run that preflight without saving the
+  project.
 - Doctor checks the local `ssh` executable for remote panes, then performs a
   lightweight SSH health check for the remote `cwd`, remote `tmux`, and remote
   pane/agent command binaries. It does not require the remote agent CLI to exist

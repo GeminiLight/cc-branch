@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-14
+
+### Added
+- Added `cc-branch project list/add/add-remote`, including SSH project preflight with `--dry-run` and selectable remote agent command.
+- Added snapshot restore preview, dry-run restore, show, export, and import commands plus matching Web API endpoints.
+- Added stronger session restore controls: `--dry-run`, `--target`, `--agent`, `--force`, candidate reporting, and skipped-reason reporting.
+- Added Web API support for remote project preflight without writing the project index.
+
+### Changed
+- Remote project metadata workspaces now record the selected agent command instead of always assuming `codex`.
+- Snapshot and session restore documentation now distinguishes restored local runtime state from remote file sync or credential management.
+
 ## [1.1.5] - 2026-06-12
 
 ### Fixed
@@ -50,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tmux and direct-layout workspace execution, SSH targets, opener integrations, diagnostics, and local project index.
 - Desktop release packaging with bundled backend sidecar and GitHub release verification.
 
+[1.3.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.3.0
 [1.1.5]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.5
 [1.1.4]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.4
 [1.1.3]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.1.3

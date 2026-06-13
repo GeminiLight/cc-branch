@@ -89,14 +89,33 @@ class ProjectIndexStoreTests(unittest.TestCase):
 
         self.assertEqual(self.store.payload()["projects"], [])
 
+    def test_preview_remote_project_checks_selected_agent_without_writing_index(self):
+        payload = self.store.preview_remote_project(
+            {"host": "gpu-dev", "cwd": "/srv/app"},
+            name="remote-app",
+            agent="claude",
+            remote_probe=lambda command: {
+                "cwd": True,
+                "tmux": True,
+                "commands": {command[1][0]: True},
+                "error": None,
+            },
+        )
+
+        self.assertEqual(payload["agent"], "claude")
+        self.assertEqual(payload["remote_preflight"]["commands"], {"claude": True})
+        self.assertEqual(self.store.payload()["projects"], [])
+        self.assertFalse(Path(str(payload["path"])).exists())
+
     def test_add_remote_project_records_preflight_and_agent_command_in_metadata_workspace(self):
         payload = self.store.add_remote_project(
             {"host": "gpu-dev", "user": "ubuntu", "cwd": "/srv/app"},
             name="remote-app",
+            agent="claude",
             remote_probe=lambda command: {
                 "cwd": True,
                 "tmux": True,
-                "commands": {"codex": True},
+                "commands": {command[1][0]: True},
                 "error": None,
             },
         )
@@ -104,10 +123,11 @@ class ProjectIndexStoreTests(unittest.TestCase):
         project = payload["projects"][0]
         self.assertEqual(project["remote_preflight"]["cwd"], True)
         self.assertEqual(project["remote_preflight"]["tmux"], True)
-        self.assertEqual(project["remote_preflight"]["commands"], {"codex": True})
+        self.assertEqual(project["remote_preflight"]["agent"], "claude")
+        self.assertEqual(project["remote_preflight"]["commands"], {"claude": True})
         config_path = Path(str(project["selected_config_path"]))
         content = config_path.read_text(encoding="utf-8")
-        self.assertIn("agent: codex", content)
+        self.assertIn("agent: claude", content)
         self.assertIn("layoutBackend: tmux", content)
 
     def test_remove_active_project_falls_back_to_previous(self):

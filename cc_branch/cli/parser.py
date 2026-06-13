@@ -238,6 +238,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_session_group(sub, "session", "manage saved agent session metadata")
     _add_snapshot_group(sub)
+    _add_project_group(sub)
     _add_worktree_group(sub)
     help_cmd = sub.add_parser(
         "help",
@@ -265,9 +266,52 @@ def _add_snapshot_group(subparsers: argparse._SubParsersAction) -> None:
     create_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
     list_cmd = nested.add_parser("list", help="list workspace snapshots", description="List workspace snapshots")
     list_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    show_cmd = nested.add_parser("show", help="show snapshot details", description="Show snapshot details")
+    show_cmd.add_argument("snapshot_id", help="snapshot id or name")
+    show_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    preview_cmd = nested.add_parser("preview", help="preview snapshot restore changes", description="Preview snapshot restore changes")
+    preview_cmd.add_argument("snapshot_id", help="snapshot id or name")
+    preview_cmd.add_argument("--state-path", type=str, default=None, help="override target state path")
+    preview_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
     restore_cmd = nested.add_parser("restore", help="restore saved workspace state", description="Restore saved workspace state")
     restore_cmd.add_argument("snapshot_id", help="snapshot id or name")
+    restore_cmd.add_argument("--dry-run", action="store_true", help="preview restore without writing state")
+    restore_cmd.add_argument("--state-path", type=str, default=None, help="override target state path")
     restore_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    export_cmd = nested.add_parser("export", help="export a snapshot JSON file", description="Export a snapshot JSON file")
+    export_cmd.add_argument("snapshot_id", help="snapshot id or name")
+    export_cmd.add_argument("--output", "-o", required=True, help="output JSON path")
+    export_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    import_cmd = nested.add_parser("import", help="import a snapshot JSON file", description="Import a snapshot JSON file")
+    import_cmd.add_argument("path", help="snapshot JSON path")
+    import_cmd.add_argument("--name", type=str, default=None, help="override imported snapshot name")
+    import_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+
+
+def _add_project_group(subparsers: argparse._SubParsersAction) -> None:
+    cmd = subparsers.add_parser(
+        "project",
+        help="manage the desktop/Web UI project index",
+        description="Manage the desktop/Web UI project index",
+        add_help=False,
+    )
+    cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
+    nested = cmd.add_subparsers(dest="project_command")
+    list_cmd = nested.add_parser("list", help="list indexed projects", description="List indexed projects")
+    list_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    add_cmd = nested.add_parser("add", help="add a local project", description="Add a local project")
+    add_cmd.add_argument("path", help="project path")
+    add_cmd.add_argument("--name", type=str, default=None, help="project display name")
+    add_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    remote_cmd = nested.add_parser("add-remote", help="add an SSH project", description="Add an SSH project")
+    remote_cmd.add_argument("--host", required=True, help="SSH host or alias")
+    remote_cmd.add_argument("--cwd", required=True, help="remote project directory")
+    remote_cmd.add_argument("--user", type=str, default=None, help="SSH user")
+    remote_cmd.add_argument("--port", type=int, default=None, help="SSH port")
+    remote_cmd.add_argument("--name", type=str, default=None, help="project display name")
+    remote_cmd.add_argument("--agent", type=str, default="codex", help="agent command to preflight and write into config")
+    remote_cmd.add_argument("--dry-run", action="store_true", help="preflight without saving the project")
+    remote_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
 
 
 def _add_worktree_group(subparsers: argparse._SubParsersAction) -> None:
@@ -348,6 +392,11 @@ def _add_session_group(
         help="scan local agent transcripts and bind matching sessions",
         description="Scan local agent transcripts and bind matching sessions",
     )
+    restore_cmd.add_argument("--target", type=str, default=None, help="only restore one target such as dev:planner")
+    restore_cmd.add_argument("--agent", type=str, default=None, help="only restore panes for one agent id")
+    restore_cmd.add_argument("--dry-run", action="store_true", help="show candidate bindings without writing state")
+    restore_cmd.add_argument("--force", action="store_true", help="replace existing session bindings")
+    restore_cmd.add_argument("--limit", type=int, default=20, help="candidate scan limit per agent")
     restore_cmd.add_argument(
         "--format",
         choices=["text", "json"],

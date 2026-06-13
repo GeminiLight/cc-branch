@@ -107,19 +107,17 @@ class ProjectIndexStore:
         remote: dict[str, object],
         *,
         name: str | None = None,
+        agent: str = "codex",
         remote_probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict] | None = None,
     ) -> dict[str, object]:
-        normalized_remote = _normalize_remote(remote)
-        if not normalized_remote:
-            raise ValueError("remote target is required")
-        if not str(normalized_remote.get("cwd") or "").strip():
-            raise ValueError("remote cwd is required")
-
-        preflight = _preflight_remote_project(normalized_remote, remote_probe=remote_probe)
-        display_path = _remote_display_path(normalized_remote)
-        project_name = name or _remote_project_name(normalized_remote)
-        storage_path = _remote_project_storage_path(self._path.parent, normalized_remote, project_name)
-        _ensure_remote_workspace(storage_path, project_name, normalized_remote)
+        preview = self.preview_remote_project(remote, name=name, agent=agent, remote_probe=remote_probe)
+        normalized_remote = cast(dict[str, object], preview["remote"])
+        preflight = cast(dict[str, object], preview["remote_preflight"])
+        display_path = str(preview["display_path"])
+        project_name = str(preview["name"])
+        storage_path = Path(str(preview["path"]))
+        selected_agent = str(preview["agent"])
+        _ensure_remote_workspace(storage_path, project_name, normalized_remote, agent=selected_agent)
         selected_config_path = storage_path / ".cc-branch" / "config.yaml"
         self.add_project(
             str(storage_path),
@@ -129,6 +127,36 @@ class ProjectIndexStore:
             remote_preflight=preflight,
         )
         return self.set_project_config(str(storage_path), str(selected_config_path))
+
+    def preview_remote_project(
+        self,
+        remote: dict[str, object],
+        *,
+        name: str | None = None,
+        agent: str = "codex",
+        remote_probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict] | None = None,
+    ) -> dict[str, object]:
+        """Preflight an SSH project without writing the local project index."""
+        normalized_remote = _normalize_remote(remote)
+        if not normalized_remote:
+            raise ValueError("remote target is required")
+        if not str(normalized_remote.get("cwd") or "").strip():
+            raise ValueError("remote cwd is required")
+        selected_agent = _normalize_agent(agent)
+        preflight = _preflight_remote_project(normalized_remote, agent=selected_agent, remote_probe=remote_probe)
+        display_path = _remote_display_path(normalized_remote)
+        project_name = name or _remote_project_name(normalized_remote)
+        storage_path = _remote_project_storage_path(self._path.parent, normalized_remote, project_name)
+        selected_config_path = storage_path / ".cc-branch" / "config.yaml"
+        return {
+            "name": project_name,
+            "path": str(storage_path),
+            "display_path": display_path,
+            "remote": normalized_remote,
+            "agent": selected_agent,
+            "remote_preflight": preflight,
+            "selected_config_path": str(selected_config_path.resolve(strict=False)),
+        }
 
     def remove_project(self, project_id: str) -> dict[str, object]:
         if not project_id:
@@ -439,6 +467,7 @@ def _remote_project_storage_path(base_dir: Path, remote: dict[str, object], name
 def _preflight_remote_project(
     remote: dict[str, object],
     *,
+    agent: str = "codex",
     remote_probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict] | None,
 ) -> dict[str, object]:
     probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict]
@@ -452,7 +481,8 @@ def _preflight_remote_project(
     remote_config = RemoteConfig.from_dict(remote)
     if remote_config is None:
         raise ValueError("remote target is required")
-    result = probe((remote_config, ("codex",)))
+    selected_agent = _normalize_agent(agent)
+    result = probe((remote_config, (selected_agent,)))
     if result.get("error"):
         raise ValueError(f"Cannot inspect SSH target {remote_config.target()}: {result['error']}")
     if result.get("cwd") is False:
@@ -467,6 +497,7 @@ def _preflight_remote_project(
     return {
         "cwd": result.get("cwd") is True,
         "tmux": result.get("tmux") is True,
+        "agent": selected_agent,
         "commands": dict(commands),
     }
 
@@ -476,7 +507,12 @@ def _safe_slug(value: str) -> str:
     return slug[:48] or "remote-project"
 
 
-def _ensure_remote_workspace(storage_path: Path, name: str, remote: dict[str, object]) -> None:
+def _normalize_agent(value: str | None) -> str:
+    agent = str(value or "").strip()
+    return agent or "codex"
+
+
+def _ensure_remote_workspace(storage_path: Path, name: str, remote: dict[str, object], *, agent: str = "codex") -> None:
     if yaml is None:  # pragma: no cover
         raise RuntimeError("YAML support requires PyYAML to be installed")
     config_path = storage_path / ".cc-branch" / "config.yaml"
@@ -505,7 +541,7 @@ def _ensure_remote_workspace(storage_path: Path, name: str, remote: dict[str, ob
                     "panes": [
                         {
                             "name": "agent",
-                            "agent": "codex",
+                            "agent": _normalize_agent(agent),
                         }
                     ],
                 }

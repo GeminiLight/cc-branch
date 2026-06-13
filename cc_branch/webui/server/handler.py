@@ -56,9 +56,20 @@ _POST_API_ROUTES = {
     "/api/agent-bus/read": api.api_agent_bus_read,
     "/api/snapshots/create": api.api_snapshots_create,
     "/api/snapshots/restore": api.api_snapshots_restore,
+    "/api/snapshots/preview": api.api_snapshots_preview,
+    "/api/snapshots/export": api.api_snapshots_export,
+    "/api/snapshots/import": api.api_snapshots_import,
     "/api/worktrees/setup": api.api_worktrees_setup,
     "/api/worktrees/finish": api.api_worktrees_finish,
     "/api/worktrees/cleanup": api.api_worktrees_cleanup,
+    "/api/projects/add": api.api_projects_add,
+    "/api/projects/preview-remote": api.api_projects_preview_remote,
+    "/api/projects/remove": api.api_projects_remove,
+    "/api/projects/activate": api.api_projects_activate,
+    "/api/projects/pin": api.api_projects_pin,
+    "/api/projects/reorder": api.api_projects_reorder,
+    "/api/projects/current": api.api_projects_current,
+    "/api/projects/config": api.api_projects_config,
 }
 
 
@@ -104,10 +115,11 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self._send_json({
                 "success": False,
                 "error": result.message,
-                "code": result.code,
-                "changed_targets": list(result.changed_targets),
-                "warnings": list(result.warnings),
-            }, 400)
+            "code": result.code,
+            "changed_targets": list(result.changed_targets),
+            "warnings": list(result.warnings),
+            **result.payload,
+        }, 400)
             return False
         self._send_json({
             "success": True,
@@ -115,6 +127,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
             "message": message or result.message,
             "changed_targets": list(result.changed_targets),
             "warnings": list(result.warnings),
+            **result.payload,
         })
         return True
 
@@ -315,27 +328,6 @@ class WebUIHandler(BaseHTTPRequestHandler):
             api.api_remote_list_directories(self)
         elif path == "/api/system/reveal" and self._require_auth():
             api.api_system_reveal(self)
-        elif path == "/api/projects/add":
-            if self._require_auth():
-                api.api_projects_add(self)
-        elif path == "/api/projects/remove":
-            if self._require_auth():
-                api.api_projects_remove(self)
-        elif path == "/api/projects/activate":
-            if self._require_auth():
-                api.api_projects_activate(self)
-        elif path == "/api/projects/pin":
-            if self._require_auth():
-                api.api_projects_pin(self)
-        elif path == "/api/projects/reorder":
-            if self._require_auth():
-                api.api_projects_reorder(self)
-        elif path == "/api/projects/current":
-            if self._require_auth():
-                api.api_projects_current(self)
-        elif path == "/api/projects/config":
-            if self._require_auth():
-                api.api_projects_config(self)
         else:
             self.send_error(404)
 

@@ -126,23 +126,41 @@ def _run_session_prune(ctx: WorkspaceContext, args: argparse.Namespace, workspac
 def _run_session_restore(ctx: WorkspaceContext, args: argparse.Namespace, workspace, plan, state) -> int:
     import cc_branch.cli as cli
 
-    result = restore_sessions_from_local_transcripts(workspace, plan, ctx.state_path, state)
+    result = restore_sessions_from_local_transcripts(
+        workspace,
+        plan,
+        ctx.state_path,
+        state,
+        target=args.target,
+        agent=args.agent,
+        dry_run=args.dry_run,
+        force=args.force,
+        limit=args.limit,
+    )
     payload = {
         "success": result.ok,
         "code": result.code,
         "message": result.message,
         "changed_targets": list(result.changed_targets),
         "warnings": list(result.warnings),
+        **result.payload,
     }
     if output_format(args) == "json":
         print(json.dumps(payload, indent=2))
         return 0 if result.ok else result.exit_code
     if result.changed_targets:
-        cli.console.print(f"[green]✓[/green] {result.message}:")
+        marker = "[yellow]Preview[/yellow]" if args.dry_run else "[green]✓[/green]"
+        cli.console.print(f"{marker} {result.message}:")
         for target in result.changed_targets:
             cli.console.print(f"  [green]- {target}[/green]")
     else:
         cli.console.print(f"[dim]{result.message}[/dim]")
+    skipped = result.payload.get("skipped")
+    if isinstance(skipped, list) and skipped:
+        cli.console.print("[dim]Skipped:[/dim]")
+        for item in skipped:
+            if isinstance(item, dict):
+                cli.console.print(f"  [dim]- {item.get('target')}: {item.get('reason')}[/dim]")
     return 0 if result.ok else result.exit_code
 
 

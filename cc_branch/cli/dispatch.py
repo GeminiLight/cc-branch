@@ -6,6 +6,7 @@ from ..exceptions import CcbError
 from .commands.doctor import run_doctor
 from .commands.init import run_init
 from .commands.open import run_open
+from .commands.projects import run_project
 from .commands.serve import run_serve
 from .commands.send import run_send
 from .commands.service import run_service
@@ -85,6 +86,8 @@ def main_impl(argv: list[str] | None = None) -> int:
         return run_service(ctx, args)
     if args.command == "open":
         return run_open(ctx, args)
+    if args.command == "project":
+        return run_project(args, parser)
 
     workspace, plan = ctx.load(bootstrap_missing=should_write_generated_state(args))
     state = ctx.state

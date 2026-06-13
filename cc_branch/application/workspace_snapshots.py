@@ -119,6 +119,7 @@ def restore_workspace_snapshot(
     *,
     store: WorkspaceSnapshotStore | None = None,
     state_path: Path | None = None,
+    dry_run: bool = False,
 ) -> dict[str, object]:
     """Restore saved session/runtime metadata from a snapshot into state.yaml."""
     store = store or WorkspaceSnapshotStore()
@@ -129,6 +130,9 @@ def restore_workspace_snapshot(
     raw_state = snapshot.get("state")
     if not isinstance(raw_state, dict):
         raise ValueError("Snapshot does not include restorable state")
+    if dry_run:
+        preview = preview_workspace_snapshot_restore(snapshot_id, store=store, state_path=target_state_path)
+        return {"success": True, "dry_run": True, **preview}
     save_state(target_state_path, WorkspaceState.from_dict(raw_state))
     return {
         "success": True,
@@ -136,6 +140,117 @@ def restore_workspace_snapshot(
         "name": snapshot.get("name"),
         "state_path": str(target_state_path),
         "config_path": snapshot.get("config_path"),
+    }
+
+
+def preview_workspace_snapshot_restore(
+    snapshot_id: str,
+    *,
+    store: WorkspaceSnapshotStore | None = None,
+    state_path: Path | None = None,
+) -> dict[str, object]:
+    """Return a dry-run diff of what restoring a snapshot would change."""
+    store = store or WorkspaceSnapshotStore()
+    snapshot = store.get(snapshot_id)
+    target_state_path = state_path or Path(str(snapshot.get("state_path") or ""))
+    if not target_state_path:
+        raise ValueError("Snapshot does not include a state path")
+    raw_state = snapshot.get("state")
+    if not isinstance(raw_state, dict):
+        raise ValueError("Snapshot does not include restorable state")
+    snapshot_state = WorkspaceState.from_dict(raw_state).to_dict()
+    current_state = load_state(target_state_path).to_dict() if target_state_path.exists() else WorkspaceState().to_dict()
+    window_changes = _state_section_diff(
+        cast(dict[str, object], current_state.get("windows") or {}),
+        cast(dict[str, object], snapshot_state.get("windows") or {}),
+    )
+    slot_changes = _state_section_diff(
+        cast(dict[str, object], current_state.get("slots") or {}),
+        cast(dict[str, object], snapshot_state.get("slots") or {}),
+    )
+    return {
+        "snapshot_id": snapshot.get("id"),
+        "name": snapshot.get("name"),
+        "created_at": snapshot.get("created_at"),
+        "state_path": str(target_state_path),
+        "config_path": snapshot.get("config_path"),
+        "git": snapshot.get("git"),
+        "changes": {
+            "windows": window_changes,
+            "slots": slot_changes,
+        },
+        "summary": {
+            "windows": _section_counts(window_changes),
+            "slots": _section_counts(slot_changes),
+        },
+    }
+
+
+def export_workspace_snapshot(
+    snapshot_id: str,
+    output_path: Path,
+    *,
+    store: WorkspaceSnapshotStore | None = None,
+    now: Clock = _utc_now,
+) -> dict[str, object]:
+    """Export a snapshot to a portable JSON file."""
+    store = store or WorkspaceSnapshotStore()
+    snapshot = store.get(snapshot_id)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": 1,
+        "exported_at": now(),
+        "snapshot": snapshot,
+    }
+    output_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return {
+        "success": True,
+        "snapshot_id": snapshot.get("id"),
+        "name": snapshot.get("name"),
+        "path": str(output_path),
+    }
+
+
+def import_workspace_snapshot(
+    input_path: Path,
+    *,
+    store: WorkspaceSnapshotStore | None = None,
+    name: str | None = None,
+    now: Clock = _utc_now,
+) -> dict[str, object]:
+    """Import a snapshot JSON file into the local snapshot store."""
+    store = store or WorkspaceSnapshotStore()
+    try:
+        raw = json.loads(input_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid snapshot export: {input_path}") from error
+    if isinstance(raw, dict) and isinstance(raw.get("snapshot"), dict):
+        snapshot = dict(cast(dict[str, object], raw["snapshot"]))
+    elif isinstance(raw, dict) and isinstance(raw.get("state"), dict):
+        snapshot = dict(cast(dict[str, object], raw))
+    else:
+        raise ValueError("Snapshot export does not include a snapshot")
+    if not isinstance(snapshot.get("state"), dict):
+        raise ValueError("Snapshot export does not include restorable state")
+
+    existing_ids = {str(item.get("id") or "") for item in store.list()}
+    original_id = str(snapshot.get("id") or "")
+    if not original_id or original_id in existing_ids:
+        snapshot["id"] = uuid.uuid4().hex
+        if original_id:
+            snapshot["original_id"] = original_id
+    if name:
+        snapshot["name"] = name
+    elif not str(snapshot.get("name") or "").strip():
+        snapshot["name"] = f"imported-{snapshot['id']}"
+    snapshot["imported_at"] = now()
+    snapshot["imported_from"] = str(input_path)
+    saved = store.save(snapshot)
+    return {
+        "success": True,
+        "snapshot_id": saved.get("id"),
+        "name": saved.get("name"),
+        "imported_from": str(input_path),
     }
 
 
@@ -157,6 +272,38 @@ def capture_snapshot_for_workspace(
         state_path=state_path,
         name=name,
     )
+
+
+def _state_section_diff(current: dict[str, object], target: dict[str, object]) -> dict[str, object]:
+    current_keys = set(current)
+    target_keys = set(target)
+    added = sorted(target_keys - current_keys)
+    removed = sorted(current_keys - target_keys)
+    changed = sorted(key for key in current_keys & target_keys if current.get(key) != target.get(key))
+    unchanged = sorted(key for key in current_keys & target_keys if current.get(key) == target.get(key))
+    details = {
+        key: {
+            "before": current.get(key),
+            "after": target.get(key),
+        }
+        for key in changed
+    }
+    return {
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+        "unchanged": unchanged,
+        "details": details,
+    }
+
+
+def _section_counts(section: dict[str, object]) -> dict[str, int]:
+    return {
+        "added": len(cast(list[object], section.get("added") or [])),
+        "removed": len(cast(list[object], section.get("removed") or [])),
+        "changed": len(cast(list[object], section.get("changed") or [])),
+        "unchanged": len(cast(list[object], section.get("unchanged") or [])),
+    }
 
 
 def probe_git(path: Path) -> dict[str, object]:

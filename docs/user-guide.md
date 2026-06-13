@@ -381,10 +381,17 @@ cc-branch send dev:planner "看一下 reviewer 的输出，整理最关键的风
 ```bash
 cc-branch snapshot create --name before-refactor
 cc-branch snapshot list
+cc-branch snapshot show <id-or-name>
+cc-branch snapshot preview <id-or-name>
+cc-branch snapshot restore <id-or-name> --dry-run
 cc-branch snapshot restore <id-or-name>
+cc-branch snapshot export <id-or-name> --output snapshot.json
+cc-branch snapshot import snapshot.json --name restored-copy
 ```
 
 Snapshot 会保存当前 workspace 的配置引用、state、tabs/panes 运行状态、Agent session 绑定、SSH target、tmux session、最近状态和 git branch/worktree 信息。保存位置是本机 `~/.cc-branch/app/snapshots.json`，不会默认提交到项目 git。
+
+`preview` 和 `restore --dry-run` 会对比当前 state 和 snapshot state，先显示 windows/slots 的新增、删除、改变和不变数量；真正 `restore` 才会写回 `state.yaml`。`export/import` 使用 JSON 文件，适合归档或把本地运行现场迁移到另一台机器。
 
 ### `worktree`
 
@@ -498,9 +505,23 @@ cc-branch session command dev:planner
 
 ```bash
 cc-branch session restore
+cc-branch session restore --dry-run
+cc-branch session restore --target dev:planner --agent claude
+cc-branch session restore --target dev:planner --force
 ```
 
-这个命令会扫描本机 Agent transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。它是 `session hook` 的兜底路径：hook 是快路径，restore 是本地扫描兜底。
+这个命令会扫描本机 Agent transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。`--dry-run` 会输出候选 session、计划绑定和跳过原因但不写 state；`--target` 可只恢复一个 pane；`--agent` 可限制 Agent 类型；`--force` 会替换已有绑定。它是 `session hook` 的兜底路径：hook 是快路径，restore 是本地扫描兜底。
+
+### 管理桌面/Web UI 项目索引
+
+```bash
+cc-branch project list
+cc-branch project add /path/to/project --name demo
+cc-branch project add-remote --host gpu-dev --cwd /srv/app --agent claude --dry-run
+cc-branch project add-remote --host gpu-dev --cwd /srv/app --user ubuntu --port 2222 --name remote-app
+```
+
+`project` 命令管理 `~/.cc-branch/app/projects.yaml`，不要求当前目录已经初始化 workspace。`add-remote --dry-run` 会先检查 SSH 目标上的 `cwd`、`tmux` 和指定 Agent 命令，不写本地索引；真正添加后会在本机 app data 下创建一个 metadata workspace，命令仍在远程 `cwd` 执行。
 
 ### 记录 hook 事件
 

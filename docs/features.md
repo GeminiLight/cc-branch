@@ -68,9 +68,14 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 
 - `cc-branch snapshot create --name before-refactor`
 - `cc-branch snapshot list`
+- `cc-branch snapshot show <id-or-name>`
+- `cc-branch snapshot preview <id-or-name>`
 - `cc-branch snapshot restore <id-or-name>`
+- `cc-branch snapshot restore <id-or-name> --dry-run`
+- `cc-branch snapshot export <id-or-name> --output snapshot.json`
+- `cc-branch snapshot import snapshot.json --name restored-copy`
 
-Web UI Dashboard 顶部也提供保存快照按钮。恢复 snapshot 会把保存的 session/runtime metadata 写回对应 `state.yaml`，之后可以继续用 `cc-branch start` 或 Web UI 恢复工作现场。
+Web UI Dashboard 顶部也提供保存快照按钮。恢复 snapshot 会把保存的 session/runtime metadata 写回对应 `state.yaml`，之后可以继续用 `cc-branch start` 或 Web UI 恢复工作现场。`preview` 和 `--dry-run` 会先对比当前 `state.yaml` 与 snapshot 里的 windows/slots，显示将新增、删除、改变或保持不变的记录；`export/import` 用于把某个本地运行现场复制到另一台机器或归档。
 
 ### Worktree Per Agent
 
@@ -106,7 +111,7 @@ Web UI Dashboard 顶部也提供保存快照按钮。恢复 snapshot 会把保�
 
 这对于长期项目尤其有用，因为你可以更清楚地区分正在运行、已经停止和已经孤立的记录。
 
-`session restore` 会扫描本机 Codex、Claude 等 Agent 的 transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
+`session restore` 会扫描本机 Codex、Claude 等 Agent 的 transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。它支持 `--dry-run`、`--target dev:planner`、`--agent claude` 和 `--force`，会返回候选 session、计划绑定和跳过原因。`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
 
 ### 诊断与自动修复
 

@@ -126,6 +126,7 @@ class CLITests(unittest.TestCase):
                 "dashboard",
                 "session",
                 "snapshot",
+                "project",
                 "worktree",
                 "help",
             ],
@@ -894,6 +895,56 @@ class CLITests(unittest.TestCase):
             restored = load_state(state_path)
             self.assertEqual(restored.windows["dev.planner"].session_id, "snapshot-session")
 
+            state.windows["dev.planner"] = WindowState(session_id="mutated-again")
+            save_state(state_path, state)
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "preview", created["id"], "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            preview = json.loads(stdout.getvalue())
+            self.assertEqual(preview["summary"]["windows"]["changed"], 1)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "restore", created["id"], "--dry-run", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(load_state(state_path).windows["dev.planner"].session_id, "mutated-again")
+
+            export_path = root / "snapshot-export.json"
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "export", created["id"], "--output", str(export_path), "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertTrue(export_path.exists())
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "import", str(export_path), "--name", "copy", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            imported = json.loads(stdout.getvalue())
+            self.assertEqual(imported["name"], "copy")
+            self.assertNotEqual(imported["snapshot_id"], created["id"])
+
             stdout = StringIO()
             with (
                 patch("cc_branch.cli.Path.cwd", return_value=root),
@@ -905,6 +956,76 @@ class CLITests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             listed = json.loads(stdout.getvalue())
             self.assertEqual(listed[0]["name"], "before-change")
+
+    def test_project_cli_previews_remote_without_workspace_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.app_state.paths.Path.home", return_value=home),
+                patch("cc_branch.app_state.project_index._preflight_remote_project", return_value={
+                    "cwd": True,
+                    "tmux": True,
+                    "agent": "claude",
+                    "commands": {"claude": True},
+                }),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main([
+                    "project",
+                    "add-remote",
+                    "--host",
+                    "gpu-dev",
+                    "--cwd",
+                    "/srv/app",
+                    "--agent",
+                    "claude",
+                    "--dry-run",
+                    "--format",
+                    "json",
+                ])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertTrue(payload["dry_run"])
+            self.assertEqual(payload["agent"], "claude")
+            self.assertEqual(payload["remote"]["host"], "gpu-dev")
+            self.assertFalse((home / ".cc-branch/app/projects.yaml").exists())
+
+    def test_session_restore_cli_dry_run_reports_target_candidates_without_writing_state(self):
+        from cc_branch.application.agent_sessions import AgentSessionOption
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            state_path = root / ".cc-branch/state.yaml"
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.session_restore.agent_session_options_for_project", return_value=[
+                    AgentSessionOption(
+                        agent="claude",
+                        id="session-1",
+                        label="demo/dev/planner",
+                        updated_at="2026-06-13T00:00:00Z",
+                        source="/tmp/session.jsonl",
+                        project_path=str(root),
+                    )
+                ]),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["session", "restore", "--target", "dev:planner", "--dry-run", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["code"], "sessions_restore_preview")
+            self.assertEqual(payload["changed_targets"], ["dev:planner"])
+            self.assertEqual(payload["bindings"][0]["session_id"], "session-1")
+            self.assertIsNone(load_state(state_path).windows["dev.planner"].session_id)
 
     def test_worktree_cli_sets_up_reports_and_cleans_agent_worktree(self):
         with tempfile.TemporaryDirectory() as tmp:
