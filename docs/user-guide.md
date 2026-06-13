@@ -437,6 +437,8 @@ cc-branch restart dev:planner --detach
 cc-branch dashboard [--prepare]
 ```
 
+Dashboard 顶部显示 workspace 总览和打开工具；下面的每个 tab/pane 卡片同时展示布局状态和对应 Agent 的动态状态。Agent 正在运行、最近活动、未读消息、worktree 变更和发送消息入口会直接出现在对应 pane/window 内，避免在布局面板外再维护一份独立 Agent 状态列表。
+
 ### `doctor`
 
 ```bash
@@ -512,10 +514,11 @@ cc-branch session restore
 cc-branch session restore --dry-run
 cc-branch session restore --target dev:planner --agent claude
 cc-branch session restore --target dev:planner --session-id <id>
+cc-branch session restore --target dev:planner --session-id <id> --session-scope all
 cc-branch session restore --target dev:planner --force
 ```
 
-这个命令会扫描本机 Agent transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。`--dry-run` 会输出候选 session、计划绑定和跳过原因但不写 state；`--target` 可只恢复一个 pane；`--agent` 可限制 Agent 类型；`--session-id` 可绑定指定 agent-native session；`--force` 会替换已有绑定。它是 `session hook` 的兜底路径：hook 是快路径，restore 是本地扫描兜底。
+这个命令会扫描本机 Agent transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。默认 `--session-scope project`，只看当前项目目录相关 session；`--session-scope all` 会扩大到本机全部已知 Codex、Claude、Gemini、Cursor、Kimi session，适合从其它项目或旧目录找回指定 session。`--dry-run` 会输出候选 session、计划绑定和跳过原因但不写 state；`--target` 可只恢复一个 pane；`--agent` 可限制 Agent 类型；`--session-id` 可绑定指定 agent-native session；`--force` 会替换已有绑定。它是 `session hook` 的兜底路径：hook 是快路径，restore 是本地扫描兜底。
 
 ### 管理桌面/Web UI 项目索引
 

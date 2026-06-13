@@ -603,8 +603,16 @@ describe('Dashboard actions', () => {
     expect(screen.getByText(/Bound session-/)).toBeInTheDocument()
   })
 
-  it('renders the agent status center and sends a message to an agent', async () => {
+  it('merges agent runtime details into the matching workspace pane', async () => {
     const result = readyWorkspaceResult()
+    result.data.slots[0].windows.push({
+      name: 'reviewer',
+      agent: 'codex',
+      command: 'codex',
+      session_id: 'session-1234567890',
+      label: 'demo/dev/reviewer',
+      cwd: '/tmp/demo',
+    })
     ;(result.data as Record<string, unknown>).agents = [
       {
         target: 'dev:reviewer',
@@ -639,7 +647,7 @@ describe('Dashboard actions', () => {
     mocks.workspaceResult.current = result
     renderDashboard()
 
-    expect(screen.getByText('Agent status')).toBeInTheDocument()
+    expect(screen.queryByText('Agent status')).not.toBeInTheDocument()
     expect(screen.getByText('dev:reviewer')).toBeInTheDocument()
     expect(screen.getByText('ubuntu@gpu-dev')).toBeInTheDocument()
     expect(screen.getByText('review complete')).toBeInTheDocument()

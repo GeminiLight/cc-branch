@@ -115,7 +115,9 @@ Web UI Dashboard 顶部也提供保存快照按钮。默认 snapshot 保存运�
 
 这对于长期项目尤其有用，因为你可以更清楚地区分正在运行、已经停止和已经孤立的记录。
 
-`session restore` 会扫描本机 Codex、Claude 等 Agent 的 transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。它支持 `--dry-run`、`--target dev:planner`、`--agent claude`、`--session-id <id>` 和 `--force`，会返回候选 session、计划绑定、选择来源和跳过原因。`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
+`session restore` 会扫描本机 Codex、Claude、Gemini、Cursor、Kimi 等 Agent 的 transcript/session 文件，把匹配当前项目和 Agent 的 session 绑定回 `.cc-branch/state.yaml`。默认只扫描当前项目目录相关 session；需要从其它项目找回 session 时，可用 `--session-scope all` 扩展到全部本机已知 session。它支持 `--dry-run`、`--target dev:planner`、`--agent claude`、`--session-id <id>`、`--session-scope project|all` 和 `--force`，会返回候选 session、计划绑定、选择来源和跳过原因。Web UI 的 session picker 同样默认显示当前项目，并提供“全部项目”切换。
+
+Dashboard 会把 Agent 的实时状态、最近活动、未读消息和 worktree 状态直接合并到对应的 workspace pane/window 卡片里，而不是在布局上方再展示一个独立 Agent 状态面板。`session hook` 是给 agent-native hook 使用的轻量写回入口。Agent pane 启动时会带上 `CC_BRANCH_SESSION_TARGET`、`CC_BRANCH_SESSION_KEY`、`CC_BRANCH_AGENT`、`CC_BRANCH_PROJECT_DIR` 等环境变量；Codex、Claude 等工具自己的 hook 可以在拿到真实 session id 或 transcript 路径后调用 `cc-branch session hook`，把会话绑定回 `.cc-branch/state.yaml`。下一次打开 workspace 时，CC Branch 会优先复用这个绑定生成恢复命令。
 
 ### 诊断与自动修复
 

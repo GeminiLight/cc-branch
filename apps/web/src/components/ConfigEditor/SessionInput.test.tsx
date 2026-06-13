@@ -1,13 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "../../i18n";
 import SessionInput from "./SessionInput";
 
+const mocks = vi.hoisted(() => ({
+  useAgentSessions: vi.fn(() => ({ data: { sessions: [] }, isFetching: false })),
+}));
+
 vi.mock("../../hooks", () => ({
-  useAgentSessions: () => ({ data: { sessions: [] }, isFetching: false }),
+  useAgentSessions: mocks.useAgentSessions,
 }));
 
 describe("SessionInput", () => {
+  beforeEach(() => {
+    mocks.useAgentSessions.mockClear();
+    mocks.useAgentSessions.mockReturnValue({ data: { sessions: [] }, isFetching: false });
+  });
+
   it("explains each session mode before the user has to choose one", () => {
     const onChange = vi.fn();
 
@@ -28,5 +37,26 @@ describe("SessionInput", () => {
 
     expect(onChange).not.toHaveBeenCalledWith("fresh");
     expect(screen.getByPlaceholderText("Codex session ID")).toBeInTheDocument();
+    expect(mocks.useAgentSessions).toHaveBeenLastCalledWith(undefined, true, "codex", "project");
+  });
+
+  it("defaults to project sessions and lets the user expand to all projects", () => {
+    const onChange = vi.fn();
+
+    render(
+      <I18nProvider>
+        <SessionInput value="auto" onChange={onChange} agent="codex" scope={{ projectPath: "/tmp/demo" }} />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Resume/ }));
+
+    expect(screen.getByRole("button", { name: "This project" })).toHaveAttribute("aria-pressed", "true");
+    expect(mocks.useAgentSessions).toHaveBeenLastCalledWith({ projectPath: "/tmp/demo" }, true, "codex", "project");
+
+    fireEvent.click(screen.getByRole("button", { name: "All projects" }));
+
+    expect(screen.getByRole("button", { name: "All projects" })).toHaveAttribute("aria-pressed", "true");
+    expect(mocks.useAgentSessions).toHaveBeenLastCalledWith({ projectPath: "/tmp/demo" }, true, "codex", "all");
   });
 });

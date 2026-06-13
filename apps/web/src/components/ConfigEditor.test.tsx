@@ -790,6 +790,7 @@ describe('ConfigEditor diagnostics', () => {
       { projectPath: '/tmp/demo', configPath: undefined },
       false,
       'codex',
+      'project',
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
@@ -798,6 +799,7 @@ describe('ConfigEditor diagnostics', () => {
       { projectPath: '/tmp/demo', configPath: undefined },
       true,
       'codex',
+      'project',
     )
   })
 

@@ -397,6 +397,12 @@ def _add_session_group(
     restore_cmd.add_argument("--target", type=str, default=None, help="only restore one target such as dev:planner")
     restore_cmd.add_argument("--agent", type=str, default=None, help="only restore panes for one agent id")
     restore_cmd.add_argument("--session-id", type=str, default=None, help="bind a specific agent-native session id")
+    restore_cmd.add_argument(
+        "--session-scope",
+        choices=["project", "all"],
+        default="project",
+        help="scan only this project by default, or all known local agent sessions",
+    )
     restore_cmd.add_argument("--dry-run", action="store_true", help="show candidate bindings without writing state")
     restore_cmd.add_argument("--force", action="store_true", help="replace existing session bindings")
     restore_cmd.add_argument("--limit", type=int, default=20, help="candidate scan limit per agent")

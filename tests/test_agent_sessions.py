@@ -107,6 +107,36 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         sessions = result.payload["sessions"]
         self.assertEqual([session["id"] for session in sessions], ["codex-current-project"])
 
+    def test_agent_sessions_can_include_all_projects_when_requested(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+            sessions_dir = home / ".codex" / "sessions" / "2026" / "05" / "10"
+            sessions_dir.mkdir(parents=True)
+            (sessions_dir / "rollout-current.jsonl").write_text(
+                json.dumps({"type": "session_meta", "payload": {"id": "codex-current", "cwd": str(project)}}) + "\n",
+                encoding="utf-8",
+            )
+            (sessions_dir / "rollout-other.jsonl").write_text(
+                json.dumps({"type": "session_meta", "payload": {"id": "codex-other", "cwd": str(other_project)}}) + "\n",
+                encoding="utf-8",
+            )
+
+            current = agent_session_options(config_path, agent="codex", home=home)
+            all_projects = agent_session_options(config_path, agent="codex", home=home, scope="all")
+
+        self.assertEqual([session["id"] for session in current.payload["sessions"]], ["codex-current"])
+        self.assertEqual(
+            {session["id"]: session["project_path"] for session in all_projects.payload["sessions"]},
+            {
+                "codex-current": str(project),
+                "codex-other": str(other_project),
+            },
+        )
+
     def test_codex_transcripts_are_exposed_without_session_index_entries(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -216,6 +246,47 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         self.assertEqual(sessions[0]["id"], "claude-session-1")
         self.assertEqual(sessions[0]["label"], "Fix config form")
 
+    def test_claude_sessions_can_include_all_project_directories(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+
+            for session_id, project_path, summary in [
+                ("claude-current", project, "Current project"),
+                ("claude-other", other_project, "Other project"),
+            ]:
+                slug = "-" + str(project_path).strip("/").replace("/", "-")
+                index_path = home / ".claude" / "projects" / slug / "sessions-index.json"
+                index_path.parent.mkdir(parents=True)
+                index_path.write_text(
+                    json.dumps({
+                        "entries": [
+                            {
+                                "sessionId": session_id,
+                                "summary": summary,
+                                "modified": "2026-05-09T12:00:00Z",
+                                "projectPath": str(project_path),
+                            }
+                        ]
+                    }),
+                    encoding="utf-8",
+                )
+
+            current = agent_session_options(config_path, agent="claude", home=home)
+            all_projects = agent_session_options(config_path, agent="claude", home=home, scope="all")
+
+        self.assertEqual([session["id"] for session in current.payload["sessions"]], ["claude-current"])
+        self.assertEqual(
+            {session["id"]: session["project_path"] for session in all_projects.payload["sessions"]},
+            {
+                "claude-current": str(project),
+                "claude-other": str(other_project),
+            },
+        )
+
     def test_claude_project_transcripts_are_exposed_without_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -313,6 +384,30 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         sessions = result.payload["sessions"]
         self.assertEqual([session["id"] for session in sessions], ["gemini-current"])
 
+    def test_gemini_antigravity_metadata_can_include_all_projects(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+
+            for session_id, project_path in [("gemini-current", project), ("gemini-other", other_project)]:
+                metadata_path = home / ".gemini" / "antigravity" / "brain" / session_id / "task.md.metadata.json"
+                metadata_path.parent.mkdir(parents=True)
+                metadata_path.write_text(
+                    json.dumps({
+                        "summary": session_id,
+                        "updatedAt": "2026-05-11T10:00:00Z",
+                        "projectPath": str(project_path),
+                    }),
+                    encoding="utf-8",
+                )
+
+            result = agent_session_options(config_path, agent="gemini", home=home, scope="all")
+
+        self.assertEqual({session["id"] for session in result.payload["sessions"]}, {"gemini-current", "gemini-other"})
+
     def test_cursor_composer_headers_are_filtered_to_project(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -364,6 +459,46 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         self.assertEqual(sessions[0]["id"], "cursor-session-1")
         self.assertEqual(sessions[0]["project_path"], str(project))
 
+    def test_cursor_composer_headers_can_include_all_projects(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+
+            db_path = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
+            db_path.parent.mkdir(parents=True)
+            with closing(sqlite3.connect(db_path)) as connection:
+                connection.execute("create table ItemTable (key text primary key, value text)")
+                connection.execute(
+                    "insert into ItemTable (key, value) values (?, ?)",
+                    (
+                        "composer.composerHeaders",
+                        json.dumps({
+                            "allComposers": [
+                                {
+                                    "composerId": "cursor-current",
+                                    "createdAt": 1778351844135,
+                                    "unifiedMode": "agent",
+                                    "workspaceIdentifier": {"uri": {"fsPath": str(project)}},
+                                },
+                                {
+                                    "composerId": "cursor-other",
+                                    "createdAt": 1778351844135,
+                                    "unifiedMode": "agent",
+                                    "workspaceIdentifier": {"uri": {"fsPath": str(other_project)}},
+                                },
+                            ]
+                        }),
+                    ),
+                )
+                connection.commit()
+
+            result = agent_session_options(config_path, agent="cursor", home=home, scope="all")
+
+        self.assertEqual({session["id"] for session in result.payload["sessions"]}, {"cursor-current", "cursor-other"})
+
     def test_kimi_project_bucket_sessions_are_exposed(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -391,6 +526,37 @@ class AgentSessionDiscoveryTests(unittest.TestCase):
         self.assertEqual(sessions[0]["agent"], "kimi")
         self.assertEqual(sessions[0]["id"], "kimi-session-1")
         self.assertEqual(sessions[0]["label"], "Continue release checklist")
+
+    def test_kimi_sessions_can_include_all_buckets(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project = root / "workspace"
+            other_project = root / "other"
+            home = root / "home"
+            config_path = self._write_config(project)
+
+            for session_id, project_path in [("kimi-current", project), ("kimi-other", other_project)]:
+                bucket = hashlib.md5(str(project_path).encode("utf-8")).hexdigest()
+                session_dir = home / ".kimi" / "sessions" / bucket / session_id
+                session_dir.mkdir(parents=True)
+                (session_dir / "state.json").write_text(
+                    json.dumps({
+                        "custom_title": session_id,
+                        "archived": False,
+                        "project_path": str(project_path),
+                    }),
+                    encoding="utf-8",
+                )
+
+            result = agent_session_options(config_path, agent="kimi", home=home, scope="all")
+
+        self.assertEqual(
+            {session["id"]: session["project_path"] for session in result.payload["sessions"]},
+            {
+                "kimi-current": str(project),
+                "kimi-other": str(other_project),
+            },
+        )
 
 
 if __name__ == "__main__":

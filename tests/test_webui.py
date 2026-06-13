@@ -1611,6 +1611,43 @@ tabs:
         finally:
             self._stop_test_server(server)
 
+    def test_api_session_restore_accepts_all_project_session_scope(self):
+        from unittest.mock import patch
+
+        from cc_branch.application.results import ActionResult
+
+        project = self.cwd / "restore-project"
+        config_path = project / ".cc-branch/config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(
+            "version: 2\nproject: demo\nroot: .\ntabs:\n- name: dev\n  panes:\n  - name: planner\n    agent: codex\n",
+            encoding="utf-8",
+        )
+        result = ActionResult(
+            ok=True,
+            code="sessions_restore_preview",
+            message="Would restore 1 session binding(s)",
+            payload={"session_scope": "all", "bindings": []},
+        )
+
+        server, port = self._start_test_server()
+        try:
+            request = Request(
+                f"http://127.0.0.1:{port}/api/session/restore?project_path={quote(str(project))}",
+                data=json.dumps({"session_id": "codex-other", "session_scope": "all", "dry_run": True}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with patch("cc_branch.webui.server.api.restore_sessions_for_workspace", return_value=result) as restore:
+                with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+                    payload = json.loads(response.read().decode())
+
+            self.assertEqual(payload["code"], "sessions_restore_preview")
+            restore.assert_called_once()
+            self.assertEqual(restore.call_args.kwargs["session_scope"], "all")
+        finally:
+            self._stop_test_server(server)
+
     def test_api_init_with_project_path_writes_to_project_metadata_dir(self):
         """Web setup should create .cc-branch/ under the selected project root."""
         alt_dir = self.cwd / "fresh-project"
@@ -2565,6 +2602,33 @@ tabs:
             self.assertEqual(data["sessions"][0]["id"], "session-123")
             options.assert_called_once()
             self.assertEqual(options.call_args.kwargs["agent"], "codex")
+            self.assertEqual(options.call_args.kwargs["scope"], "project")
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_agent_sessions_can_request_all_projects(self):
+        """Session picker discovery can intentionally expand beyond the active project."""
+        from unittest.mock import patch
+
+        from cc_branch.application.results import ActionResult
+
+        result = ActionResult(
+            ok=True,
+            code="agent_sessions_loaded",
+            message="Agent sessions loaded",
+            payload={"scope": "all", "sessions": []},
+        )
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.webui.server.api.agent_session_options", return_value=result) as options:
+                with urlopen(f"http://127.0.0.1:{port}/api/agent-sessions?agent=codex&scope=all", timeout=HTTP_TIMEOUT) as response:
+                    self.assertEqual(response.status, 200)
+                    data = json.loads(response.read().decode())
+
+            self.assertEqual(data["scope"], "all")
+            options.assert_called_once()
+            self.assertEqual(options.call_args.kwargs["agent"], "codex")
+            self.assertEqual(options.call_args.kwargs["scope"], "all")
         finally:
             self._stop_test_server(server)
 

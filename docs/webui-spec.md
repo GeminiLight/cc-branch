@@ -65,6 +65,7 @@ This is important for desktop wrappers or multi-project frontends.
 | `GET` | `/api/profiles` | Return available starter profiles |
 | `GET` | `/api/openers` | Return detected local applications that can open the workspace |
 | `GET` | `/api/agents` | Return effective agent profiles from built-in, user, workspace, and project layers |
+| `GET` | `/api/agent-sessions` | Return discovered local agent sessions; `scope=project` is the default and `scope=all` intentionally includes sessions from other projects |
 | `GET` | `/api/agents/global` | Return editable user-level agent overrides from `~/.cc-branch/agents.yaml` |
 | `GET` | `/api/agent-bus` | Return local Agent Bus events plus unread inbox entries, optionally filtered by target |
 | `GET` | `/api/snapshots` | Return local workspace snapshots |
@@ -90,7 +91,7 @@ This is important for desktop wrappers or multi-project frontends.
 | `POST` | `/api/worktrees/setup` | Create an optional git worktree for one agent target |
 | `POST` | `/api/worktrees/finish` | Mark an agent worktree as finished for review/merge |
 | `POST` | `/api/worktrees/cleanup` | Remove an agent worktree and registry entry |
-| `POST` | `/api/session/restore` | Scan local agent transcripts and bind matching sessions back to workspace state, optionally selecting `session_id` |
+| `POST` | `/api/session/restore` | Scan local agent transcripts and bind matching sessions back to workspace state, optionally selecting `session_id` and `session_scope` |
 | `POST` | `/api/projects/add` | Add or upsert a project in the global project index |
 | `POST` | `/api/projects/preview-remote` | Preflight an SSH project without writing the project index |
 | `POST` | `/api/projects/remove` | Remove a project from the global project index |

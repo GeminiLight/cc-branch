@@ -65,7 +65,7 @@ export interface APIClient {
   getAgents(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<AgentsData>;
   getGlobalAgents(signal?: AbortSignal): Promise<GlobalAgentsData>;
   saveGlobalAgents(content: string, baseMtime?: number | null, baseContentHash?: string | null): Promise<GlobalAgentsSaveResult>;
-  getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData>;
+  getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal, sessionScope?: "project" | "all"): Promise<AgentSessionsData>;
   getAgentBus(scope?: (WorkspaceScope & { target?: string }) | string, signal?: AbortSignal): Promise<AgentBusData>;
   markAgentInboxRead(scope?: WorkspaceScope | string, target?: string): Promise<ActionResult>;
   restoreSessions(scope?: WorkspaceScope | string, request?: SessionRestoreRequest): Promise<ActionResult>;
@@ -152,6 +152,7 @@ function sessionRestoreBody(request?: SessionRestoreRequest): Record<string, unk
     target: request?.target,
     agent: request?.agent,
     session_id: request?.sessionId,
+    session_scope: request?.sessionScope,
     dry_run: request?.dryRun,
     force: request?.force,
     limit: request?.limit,
@@ -374,8 +375,8 @@ export class HTTPClient implements APIClient {
     return data as GlobalAgentsSaveResult;
   }
 
-  async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData> {
-    const res = await fetchApi(`${this.baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`, { signal });
+  async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal, sessionScope?: "project" | "all"): Promise<AgentSessionsData> {
+    const res = await fetchApi(`${this.baseUrl}/api/agent-sessions${qsWith(scope, { agent, scope: sessionScope })}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentSessionsData;
@@ -899,9 +900,9 @@ export class TauriClient implements APIClient {
     return data as GlobalAgentsSaveResult;
   }
 
-  async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal): Promise<AgentSessionsData> {
+  async getAgentSessions(scope?: WorkspaceScope | string, agent?: string, signal?: AbortSignal, sessionScope?: "project" | "all"): Promise<AgentSessionsData> {
     const baseUrl = await this._baseUrl(signal);
-    const res = await this._fetchApi(`${baseUrl}/api/agent-sessions${qsWith(scope, { agent })}`, { signal });
+    const res = await this._fetchApi(`${baseUrl}/api/agent-sessions${qsWith(scope, { agent, scope: sessionScope })}`, { signal });
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as AgentSessionsData;

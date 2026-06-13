@@ -36,6 +36,7 @@ def restore_sessions_from_local_transcripts(
     force: bool = False,
     limit: int = 20,
     session_id: str | None = None,
+    session_scope: str = "project",
     candidates_provider: SessionCandidatesProvider | None = None,
 ) -> ActionResult:
     """Bind unbound agent panes to matching local transcript/session records."""
@@ -60,6 +61,7 @@ def restore_sessions_from_local_transcripts(
                 window.agent,
                 home=home,
                 limit=limit,
+                scope=session_scope,
             )
     if normalized_target is not None and not matched_target:
         raise ValueError(f"Unknown session target: {target}")
@@ -136,6 +138,7 @@ def restore_sessions_from_local_transcripts(
         "dry_run": dry_run,
         "force": force,
         "session_id": selected_session_id,
+        "session_scope": session_scope,
     }
     if changed and dry_run:
         return ActionResult(
@@ -227,6 +230,7 @@ def restore_sessions_for_workspace(
     force: bool = False,
     limit: int = 20,
     session_id: str | None = None,
+    session_scope: str = "project",
 ) -> ActionResult:
     """Load a workspace and restore matching local transcript sessions."""
     workspace = load_workspace(config_path)
@@ -244,4 +248,5 @@ def restore_sessions_for_workspace(
         force=force,
         limit=limit,
         session_id=session_id,
+        session_scope=session_scope,
     )

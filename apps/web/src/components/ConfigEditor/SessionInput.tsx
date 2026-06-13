@@ -34,9 +34,10 @@ export default function SessionInput({
   const { t } = useI18n();
   const agentKey = normalizeAgentKey(agent);
   const [forcedIntent, setForcedIntent] = useState<"resume" | null>(null);
+  const [sessionScope, setSessionScope] = useState<"project" | "all">("project");
   const inferredIntent = sessionIntent(value);
   const intent = forcedIntent ?? inferredIntent;
-  const { data, isFetching: loading } = useAgentSessions(scope, Boolean(agentKey) && intent === "resume", agentKey);
+  const { data, isFetching: loading } = useAgentSessions(scope, Boolean(agentKey) && intent === "resume", agentKey, sessionScope);
   const sessions = data?.sessions || [];
   const matchingSessions = agentKey
     ? sessions.filter((session) => normalizeAgentKey(session.agent) === agentKey)
@@ -46,12 +47,14 @@ export default function SessionInput({
     ? matchingSessions.map((session) => ({
         value: session.id,
         label: session.label || session.id,
-        description: sessionDescription(session),
+        description: sessionScope === "all" && session.project_path
+          ? `${sessionDescription(session)} · ${session.project_path}`
+          : sessionDescription(session),
         icon: <Clock3 className="w-3.5 h-3.5" />,
       }))
     : [{
         value: "__empty",
-        label: loading ? t("loadingSessions") : t("noSessionsFound"),
+        label: loading ? t("loadingSessions") : sessionScope === "all" ? t("noSessionsFoundAll") : t("noSessionsFound"),
         description: agent ? t("manualSessionAllowed") : t("selectAgentFirst"),
         disabled: true,
       }];
@@ -128,34 +131,53 @@ export default function SessionInput({
       </div>
 
       {intent === "resume" && (
-        <div className="mt-1.5 flex items-center rounded-md border border-default bg-[var(--bg-card)] transition-all hover:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-border)] focus-within:border-[var(--accent)]">
-          <input
-            type="text"
-            value={sessionTextValue}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={
-              displayAgent
-                ? t("sessionIdPlaceholderWithAgent", { agent: displayAgent })
-                : t("sessionIdPlaceholder")
-            }
-            className="min-w-0 flex-1 h-8 px-2.5 rounded-l-md text-[12px] bg-transparent placeholder:text-muted focus:outline-none"
-          />
-          <Dropdown
-            align="right"
-            value={matchingSessions.some((session) => session.id === value) ? value : ""}
-            onChange={(nextValue) => {
-              if (nextValue !== "__empty") onChange(nextValue);
-            }}
-            items={items}
-            ariaLabel={t("sessionPicker")}
-            className="shrink-0"
-            triggerClassName="h-full block"
-            trigger={
-              <span className="h-8 min-w-8 px-2 border-l border-default text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] rounded-r-md transition-colors flex items-center justify-center">
-                <ChevronsUpDown className="w-3.5 h-3.5" />
-              </span>
-            }
-          />
+        <div className="mt-1.5 space-y-1.5">
+          <div className="inline-flex rounded-md border border-default bg-[var(--bg-elevated)] p-0.5">
+            {(["project", "all"] as const).map((nextScope) => (
+              <button
+                key={nextScope}
+                type="button"
+                onClick={() => setSessionScope(nextScope)}
+                aria-pressed={sessionScope === nextScope}
+                className={`h-6 rounded px-2 text-[10.5px] font-semibold transition-colors ${
+                  sessionScope === nextScope
+                    ? "bg-[var(--accent)] text-[var(--text-on-accent)]"
+                    : "text-tertiary hover:bg-[var(--bg-hover)] hover:text-primary"
+                }`}
+              >
+                {nextScope === "project" ? t("sessionScopeProject") : t("sessionScopeAll")}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center rounded-md border border-default bg-[var(--bg-card)] transition-all hover:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-border)] focus-within:border-[var(--accent)]">
+            <input
+              type="text"
+              value={sessionTextValue}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={
+                displayAgent
+                  ? t("sessionIdPlaceholderWithAgent", { agent: displayAgent })
+                  : t("sessionIdPlaceholder")
+              }
+              className="min-w-0 flex-1 h-8 px-2.5 rounded-l-md text-[12px] bg-transparent placeholder:text-muted focus:outline-none"
+            />
+            <Dropdown
+              align="right"
+              value={matchingSessions.some((session) => session.id === value) ? value : ""}
+              onChange={(nextValue) => {
+                if (nextValue !== "__empty") onChange(nextValue);
+              }}
+              items={items}
+              ariaLabel={t("sessionPicker")}
+              className="shrink-0"
+              triggerClassName="h-full block"
+              trigger={
+                <span className="h-8 min-w-8 px-2 border-l border-default text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] rounded-r-md transition-colors flex items-center justify-center">
+                  <ChevronsUpDown className="w-3.5 h-3.5" />
+                </span>
+              }
+            />
+          </div>
         </div>
       )}
     </div>

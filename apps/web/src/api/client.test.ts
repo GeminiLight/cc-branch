@@ -474,7 +474,7 @@ describe("HTTPClient workspace scope", () => {
     const client = new HTTPClient();
     await client.getAgentBus({ projectPath: "/tmp/demo", target: "dev:planner" });
     await client.markAgentInboxRead({ projectPath: "/tmp/demo" }, "dev:planner");
-    await client.restoreSessions({ projectPath: "/tmp/demo" }, { sessionId: "session-1", dryRun: true });
+    await client.restoreSessions({ projectPath: "/tmp/demo" }, { sessionId: "session-1", sessionScope: "all", dryRun: true });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -496,8 +496,23 @@ describe("HTTPClient workspace scope", () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: "session-1", dry_run: true }),
+        body: JSON.stringify({ session_id: "session-1", session_scope: "all", dry_run: true }),
       },
+    );
+  });
+
+  it("loads agent sessions with explicit all-project scope", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ scope: "all", sessions: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new HTTPClient().getAgentSessions({ projectPath: "/tmp/demo" }, "codex", undefined, "all");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/agent-sessions?project_path=%2Ftmp%2Fdemo&agent=codex&scope=all",
+      { signal: undefined },
     );
   });
 

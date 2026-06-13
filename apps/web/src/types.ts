@@ -125,6 +125,7 @@ export interface SessionRestoreRequest {
   target?: string;
   agent?: string;
   sessionId?: string;
+  sessionScope?: "project" | "all";
   dryRun?: boolean;
   force?: boolean;
   limit?: number;
@@ -393,6 +394,7 @@ export interface AgentSessionInfo {
 }
 
 export interface AgentSessionsData {
+  scope?: "project" | "all" | string;
   sessions: AgentSessionInfo[];
 }
 

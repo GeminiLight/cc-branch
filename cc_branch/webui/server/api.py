@@ -251,8 +251,10 @@ def api_agents(handler) -> None:
 def api_agent_sessions(handler) -> None:
     try:
         config_path, _state_path = handler._resolve_paths()
-        agent = handler._get_query().get("agent", [None])[0]
-        handler._send_json(agent_session_options(config_path, agent=agent).payload)
+        query = handler._get_query()
+        agent = query.get("agent", [None])[0]
+        scope = query.get("scope", ["project"])[0] or "project"
+        handler._send_json(agent_session_options(config_path, agent=agent, scope=scope).payload)
     except ValueError as error:
         handler._send_json({"error": str(error)}, 400)
     except Exception as error:
@@ -868,6 +870,7 @@ def api_session_restore(handler) -> None:
             force=bool(data.get("force")),
             limit=limit,
             session_id=str(data.get("session_id") or "").strip() or None,
+            session_scope=str(data.get("session_scope") or "project").strip() or "project",
         )
         handler._send_action_result(result)
     except ValueError as error:

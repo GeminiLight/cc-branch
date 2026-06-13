@@ -40,7 +40,6 @@ import {
   agentLocationLabel,
   agentStatusItems,
   agentStatusTone,
-  buildAgentStatusSummary,
   countText,
   groupedSlotDisplayName,
   isActionableSyncStatus,
@@ -50,7 +49,6 @@ import {
   tabDisplayName,
   terminalPanesForSlot,
   terminalTaskSummary,
-  shortSessionId,
   windowSummary,
   workspaceCountLabel,
 } from "./dashboard-view-model";
@@ -157,161 +155,121 @@ function SyncBadge({ status, slotStatus }: { status?: SyncStatus; slotStatus?: S
   );
 }
 
-function AgentStatusCenter({
-  agents,
+function AgentRuntimeDetails({
+  agent,
   busy,
   onSend,
   onMarkRead,
 }: {
-  agents: WorkspaceAgentStatus[];
+  agent?: WorkspaceAgentStatus;
   busy: boolean;
   onSend: (target: string, message: string) => Promise<void>;
   onMarkRead: (target: string) => Promise<void>;
 }) {
   const { t } = useI18n();
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  if (agents.length === 0) return null;
+  const [draft, setDraft] = useState("");
+  if (!agent) return null;
 
-  const summary = buildAgentStatusSummary(agents);
-  const updateDraft = (target: string, value: string) => {
-    setDrafts((current) => ({ ...current, [target]: value }));
-  };
-  const send = async (target: string) => {
-    const message = (drafts[target] || "").trim();
+  const send = async () => {
+    const message = draft.trim();
     if (!message) return;
-    await onSend(target, message);
-    setDrafts((current) => ({ ...current, [target]: "" }));
+    await onSend(agent.target, message);
+    setDraft("");
   };
+  const tone = agentStatusTone(agent.status);
+  const statusClass = tone === "success"
+    ? "success-bg text-[var(--success)]"
+    : tone === "warning"
+      ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+      : tone === "danger"
+        ? "danger-bg text-[var(--danger)]"
+        : "bg-[var(--bg-hover)] text-tertiary";
 
   return (
-    <section className="surface-card border border-default rounded-lg px-3 py-3 sm:px-4" aria-label={t("agentStatusCenter")}>
-      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <SquareTerminal className="w-4 h-4 text-[var(--accent)] shrink-0" />
-          <h3 className="text-[13px] font-semibold text-primary leading-tight">{t("agentStatusCenter")}</h3>
-          <span className="rounded-md bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
-            {t("agentStatusCount", { count: summary.total })}
+    <div className="mt-2 rounded-md border border-subtle bg-[var(--bg-card)] px-2 py-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="min-w-0 truncate text-[11px] font-semibold text-primary" title={agent.target}>
+          {agent.target}
+        </span>
+        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${statusClass}`}>
+          {t(`agentStatus_${agent.status}`)}
+        </span>
+        <span className="inline-flex min-w-0 items-center gap-1 text-[10.5px] text-tertiary">
+          {agent.location === "ssh" ? <Server className="h-3 w-3 shrink-0" /> : <Monitor className="h-3 w-3 shrink-0" />}
+          <span className="truncate" title={agent.remote?.cwd || agent.cwd}>{agentLocationLabel(t, agent)}</span>
+        </span>
+      </div>
+      {agent.activity?.summary && (
+        <p className="mt-1 truncate text-[11px] text-secondary" title={agent.activity.summary}>
+          {agent.activity.summary}
+        </p>
+      )}
+      {agent.worktree && (
+        <div className="mt-1.5 flex items-center gap-1.5 rounded border border-default bg-[var(--bg-elevated)] px-2 py-1 text-[10.5px]">
+          <GitBranch className="h-3 w-3 shrink-0 text-tertiary" />
+          <span className="min-w-0 flex-1 truncate text-secondary" title={agent.worktree.path}>
+            {agent.worktree.branch || agent.worktree.path}
+          </span>
+          <span className={agent.worktree.dirty ? "shrink-0 font-semibold text-[var(--warning)]" : "shrink-0 text-tertiary"}>
+            {agent.worktree.dirty
+              ? t("agentWorktreeChanged", { count: agent.worktree.changed_files || 0 })
+              : t("agentWorktreeClean")}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
-          <span className="rounded-md success-bg px-1.5 py-0.5 text-[var(--success)]">
-            {t("agentStatusBusy", { count: summary.busy })}
-          </span>
-          {summary.needsAttention > 0 && (
-            <span className="rounded-md bg-[var(--warning-bg)] px-1.5 py-0.5 text-[var(--warning)]">
-              {t("agentStatusNeedsAttention", { count: summary.needsAttention })}
-            </span>
-          )}
+      )}
+      {(agent.inbox?.unread || agent.inbox?.last_message) && (
+        <div className="mt-1.5 flex items-center gap-2 rounded bg-[var(--accent-bg)] px-2 py-1">
+          <div className="min-w-0 flex-1">
+            {agent.inbox?.unread ? (
+              <p className="text-[10px] font-semibold text-[var(--accent)]">
+                {t("agentInboxUnread", { count: agent.inbox.unread })}
+              </p>
+            ) : null}
+            {agent.inbox?.last_message && (
+              <p className="truncate text-[11px] text-secondary" title={agent.inbox.last_message}>
+                {agent.inbox.last_message}
+              </p>
+            )}
+          </div>
+          {agent.inbox?.unread ? (
+            <button
+              type="button"
+              onClick={() => void onMarkRead(agent.target)}
+              disabled={busy}
+              className="icon-touch h-7 w-7 rounded-md text-[var(--accent)] hover:bg-[var(--bg-card)] transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+              aria-label={t("agentInboxMarkRead", { target: agent.target })}
+              title={t("agentInboxMarkRead", { target: agent.target })}
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
         </div>
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {agents.map((agent) => {
-          const draft = drafts[agent.target] || "";
-          const tone = agentStatusTone(agent.status);
-          const statusClass = tone === "success"
-            ? "success-bg text-[var(--success)]"
-            : tone === "warning"
-              ? "bg-[var(--warning-bg)] text-[var(--warning)]"
-              : tone === "danger"
-                ? "danger-bg text-[var(--danger)]"
-                : "bg-[var(--bg-hover)] text-tertiary";
-          return (
-            <article key={agent.target} className="min-w-0 rounded-md border border-default bg-[var(--bg-elevated)] px-3 py-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <AgentMark agent={agent.agent} compact />
-                    <p className="truncate text-[13px] font-semibold text-primary" title={agent.target}>{agent.target}</p>
-                  </div>
-                  <div className="mt-1 flex items-center gap-1.5 min-w-0 text-[11px] text-tertiary">
-                    {agent.location === "ssh" ? <Server className="w-3 h-3 shrink-0" /> : <Monitor className="w-3 h-3 shrink-0" />}
-                    <span className="truncate" title={agent.remote?.cwd || agent.cwd}>{agentLocationLabel(t, agent)}</span>
-                    {agent.session_id && (
-                      <span className="hidden sm:inline truncate" title={agent.session_id}>
-                        · {t("agentSessionShort", { id: shortSessionId(agent.session_id) })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${statusClass}`}>
-                  {t(`agentStatus_${agent.status}`)}
-                </span>
-              </div>
-              {agent.activity?.summary && (
-                <p className="mt-2 truncate text-[11px] text-secondary" title={agent.activity.summary}>
-                  {agent.activity.summary}
-                </p>
-              )}
-              {agent.worktree && (
-                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[11px]">
-                  <GitBranch className="h-3 w-3 shrink-0 text-tertiary" />
-                  <span className="min-w-0 flex-1 truncate text-secondary" title={agent.worktree.path}>
-                    {agent.worktree.branch || agent.worktree.path}
-                  </span>
-                  <span className={agent.worktree.dirty ? "shrink-0 font-semibold text-[var(--warning)]" : "shrink-0 text-tertiary"}>
-                    {agent.worktree.dirty
-                      ? t("agentWorktreeChanged", { count: agent.worktree.changed_files || 0 })
-                      : t("agentWorktreeClean")}
-                  </span>
-                </div>
-              )}
-              {(agent.inbox?.unread || agent.inbox?.last_message) && (
-                <div className="mt-2 flex items-center gap-2 rounded-md bg-[var(--accent-bg)] px-2 py-1">
-                  <div className="min-w-0 flex-1">
-                    {agent.inbox?.unread ? (
-                      <p className="text-[10px] font-semibold text-[var(--accent)]">
-                        {t("agentInboxUnread", { count: agent.inbox.unread })}
-                      </p>
-                    ) : null}
-                    {agent.inbox?.last_message && (
-                      <p className="truncate text-[11px] text-secondary" title={agent.inbox.last_message}>
-                        {agent.inbox.last_message}
-                      </p>
-                    )}
-                  </div>
-                  {agent.inbox?.unread ? (
-                    <button
-                      type="button"
-                      onClick={() => void onMarkRead(agent.target)}
-                      disabled={busy}
-                      className="icon-touch h-7 w-7 rounded-md text-[var(--accent)] hover:bg-[var(--bg-card)] transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-                      aria-label={t("agentInboxMarkRead", { target: agent.target })}
-                      title={t("agentInboxMarkRead", { target: agent.target })}
-                    >
-                      <CheckCheck className="w-3.5 h-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-              )}
-              {agent.actions?.includes("send") && (
-                <div className="mt-2 flex items-center gap-1.5">
-                  <input
-                    value={draft}
-                    onChange={(event) => updateDraft(agent.target, event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") void send(agent.target);
-                    }}
-                    aria-label={t("agentMessageInput", { target: agent.target })}
-                    className="h-8 min-w-0 flex-1 rounded-md border border-default bg-[var(--bg-card)] px-2 text-[12px] text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
-                    placeholder={t("agentMessagePlaceholder")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void send(agent.target)}
-                    disabled={busy || draft.trim().length === 0}
-                    className="icon-touch rounded-md border border-default bg-[var(--bg-card)] text-secondary hover:text-primary hover:border-[var(--accent-border)] transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-                    aria-label={t("agentSendTo", { target: agent.target })}
-                    title={t("agentSendTo", { target: agent.target })}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </article>
-          );
-        })}
-      </div>
-    </section>
+      )}
+      {agent.actions?.includes("send") && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void send();
+            }}
+            aria-label={t("agentMessageInput", { target: agent.target })}
+            className="h-8 min-w-0 flex-1 rounded-md border border-default bg-[var(--bg-elevated)] px-2 text-[12px] text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
+            placeholder={t("agentMessagePlaceholder")}
+          />
+          <button
+            type="button"
+            onClick={() => void send()}
+            disabled={busy || draft.trim().length === 0}
+            className="icon-touch rounded-md border border-default bg-[var(--bg-elevated)] text-secondary hover:text-primary hover:border-[var(--accent-border)] transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+            aria-label={t("agentSendTo", { target: agent.target })}
+            title={t("agentSendTo", { target: agent.target })}
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -354,6 +312,9 @@ const SlotCard = memo(function SlotCard({
   onSyncTarget,
   onToggleWindowEnabled,
   onEditTarget,
+  agentByTarget,
+  onSendAgentMessage,
+  onMarkAgentRead,
   busy,
   openerId,
   tmuxRuntimeUnavailable,
@@ -367,6 +328,9 @@ const SlotCard = memo(function SlotCard({
   onSyncTarget: (target: string) => void;
   onToggleWindowEnabled: (target: string, enabled: boolean) => void;
   onEditTarget?: (target: WorkspaceEditTarget) => void;
+  agentByTarget: Map<string, WorkspaceAgentStatus>;
+  onSendAgentMessage: (target: string, message: string) => Promise<void>;
+  onMarkAgentRead: (target: string) => Promise<void>;
   busy: boolean;
   openerId: string;
   tmuxRuntimeUnavailable: boolean;
@@ -441,6 +405,7 @@ const SlotCard = memo(function SlotCard({
               const paneTarget = hasMultipleTerminalPanes ? `${slot.name}:${window.name}` : slotTarget;
               const paneEnabled = window.enabled !== false;
               const paneNeedsAction = isActionableWindowSync(window, slot) || (!hasMultipleTerminalPanes && primaryWindowNeedsAction);
+              const agentStatus = agentByTarget.get(paneTarget);
               return (
                 <div
                   key={window.name || paneIndex}
@@ -521,6 +486,12 @@ const SlotCard = memo(function SlotCard({
                         )}
                       </div>
                     </div>
+                    <AgentRuntimeDetails
+                      agent={agentStatus}
+                      busy={busy}
+                      onSend={onSendAgentMessage}
+                      onMarkRead={onMarkAgentRead}
+                    />
                   </div>
                 </div>
               );
@@ -594,73 +565,82 @@ const SlotCard = memo(function SlotCard({
                   const windowTarget = `${slot.name}:${w.name}`;
                   const windowEnabled = w.enabled !== false;
                   const windowNeedsAction = isActionableWindowSync(w, slot);
+                  const agentStatus = agentByTarget.get(windowTarget);
                   return (
                     <div
                       key={w.name}
-                      className={`flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-2.5 py-1.5 ${
+                      className={`flex flex-col gap-2 px-2.5 py-1.5 ${
                         windowNeedsAction ? "bg-[var(--warning-bg)]/45 ring-1 ring-inset ring-[var(--warning)]/25" : ""
                       } ${windowEnabled ? "" : "opacity-70"}`}
                     >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <AgentMark agent={w.agent} compact />
-                          <span className="text-[12px] font-semibold text-primary truncate">{w.name}</span>
-                          {!windowEnabled && (
-                            <span className="rounded border border-default bg-[var(--bg-hover)] px-1 py-0.5 text-[9px] font-semibold uppercase text-tertiary">
-                              {t("disabled")}
-                            </span>
-                          )}
-                          <SyncBadge status={w.sync_status} slotStatus={slot.status} />
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <AgentMark agent={w.agent} compact />
+                            <span className="text-[12px] font-semibold text-primary truncate">{w.name}</span>
+                            {!windowEnabled && (
+                              <span className="rounded border border-default bg-[var(--bg-hover)] px-1 py-0.5 text-[9px] font-semibold uppercase text-tertiary">
+                                {t("disabled")}
+                              </span>
+                            )}
+                            <SyncBadge status={w.sync_status} slotStatus={slot.status} />
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-tertiary truncate" title={w.session_id || w.command}>
+                            {windowSummary(t, w)}
+                          </p>
                         </div>
-                        <p className="mt-0.5 text-[11px] text-tertiary truncate" title={w.session_id || w.command}>
-                          {windowSummary(t, w)}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-end gap-1 shrink-0">
-                        {windowNeedsAction && windowEnabled && (
+                        <div className="flex items-center justify-end gap-1 shrink-0">
+                          {windowNeedsAction && windowEnabled && (
+                            <button
+                              type="button"
+                              onClick={() => onSyncTarget(windowTarget)}
+                              disabled={busy || slotRuntimeUnavailable}
+                              className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
+                              title={t("syncItem")}
+                              aria-label={t("syncItem")}
+                            >
+                              {t("sync")}
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => onSyncTarget(windowTarget)}
-                            disabled={busy || slotRuntimeUnavailable}
-                            className="control-touch px-2 rounded-md text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] hover:border-[var(--warning)]/30 border border-transparent transition-colors disabled:opacity-50"
-                            title={t("syncItem")}
-                            aria-label={t("syncItem")}
-                          >
-                            {t("sync")}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onToggleWindowEnabled(windowTarget, !windowEnabled)}
-                          disabled={busy}
-                          className={paneActionClassName}
-                          aria-label={windowEnabled ? t("disableWindowNamed", { name: windowTarget }) : t("enableWindowNamed", { name: windowTarget })}
-                          title={windowEnabled ? t("disableWindowNamed", { name: windowTarget }) : t("enableWindowNamed", { name: windowTarget })}
-                        >
-                          <Eye className={`w-3.5 h-3.5 ${windowEnabled ? "" : "text-[var(--accent)]"}`} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
-                          disabled={busy || slotRuntimeUnavailable || !windowEnabled}
-                          className={paneActionClassName}
-                          aria-label={`${primaryActionLabel} ${windowTarget}`}
-                          title={!windowEnabled ? t("disabledWindowNotOpened") : slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${primaryActionLabel} ${windowTarget}`}
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </button>
-                        {onEditTarget && (
-                          <button
-                            type="button"
-                            onClick={() => onEditTarget({ slotName: slot.name, windowName: w.name })}
+                            onClick={() => onToggleWindowEnabled(windowTarget, !windowEnabled)}
+                            disabled={busy}
                             className={paneActionClassName}
-                            aria-label={t("editWindowNamed", { name: windowTarget })}
-                            title={t("editWindowNamed", { name: windowTarget })}
+                            aria-label={windowEnabled ? t("disableWindowNamed", { name: windowTarget }) : t("enableWindowNamed", { name: windowTarget })}
+                            title={windowEnabled ? t("disableWindowNamed", { name: windowTarget }) : t("enableWindowNamed", { name: windowTarget })}
                           >
-                            <PencilLine className="w-3.5 h-3.5" />
+                            <Eye className={`w-3.5 h-3.5 ${windowEnabled ? "" : "text-[var(--accent)]"}`} />
                           </button>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => onRunAction("open", windowTarget, openerId, "attach_target")}
+                            disabled={busy || slotRuntimeUnavailable || !windowEnabled}
+                            className={paneActionClassName}
+                            aria-label={`${primaryActionLabel} ${windowTarget}`}
+                            title={!windowEnabled ? t("disabledWindowNotOpened") : slotRuntimeUnavailable ? t("tmuxRuntimeUnavailable") : `${primaryActionLabel} ${windowTarget}`}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
+                          {onEditTarget && (
+                            <button
+                              type="button"
+                              onClick={() => onEditTarget({ slotName: slot.name, windowName: w.name })}
+                              className={paneActionClassName}
+                              aria-label={t("editWindowNamed", { name: windowTarget })}
+                              title={t("editWindowNamed", { name: windowTarget })}
+                            >
+                              <PencilLine className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
+                      <AgentRuntimeDetails
+                        agent={agentStatus}
+                        busy={busy}
+                        onSend={onSendAgentMessage}
+                        onMarkRead={onMarkAgentRead}
+                      />
                     </div>
                   );
                 })}
@@ -1021,6 +1001,7 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     });
   };
   const agents = agentStatusItems(data);
+  const agentByTarget = new Map(agents.map((agent) => [agent.target, agent] as const));
   const tabGroups = workspaceTabGroups(data.slots);
 
   const runProjectOpen = () => {
@@ -1160,13 +1141,6 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
         )}
       </PageSummaryCard>
 
-      <AgentStatusCenter
-        agents={agents}
-        busy={actionMutation.isPending}
-        onSend={sendAgentMessage}
-        onMarkRead={markAgentInboxRead}
-      />
-
       {/* Slot cards */}
       <div ref={slotsSectionRef} className="flex items-center justify-between gap-2 px-0.5 pt-1 scroll-mt-24">
         <div className="flex items-center gap-2 min-w-0">
@@ -1228,6 +1202,9 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 onRunAction={runAction}
                 onToggleWindowEnabled={toggleWindowEnabled}
                 onEditTarget={onEditTarget}
+                agentByTarget={agentByTarget}
+                onSendAgentMessage={sendAgentMessage}
+                onMarkAgentRead={markAgentInboxRead}
                 busy={actionMutation.isPending || windowEnabledMutation.isPending}
                 openerId={selectedOpener.id}
                 onSyncTarget={requestSync}
@@ -1276,6 +1253,9 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                     onRunAction={runAction}
                     onToggleWindowEnabled={toggleWindowEnabled}
                     onEditTarget={onEditTarget}
+                    agentByTarget={agentByTarget}
+                    onSendAgentMessage={sendAgentMessage}
+                    onMarkAgentRead={markAgentInboxRead}
                     busy={actionMutation.isPending || windowEnabledMutation.isPending}
                     openerId={selectedOpener.id}
                     onSyncTarget={requestSync}
