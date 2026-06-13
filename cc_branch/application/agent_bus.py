@@ -33,7 +33,7 @@ class AgentBusStore:
         status: str = "sent",
         now: Clock = _utc_now,
     ) -> dict[str, object]:
-        event = {
+        event: dict[str, object] = {
             "id": uuid.uuid4().hex,
             "timestamp": now(),
             "type": "message.sent",
@@ -59,7 +59,7 @@ class AgentBusStore:
         if event_id is not None:
             unread = [event for event in unread if event.get("id") == event_id]
         read_ids = [str(event.get("id")) for event in unread if event.get("id")]
-        event = {
+        event: dict[str, object] = {
             "id": uuid.uuid4().hex,
             "timestamp": now(),
             "type": "message.read",
@@ -99,7 +99,10 @@ class AgentBusStore:
         for event in self.events(target=target):
             if event.get("type") != "message.read":
                 continue
-            for event_id in event.get("event_ids") or []:
+            event_ids = event.get("event_ids")
+            if not isinstance(event_ids, list):
+                continue
+            for event_id in event_ids:
                 if event_id:
                     read_ids.add(str(event_id))
         return read_ids

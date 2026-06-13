@@ -91,14 +91,21 @@ def send_agent_message(
 
     get_backend().send_keys(f"{slot.tmux_session}:{window.name}", normalized_message)
     store = bus_store or AgentBusStore()
-    event_kwargs = {"now": now} if now is not None else {}
-    store.record_message_sent(
-        target=f"{slot.name}:{window.name}",
-        message=normalized_message,
-        sender=sender,
-        delivery="tmux",
-        **event_kwargs,
-    )
+    if now is None:
+        store.record_message_sent(
+            target=f"{slot.name}:{window.name}",
+            message=normalized_message,
+            sender=sender,
+            delivery="tmux",
+        )
+    else:
+        store.record_message_sent(
+            target=f"{slot.name}:{window.name}",
+            message=normalized_message,
+            sender=sender,
+            delivery="tmux",
+            now=now,
+        )
     return ActionResult(
         ok=True,
         code="message_sent",

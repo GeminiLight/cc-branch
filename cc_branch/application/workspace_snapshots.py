@@ -7,7 +7,7 @@ import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, cast
 
 from ..app_state.paths import app_data_dir
 from ..models import WorkspaceConfig, WorkspacePlan, WorkspaceState
@@ -32,7 +32,7 @@ class WorkspaceSnapshotStore:
         self.path = path or app_data_dir() / "snapshots.json"
 
     def list(self) -> list[dict[str, object]]:
-        return list(self._data().get("snapshots", []))
+        return list(cast(list[dict[str, object]], self._data()["snapshots"]))
 
     def get(self, snapshot_id: str) -> dict[str, object]:
         for snapshot in self.list():
@@ -41,8 +41,7 @@ class WorkspaceSnapshotStore:
         raise ValueError(f"Snapshot not found: {snapshot_id}")
 
     def save(self, snapshot: dict[str, object]) -> dict[str, object]:
-        data = self._data()
-        snapshots = [item for item in data.get("snapshots", []) if item.get("id") != snapshot.get("id")]
+        snapshots = [item for item in self.list() if item.get("id") != snapshot.get("id")]
         snapshots.append(snapshot)
         snapshots.sort(key=lambda item: str(item.get("created_at") or ""))
         self._write({"version": 1, "snapshots": snapshots})
@@ -60,7 +59,10 @@ class WorkspaceSnapshotStore:
         snapshots = raw.get("snapshots")
         if not isinstance(snapshots, list):
             snapshots = []
-        return {"version": int(raw.get("version") or 1), "snapshots": [item for item in snapshots if isinstance(item, dict)]}
+        return {
+            "version": int(raw.get("version") or 1),
+            "snapshots": [cast(dict[str, object], item) for item in snapshots if isinstance(item, dict)],
+        }
 
     def _write(self, data: dict[str, object]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

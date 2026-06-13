@@ -256,14 +256,13 @@ def build_workspace_status(
             if window.agent:
                 remote = window.remote
                 target = f"{slot.name}:{window.name}"
+                agent_spec = workspace.agents.get(window.agent)
                 agents.append(
                     {
                         "target": target,
                         "name": window.resolved_label or window.agent or window.name,
                         "agent": window.agent,
-                        "cli": workspace.agents.get(window.agent).command
-                        if window.agent in workspace.agents
-                        else window.command_binary,
+                        "cli": agent_spec.command if agent_spec else window.command_binary,
                         "command": window.launch_command,
                         "location": "ssh" if remote else "local",
                         "remote": _remote_payload(remote),

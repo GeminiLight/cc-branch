@@ -321,7 +321,8 @@ def _probe_remote(command: tuple[RemoteConfig, tuple[str, ...]], *, timeout: int
             "commands": {},
             "error": result.stderr.strip() or result.stdout.strip() or "SSH remote check failed",
         }
-    payload = {"cwd": None, "tmux": None, "commands": {}, "error": None}
+    commands: dict[str, bool] = {}
+    payload: dict[str, object] = {"cwd": None, "tmux": None, "commands": commands, "error": None}
     for raw_line in result.stdout.splitlines():
         line = raw_line.strip()
         if line == "cwd=ok":
@@ -334,7 +335,7 @@ def _probe_remote(command: tuple[RemoteConfig, tuple[str, ...]], *, timeout: int
             payload["tmux"] = False
         elif line.startswith("cmd:") and "=" in line:
             name, value = line[4:].rsplit("=", 1)
-            payload["commands"][name] = value == "ok"
+            commands[name] = value == "ok"
     return payload
 
 

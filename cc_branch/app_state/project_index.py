@@ -8,7 +8,7 @@ import secrets
 import shutil
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from ..models.config import RemoteConfig
 from .paths import projects_index_path
@@ -441,20 +441,26 @@ def _preflight_remote_project(
     *,
     remote_probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict] | None,
 ) -> dict[str, object]:
+    probe: Callable[[tuple[RemoteConfig, tuple[str, ...]]], dict]
     if remote_probe is None:
-        from ..doctor.checks import _probe_remote as remote_probe
+        from ..doctor.checks import _probe_remote
+
+        probe = _probe_remote
+    else:
+        probe = remote_probe
 
     remote_config = RemoteConfig.from_dict(remote)
     if remote_config is None:
         raise ValueError("remote target is required")
-    result = remote_probe((remote_config, ("codex",)))
+    result = probe((remote_config, ("codex",)))
     if result.get("error"):
         raise ValueError(f"Cannot inspect SSH target {remote_config.target()}: {result['error']}")
     if result.get("cwd") is False:
         raise ValueError(f"Remote working directory does not exist: {remote.get('cwd')}")
     if result.get("tmux") is False:
         raise ValueError(f"tmux is missing on SSH target {remote_config.target()}")
-    commands = result.get("commands") if isinstance(result.get("commands"), dict) else {}
+    raw_commands = result.get("commands")
+    commands = cast(dict[str, object], raw_commands) if isinstance(raw_commands, dict) else {}
     missing_commands = [name for name, ok in sorted(commands.items()) if ok is False]
     if missing_commands:
         raise ValueError(f"Remote command not found on {remote_config.target()}: {', '.join(missing_commands)}")

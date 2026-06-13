@@ -10,7 +10,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable, Iterable, cast
 
 from ..app_state.paths import app_data_dir
 from ..config import load_workspace
@@ -33,7 +33,7 @@ class AgentWorktreeStore:
         self.path = path or app_data_dir() / "agent-worktrees.json"
 
     def records(self) -> list[dict[str, object]]:
-        return list(self._data().get("worktrees", []))
+        return list(cast(list[dict[str, object]], self._data()["worktrees"]))
 
     def find(self, target: str) -> dict[str, object] | None:
         for record in self.records():
@@ -68,7 +68,10 @@ class AgentWorktreeStore:
         records = raw.get("worktrees")
         if not isinstance(records, list):
             records = []
-        return {"version": int(raw.get("version") or 1), "worktrees": [item for item in records if isinstance(item, dict)]}
+        return {
+            "version": int(raw.get("version") or 1),
+            "worktrees": [cast(dict[str, object], item) for item in records if isinstance(item, dict)],
+        }
 
     def _write(self, data: dict[str, object]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -316,7 +319,9 @@ def _run(command: list[str]) -> dict[str, object]:
 
 
 def _ensure_success(result: dict[str, object]) -> None:
-    if int(result.get("returncode") or 0) != 0:
+    raw_returncode = result.get("returncode")
+    returncode = raw_returncode if isinstance(raw_returncode, int) else int(str(raw_returncode or 0))
+    if returncode != 0:
         stderr = str(result.get("stderr") or "").strip()
         raise ValueError(stderr or "Command failed")
 
