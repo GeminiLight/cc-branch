@@ -15,6 +15,7 @@ from ..runtime.capabilities import is_external_process_runtime, is_managed_runti
 from ..runtime.sync import build_runtime_sync_report
 from ..state import load_state
 from .agent_bus import AgentBusStore
+from .agent_worktrees import AgentWorktreeStore, CommandRunner, worktree_status_for_agents
 from .results import ActionResult
 from .runtime_environment import runtime_availability
 
@@ -179,11 +180,17 @@ def build_workspace_status(
     session_exists: SessionExists | None = None,
     window_exists: WindowExists | None = None,
     bus_store: AgentBusStore | None = None,
+    worktree_store: AgentWorktreeStore | None = None,
+    worktree_runner: CommandRunner | None = None,
 ) -> dict:
     """Return the shared status payload used by presentation surfaces."""
     session_exists = session_exists or _default_session_exists
     window_exists = window_exists or _default_window_exists
     bus_store = bus_store or AgentBusStore()
+    worktree_by_target = {
+        str(item.get("target")): item
+        for item in worktree_status_for_agents(store=worktree_store, runner=worktree_runner)
+    }
     sync_report = build_runtime_sync_report(workspace, plan, state) if state is not None else None
     sync_slots = {slot.name: slot for slot in sync_report.slots} if sync_report else {}
 
@@ -273,6 +280,7 @@ def build_workspace_status(
                             state_entry.session_transcript_path if state_entry else None
                         ),
                         "inbox": _agent_inbox_summary(bus_store, target),
+                        "worktree": worktree_by_target.get(target),
                         "actions": _agent_actions(slot.runtime, window_status),
                     }
                 )

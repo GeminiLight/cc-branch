@@ -2,11 +2,13 @@ import { useState, useCallback, useRef, memo, useEffect } from "react";
 import {
   Activity,
   AlertTriangle,
+  Camera,
   CheckCheck,
   CheckCircle2,
   ChevronDown,
   Eye,
   FolderGit2,
+  GitBranch,
   Monitor,
   OctagonAlert,
   PencilLine,
@@ -239,6 +241,19 @@ function AgentStatusCenter({
                 <p className="mt-2 truncate text-[11px] text-secondary" title={agent.activity.summary}>
                   {agent.activity.summary}
                 </p>
+              )}
+              {agent.worktree && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-default bg-[var(--bg-card)] px-2 py-1 text-[11px]">
+                  <GitBranch className="h-3 w-3 shrink-0 text-tertiary" />
+                  <span className="min-w-0 flex-1 truncate text-secondary" title={agent.worktree.path}>
+                    {agent.worktree.branch || agent.worktree.path}
+                  </span>
+                  <span className={agent.worktree.dirty ? "shrink-0 font-semibold text-[var(--warning)]" : "shrink-0 text-tertiary"}>
+                    {agent.worktree.dirty
+                      ? t("agentWorktreeChanged", { count: agent.worktree.changed_files || 0 })
+                      : t("agentWorktreeClean")}
+                  </span>
+                </div>
               )}
               {(agent.inbox?.unread || agent.inbox?.last_message) && (
                 <div className="mt-2 flex items-center gap-2 rounded-md bg-[var(--accent-bg)] px-2 py-1">
@@ -813,6 +828,20 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
     }
   }, [api, projectPath, configPath, toast, refetch, t]);
 
+  const captureSnapshot = useCallback(async () => {
+    if (!projectPath) return;
+    try {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const name = `${data?.project || data?.project_name || "workspace"}-${stamp}`;
+      const snapshot = await api.createSnapshot({ projectPath, ...(configPath ? { configPath } : {}) }, name);
+      const notice = t("snapshotCaptured", { name: snapshot.name || name });
+      toast.success(notice);
+      setLastActionMessage(notice);
+    } catch (e: unknown) {
+      toast.error(String(e));
+    }
+  }, [api, projectPath, configPath, data?.project, data?.project_name, toast, t]);
+
   const toggleWindowEnabled = useCallback(async (target: string, enabled: boolean) => {
     if (!projectPath) return;
     try {
@@ -1072,6 +1101,16 @@ export default function Dashboard({ projectPath, configPath, isActive = true, on
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>{t("refreshStatus")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void captureSnapshot()}
+                  className="control-touch w-full sm:w-auto px-2.5 rounded-md text-[12px] font-semibold text-secondary hover:text-primary surface-card border border-default hover:border-[var(--border-strong)] transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  title={t("captureSnapshot")}
+                  aria-label={t("captureSnapshot")}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{t("captureSnapshot")}</span>
                 </button>
               </div>
               <div className="inline-flex min-w-0 w-full sm:w-auto rounded-md">

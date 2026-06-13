@@ -501,6 +501,71 @@ describe("HTTPClient workspace scope", () => {
     );
   });
 
+  it("loads snapshots and manages agent worktrees", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ snapshots: [{ id: "snap-1", name: "before-change" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ id: "snap-2", name: "after-change" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ success: true, snapshot_id: "snap-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ worktrees: [{ target: "dev:planner", branch: "cc-branch/dev-planner" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ target: "dev:planner", branch: "cc-branch/dev-planner" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ target: "dev:planner", status: "finished" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ target: "dev:planner" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new HTTPClient();
+    await client.getSnapshots({ projectPath: "/tmp/demo" });
+    await client.createSnapshot({ projectPath: "/tmp/demo" }, "after-change");
+    await client.restoreSnapshot({ projectPath: "/tmp/demo" }, "snap-1");
+    await client.getWorktrees({ projectPath: "/tmp/demo" });
+    await client.setupWorktree({ projectPath: "/tmp/demo" }, { target: "dev:planner", branch: "cc-branch/dev-planner" });
+    await client.finishWorktree({ projectPath: "/tmp/demo" }, "dev:planner");
+    await client.cleanupWorktree({ projectPath: "/tmp/demo" }, "dev:planner");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/snapshots?project_path=%2Ftmp%2Fdemo", { signal: undefined });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/snapshots/create?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ name: "after-change" }),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/snapshots/restore?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ id: "snap-1" }),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/worktrees?project_path=%2Ftmp%2Fdemo", { signal: undefined });
+    expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/worktrees/setup?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ target: "dev:planner", branch: "cc-branch/dev-planner" }),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/worktrees/finish?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ target: "dev:planner" }),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(7, "/api/worktrees/cleanup?project_path=%2Ftmp%2Fdemo", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ target: "dev:planner" }),
+    }));
+  });
+
   it("saves global agents settings", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

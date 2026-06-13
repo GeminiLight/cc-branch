@@ -1408,6 +1408,115 @@ tabs:
         finally:
             self._stop_test_server(server)
 
+    def test_api_snapshots_create_list_and_restore_state(self):
+        from unittest.mock import patch
+
+        state = {
+            "version": 1,
+            "windows": {
+                "dev.coder": {
+                    "session_id": "snapshot-session",
+                    "agent": "claude",
+                    "slot": "dev",
+                    "window": "coder",
+                }
+            },
+        }
+        self.state_path.write_text(json.dumps(state), encoding="utf-8")
+        home_dir = self.cwd / "home-snapshots"
+
+        server, port = self._start_test_server()
+        try:
+            with patch("cc_branch.app_state.paths.Path.home", return_value=home_dir):
+                create = Request(
+                    f"http://127.0.0.1:{port}/api/snapshots/create",
+                    data=json.dumps({"name": "before-change"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(create, timeout=HTTP_TIMEOUT) as response:
+                    created = json.loads(response.read().decode())
+
+                self.state_path.write_text("version: 1\nwindows: {}\n", encoding="utf-8")
+                restore = Request(
+                    f"http://127.0.0.1:{port}/api/snapshots/restore",
+                    data=json.dumps({"id": created["id"]}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(restore, timeout=HTTP_TIMEOUT) as response:
+                    restored = json.loads(response.read().decode())
+                with urlopen(f"http://127.0.0.1:{port}/api/snapshots", timeout=HTTP_TIMEOUT) as response:
+                    listed = json.loads(response.read().decode())
+
+            self.assertEqual(created["name"], "before-change")
+            self.assertEqual(restored["snapshot_id"], created["id"])
+            self.assertEqual(listed["snapshots"][0]["name"], "before-change")
+            self.assertIn("snapshot-session", self.state_path.read_text(encoding="utf-8"))
+        finally:
+            self._stop_test_server(server)
+
+    def test_api_worktrees_setup_status_and_cleanup(self):
+        from unittest.mock import patch
+
+        home_dir = self.cwd / "home-worktrees"
+        (self.cwd / ".env").write_text("TOKEN=secret\n", encoding="utf-8")
+        calls: list[list[str]] = []
+
+        def runner(command):
+            calls.append(list(command))
+            if command[-2:] == ["--abbrev-ref", "HEAD"]:
+                return {"returncode": 0, "stdout": "cc-branch/dev-coder\n", "stderr": ""}
+            if command[-1:] == ["--porcelain"]:
+                return {"returncode": 0, "stdout": " M app.py\n", "stderr": ""}
+            return {"returncode": 0, "stdout": "", "stderr": ""}
+
+        server, port = self._start_test_server()
+        try:
+            with (
+                patch("cc_branch.app_state.paths.Path.home", return_value=home_dir),
+                patch("cc_branch.webui.server.api._worktree_runner", side_effect=runner),
+            ):
+                setup = Request(
+                    f"http://127.0.0.1:{port}/api/worktrees/setup",
+                    data=json.dumps({
+                        "target": "dev:coder",
+                        "path": str(self.cwd / "../coder-worktree"),
+                        "branch": "cc-branch/dev-coder",
+                        "copy": [".env"],
+                    }).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(setup, timeout=HTTP_TIMEOUT) as response:
+                    created = json.loads(response.read().decode())
+                with urlopen(f"http://127.0.0.1:{port}/api/worktrees", timeout=HTTP_TIMEOUT) as response:
+                    statuses = json.loads(response.read().decode())
+                finish = Request(
+                    f"http://127.0.0.1:{port}/api/worktrees/finish",
+                    data=json.dumps({"target": "dev:coder"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(finish, timeout=HTTP_TIMEOUT) as response:
+                    finished = json.loads(response.read().decode())
+                cleanup = Request(
+                    f"http://127.0.0.1:{port}/api/worktrees/cleanup",
+                    data=json.dumps({"target": "dev:coder"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(cleanup, timeout=HTTP_TIMEOUT) as response:
+                    removed = json.loads(response.read().decode())
+
+            self.assertEqual(created["target"], "dev:coder")
+            self.assertEqual(statuses["worktrees"][0]["changed_files"], 1)
+            self.assertEqual(finished["status"], "finished")
+            self.assertEqual(removed["target"], "dev:coder")
+            self.assertIn(["git", "-C", str(self.cwd.resolve()), "worktree", "remove", str((self.cwd / "../coder-worktree").resolve())], calls)
+        finally:
+            self._stop_test_server(server)
+
     def test_api_session_restore_binds_local_transcript_session(self):
         from unittest.mock import patch
 

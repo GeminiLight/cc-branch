@@ -9,6 +9,7 @@ import { ToastProvider } from './ui/Toast'
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
   markAgentInboxRead: vi.fn(),
+  createSnapshot: vi.fn(),
   windowEnabledMutateAsync: vi.fn(),
   saveConfigMutateAsync: vi.fn(),
   refetch: vi.fn(),
@@ -108,6 +109,7 @@ vi.mock('../hooks', () => ({
   useApiClient: () => ({
     getConfig: vi.fn(),
     markAgentInboxRead: mocks.markAgentInboxRead,
+    createSnapshot: mocks.createSnapshot,
   }),
   useProfiles: () => ({
     data: [],
@@ -195,6 +197,8 @@ describe('Dashboard actions', () => {
     mocks.mutateAsync.mockResolvedValue({ success: true, message: 'ok' })
     mocks.markAgentInboxRead.mockReset()
     mocks.markAgentInboxRead.mockResolvedValue({ success: true, message: 'Marked 2 message(s) as read' })
+    mocks.createSnapshot.mockReset()
+    mocks.createSnapshot.mockResolvedValue({ id: 'snap-1', name: 'demo snapshot' })
     mocks.windowEnabledMutateAsync.mockReset()
     mocks.windowEnabledMutateAsync.mockResolvedValue({ success: true, message: 'ok' })
     mocks.saveConfigMutateAsync.mockReset()
@@ -621,6 +625,14 @@ describe('Dashboard actions', () => {
         status: 'busy',
         activity: { summary: 'review complete', source: 'transcript' },
         inbox: { unread: 2, last_message: 'Please check planner.', updated_at: '2026-06-12T01:00:00Z' },
+        worktree: {
+          target: 'dev:reviewer',
+          path: '/tmp/demo-worktrees/reviewer',
+          branch: 'cc-branch/dev-reviewer',
+          dirty: true,
+          changed_files: 3,
+          status: 'active',
+        },
         actions: ['attach', 'send', 'restart', 'stop'],
       },
     ]
@@ -631,8 +643,16 @@ describe('Dashboard actions', () => {
     expect(screen.getByText('dev:reviewer')).toBeInTheDocument()
     expect(screen.getByText('ubuntu@gpu-dev')).toBeInTheDocument()
     expect(screen.getByText('review complete')).toBeInTheDocument()
+    expect(screen.getByText('cc-branch/dev-reviewer')).toBeInTheDocument()
+    expect(screen.getByText('3 changed')).toBeInTheDocument()
     expect(screen.getByText('2 unread')).toBeInTheDocument()
     expect(screen.getByText('Please check planner.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture snapshot' }))
+
+    await waitFor(() => {
+      expect(mocks.createSnapshot).toHaveBeenCalledWith({ projectPath: '/tmp/demo' }, expect.stringContaining('demo'))
+    })
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark dev:reviewer inbox read' }))
 

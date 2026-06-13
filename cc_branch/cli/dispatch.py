@@ -10,7 +10,9 @@ from .commands.serve import run_serve
 from .commands.send import run_send
 from .commands.service import run_service
 from .commands.sessions import run_session
+from .commands.snapshots import run_snapshot
 from .commands.sync import run_sync
+from .commands.worktrees import run_worktree
 from .commands.workspace import (
     run_attach,
     run_dashboard,
@@ -109,6 +111,10 @@ def main_impl(argv: list[str] | None = None) -> int:
         return run_dashboard(ctx, workspace, plan, state)
     if args.command == "session":
         return run_session(ctx, args, workspace, plan, state, parser)
+    if args.command == "snapshot":
+        return run_snapshot(ctx, args, workspace, plan, state, parser)
+    if args.command == "worktree":
+        return run_worktree(ctx, args, workspace, plan, state, parser)
 
     parser.error(f"unsupported command: {args.command}")
     return 2

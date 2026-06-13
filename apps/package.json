@@ -1,7 +1,7 @@
 {
   "name": "@cc-branch/apps",
   "private": true,
-  "version": "1.1.5",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "cd web && npm run dev",

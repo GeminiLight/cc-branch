@@ -67,6 +67,8 @@ This is important for desktop wrappers or multi-project frontends.
 | `GET` | `/api/agents` | Return effective agent profiles from built-in, user, workspace, and project layers |
 | `GET` | `/api/agents/global` | Return editable user-level agent overrides from `~/.cc-branch/agents.yaml` |
 | `GET` | `/api/agent-bus` | Return local Agent Bus events plus unread inbox entries, optionally filtered by target |
+| `GET` | `/api/snapshots` | Return local workspace snapshots |
+| `GET` | `/api/worktrees` | Return registered agent worktrees with branch and diff state |
 | `GET` | `/api/info` | Return backend info |
 | `GET` | `/api/project/probe` | Probe whether a project path is missing, needs init, invalid, or ready |
 | `GET` | `/api/projects` | Return global project index from `~/.cc-branch/app/projects.yaml` |
@@ -80,6 +82,11 @@ This is important for desktop wrappers or multi-project frontends.
 | `POST` | `/api/agents/global` | Save user-level agent overrides |
 | `POST` | `/api/action` | Execute a supported workspace action |
 | `POST` | `/api/agent-bus/read` | Append a read receipt for unread Agent Bus messages |
+| `POST` | `/api/snapshots/create` | Capture the current workspace runtime state |
+| `POST` | `/api/snapshots/restore` | Restore saved workspace state from a snapshot |
+| `POST` | `/api/worktrees/setup` | Create an optional git worktree for one agent target |
+| `POST` | `/api/worktrees/finish` | Mark an agent worktree as finished for review/merge |
+| `POST` | `/api/worktrees/cleanup` | Remove an agent worktree and registry entry |
 | `POST` | `/api/session/restore` | Scan local agent transcripts and bind matching sessions back to workspace state |
 | `POST` | `/api/projects/add` | Add or upsert a project in the global project index |
 | `POST` | `/api/projects/remove` | Remove a project from the global project index |

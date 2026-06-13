@@ -101,6 +101,8 @@ cc-branch start
 | `cc-branch session list` | 列出已知 agent session metadata |
 | `cc-branch session restore` | 扫描本地 Agent transcript，把可恢复 session 绑定回 pane |
 | `cc-branch session hook` | 让 agent-native hook 把 session id 和 transcript 路径写回本地 state |
+| `cc-branch snapshot create` | 保存当前 workspace 运行现场，之后可恢复 |
+| `cc-branch worktree setup <tab[:pane]>` | 为单个 Agent 创建可选 git worktree 和 branch |
 
 ## 配置示例
 

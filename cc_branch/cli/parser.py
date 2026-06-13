@@ -237,6 +237,8 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard_cmd.add_argument("--prepare", action="store_true", help="write missing generated state metadata before opening")
 
     _add_session_group(sub, "session", "manage saved agent session metadata")
+    _add_snapshot_group(sub)
+    _add_worktree_group(sub)
     help_cmd = sub.add_parser(
         "help",
         help="show concept guides",
@@ -247,6 +249,59 @@ def build_parser() -> argparse.ArgumentParser:
     help_cmd.add_argument("topic", nargs="?", choices=["targets"], help="guide topic")
 
     return parser
+
+
+def _add_snapshot_group(subparsers: argparse._SubParsersAction) -> None:
+    cmd = subparsers.add_parser(
+        "snapshot",
+        help="capture and restore workspace snapshots",
+        description="Capture and restore workspace snapshots",
+        add_help=False,
+    )
+    cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
+    nested = cmd.add_subparsers(dest="snapshot_command")
+    create_cmd = nested.add_parser("create", help="capture the current workspace", description="Capture the current workspace")
+    create_cmd.add_argument("--name", type=str, default=None, help="snapshot name")
+    create_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    list_cmd = nested.add_parser("list", help="list workspace snapshots", description="List workspace snapshots")
+    list_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    restore_cmd = nested.add_parser("restore", help="restore saved workspace state", description="Restore saved workspace state")
+    restore_cmd.add_argument("snapshot_id", help="snapshot id or name")
+    restore_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+
+
+def _add_worktree_group(subparsers: argparse._SubParsersAction) -> None:
+    cmd = subparsers.add_parser(
+        "worktree",
+        help="manage optional agent git worktrees",
+        description="Manage optional agent git worktrees",
+        add_help=False,
+    )
+    cmd.add_argument("-h", "--help", action="store_true", help="show this help message")
+    nested = cmd.add_subparsers(dest="worktree_command")
+    setup_cmd = nested.add_parser("setup", help="create an agent worktree", description="Create an agent worktree")
+    setup_cmd.add_argument("target", metavar="tab[:pane]", help="agent target such as dev:planner")
+    setup_cmd.add_argument("--path", type=str, default=None, help="worktree path")
+    setup_cmd.add_argument("--branch", type=str, default=None, help="branch name")
+    setup_cmd.add_argument("--base", type=str, default="HEAD", help="base ref")
+    setup_cmd.add_argument("--copy", action="append", default=[], help="copy a gitignored file or directory into the worktree")
+    setup_cmd.add_argument("--symlink", action="append", default=[], help="symlink a gitignored file or directory into the worktree")
+    setup_cmd.add_argument("--setup-hook", type=str, default=None, help="shell command to run after worktree creation")
+    setup_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    import_cmd = nested.add_parser("import", help="record an existing agent worktree", description="Record an existing agent worktree")
+    import_cmd.add_argument("target", metavar="tab[:pane]", help="agent target such as dev:planner")
+    import_cmd.add_argument("path", help="existing worktree path")
+    import_cmd.add_argument("--branch", type=str, default=None, help="branch name")
+    import_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    status_cmd = nested.add_parser("status", help="show agent worktree status", description="Show agent worktree status")
+    status_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    finish_cmd = nested.add_parser("finish", help="mark an agent worktree as finished", description="Mark an agent worktree as finished")
+    finish_cmd.add_argument("target", metavar="tab[:pane]", help="agent target such as dev:planner")
+    finish_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
+    cleanup_cmd = nested.add_parser("cleanup", help="remove an agent worktree", description="Remove an agent worktree")
+    cleanup_cmd.add_argument("target", metavar="tab[:pane]", help="agent target such as dev:planner")
+    cleanup_cmd.add_argument("--force", action="store_true", help="pass --force to git worktree remove")
+    cleanup_cmd.add_argument("--format", choices=["text", "json"], default=argparse.SUPPRESS, help="output format")
 
 
 def _add_session_group(

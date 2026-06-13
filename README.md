@@ -101,6 +101,8 @@ cc-branch start
 | `cc-branch session list` | List known agent session metadata |
 | `cc-branch session restore` | Scan local agent transcripts and bind resumable sessions back to panes |
 | `cc-branch session hook` | Let agent-native hooks write session IDs and transcript paths back to local state |
+| `cc-branch snapshot create` | Save the current workspace runtime state for later restore |
+| `cc-branch worktree setup <tab[:pane]>` | Create an optional git worktree and branch for one agent |
 
 ## Example Config
 

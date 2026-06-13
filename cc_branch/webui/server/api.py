@@ -36,6 +36,18 @@ from ...application.remote_directory import list_remote_directories
 from ...application.session_restore import restore_sessions_for_workspace
 from ...application.ssh_config import discover_ssh_hosts
 from ...application.system_paths import reveal_path
+from ...application.agent_worktrees import (
+    AgentWorktreeStore,
+    cleanup_agent_worktree,
+    finish_agent_worktree,
+    setup_agent_worktree_for_workspace,
+    worktree_status_for_agents,
+)
+from ...application.workspace_snapshots import (
+    WorkspaceSnapshotStore,
+    capture_snapshot_for_workspace,
+    restore_workspace_snapshot,
+)
 from ...application.workspace_actions import execute_workspace_action
 from ...application.workspace_status import get_workspace_status
 from ...config import (
@@ -49,6 +61,12 @@ from ...runtime.backends import get_backend
 from ...runtime.shells import default_shell_command
 from .directory_picker import pick_directory
 from .terminal import _slot_exists
+
+
+def _worktree_runner(command):
+    from ...application.agent_worktrees import _run
+
+    return _run(command)
 
 
 def api_status(handler) -> None:
@@ -272,6 +290,119 @@ def api_agent_bus_read(handler) -> None:
             "message": f"Marked {receipt['count']} message(s) as read",
             "receipt": receipt,
         })
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_snapshots(handler) -> None:
+    try:
+        handler._send_json({"snapshots": WorkspaceSnapshotStore().list()})
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_snapshots_create(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        config_path, state_path = handler._resolve_paths()
+        snapshot = capture_snapshot_for_workspace(
+            config_path=config_path,
+            state_path=state_path,
+            name=str(data.get("name") or "").strip() or None,
+        )
+        handler._send_json(snapshot)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_snapshots_restore(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        snapshot_id = str(data.get("id") or data.get("snapshot_id") or "").strip()
+        if not snapshot_id:
+            handler._send_json({"error": "Missing snapshot id"}, 400)
+            return
+        result = restore_workspace_snapshot(snapshot_id)
+        handler._send_json(result)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_worktrees(handler) -> None:
+    try:
+        handler._send_json({"worktrees": worktree_status_for_agents(runner=_worktree_runner)})
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_worktrees_setup(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        config_path, state_path = handler._resolve_paths()
+        record = setup_agent_worktree_for_workspace(
+            config_path,
+            state_path,
+            str(data.get("target") or ""),
+            path=Path(str(data["path"])) if data.get("path") else None,
+            branch=str(data.get("branch") or "").strip() or None,
+            base_ref=str(data.get("base") or "HEAD"),
+            copy_ignored=data.get("copy") or [],
+            symlink_ignored=data.get("symlink") or [],
+            setup_hook=str(data.get("setup_hook") or "").strip() or None,
+            runner=_worktree_runner,
+        )
+        handler._send_json(record)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_worktrees_cleanup(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        target = str(data.get("target") or "").strip()
+        if not target:
+            handler._send_json({"error": "Missing target"}, 400)
+            return
+        record = cleanup_agent_worktree(target, runner=_worktree_runner, force=bool(data.get("force")))
+        handler._send_json(record)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
+    except Exception as error:
+        handler._send_json({"error": str(error)}, 500)
+
+
+def api_worktrees_finish(handler) -> None:
+    if not handler._require_auth():
+        return
+
+    try:
+        data = _read_json_body(handler)
+        target = str(data.get("target") or "").strip()
+        if not target:
+            handler._send_json({"error": "Missing target"}, 400)
+            return
+        record = finish_agent_worktree(target, runner=_worktree_runner)
+        handler._send_json(record)
+    except ValueError as error:
+        handler._send_json({"error": str(error)}, 400)
     except Exception as error:
         handler._send_json({"error": str(error)}, 500)
 

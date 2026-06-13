@@ -125,6 +125,8 @@ class CLITests(unittest.TestCase):
                 "doctor",
                 "dashboard",
                 "session",
+                "snapshot",
+                "worktree",
                 "help",
             ],
         )
@@ -849,6 +851,133 @@ class CLITests(unittest.TestCase):
             self.assertIn("claude resume 11111111-1111-1111-1111-111111111111", normalized)
             self.assertNotIn("{11111111-1111-1111-1111-111111111111}", rendered)
             self.assertNotIn("{session_id}", rendered)
+
+    def test_snapshot_cli_creates_lists_and_restores_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace(root)
+            state_path = root / ".cc-branch/state.yaml"
+            state = load_state(state_path)
+            state.windows["dev.planner"] = WindowState(
+                session_id="snapshot-session",
+                agent="claude",
+                slot="dev",
+                window="planner",
+            )
+            save_state(state_path, state)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "create", "--name", "before-change", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            created = json.loads(stdout.getvalue())
+            self.assertEqual(created["name"], "before-change")
+            self.assertEqual(created["state"]["windows"]["dev.planner"]["session_id"], "snapshot-session")
+
+            state.windows["dev.planner"] = WindowState(session_id="mutated-session")
+            save_state(state_path, state)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "restore", created["id"], "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            restored = load_state(state_path)
+            self.assertEqual(restored.windows["dev.planner"].session_id, "snapshot-session")
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.application.workspace_snapshots.app_data_dir", return_value=root / ".cc-branch/app"),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["snapshot", "list", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            listed = json.loads(stdout.getvalue())
+            self.assertEqual(listed[0]["name"], "before-change")
+
+    def test_worktree_cli_sets_up_reports_and_cleans_agent_worktree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            root.mkdir()
+            self._write_workspace(root)
+            (root / ".env").write_text("TOKEN=secret\n", encoding="utf-8")
+            store_path = Path(tmp) / "agent-worktrees.json"
+            calls: list[list[str]] = []
+
+            def runner(command):
+                calls.append(list(command))
+                if command[-2:] == ["--abbrev-ref", "HEAD"]:
+                    return {"returncode": 0, "stdout": "cc-branch/dev-planner\n", "stderr": ""}
+                if command[-1:] == ["--porcelain"]:
+                    return {"returncode": 0, "stdout": " M app.py\n", "stderr": ""}
+                return {"returncode": 0, "stdout": "", "stderr": ""}
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.cli.commands.worktrees.AgentWorktreeStore") as Store,
+                patch("cc_branch.cli.commands.worktrees._runner", side_effect=runner),
+                redirect_stdout(stdout),
+            ):
+                Store.return_value = __import__("cc_branch.application.agent_worktrees", fromlist=["AgentWorktreeStore"]).AgentWorktreeStore(store_path)
+                exit_code = main([
+                    "worktree",
+                    "setup",
+                    "dev:planner",
+                    "--path",
+                    str(Path(tmp) / "planner-worktree"),
+                    "--branch",
+                    "cc-branch/dev-planner",
+                    "--copy",
+                    ".env",
+                    "--format",
+                    "json",
+                ])
+
+            self.assertEqual(exit_code, 0)
+            record = json.loads(stdout.getvalue())
+            self.assertEqual(record["target"], "dev:planner")
+            self.assertEqual((Path(record["path"]) / ".env").read_text(encoding="utf-8"), "TOKEN=secret\n")
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.cli.commands.worktrees.AgentWorktreeStore") as Store,
+                patch("cc_branch.cli.commands.worktrees._runner", side_effect=runner),
+                redirect_stdout(stdout),
+            ):
+                Store.return_value = __import__("cc_branch.application.agent_worktrees", fromlist=["AgentWorktreeStore"]).AgentWorktreeStore(store_path)
+                exit_code = main(["worktree", "status", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            status = json.loads(stdout.getvalue())
+            self.assertEqual(status[0]["changed_files"], 1)
+
+            stdout = StringIO()
+            with (
+                patch("cc_branch.cli.Path.cwd", return_value=root),
+                patch("cc_branch.cli.commands.worktrees.AgentWorktreeStore") as Store,
+                patch("cc_branch.cli.commands.worktrees._runner", side_effect=runner),
+                redirect_stdout(stdout),
+            ):
+                Store.return_value = __import__("cc_branch.application.agent_worktrees", fromlist=["AgentWorktreeStore"]).AgentWorktreeStore(store_path)
+                exit_code = main(["worktree", "cleanup", "dev:planner", "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            cleaned = json.loads(stdout.getvalue())
+            self.assertEqual(cleaned["target"], "dev:planner")
+            self.assertIn(["git", "-C", str(root.resolve()), "worktree", "remove", str((Path(tmp) / "planner-worktree").resolve())], calls)
 
     def test_help_targets_explains_public_target_syntax(self):
         stdout = StringIO()

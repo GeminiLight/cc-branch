@@ -30,6 +30,37 @@ from .terminal import _cli_command  # noqa: F401  # public patch point for actio
 
 _CLIENT_DISCONNECT_ERRORS = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
 
+_GET_API_ROUTES = {
+    "/api/status": api.api_status,
+    "/api/config": api.api_config,
+    "/api/configs": api.api_configs,
+    "/api/doctor": api.api_doctor,
+    "/api/diagnostics/bundle": api.api_diagnostics_bundle,
+    "/api/profiles": api.api_profiles,
+    "/api/openers": api.api_openers,
+    "/api/openers/global": api.api_global_openers,
+    "/api/agents": api.api_agents,
+    "/api/agents/global": api.api_global_agents,
+    "/api/agent-sessions": api.api_agent_sessions,
+    "/api/agent-bus": api.api_agent_bus,
+    "/api/snapshots": api.api_snapshots,
+    "/api/worktrees": api.api_worktrees,
+    "/api/info": api.api_info,
+    "/api/project/probe": api.api_project_probe,
+    "/api/projects": api.api_projects,
+}
+
+_POST_API_ROUTES = {
+    "/api/action": api.api_action,
+    "/api/session/restore": api.api_session_restore,
+    "/api/agent-bus/read": api.api_agent_bus_read,
+    "/api/snapshots/create": api.api_snapshots_create,
+    "/api/snapshots/restore": api.api_snapshots_restore,
+    "/api/worktrees/setup": api.api_worktrees_setup,
+    "/api/worktrees/finish": api.api_worktrees_finish,
+    "/api/worktrees/cleanup": api.api_worktrees_cleanup,
+}
+
 
 class WebUIHandler(BaseHTTPRequestHandler):
     """HTTP request handler for cc-branch Web UI."""
@@ -229,36 +260,8 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 self.send_error(403)
                 return
             self._serve_static(filename)
-        elif path == "/api/status" and self._require_auth():
-            api.api_status(self)
-        elif path == "/api/config" and self._require_auth():
-            api.api_config(self)
-        elif path == "/api/configs" and self._require_auth():
-            api.api_configs(self)
-        elif path == "/api/doctor" and self._require_auth():
-            api.api_doctor(self)
-        elif path == "/api/diagnostics/bundle" and self._require_auth():
-            api.api_diagnostics_bundle(self)
-        elif path == "/api/profiles" and self._require_auth():
-            api.api_profiles(self)
-        elif path == "/api/openers" and self._require_auth():
-            api.api_openers(self)
-        elif path == "/api/openers/global" and self._require_auth():
-            api.api_global_openers(self)
-        elif path == "/api/agents" and self._require_auth():
-            api.api_agents(self)
-        elif path == "/api/agents/global" and self._require_auth():
-            api.api_global_agents(self)
-        elif path == "/api/agent-sessions" and self._require_auth():
-            api.api_agent_sessions(self)
-        elif path == "/api/agent-bus" and self._require_auth():
-            api.api_agent_bus(self)
-        elif path == "/api/info" and self._require_auth():
-            api.api_info(self)
-        elif path == "/api/project/probe" and self._require_auth():
-            api.api_project_probe(self)
-        elif path == "/api/projects" and self._require_auth():
-            api.api_projects(self)
+        elif path in _GET_API_ROUTES and self._require_auth():
+            _GET_API_ROUTES[path](self)
         else:
             self.send_error(404)
 
@@ -283,14 +286,8 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.send_error(500)
 
     def _route_post(self, path: str) -> None:
-        if path == "/api/action":
-            if self._require_auth():
-                api.api_action(self)
-        elif path == "/api/session/restore":
-            if self._require_auth():
-                api.api_session_restore(self)
-        elif path == "/api/agent-bus/read" and self._require_auth():
-            api.api_agent_bus_read(self)
+        if path in _POST_API_ROUTES and self._require_auth():
+            _POST_API_ROUTES[path](self)
         elif path == "/api/init":
             if self._require_auth():
                 api.api_init(self)

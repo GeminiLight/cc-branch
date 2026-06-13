@@ -49,6 +49,15 @@ export interface WorkspaceAgentInbox {
   updated_at?: string | null;
 }
 
+export interface AgentWorktreeStatus {
+  target: string;
+  path: string;
+  branch?: string | null;
+  status?: string;
+  dirty?: boolean;
+  changed_files?: number;
+}
+
 export interface WorkspaceAgentRemote {
   host: string;
   user?: string | null;
@@ -76,6 +85,7 @@ export interface WorkspaceAgentStatus {
   status: "busy" | "idle" | "stopped" | "stale" | "error" | "external" | "disabled" | string;
   activity?: WorkspaceAgentActivity;
   inbox?: WorkspaceAgentInbox;
+  worktree?: AgentWorktreeStatus | null;
   actions?: string[];
 }
 
@@ -95,6 +105,34 @@ export interface AgentBusData {
   events: AgentBusEvent[];
   inbox: AgentBusEvent[];
   storage_path: string;
+}
+
+export interface WorkspaceSnapshot {
+  id: string;
+  name: string;
+  created_at?: string;
+  project?: string;
+  config_path?: string;
+  state_path?: string;
+  git?: Record<string, unknown>;
+}
+
+export interface WorkspaceSnapshotsData {
+  snapshots: WorkspaceSnapshot[];
+}
+
+export interface WorktreesData {
+  worktrees: AgentWorktreeStatus[];
+}
+
+export interface WorktreeSetupRequest {
+  target: string;
+  path?: string;
+  branch?: string;
+  base?: string;
+  copy?: string[];
+  symlink?: string[];
+  setup_hook?: string;
 }
 
 export interface SlotInfo {

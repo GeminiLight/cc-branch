@@ -19,7 +19,19 @@ from cc_branch.application.workspace_actions import (
 from cc_branch.application.agent_bus import AgentBusStore
 from cc_branch.application.agent_messages import send_agent_message
 from cc_branch.application.session_restore import restore_sessions_from_local_transcripts
+from cc_branch.application.workspace_snapshots import (
+    WorkspaceSnapshotStore,
+    capture_workspace_snapshot,
+    restore_workspace_snapshot,
+)
 from cc_branch.application.workspace_status import build_workspace_status, get_workspace_status
+from cc_branch.application.agent_worktrees import (
+    AgentWorktreeStore,
+    cleanup_agent_worktree,
+    finish_agent_worktree,
+    setup_agent_worktree,
+    worktree_status_for_agents,
+)
 from cc_branch.backends import get_backend, set_backend
 from cc_branch.config import load_workspace
 from cc_branch.models import AppliedWindowResult, WindowState, WorkspaceState
@@ -102,7 +114,9 @@ class RuntimeBoundaryTests(unittest.TestCase):
             "commands.serve",
             "commands.send",
             "commands.sessions",
+            "commands.snapshots",
             "commands.sync",
+            "commands.worktrees",
             "commands.workspace",
             "constants",
             "dispatch",
@@ -120,6 +134,247 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
         facade_path = Path(__file__).resolve().parents[1] / "cc_branch/cli/__init__.py"
         self.assertLess(len(facade_path.read_text(encoding="utf-8").splitlines()), 220)
+
+    def test_workspace_snapshot_capture_includes_runtime_agents_state_and_git(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  remote:
+                    host: gpu-dev
+                    user: ubuntu
+                    cwd: /srv/app
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            state = WorkspaceState()
+            state.set_window(
+                "dev.planner",
+                WindowState(
+                    session_id="session-1",
+                    agent="codex",
+                    slot="dev",
+                    window="planner",
+                    tmux_session="demo-dev",
+                    session_transcript_path=str(root / "transcript.jsonl"),
+                ),
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            store = WorkspaceSnapshotStore(root / ".cc-branch/app/snapshots.json")
+            previous_backend = get_backend()
+            set_backend(RecordingBackend({"demo-dev": {"planner"}}))
+            try:
+                snapshot = capture_workspace_snapshot(
+                    workspace,
+                    plan,
+                    state,
+                    config_path=root / ".cc-branch/config.yaml",
+                    state_path=root / ".cc-branch/state.yaml",
+                    store=store,
+                    name="before-review",
+                    now=lambda: "2026-06-13T01:00:00Z",
+                    git_probe=lambda _path: {
+                        "repo_root": str(root),
+                        "branch": "feature/demo",
+                        "commit": "abc123",
+                        "worktree": str(root),
+                        "dirty": True,
+                        "changed_files": 2,
+                    },
+                    session_exists=lambda _session: True,
+                    window_exists=lambda _session, _window: True,
+                )
+            finally:
+                set_backend(previous_backend)
+
+            self.assertEqual(snapshot["name"], "before-review")
+            self.assertEqual(snapshot["project"], "demo")
+            self.assertEqual(snapshot["config_path"], str(root / ".cc-branch/config.yaml"))
+            self.assertEqual(snapshot["state_path"], str(root / ".cc-branch/state.yaml"))
+            self.assertEqual(snapshot["git"]["branch"], "feature/demo")
+            self.assertEqual(snapshot["git"]["changed_files"], 2)
+            self.assertEqual(snapshot["state"]["windows"]["dev.planner"]["session_id"], "session-1")
+            self.assertEqual(snapshot["slots"][0]["status"], "running")
+            self.assertEqual(snapshot["agents"][0]["remote"]["target"], "ubuntu@gpu-dev")
+            self.assertEqual(snapshot["agents"][0]["session_id"], "session-1")
+            self.assertEqual(store.list()[0]["id"], snapshot["id"])
+
+    def test_workspace_snapshot_restore_writes_saved_session_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / ".cc-branch/state.yaml"
+            store = WorkspaceSnapshotStore(root / ".cc-branch/app/snapshots.json")
+            store.save({
+                "id": "snap-1",
+                "name": "known-good",
+                "created_at": "2026-06-13T01:00:00Z",
+                "project": "demo",
+                "config_path": str(root / ".cc-branch/config.yaml"),
+                "state_path": str(state_path),
+                "state": {
+                    "version": 1,
+                    "windows": {
+                        "dev.planner": {
+                            "session_id": "restored-session",
+                            "agent": "codex",
+                            "slot": "dev",
+                            "window": "planner",
+                            "session_transcript_path": "/tmp/transcript.jsonl",
+                        }
+                    },
+                    "slots": {},
+                },
+            })
+
+            result = restore_workspace_snapshot("snap-1", store=store, state_path=state_path)
+
+            restored = load_state(state_path)
+
+        self.assertEqual(result["snapshot_id"], "snap-1")
+        self.assertEqual(restored.windows["dev.planner"].session_id, "restored-session")
+        self.assertEqual(restored.windows["dev.planner"].session_transcript_path, "/tmp/transcript.jsonl")
+
+    def test_worktree_setup_creates_branch_copies_ignored_files_runs_hook_and_records_agent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            root.mkdir()
+            (root / ".env").write_text("TOKEN=secret\n", encoding="utf-8")
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = WorkspaceState()
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            store = AgentWorktreeStore(Path(tmp) / "worktrees.json")
+            calls: list[list[str]] = []
+
+            def runner(command, **kwargs):
+                calls.append(list(command))
+                return {"returncode": 0, "stdout": "", "stderr": ""}
+
+            record = setup_agent_worktree(
+                workspace,
+                plan,
+                "dev:planner",
+                store=store,
+                repo_root=root,
+                path=Path(tmp) / "planner-worktree",
+                branch="cc-branch/dev-planner",
+                copy_ignored=[".env"],
+                setup_hook="printf setup",
+                runner=runner,
+                now=lambda: "2026-06-13T01:00:00Z",
+            )
+
+            self.assertEqual(record["target"], "dev:planner")
+            self.assertEqual(record["branch"], "cc-branch/dev-planner")
+            self.assertEqual(record["status"], "active")
+            self.assertEqual((Path(record["path"]) / ".env").read_text(encoding="utf-8"), "TOKEN=secret\n")
+            self.assertIn(["git", "-C", str(root.resolve()), "worktree", "add", "-B", "cc-branch/dev-planner", str((Path(tmp) / "planner-worktree").resolve()), "HEAD"], calls)
+            self.assertIn(["/bin/sh", "-lc", "printf setup"], calls)
+            self.assertEqual(store.records()[0]["target"], "dev:planner")
+
+    def test_worktree_status_reports_branch_diff_and_cleanup_removes_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            root.mkdir()
+            store = AgentWorktreeStore(Path(tmp) / "worktrees.json")
+            store.upsert({
+                "target": "dev:planner",
+                "repo_root": str(root),
+                "path": str(Path(tmp) / "planner-worktree"),
+                "branch": "cc-branch/dev-planner",
+                "status": "active",
+            })
+            calls: list[list[str]] = []
+
+            def runner(command, **kwargs):
+                calls.append(list(command))
+                if command[-2:] == ["--abbrev-ref", "HEAD"]:
+                    return {"returncode": 0, "stdout": "cc-branch/dev-planner\n", "stderr": ""}
+                if command[-1:] == ["--porcelain"]:
+                    return {"returncode": 0, "stdout": " M app.py\n?? notes.md\n", "stderr": ""}
+                return {"returncode": 0, "stdout": "", "stderr": ""}
+
+            statuses = worktree_status_for_agents(store=store, runner=runner)
+            finished = finish_agent_worktree(
+                "dev:planner",
+                store=store,
+                runner=runner,
+                now=lambda: "2026-06-13T02:00:00Z",
+            )
+            cleanup = cleanup_agent_worktree("dev:planner", store=store, runner=runner)
+
+        self.assertEqual(statuses[0]["target"], "dev:planner")
+        self.assertEqual(statuses[0]["branch"], "cc-branch/dev-planner")
+        self.assertEqual(statuses[0]["changed_files"], 2)
+        self.assertEqual(statuses[0]["dirty"], True)
+        self.assertEqual(finished["status"], "finished")
+        self.assertEqual(finished["finished_at"], "2026-06-13T02:00:00Z")
+        self.assertEqual(finished["changed_files"], 2)
+        self.assertEqual(cleanup["target"], "dev:planner")
+        self.assertEqual(store.records(), [])
+        self.assertIn(["git", "-C", str(root), "worktree", "remove", str(Path(tmp) / "planner-worktree")], calls)
+
+    def test_worktree_setup_refuses_when_repo_operation_lock_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            root.mkdir()
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = WorkspaceState()
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            store = AgentWorktreeStore(Path(tmp) / "worktrees.json")
+            lock_dir = store.path.parent / "locks"
+            lock_dir.mkdir(parents=True)
+            lock_path = lock_dir / "repo-operations.lock"
+            lock_path.write_text("busy", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "Another worktree operation is already running"):
+                setup_agent_worktree(
+                    workspace,
+                    plan,
+                    "dev:planner",
+                    store=store,
+                    repo_root=root,
+                    path=Path(tmp) / "planner-worktree",
+                    runner=lambda command: {"returncode": 0, "stdout": "", "stderr": ""},
+                    lock_path=lock_path,
+                )
 
     def test_models_module_is_package_facade(self):
         import importlib
@@ -849,6 +1104,58 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertEqual(inbox["unread"], 1)
         self.assertEqual(inbox["last_message"], "Please review the current diff.")
         self.assertEqual(inbox["updated_at"], "2026-06-12T01:00:00Z")
+
+    def test_workspace_status_includes_agent_worktree_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(
+                root / ".cc-branch/config.yaml",
+                """
+                version: 2
+                project: demo
+                root: .
+                tabs:
+                - name: dev
+                  layoutBackend: tmux
+                  panes:
+                  - name: planner
+                    agent: codex
+                """,
+            )
+            workspace = load_workspace(root / ".cc-branch/config.yaml")
+            state = WorkspaceState()
+            plan = plan_workspace(workspace, state, bootstrap_missing=False)
+            store = AgentWorktreeStore(root / ".cc-branch/app/worktrees.json")
+            store.upsert({
+                "target": "dev:planner",
+                "repo_root": str(root),
+                "path": str(root / "../planner-worktree"),
+                "branch": "cc-branch/dev-planner",
+                "status": "active",
+            })
+
+            def runner(command):
+                if command[-2:] == ["--abbrev-ref", "HEAD"]:
+                    return {"returncode": 0, "stdout": "cc-branch/dev-planner\n", "stderr": ""}
+                if command[-1:] == ["--porcelain"]:
+                    return {"returncode": 0, "stdout": " M app.py\n", "stderr": ""}
+                return {"returncode": 0, "stdout": "", "stderr": ""}
+
+            status = build_workspace_status(
+                workspace,
+                plan,
+                state,
+                config_path=root / ".cc-branch/config.yaml",
+                state_path=root / ".cc-branch/state.yaml",
+                worktree_store=store,
+                worktree_runner=runner,
+            )
+
+        worktree = status["agents"][0]["worktree"]
+        self.assertEqual(worktree["branch"], "cc-branch/dev-planner")
+        self.assertEqual(worktree["changed_files"], 1)
+        self.assertEqual(worktree["dirty"], True)
+        self.assertEqual(worktree["path"], str(root / "../planner-worktree"))
 
     def test_agent_bus_mark_read_hides_messages_from_unread_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:

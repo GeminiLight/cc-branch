@@ -56,8 +56,40 @@ CC Branch 是一个面向终端 AI 工作流的 CLI-first 工作空间编排器�
 - session id、transcript path
 - 最近活动摘要
 - inbox 未读数和最近消息
+- 可选 agent worktree branch、path 和 diff 计数
 - busy、stale、stopped、error 等状态
 - attach、send、restart、stop 等可用操作
+
+### Workspace Snapshot
+
+`cc-branch snapshot create` 会把当前 workspace 的配置引用、state、tabs/panes 运行状态、Agent session 绑定、SSH target、tmux session、最近状态和 git branch/worktree 信息保存到本机 `~/.cc-branch/app/snapshots.json`。Snapshot 是本地运行态，不会默认提交到项目 git。
+
+常用命令：
+
+- `cc-branch snapshot create --name before-refactor`
+- `cc-branch snapshot list`
+- `cc-branch snapshot restore <id-or-name>`
+
+Web UI Dashboard 顶部也提供保存快照按钮。恢复 snapshot 会把保存的 session/runtime metadata 写回对应 `state.yaml`，之后可以继续用 `cc-branch start` 或 Web UI 恢复工作现场。
+
+### Worktree Per Agent
+
+`cc-branch worktree setup <tab[:pane]>` 可以为单个 Agent 创建可选 git worktree 和 branch，用于并行开发而不污染主工作区。第一版覆盖：
+
+- 创建或导入 agent worktree
+- 为 agent 显示 branch、path、dirty 状态和 changed file 计数
+- 复制或软链指定 gitignored 文件，例如 `.env`
+- setup hook
+- finish/status/cleanup 的本地 lifecycle
+- 同一 repo 下 setup/cleanup 操作会用本地 lock 串行化
+
+常用命令：
+
+- `cc-branch worktree setup dev:planner --branch cc-branch/dev-planner --copy .env`
+- `cc-branch worktree status`
+- `cc-branch worktree finish dev:planner`
+- `cc-branch worktree import dev:planner ../planner-worktree`
+- `cc-branch worktree cleanup dev:planner`
 
 ### 会话管理
 

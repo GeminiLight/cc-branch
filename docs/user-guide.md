@@ -376,6 +376,27 @@ cc-branch send dev:planner "看一下 reviewer 的输出，整理最关键的风
 
 发送记录会写入本机 Agent Bus 事件日志，Web UI 的 Agent 状态中心会显示每个 Agent 的 inbox 未读数和最近消息。标为已读时，CC Branch 会追加一条 read receipt；原始消息事件仍保留在本地日志里。
 
+### `snapshot`
+
+```bash
+cc-branch snapshot create --name before-refactor
+cc-branch snapshot list
+cc-branch snapshot restore <id-or-name>
+```
+
+Snapshot 会保存当前 workspace 的配置引用、state、tabs/panes 运行状态、Agent session 绑定、SSH target、tmux session、最近状态和 git branch/worktree 信息。保存位置是本机 `~/.cc-branch/app/snapshots.json`，不会默认提交到项目 git。
+
+### `worktree`
+
+```bash
+cc-branch worktree setup dev:planner --branch cc-branch/dev-planner --copy .env
+cc-branch worktree status
+cc-branch worktree finish dev:planner
+cc-branch worktree cleanup dev:planner
+```
+
+Worktree 是可选能力，用来给单个 Agent 分配独立 git worktree 和 branch。`--copy` 和 `--symlink` 可用于把 `.env` 这类 gitignored 文件带进 agent worktree；`finish` 只标记完成状态，`cleanup` 才会移除 worktree。
+
 ### `attach`
 
 ```bash

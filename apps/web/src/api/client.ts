@@ -36,6 +36,11 @@ import type {
   RemoteDirectoryListing,
   RemoteProjectInput,
   AgentBusData,
+  WorkspaceSnapshotsData,
+  WorkspaceSnapshot,
+  WorktreesData,
+  AgentWorktreeStatus,
+  WorktreeSetupRequest,
 } from "../types";
 
 export interface APIClient {
@@ -61,6 +66,13 @@ export interface APIClient {
   getAgentBus(scope?: (WorkspaceScope & { target?: string }) | string, signal?: AbortSignal): Promise<AgentBusData>;
   markAgentInboxRead(scope?: WorkspaceScope | string, target?: string): Promise<ActionResult>;
   restoreSessions(scope?: WorkspaceScope | string): Promise<ActionResult>;
+  getSnapshots(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceSnapshotsData>;
+  createSnapshot(scope?: WorkspaceScope | string, name?: string): Promise<WorkspaceSnapshot>;
+  restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string): Promise<ActionResult>;
+  getWorktrees(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorktreesData>;
+  setupWorktree(scope: WorkspaceScope | string | undefined, request: WorktreeSetupRequest): Promise<AgentWorktreeStatus>;
+  finishWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus>;
+  cleanupWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus>;
   runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult>;
   runWorkspaceAction(request: WorkspaceActionRequest): Promise<ActionResult>;
   setWindowEnabled(request: WindowEnabledRequest): Promise<ActionResult>;
@@ -383,6 +395,75 @@ export class HTTPClient implements APIClient {
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ActionResult;
+  }
+
+  async getSnapshots(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceSnapshotsData> {
+    const res = await fetchApi(`${this.baseUrl}/api/snapshots${qs(scope)}`, { signal });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as WorkspaceSnapshotsData;
+  }
+
+  async createSnapshot(scope?: WorkspaceScope | string, name?: string): Promise<WorkspaceSnapshot> {
+    const res = await fetchApi(`${this.baseUrl}/api/snapshots/create${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as WorkspaceSnapshot;
+  }
+
+  async restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string): Promise<ActionResult> {
+    const res = await fetchApi(`${this.baseUrl}/api/snapshots/restore${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ActionResult;
+  }
+
+  async getWorktrees(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorktreesData> {
+    const res = await fetchApi(`${this.baseUrl}/api/worktrees${qs(scope)}`, { signal });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as WorktreesData;
+  }
+
+  async setupWorktree(scope: WorkspaceScope | string | undefined, request: WorktreeSetupRequest): Promise<AgentWorktreeStatus> {
+    const res = await fetchApi(`${this.baseUrl}/api/worktrees/setup${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentWorktreeStatus;
+  }
+
+  async finishWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus> {
+    const res = await fetchApi(`${this.baseUrl}/api/worktrees/finish${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentWorktreeStatus;
+  }
+
+  async cleanupWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus> {
+    const res = await fetchApi(`${this.baseUrl}/api/worktrees/cleanup${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentWorktreeStatus;
   }
 
   async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
@@ -843,6 +924,82 @@ export class TauriClient implements APIClient {
     const data = await readJsonResponse(res);
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data as ActionResult;
+  }
+
+  async getSnapshots(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorkspaceSnapshotsData> {
+    const baseUrl = await this._baseUrl(signal);
+    const res = await this._fetchApi(`${baseUrl}/api/snapshots${qs(scope)}`, { signal });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as WorkspaceSnapshotsData;
+  }
+
+  async createSnapshot(scope?: WorkspaceScope | string, name?: string): Promise<WorkspaceSnapshot> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/snapshots/create${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as WorkspaceSnapshot;
+  }
+
+  async restoreSnapshot(scope: WorkspaceScope | string | undefined, id: string): Promise<ActionResult> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/snapshots/restore${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as ActionResult;
+  }
+
+  async getWorktrees(scope?: WorkspaceScope | string, signal?: AbortSignal): Promise<WorktreesData> {
+    const baseUrl = await this._baseUrl(signal);
+    const res = await this._fetchApi(`${baseUrl}/api/worktrees${qs(scope)}`, { signal });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as WorktreesData;
+  }
+
+  async setupWorktree(scope: WorkspaceScope | string | undefined, request: WorktreeSetupRequest): Promise<AgentWorktreeStatus> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/worktrees/setup${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentWorktreeStatus;
+  }
+
+  async finishWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/worktrees/finish${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentWorktreeStatus;
+  }
+
+  async cleanupWorktree(scope: WorkspaceScope | string | undefined, target: string): Promise<AgentWorktreeStatus> {
+    const baseUrl = await this._baseUrl();
+    const res = await this._fetchApi(`${baseUrl}/api/worktrees/cleanup${qs(scope)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data as AgentWorktreeStatus;
   }
 
   async runAction(action: WorkspaceAction, target?: string, scope?: WorkspaceScope | string): Promise<ActionResult> {
