@@ -38,6 +38,7 @@ def normalize_raw_config(data: dict, path: Path) -> dict:
         data["tabs"] = []
     data["display"].setdefault("mode", "grid")
     data["display"].setdefault("columns", 2)
+    data["display"].setdefault("rows", 2)
     data["display"].setdefault("dashboard", False)
 
     root_value = data.get("root", ".")

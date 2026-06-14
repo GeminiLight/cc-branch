@@ -441,6 +441,16 @@ def _normalize_remote(value: object | None) -> dict[str, object] | None:
     cwd = str(value.get("cwd") or "").strip()
     if cwd:
         remote["cwd"] = cwd
+    args = value.get("args")
+    if isinstance(args, list):
+        cleaned_args = [str(arg) for arg in args if str(arg)]
+        if cleaned_args:
+            remote["args"] = cleaned_args
+    options = value.get("options")
+    if isinstance(options, dict):
+        cleaned_options = {str(key): option for key, option in options.items() if str(key)}
+        if cleaned_options:
+            remote["options"] = cleaned_options
     return remote
 
 
@@ -526,8 +536,10 @@ def _ensure_remote_workspace(storage_path: Path, name: str, remote: dict[str, ob
                 "user": remote.get("user"),
                 "port": remote.get("port"),
                 "cwd": remote.get("cwd"),
+                "args": remote.get("args"),
+                "options": remote.get("options"),
             }.items()
-            if value not in (None, "")
+            if value not in (None, "", [], {})
         }
         config = {
             "version": 2,

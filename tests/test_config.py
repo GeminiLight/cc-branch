@@ -872,6 +872,7 @@ class ConfigTests(unittest.TestCase):
                   dashboard: true
                   mode: "grid"
                   columns: 2
+                  rows: 3
                 """,
             )
 
@@ -879,6 +880,7 @@ class ConfigTests(unittest.TestCase):
             self.assertTrue(workspace.display.dashboard)
             self.assertEqual(workspace.display.mode, "grid")
             self.assertEqual(workspace.display.columns, 2)
+            self.assertEqual(workspace.display.rows, 3)
 
     def test_load_workspace_parses_env_variables(self):
         """Test that load_workspace correctly parses environment variables."""

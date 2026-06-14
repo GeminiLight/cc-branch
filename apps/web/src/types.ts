@@ -428,6 +428,8 @@ export interface RemoteProjectInput {
   user?: string | null;
   port?: number | null;
   cwd: string;
+  args?: string[];
+  options?: Record<string, unknown>;
 }
 
 export interface RemoteDirectoryEntry {

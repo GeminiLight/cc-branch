@@ -235,7 +235,6 @@ describe('AddProjectModal', () => {
     await waitFor(() => {
       expect(onAdd).toHaveBeenCalledWith({
         name: 'app',
-        agent: 'codex',
         remote: {
           host: 'gpu-dev',
           user: 'ubuntu',
@@ -273,7 +272,7 @@ describe('AddProjectModal', () => {
     expect(screen.getByText('Selected target')).toBeInTheDocument()
   })
 
-  it('adds an SSH project with the selected agent', async () => {
+  it('keeps agent selection out of the SSH add-project flow', async () => {
     const onAdd = vi.fn().mockResolvedValue(undefined)
 
     render(
@@ -292,18 +291,90 @@ describe('AddProjectModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'SSH machine' }))
     fireEvent.change(await screen.findByLabelText(/ssh host/i), { target: { value: 'gpu-dev' } })
     fireEvent.change(screen.getByLabelText('Remote directory'), { target: { value: '/srv/app' } })
-    fireEvent.change(screen.getByLabelText('Agent'), { target: { value: 'claude' } })
+    expect(screen.queryByLabelText('Agent')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Add SSH Project' }))
 
     await waitFor(() => {
       expect(onAdd).toHaveBeenCalledWith({
         name: 'app',
-        agent: 'claude',
         remote: {
           host: 'gpu-dev',
           user: null,
           port: null,
           cwd: '/srv/app',
+        },
+      })
+    })
+  })
+
+  it('adds SSH auth settings for key and password login modes', async () => {
+    const onAdd = vi.fn().mockResolvedValue(undefined)
+
+    const { rerender } = render(
+      <I18nProvider>
+        <ToastProvider>
+          <AddProjectModal
+            api={api}
+            isOpen
+            onClose={vi.fn()}
+            onAdd={onAdd}
+          />
+        </ToastProvider>
+      </I18nProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'SSH machine' }))
+    fireEvent.change(await screen.findByLabelText(/ssh host/i), { target: { value: 'gpu-dev' } })
+    fireEvent.change(screen.getByLabelText('Remote directory'), { target: { value: '/srv/app' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Key file' }))
+    fireEvent.change(screen.getByLabelText('Private key path'), { target: { value: '~/.ssh/gpu_ed25519' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add SSH Project' }))
+
+    await waitFor(() => {
+      expect(onAdd).toHaveBeenCalledWith({
+        name: 'app',
+        remote: {
+          host: 'gpu-dev',
+          user: null,
+          port: null,
+          cwd: '/srv/app',
+          args: ['-i', '~/.ssh/gpu_ed25519'],
+        },
+      })
+    })
+
+    onAdd.mockClear()
+    rerender(
+      <I18nProvider>
+        <ToastProvider>
+          <AddProjectModal
+            api={api}
+            isOpen
+            onClose={vi.fn()}
+            onAdd={onAdd}
+          />
+        </ToastProvider>
+      </I18nProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'SSH machine' }))
+    fireEvent.change(await screen.findByLabelText(/ssh host/i), { target: { value: 'gpu-dev' } })
+    fireEvent.change(screen.getByLabelText('Remote directory'), { target: { value: '/srv/app' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Password prompt' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add SSH Project' }))
+
+    await waitFor(() => {
+      expect(onAdd).toHaveBeenCalledWith({
+        name: 'app',
+        remote: {
+          host: 'gpu-dev',
+          user: null,
+          port: null,
+          cwd: '/srv/app',
+          options: {
+            BatchMode: 'no',
+            PreferredAuthentications: 'password,keyboard-interactive',
+          },
         },
       })
     })

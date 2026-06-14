@@ -12,9 +12,12 @@ parent target, or switch to SSH. SSH targets from `~/.ssh/config` are shown as a
 picker so users can choose an existing alias without retyping host details.
 
 The desktop/Web Add Project flow can also register a directory on an SSH
-machine. Users can choose the remote agent profile, such as Codex, Claude,
-Gemini, Cursor, or Kimi, before saving the project. CC Branch creates a local
-metadata workspace under `~/.cc-branch/app` and writes a normal
+machine. Users choose the connection source, authentication method, project
+name, and remote directory before saving the project; agent selection happens
+later in the project configuration. Key-file login is stored as SSH args such
+as `["-i", "~/.ssh/id_ed25519"]`, and password login uses an interactive SSH
+prompt without storing the password. CC Branch creates a local metadata
+workspace under `~/.cc-branch/app` and writes a normal
 `.cc-branch/config.yaml` whose panes execute in the remote directory. The
 project list stays local; commands run through the user's SSH setup.
 

@@ -76,6 +76,7 @@ class DisplayConfig:
 
     mode: str = "grid"
     columns: int = 2
+    rows: int = 2
     dashboard: bool = False
 
     @classmethod
@@ -83,11 +84,12 @@ class DisplayConfig:
         return cls(
             mode=data.get("mode", "grid"),
             columns=data.get("columns", 2),
+            rows=data.get("rows", 2),
             dashboard=data.get("dashboard", False),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {"mode": self.mode, "columns": self.columns, "dashboard": self.dashboard}
+        return {"mode": self.mode, "columns": self.columns, "rows": self.rows, "dashboard": self.dashboard}
 
 
 @dataclass

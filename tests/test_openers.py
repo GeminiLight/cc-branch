@@ -873,6 +873,48 @@ class OpenerTests(unittest.TestCase):
             content,
         )
 
+    def test_warp_layout_honors_explicit_rows_and_columns(self):
+        """Explicit display grid settings should produce the requested Warp pane matrix."""
+        from cc_branch.openers.warp import _warp_layout_yaml
+
+        specs = [
+            OpenCommandSpec(str(i), Path("/tmp/demo"), f"cmd-{i}", layout_columns=3, layout_rows=2)
+            for i in range(1, 7)
+        ]
+
+        content = _warp_layout_yaml("CC Branch demo", specs)
+
+        self.assertEqual(content.count("- split_direction: horizontal"), 2)
+        self.assertIn(
+            """            - split_direction: horizontal
+              panes:
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "cmd-1"
+                  is_focused: true
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "cmd-2"
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "cmd-3\"""",
+            content,
+        )
+        self.assertIn(
+            """            - split_direction: horizontal
+              panes:
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "cmd-4"
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "cmd-5"
+                - cwd: "/tmp/demo"
+                  commands:
+                    - exec: "cmd-6\"""",
+            content,
+        )
+
     def test_warp_layout_renders_split_groups_as_separate_tabs(self):
         """Workspace tabs should become Warp tabs, with panes only split inside the same tab."""
         from cc_branch.openers.warp import _warp_layout_yaml

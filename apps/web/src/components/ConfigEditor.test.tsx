@@ -37,6 +37,9 @@ vi.mock('../hooks', () => ({
     data: { agents: [] },
   }),
   useAgentSessions: (...args: unknown[]) => mocks.useAgentSessions(...args),
+  useWorktrees: () => ({
+    data: { worktrees: [] },
+  }),
 }))
 
 function renderConfigEditor(

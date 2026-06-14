@@ -171,7 +171,7 @@ export function configDataForTemplate(
     openWith: "vscode",
     layoutBackend: "direct",
     defaults: { shell: null },
-    display: { mode: "grid", columns: 2, dashboard: true },
+    display: { mode: "grid", columns: 2, rows: 2, dashboard: true },
     agents: {},
     slots: spec.tabs.map((tab) => slotForTab(tab, availableAgents)),
   };

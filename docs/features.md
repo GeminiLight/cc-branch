@@ -87,6 +87,7 @@ Web UI Dashboard 顶部也提供保存快照按钮。默认 snapshot 保存运�
 
 - 创建或导入 agent worktree
 - 为 agent 显示 branch、path、dirty 状态和 changed file 计数
+- Web UI 工作空间配置页可把 agent pane 的工作目录切到已检测到的 worktree
 - 复制或软链指定 gitignored 文件，例如 `.env`
 - setup hook
 - finish/status/cleanup 的本地 lifecycle
@@ -146,6 +147,7 @@ Dashboard 会把 Agent 的实时状态、最近活动、未读消息和 worktree
 - 使用内置模板初始化项目
 - 使用同一个工具选择器打开工作空间或项目目录
 - 适配系统终端、Warp、VS Code、Cursor 等本机工具
+- 显式配置工作空间画布的 `n x m` 网格，并在 Warp Launch Configuration 中按该行列布局打开
 - 后台启动、重启、停止 tmux 工作空间或标签页
 
 ### 可集成

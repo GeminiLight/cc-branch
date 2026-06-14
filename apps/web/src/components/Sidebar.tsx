@@ -21,6 +21,7 @@ interface SidebarProps {
   onOpenSettings: () => void;
   forceExpanded?: boolean;
   resizable?: boolean;
+  desktopDragRegion?: boolean;
 }
 
 interface ProjectStatus {
@@ -153,6 +154,7 @@ export default function Sidebar({
   onOpenSettings,
   forceExpanded = false,
   resizable = false,
+  desktopDragRegion = false,
 }: SidebarProps) {
   const { t } = useI18n();
   const [storedCollapsed, setStoredCollapsed] = useState(() => {
@@ -416,6 +418,8 @@ export default function Sidebar({
         className={`h-[var(--chrome-height)] min-h-[var(--chrome-height)] px-3 flex items-center border-b border-default chrome-surface shrink-0 ${
           collapsed ? "justify-center" : "gap-2.5"
         }`}
+        data-testid={desktopDragRegion ? "desktop-sidebar-drag-region" : undefined}
+        data-tauri-drag-region={desktopDragRegion ? true : undefined}
       >
         <AppMark compact={collapsed} />
         {!collapsed && (
@@ -431,6 +435,7 @@ export default function Sidebar({
         {!forceExpanded && (
           <button
             type="button"
+            data-tauri-drag-region={desktopDragRegion ? "false" : undefined}
             onClick={toggleCollapsed}
             className="absolute -right-2.5 top-[calc((var(--chrome-height)-24px)/2)] z-50 w-5 h-6 rounded-full bg-[var(--bg-card)] border border-default shadow-sm flex items-center justify-center text-tertiary hover:text-primary hover:border-[var(--border-strong)] transition-colors"
             aria-label={collapsed ? t("expand") : t("collapse")}

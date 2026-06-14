@@ -8,8 +8,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import type { SshHostInfo, WorkspaceScope } from "../../types";
+import { useWorktrees } from "../../hooks";
 import Modal from "../ui/Modal";
-import type { SlotConfig, WindowConfig, WorkspaceEditTarget } from "./types";
+import type { DisplayConfig, SlotConfig, WindowConfig, WorkspaceEditTarget } from "./types";
 import {
   MoveToTabActions,
   PaneSchedulingActions,
@@ -65,6 +66,7 @@ function runtimeLabel(t: (key: string, vars?: Record<string, string | number>) =
 
 export default function SlotsSection({
   slots,
+  display,
   agents,
   scope,
   defaultShellName,
@@ -73,6 +75,7 @@ export default function SlotsSection({
   onChange,
 }: {
   slots: SlotConfig[];
+  display: DisplayConfig;
   agents: string[];
   scope?: WorkspaceScope;
   defaultShellName?: string | null;
@@ -81,6 +84,8 @@ export default function SlotsSection({
   onChange: (slots: SlotConfig[]) => void;
 }) {
   const { t } = useI18n();
+  const { data: worktreesData } = useWorktrees(scope, Boolean(scope?.projectPath));
+  const worktrees = worktreesData?.worktrees ?? [];
   const [selection, setSelection] = useState<Selection>({ slotIndex: 0, target: "tab", windowIndex: null });
   const [pendingDeleteTabIndex, setPendingDeleteTabIndex] = useState<number | null>(null);
   const lastAppliedFocusTarget = useRef<WorkspaceEditTarget | null>(null);
@@ -362,6 +367,8 @@ export default function SlotsSection({
 
   const canvasProps = {
     slots,
+    display,
+    worktrees,
     selection: normalizedSelection,
     tabDrag: workspaceDrag.tabDrag,
     paneDrag: workspaceDrag.paneDrag,
@@ -471,6 +478,7 @@ export default function SlotsSection({
                           scope={scope}
                           defaultShellName={defaultShellName}
                           sshHosts={sshHosts}
+                          worktrees={worktrees}
                           onSlotChange={(patch) => updateSlot(normalizedSelection.slotIndex, patch)}
                           onWindowChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
                           launchEnabled={(selectedTerminalWindow?.enabled ?? true) !== false}
@@ -508,6 +516,7 @@ export default function SlotsSection({
                           scope={scope}
                           inheritedRemote={selectedSlot.remote}
                           sshHosts={sshHosts}
+                          worktrees={worktrees}
                           onChange={(patch) => updateWindow(normalizedSelection.windowIndex ?? 0, patch)}
                         />
                       ) : (

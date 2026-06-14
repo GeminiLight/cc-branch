@@ -22,18 +22,45 @@ class WorkspaceCommandSpecs:
     def split_group(self, slot) -> str:
         return getattr(slot, "split_group", None) or slot.name
 
-    def terminal_command_specs(self, slots, *, windows=None) -> list[OpenCommandSpec]:
+    def _layout_columns(self, display) -> int | None:
+        if display is None:
+            return None
+        try:
+            return max(1, int(getattr(display, "columns", 0) or 0))
+        except (TypeError, ValueError):
+            return None
+
+    def _layout_rows(self, display) -> int | None:
+        if display is None:
+            return None
+        try:
+            return max(1, int(getattr(display, "rows", 0) or 0))
+        except (TypeError, ValueError):
+            return None
+
+    def _open_spec(self, *, title: str, cwd: Path, command: str, split_group: str | None, display=None) -> OpenCommandSpec:
+        return OpenCommandSpec(
+            title=title,
+            cwd=cwd,
+            command=command,
+            split_group=split_group,
+            layout_columns=self._layout_columns(display),
+            layout_rows=self._layout_rows(display),
+        )
+
+    def terminal_command_specs(self, slots, *, windows=None, display=None) -> list[OpenCommandSpec]:
         specs: list[OpenCommandSpec] = []
         if windows is not None and len(slots) == 1:
             slot = slots[0]
             split_group = self.split_group(slot)
             for window in windows:
                 specs.append(
-                    OpenCommandSpec(
+                    self._open_spec(
                         title=f"{slot.name}:{window.name}",
                         cwd=Path(window.cwd),
                         command=window.launch_command,
                         split_group=split_group,
+                        display=display,
                     )
                 )
             return specs
@@ -41,60 +68,64 @@ class WorkspaceCommandSpecs:
             split_group = self.split_group(slot)
             for window in _launchable_windows(slot):
                 specs.append(
-                    OpenCommandSpec(
+                    self._open_spec(
                         title=f"{slot.name}:{window.name}",
                         cwd=Path(window.cwd),
                         command=window.launch_command,
                         split_group=split_group,
+                        display=display,
                     )
                 )
         return specs
 
-    def tmux_slot_attach_specs(self, slots, cli: str) -> list[OpenCommandSpec]:
+    def tmux_slot_attach_specs(self, slots, cli: str, *, display=None) -> list[OpenCommandSpec]:
         return [
-            OpenCommandSpec(
+            self._open_spec(
                 title=slot.name,
                 cwd=Path(slot.cwd),
                 command=f"{cli} attach {slot.name}",
                 split_group=self.split_group(slot),
+                display=display,
             )
             for slot in slots
         ]
 
-    def tmux_window_attach_specs(self, slots, cli: str) -> list[OpenCommandSpec]:
+    def tmux_window_attach_specs(self, slots, cli: str, *, display=None) -> list[OpenCommandSpec]:
         specs: list[OpenCommandSpec] = []
         for slot in slots:
             launchable_windows = _launchable_windows(slot)
             if not launchable_windows:
-                specs.extend(self.tmux_slot_attach_specs([slot], cli))
+                specs.extend(self.tmux_slot_attach_specs([slot], cli, display=display))
                 continue
             split_group = self.split_group(slot)
             for window in launchable_windows:
                 target = f"{slot.name}:{window.name}"
                 specs.append(
-                    OpenCommandSpec(
+                    self._open_spec(
                         title=target,
                         cwd=Path(window.cwd),
                         command=f"{cli} attach {target}",
                         split_group=split_group,
+                        display=display,
                     )
                 )
         return specs
 
-    def attach_target_specs(self, slot, window, target: str, cli: str) -> list[OpenCommandSpec]:
+    def attach_target_specs(self, slot, window, target: str, cli: str, *, display=None) -> list[OpenCommandSpec]:
         if is_external_process_runtime(slot.runtime):
             windows = [window] if window is not None else _launchable_windows(slot)
-            return self.terminal_command_specs([slot], windows=windows)
+            return self.terminal_command_specs([slot], windows=windows, display=display)
         if window is not None:
             return [
-                OpenCommandSpec(
+                self._open_spec(
                     title=target,
                     cwd=Path(window.cwd),
                     command=f"{cli} attach {target}",
                     split_group=self.split_group(slot),
+                    display=display,
                 )
             ]
-        return self.tmux_slot_attach_specs([slot], cli)
+        return self.tmux_slot_attach_specs([slot], cli, display=display)
 
 
 command_specs = WorkspaceCommandSpecs()

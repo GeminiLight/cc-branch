@@ -16,7 +16,7 @@ TOP_LEVEL_FIELDS = {
     "defaults",
     "tabs",
 }
-DISPLAY_FIELDS = {"mode", "columns", "dashboard"}
+DISPLAY_FIELDS = {"mode", "columns", "rows", "dashboard"}
 DEFAULTS_FIELDS = {"shell"}
 REMOTE_FIELDS = {"host", "user", "port", "cwd", "args", "options"}
 AGENT_FIELDS = {

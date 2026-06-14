@@ -75,6 +75,7 @@ export interface WorkspaceEditTarget {
 export interface DisplayConfig {
   mode: "grid" | "list";
   columns: number;
+  rows: number;
   dashboard: boolean;
 }
 
@@ -144,6 +145,7 @@ export const DEFAULT_SLOT: SlotConfig = {
 export const DEFAULT_DISPLAY: DisplayConfig = {
   mode: "grid",
   columns: 2,
+  rows: 2,
   dashboard: false,
 };
 

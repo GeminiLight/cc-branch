@@ -713,6 +713,7 @@ function AppInner() {
           onAddProject={() => setAddModalOpen(true)}
           onOpenSettings={handleOpenSettings}
           resizable
+          desktopDragRegion={isMacDesktopShell}
         />
       </div>
 

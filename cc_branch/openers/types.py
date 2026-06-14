@@ -65,3 +65,5 @@ class OpenCommandSpec:
     cwd: Path
     command: str
     split_group: str | None = None
+    layout_columns: int | None = None
+    layout_rows: int | None = None

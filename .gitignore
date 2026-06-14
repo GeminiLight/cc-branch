@@ -102,3 +102,5 @@ wiki/refs/*
 !wiki/refs/agent-cli-coordination/**
 discussions/
 marketing/
+
+TASK.md

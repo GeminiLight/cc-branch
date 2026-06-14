@@ -14,3 +14,4 @@ export { useStopSlot } from "./useStopSlot";
 export { useOnlineStatus } from "./useOnlineStatus";
 export { useRelativeTime } from "./useRelativeTime";
 export { useKeyboardShortcuts } from "./useKeyboardShortcuts";
+export { useWorktrees } from "./useWorktrees";

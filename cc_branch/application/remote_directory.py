@@ -14,6 +14,8 @@ class RemoteTarget:
     host: str
     user: str | None = None
     port: int | None = None
+    args: tuple[str, ...] = ()
+    options: tuple[tuple[str, Any], ...] = ()
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "RemoteTarget":
@@ -30,13 +32,25 @@ class RemoteTarget:
                 raise ValueError("remote port must be an integer") from error
             if port < 1 or port > 65535:
                 raise ValueError("remote port must be between 1 and 65535")
-        return cls(host=host, user=user, port=port)
+        args = value.get("args")
+        options = value.get("options")
+        return cls(
+            host=host,
+            user=user,
+            port=port,
+            args=tuple(str(arg) for arg in args) if isinstance(args, list) else (),
+            options=tuple(sorted(options.items())) if isinstance(options, dict) else (),
+        )
 
     def ssh_command(self, remote_command: str) -> list[str]:
         target = f"{self.user}@{self.host}" if self.user else self.host
         command = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8"]
         if self.port is not None:
             command.extend(["-p", str(self.port)])
+        for key, value in self.options:
+            option = str(key) if value is None else f"{key}={value}"
+            command.extend(["-o", option])
+        command.extend(self.args)
         command.extend([target, remote_command])
         return command
 

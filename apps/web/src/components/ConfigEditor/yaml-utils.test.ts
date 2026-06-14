@@ -223,7 +223,7 @@ describe("ConfigEditor YAML session intent", () => {
       openWith: "warp",
       layoutBackend: "tmux",
       defaults: { shell: "system-default" },
-      display: { mode: "grid", columns: 2, dashboard: false },
+      display: { mode: "grid", columns: 2, rows: 2, dashboard: false },
       agents: {},
       slots: [
         {
@@ -282,6 +282,22 @@ describe("ConfigEditor YAML session intent", () => {
     expect(yaml).not.toContain("windows:");
   });
 
+  it("round-trips explicit display grid rows and columns", () => {
+    const parsed = parseConfigYaml([
+      "version: 2",
+      "project: demo",
+      "root: .",
+      "display:",
+      "  mode: grid",
+      "  columns: 3",
+      "  rows: 2",
+      "",
+    ].join("\n"));
+
+    expect(parsed.display).toMatchObject({ mode: "grid", columns: 3, rows: 2 });
+    expect(serializeConfigForm(parsed)).toContain("rows: 2");
+  });
+
   it("parses session intent from panes", () => {
     const data = parseConfigYaml([
       "version: 2",
@@ -319,7 +335,7 @@ describe("ConfigEditor YAML session intent", () => {
       version: 2,
       project: "demo",
       root: ".",
-      display: { mode: "grid", columns: 2, dashboard: false },
+      display: { mode: "grid", columns: 2, rows: 2, dashboard: false },
       agents: {},
       slots: [
         {

@@ -1,6 +1,6 @@
-import { Bot, ChevronDown, Laptop, Power, Server, Terminal } from "lucide-react";
+import { Bot, ChevronDown, GitBranch, Laptop, Power, Server, Terminal } from "lucide-react";
 import { useI18n } from "../../i18n";
-import type { SshHostInfo, WorkspaceScope } from "../../types";
+import type { AgentWorktreeStatus, SshHostInfo, WorkspaceScope } from "../../types";
 import type { RemoteSetting, SlotConfig, WindowConfig } from "./types";
 import {
   FieldLabel,
@@ -31,6 +31,68 @@ function sessionLabel(t: (key: string, values?: Record<string, string | number>)
   if (!value || value === "auto") return t("sessionAutoSummary");
   if (value === "fresh") return t("sessionFreshSummary");
   return t("sessionResumeSummary", { id: value.length > 14 ? `${value.slice(0, 8)}...` : value });
+}
+
+function worktreeLabel(worktree: AgentWorktreeStatus): string {
+  return worktree.branch || worktree.path;
+}
+
+function WorktreeSelector({
+  value,
+  worktrees,
+  onChange,
+}: {
+  value: string | null | undefined;
+  worktrees?: AgentWorktreeStatus[];
+  onChange: (path: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const items = worktrees ?? [];
+  if (items.length === 0) return null;
+  const selectedPath = value || "";
+
+  return (
+    <div className="rounded-md border border-default bg-[var(--bg-card)] px-3 py-2.5">
+      <label htmlFor="agent-worktree-select" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
+        {t("agentWorktree")}
+      </label>
+      <select
+        id="agent-worktree-select"
+        value={selectedPath}
+        onChange={(event) => onChange(event.target.value || null)}
+        className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-2.5 text-[12px] text-primary transition-colors focus:border-[var(--accent)] focus:outline-none"
+      >
+        <option value="">{t("worktreeUseCurrentCwd")}</option>
+        {items.map((worktree) => (
+          <option key={`${worktree.target}:${worktree.path}`} value={worktree.path}>
+            {worktreeLabel(worktree)}
+          </option>
+        ))}
+      </select>
+      <div className="mt-2 space-y-1">
+        {items.map((worktree) => (
+          <div
+            key={`${worktree.target}:${worktree.path}:summary`}
+            className={`flex min-w-0 items-center gap-1.5 rounded border px-2 py-1 text-[10.5px] ${
+              selectedPath === worktree.path
+                ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-primary"
+                : "border-subtle bg-[var(--bg-hover)]/35 text-secondary"
+            }`}
+          >
+            <GitBranch className="h-3 w-3 shrink-0 text-tertiary" />
+            <span className="min-w-0 flex-1 truncate" title={worktree.path}>
+              {worktreeLabel(worktree)}
+            </span>
+            <span className={worktree.dirty ? "shrink-0 font-semibold text-[var(--warning)]" : "shrink-0 text-tertiary"}>
+              {worktree.dirty
+                ? t("agentWorktreeChanged", { count: worktree.changed_files || 0 })
+                : t("agentWorktreeClean")}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PaneRunSummary({
@@ -215,6 +277,7 @@ export function TerminalPaneEditor({
   scope,
   defaultShellName,
   sshHosts,
+  worktrees,
   onSlotChange,
   onWindowChange,
   launchEnabled = true,
@@ -226,6 +289,7 @@ export function TerminalPaneEditor({
   scope?: WorkspaceScope;
   defaultShellName?: string | null;
   sshHosts?: SshHostInfo[];
+  worktrees?: AgentWorktreeStatus[];
   onSlotChange: (patch: Partial<SlotConfig>) => void;
   onWindowChange: (patch: Partial<WindowConfig>) => void;
   launchEnabled?: boolean;
@@ -321,6 +385,16 @@ export function TerminalPaneEditor({
           />
         </div>
       )}
+      {agent ? (
+        <WorktreeSelector
+          value={window?.cwd ?? slot.cwd ?? ""}
+          worktrees={worktrees}
+          onChange={(path) => {
+            if (window) onWindowChange({ cwd: path });
+            else onSlotChange({ cwd: path || "." });
+          }}
+        />
+      ) : null}
       <RemoteRunEditor
         value={remoteValue}
         inheritedRemote={window ? slot.remote : undefined}
@@ -369,6 +443,7 @@ export function AgentPaneEditor({
   scope,
   inheritedRemote,
   sshHosts,
+  worktrees,
   onChange,
 }: {
   window: WindowConfig;
@@ -376,6 +451,7 @@ export function AgentPaneEditor({
   scope?: WorkspaceScope;
   inheritedRemote?: RemoteSetting;
   sshHosts?: SshHostInfo[];
+  worktrees?: AgentWorktreeStatus[];
   onChange: (patch: Partial<WindowConfig>) => void;
 }) {
   const { t } = useI18n();
@@ -420,6 +496,13 @@ export function AgentPaneEditor({
           scope={scope}
         />
       </div>
+      {window.agent ? (
+        <WorktreeSelector
+          value={window.cwd ?? ""}
+          worktrees={worktrees}
+          onChange={(path) => onChange({ cwd: path })}
+        />
+      ) : null}
       <RemoteRunEditor
         value={window.remote}
         inheritedRemote={inheritedRemote}

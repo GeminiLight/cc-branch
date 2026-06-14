@@ -35,4 +35,11 @@ describe("workspace layout", () => {
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     });
   });
+
+  it("honors an explicit grid size for workspace previews", () => {
+    expect(workspacePaneGridStyle({ layout: "grid" }, 5, { columns: 3, rows: 2 })).toEqual({
+      gridTemplateColumns: "repeat(3, minmax(112px, 1fr))",
+      gridTemplateRows: "repeat(2, minmax(64px, 1fr))",
+    });
+  });
 });

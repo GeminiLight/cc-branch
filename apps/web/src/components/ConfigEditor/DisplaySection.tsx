@@ -27,18 +27,19 @@ export default function DisplaySection({
 }) {
   const { t } = useI18n();
   const modeLabel = data.mode === "grid" ? t("grid") : t("list");
+  const gridSizeLabel = `${data.columns} x ${data.rows}`;
 
   return (
     <section className="rounded-md transition-colors">
       <SectionHeader
         title={t("display")}
-        subtitle={`${modeLabel} / ${data.columns} ${t("columns")}${data.dashboard ? ` / ${t("dashboard")}` : ""}`}
+        subtitle={`${modeLabel} / ${gridSizeLabel}${data.dashboard ? ` / ${t("dashboard")}` : ""}`}
         icon={<Monitor className="w-3.5 h-3.5" />}
         expanded={expanded}
         onToggle={onToggle}
       />
       <CollapsibleSection expanded={expanded}>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
           <div>
             <FieldLabel>{t("layoutMode")}</FieldLabel>
             <SelectInput
@@ -55,6 +56,15 @@ export default function DisplaySection({
             <NumberInput
               value={data.columns}
               onChange={(v) => onChange({ columns: Math.max(1, Math.min(6, v)) })}
+              min={1}
+              max={6}
+            />
+          </div>
+          <div>
+            <FieldLabel>{t("rows")}</FieldLabel>
+            <NumberInput
+              value={data.rows}
+              onChange={(v) => onChange({ rows: Math.max(1, Math.min(6, v)) })}
               min={1}
               max={6}
             />

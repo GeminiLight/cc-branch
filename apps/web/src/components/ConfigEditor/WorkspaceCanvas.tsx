@@ -1,9 +1,10 @@
 import type { DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Eye, EyeOff, GripVertical, Plus, SquareTerminal, Terminal, Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
+import type { AgentWorktreeStatus } from "../../types";
 import AgentMark from "../ui/AgentMark";
 import { workspacePaneCellStyle, workspacePaneGridStyle } from "../workspace-layout";
-import type { SlotConfig } from "./types";
+import type { DisplayConfig, SlotConfig } from "./types";
 import type { PaneDragState, TabDragState } from "./workspace-drag";
 import {
   canDragPane,
@@ -22,6 +23,8 @@ import {
 
 type WorkspaceCanvasProps = {
   slots: SlotConfig[];
+  display: DisplayConfig;
+  worktrees?: AgentWorktreeStatus[];
   selection: Selection;
   tabDrag: TabDragState;
   paneDrag: PaneDragState;
@@ -49,6 +52,8 @@ type WorkspaceCanvasProps = {
 
 export default function WorkspaceCanvas({
   slots,
+  display,
+  worktrees = [],
   selection,
   tabDrag,
   paneDrag,
@@ -189,7 +194,7 @@ export default function WorkspaceCanvas({
                     <div className="space-y-2">
                       <div
                         className="grid gap-2 min-h-[54px]"
-                        style={workspacePaneGridStyle(slot, canvasPanes.length)}
+                        style={workspacePaneGridStyle(slot, canvasPanes.length, display)}
                         onDragOver={(event) => onPaneDragOver(event, slotIndex)}
                         onDrop={(event) => onPaneAppendDrop(event, slotIndex)}
                         data-workspace-pane-drop-zone="true"
@@ -207,6 +212,7 @@ export default function WorkspaceCanvas({
                           const paneName = pane.name || t("unnamed");
                           const paneEnabled = pane.enabled !== false;
                           const cwdLabel = pane.cwd || slot.cwd || "";
+                          const paneWorktree = worktrees.find((worktree) => worktree.path === cwdLabel);
                           const paneAgent = pane.agent ?? null;
                           const paneIsDraggable = canDragPane(slot);
                           const paneIsDragSource =
@@ -332,6 +338,18 @@ export default function WorkspaceCanvas({
                               {cwdLabel && cwdLabel !== "." && (
                                 <span className="relative mt-0.5 block pl-1.5 text-[10px] text-tertiary font-mono truncate">
                                   {cwdLabel}
+                                </span>
+                              )}
+                              {paneWorktree && (
+                                <span className="relative mt-1 flex min-w-0 items-center gap-1 rounded border border-subtle bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] text-secondary">
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {paneWorktree.branch || paneWorktree.path}
+                                  </span>
+                                  <span className={paneWorktree.dirty ? "shrink-0 font-semibold text-[var(--warning)]" : "shrink-0 text-tertiary"}>
+                                    {paneWorktree.dirty
+                                      ? t("agentWorktreeChanged", { count: paneWorktree.changed_files || 0 })
+                                      : t("agentWorktreeClean")}
+                                  </span>
                                 </span>
                               )}
                             </div>

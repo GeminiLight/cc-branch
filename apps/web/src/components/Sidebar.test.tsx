@@ -16,6 +16,7 @@ function renderSidebar({
   onSetProjectPinned,
   onReorderProject,
   resizable = false,
+  desktopDragRegion = false,
 }: {
   onOpenSettings?: () => void;
   projects?: ProjectItem[];
@@ -25,6 +26,7 @@ function renderSidebar({
   onSetProjectPinned?: (id: string, pinned: boolean) => void;
   onReorderProject?: (id: string, beforeId: string | null, pinned?: boolean) => void;
   resizable?: boolean;
+  desktopDragRegion?: boolean;
 } = {}) {
   const resolvedOnOpenSettings = onOpenSettings ?? vi.fn(() => undefined);
   const client = new QueryClient({
@@ -67,6 +69,7 @@ function renderSidebar({
           onAddProject={() => {}}
           onOpenSettings={resolvedOnOpenSettings}
           resizable={resizable}
+          desktopDragRegion={desktopDragRegion}
         />
       </I18nProvider>
     </QueryClientProvider>
@@ -222,5 +225,14 @@ describe("Sidebar", () => {
 
     fireEvent.doubleClick(resizeHandle);
     expect(sidebar).toHaveStyle({ width: "264px" });
+  });
+
+  it("marks the sidebar brand rail as a desktop window drag region", () => {
+    renderSidebar({ desktopDragRegion: true });
+
+    const dragRegion = screen.getByTestId("desktop-sidebar-drag-region");
+
+    expect(dragRegion).toHaveAttribute("data-tauri-drag-region");
+    expect(dragRegion).toHaveTextContent("cc-branch");
   });
 });

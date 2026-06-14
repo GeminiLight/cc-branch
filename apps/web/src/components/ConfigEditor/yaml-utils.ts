@@ -244,6 +244,7 @@ function coerceConfigDocument(doc: Record<string, unknown>): ConfigFormData {
         ? (String((doc.display as Record<string, unknown>)?.mode) as "grid" | "list")
         : "grid",
       columns: Number((doc.display as Record<string, unknown>)?.columns ?? 2),
+      rows: Number((doc.display as Record<string, unknown>)?.rows ?? 2),
       dashboard: Boolean((doc.display as Record<string, unknown>)?.dashboard ?? false),
     },
     agents,
@@ -368,10 +369,11 @@ export function serializeConfigForm(data: ConfigFormData): string {
   if (layoutBackend !== "direct") out.layoutBackend = layoutBackend;
   if (defaults.shell != null) out.defaults = { shell: defaults.shell };
 
-  if (data.display.mode !== "grid" || data.display.columns !== 2 || data.display.dashboard !== false) {
+  if (data.display.mode !== "grid" || data.display.columns !== 2 || data.display.rows !== 2 || data.display.dashboard !== false) {
     const d: Record<string, unknown> = {};
     if (data.display.mode !== "grid") d.mode = data.display.mode;
     if (data.display.columns !== 2) d.columns = data.display.columns;
+    if (data.display.rows !== 2 || data.display.columns !== 2) d.rows = data.display.rows;
     if (data.display.dashboard !== false) d.dashboard = data.display.dashboard;
     out.display = d;
   }

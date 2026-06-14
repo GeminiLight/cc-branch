@@ -29,6 +29,7 @@ import { parseConfigYaml, parseConfigYamlStrict, serializeConfigForm, validateCo
 import { validateWorkspaceNames } from "./workspace-validation";
 import { createDefaultConfig } from "./types";
 import ProjectSection from "./ProjectSection";
+import DisplaySection from "./DisplaySection";
 import AgentsSection from "./AgentsSection";
 import SlotsSection from "./SlotsSection";
 import Modal from "../ui/Modal";
@@ -86,6 +87,7 @@ export default function ConfigEditor({
   // Section expand/collapse state
   const [expandedSections, setExpandedSections] = useState(() => ({
     project: view === "project",
+    display: view === "project",
     agents: false,
     slots: view === "workspace",
   }));
@@ -540,6 +542,7 @@ export default function ConfigEditor({
         view === "workspace" ? (
           <SlotsSection
             slots={formData.slots}
+            display={formData.display}
             agents={effectiveAgentNames}
             scope={scope}
             defaultShellName={defaultShellName}
@@ -555,6 +558,12 @@ export default function ConfigEditor({
               onChange={updateForm}
               expanded={expandedSections.project}
               onToggle={() => toggleSection("project")}
+            />
+            <DisplaySection
+              data={formData.display}
+              onChange={(displayPatch) => updateForm({ display: { ...formData.display, ...displayPatch } })}
+              expanded={expandedSections.display}
+              onToggle={() => toggleSection("display")}
             />
             <AgentsSection
               agents={formData.agents}

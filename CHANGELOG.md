@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-06-14
+
+### Added
+- Added explicit `columns x rows` display layout controls in the Web UI config editor and carried those grid dimensions through Warp launch specs.
+- Added detected worktree selection for agent panes, with branch and dirty-state indicators in the workspace editor and canvas.
+- Added SSH project authentication controls for default SSH config, identity-file, and password/keyboard-interactive login modes.
+
+### Changed
+- The desktop sidebar title area now participates in native window dragging on macOS desktop builds.
+- The SSH Add Project flow now treats saved and manual SSH targets as connection sources, removes premature agent selection, and emphasizes project name and remote directory setup.
+
 ## [1.4.1] - 2026-06-14
 
 ### Added
@@ -83,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tmux and direct-layout workspace execution, SSH targets, opener integrations, diagnostics, and local project index.
 - Desktop release packaging with bundled backend sidecar and GitHub release verification.
 
+[1.4.2]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.4.2
 [1.4.1]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.4.1
 [1.4.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.4.0
 [1.3.0]: https://github.com/GeminiLight/cc-branch/releases/tag/v1.3.0

@@ -112,7 +112,7 @@ class WorkspaceOpenActions:
                     state_path,
                     [slot],
                 )
-            specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
+            specs = self.specs.attach_target_specs(slot, window, target, attach_cli, display=workspace.display)
             self.dependencies.open_workspace_file(
                 opener,
                 cwd=cwd,
@@ -133,7 +133,7 @@ class WorkspaceOpenActions:
             )
             return ActionResult(ok=True, code="open_applied", message=f"Opened project in {opener_name}")
         if is_external_process_runtime(slot.runtime):
-            specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
+            specs = self.specs.attach_target_specs(slot, window, target, attach_cli, display=workspace.display)
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
             windows = [window] if window is not None else slot.windows
             self.persistence.persist(state_path, workspace, plan, external_open_results([slot], windows=windows))
@@ -141,7 +141,7 @@ class WorkspaceOpenActions:
 
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, [slot])
-            specs = self.specs.attach_target_specs(slot, window, target, attach_cli)
+            specs = self.specs.attach_target_specs(slot, window, target, attach_cli, display=workspace.display)
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
             return ActionResult(ok=True, code="open_applied", message=f"Opened {target} in {opener_name}")
 
@@ -184,8 +184,8 @@ class WorkspaceOpenActions:
         if self.dependencies.opener_supports(opener, "layout", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_slot_attach_specs(tmux_slots, attach_cli),
-                *self.specs.terminal_command_specs(terminal_slots),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, attach_cli, display=workspace.display),
+                *self.specs.terminal_command_specs(terminal_slots, display=workspace.display),
             ]
             self.dependencies.open_command_layout(opener, specs, custom_openers=custom_openers)
             if terminal_slots:
@@ -195,8 +195,8 @@ class WorkspaceOpenActions:
         if self.dependencies.opener_supports(opener, "workspace_file", custom_openers):
             self._ensure_tmux_slots(workspace, plan, state_path, tmux_slots)
             specs = [
-                *self.specs.tmux_slot_attach_specs(tmux_slots, attach_cli),
-                *self.specs.terminal_command_specs(terminal_slots),
+                *self.specs.tmux_slot_attach_specs(tmux_slots, attach_cli, display=workspace.display),
+                *self.specs.terminal_command_specs(terminal_slots, display=workspace.display),
             ]
             self.dependencies.open_workspace_file(opener, cwd=cwd, commands=specs, custom_openers=custom_openers)
             if terminal_slots:
@@ -216,7 +216,7 @@ class WorkspaceOpenActions:
         if not tmux_slots:
             self.dependencies.open_command_layout(
                 opener,
-                self.specs.terminal_command_specs(terminal_slots),
+                self.specs.terminal_command_specs(terminal_slots, display=workspace.display),
                 custom_openers=custom_openers,
             )
             self.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))
@@ -233,7 +233,7 @@ class WorkspaceOpenActions:
         if terminal_slots:
             self.dependencies.open_command_layout(
                 opener,
-                self.specs.terminal_command_specs(terminal_slots),
+                self.specs.terminal_command_specs(terminal_slots, display=workspace.display),
                 custom_openers=custom_openers,
             )
             self.persistence.persist(state_path, workspace, plan, external_open_results(terminal_slots))

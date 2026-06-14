@@ -102,6 +102,7 @@ root: "."
 display:
   mode: "grid"
   columns: 2
+  rows: 2
   dashboard: true
 
 tabs: []
@@ -110,7 +111,7 @@ tabs: []
 ### `display`
 
 - `mode`：总览面板的布局方式
-- `columns`：`grid` 模式下的列数
+- `columns` / `rows`：`grid` 模式下的列数和行数；Web UI 会以 `n x m` 形式显示，Warp opener 会把这个尺寸写进 Launch Configuration
 - `dashboard`：旧配置字段；当前需要显式运行 `dashboard` 或 `start --dashboard` 进入总览面板
 
 ### `agents`
@@ -262,7 +263,7 @@ tabs:
         command: "tail -f app.log"
 ```
 
-上面的 `train` 会在 `ubuntu@gpu-dev:/srv/app` 执行，`logs` 会继承同一个主机但切到 `/var/log/app`。CC Branch 只负责把命令包装成 `ssh`；认证、密钥、跳板机和 agent forwarding 交给本机 SSH 配置处理。远程文件同步不在这个功能范围内。
+上面的 `train` 会在 `ubuntu@gpu-dev:/srv/app` 执行，`logs` 会继承同一个主机但切到 `/var/log/app`。CC Branch 只负责把命令包装成 `ssh`；认证、密钥、跳板机和 agent forwarding 交给本机 SSH 配置处理。Web/Desktop 的添加 SSH 项目流程可以选择 SSH config、密钥文件或密码提示；密码不会写入项目索引。远程文件同步不在这个功能范围内。
 
 如果某个 pane 位于远程 tab 下面，但需要强制在本机运行，可以写 `remote: false`。
 
@@ -406,7 +407,7 @@ cc-branch worktree finish dev:planner
 cc-branch worktree cleanup dev:planner
 ```
 
-Worktree 是可选能力，用来给单个 Agent 分配独立 git worktree 和 branch。`--copy` 和 `--symlink` 可用于把 `.env` 这类 gitignored 文件带进 agent worktree；`finish` 只标记完成状态，`cleanup` 才会移除 worktree。
+Worktree 是可选能力，用来给单个 Agent 分配独立 git worktree 和 branch。`--copy` 和 `--symlink` 可用于把 `.env` 这类 gitignored 文件带进 agent worktree；`finish` 只标记完成状态，`cleanup` 才会移除 worktree。Web UI 会在工作空间配置页检测这些 worktree，允许把某个 agent pane 的工作目录切到对应 worktree，并在工作空间画布和 Dashboard 中显示 branch、dirty/clean 和变更数量。
 
 ### `attach`
 

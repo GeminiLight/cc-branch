@@ -15,6 +15,7 @@ interface AddProjectModalProps {
 }
 
 type AddMode = "local" | "ssh";
+type RemoteAuthMode = "default" | "key" | "password";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -44,7 +45,8 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
   const [remotePort, setRemotePort] = useState("");
   const [remotePath, setRemotePath] = useState("");
   const [remoteName, setRemoteName] = useState("");
-  const [remoteAgent, setRemoteAgent] = useState("codex");
+  const [remoteAuthMode, setRemoteAuthMode] = useState<RemoteAuthMode>("default");
+  const [remoteKeyPath, setRemoteKeyPath] = useState("");
   const [remoteBrowserOpen, setRemoteBrowserOpen] = useState(false);
   const [remoteListing, setRemoteListing] = useState<RemoteDirectoryListing | null>(null);
   const [remoteBrowseError, setRemoteBrowseError] = useState("");
@@ -69,6 +71,21 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
   const inferredRemoteName = remoteName.trim() || remoteProjectName(remotePath, remoteHost);
   const canAddRemote = Boolean(remoteHost.trim() && remotePath.trim() && (remotePort.trim() === "" || Number(remotePort) > 0));
   const canBrowseRemoteDirectory = Boolean(remoteHost.trim() && (remotePort.trim() === "" || Number(remotePort) > 0));
+
+  const remoteAuthSettings = useMemo(() => {
+    if (remoteAuthMode === "key" && remoteKeyPath.trim()) {
+      return { args: ["-i", remoteKeyPath.trim()] };
+    }
+    if (remoteAuthMode === "password") {
+      return {
+        options: {
+          BatchMode: "no",
+          PreferredAuthentications: "password,keyboard-interactive",
+        },
+      };
+    }
+    return {};
+  }, [remoteAuthMode, remoteKeyPath]);
 
   const handleScan = useCallback(async (value?: string) => {
     const target = (value ?? path).trim();
@@ -129,12 +146,12 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
       const request: AddProjectRequest = mode === "ssh"
         ? {
             name: inferredRemoteName,
-            agent: remoteAgent,
             remote: {
               host: remoteHost.trim(),
               user: remoteUser.trim() || null,
               port: remotePort.trim() ? Number(remotePort) : null,
               cwd: remotePath.trim(),
+              ...remoteAuthSettings,
             },
           }
         : { path: path.trim() };
@@ -142,6 +159,8 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
       setPath("");
       setRemotePath("");
       setRemoteName("");
+      setRemoteAuthMode("default");
+      setRemoteKeyPath("");
       setScanResult(null);
       onClose();
       toast.success(t("projectAdded"));
@@ -150,7 +169,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
     } finally {
       setAdding(false);
     }
-  }, [canAddRemote, inferredRemoteName, mode, onAdd, onClose, path, remoteAgent, remoteHost, remotePath, remotePort, remoteUser, scanResult, toast, t]);
+  }, [canAddRemote, inferredRemoteName, mode, onAdd, onClose, path, remoteAuthSettings, remoteHost, remotePath, remotePort, remoteUser, scanResult, toast, t]);
 
   function applySshTarget(alias: string) {
     if (!alias) {
@@ -182,6 +201,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
           host: remoteHost.trim(),
           user: remoteUser.trim() || null,
           port: remotePort.trim() ? Number(remotePort) : null,
+          ...remoteAuthSettings,
         },
         targetPath,
       );
@@ -192,7 +212,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
     } finally {
       setRemoteBrowsing(false);
     }
-  }, [api, canBrowseRemoteDirectory, remoteHost, remotePath, remotePort, remoteUser]);
+  }, [api, canBrowseRemoteDirectory, remoteAuthSettings, remoteHost, remotePath, remotePort, remoteUser]);
 
   const remoteEndpoint = useMemo(() => {
     const user = remoteUser.trim() ? `${remoteUser.trim()}@` : "";
@@ -485,7 +505,7 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="mt-2">
                   <div>
                     <label htmlFor="remote-user-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
                       {t("sshUser")}
@@ -499,24 +519,58 @@ export default function AddProjectModal({ api, isOpen, onClose, onAdd }: AddProj
                       className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
                     />
                   </div>
-                  <div>
-                    <label htmlFor="remote-agent-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
-                      {t("agent")}
-                    </label>
-                    <select
-                      id="remote-agent-input"
-                      value={remoteAgent}
-                      onChange={(e) => setRemoteAgent(e.target.value)}
-                      className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 text-[13px] text-primary transition-colors focus:border-[var(--accent)] focus:outline-none"
-                    >
-                      <option value="codex">Codex</option>
-                      <option value="claude">Claude</option>
-                      <option value="gemini">Gemini</option>
-                      <option value="cursor">Cursor</option>
-                      <option value="kimi">Kimi</option>
-                    </select>
-                  </div>
                 </div>
+
+                <fieldset className="mt-3">
+                  <legend className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
+                    {t("sshAuthMethod")}
+                  </legend>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t("sshAuthMethod")}>
+                    {([
+                      ["default", t("sshAuthDefault")],
+                      ["key", t("sshAuthKey")],
+                      ["password", t("sshAuthPassword")],
+                    ] as Array<[RemoteAuthMode, string]>).map(([value, label]) => {
+                      const selected = remoteAuthMode === value;
+                      return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setRemoteAuthMode(value)}
+                        className={`flex h-8 items-center justify-center rounded border px-2 text-[11px] font-semibold transition-colors ${
+                          selected
+                            ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-primary"
+                            : "border-default bg-[var(--bg-page)] text-secondary hover:text-primary"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                      );
+                    })}
+                  </div>
+                  {remoteAuthMode === "key" && (
+                    <div className="mt-2">
+                      <label htmlFor="remote-key-path-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">
+                        {t("sshPrivateKeyPath")}
+                      </label>
+                      <input
+                        id="remote-key-path-input"
+                        type="text"
+                        value={remoteKeyPath}
+                        onChange={(e) => setRemoteKeyPath(e.target.value)}
+                        placeholder="~/.ssh/id_ed25519"
+                        className="h-8 w-full rounded border border-default bg-[var(--bg-page)] px-3 font-mono text-[13px] text-primary transition-colors placeholder:text-muted focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                  )}
+                  {remoteAuthMode === "password" && (
+                    <p className="mt-2 rounded border border-default bg-[var(--bg-hover)]/45 px-2.5 py-1.5 text-[11px] text-tertiary">
+                      {t("sshPasswordPromptHelp")}
+                    </p>
+                  )}
+                </fieldset>
 
                 <div className="mt-2">
                   <label htmlFor="remote-name-input" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-tertiary">

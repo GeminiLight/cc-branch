@@ -79,11 +79,30 @@ class WarpLauncher:
                 f"{spaces}commands:",
                 f"{command_indent}- exec: {_yaml_string(spec.command)}",
             ]
+        explicit_grid = self.explicit_grid(commands)
+        if explicit_grid is not None:
+            columns, rows = explicit_grid
+            return [
+                f"{spaces}split_direction: vertical",
+                f"{spaces}panes:",
+                *self.grid_pane_lines(commands, columns=columns, rows=rows, indent=indent + 2),
+            ]
         return [
             f"{spaces}split_direction: vertical",
             f"{spaces}panes:",
             *self.pane_lines(commands, indent=indent + 2, depth=0, focus_first=True),
         ]
+
+    def explicit_grid(self, commands: list[OpenCommandSpec]) -> tuple[int, int] | None:
+        columns = next((spec.layout_columns for spec in commands if spec.layout_columns), None)
+        rows = next((spec.layout_rows for spec in commands if spec.layout_rows), None)
+        if not columns and not rows:
+            return None
+        resolved_columns = max(1, int(columns or len(commands)))
+        resolved_rows = max(1, int(rows or ((len(commands) + resolved_columns - 1) // resolved_columns)))
+        if len(commands) > resolved_columns * resolved_rows:
+            resolved_rows = (len(commands) + resolved_columns - 1) // resolved_columns
+        return resolved_columns, resolved_rows
 
     def leaf_lines(self, spec: OpenCommandSpec, *, indent: int, focused: bool) -> list[str]:
         spaces = " " * indent
@@ -96,6 +115,50 @@ class WarpLauncher:
         ]
         if focused:
             lines.append(f"{child}is_focused: true")
+        return lines
+
+    def grid_pane_lines(
+        self,
+        commands: list[OpenCommandSpec],
+        *,
+        columns: int,
+        rows: int,
+        indent: int,
+    ) -> list[str]:
+        lines: list[str] = []
+        for row_index in range(rows):
+            start = row_index * columns
+            row_commands = commands[start:start + columns]
+            if not row_commands:
+                break
+            lines.extend(
+                self.flat_group_lines(
+                    row_commands,
+                    indent=indent,
+                    split_direction="horizontal",
+                    focus_first=row_index == 0,
+                )
+            )
+        return lines
+
+    def flat_group_lines(
+        self,
+        commands: list[OpenCommandSpec],
+        *,
+        indent: int,
+        split_direction: str,
+        focus_first: bool,
+    ) -> list[str]:
+        if len(commands) == 1:
+            return self.leaf_lines(commands[0], indent=indent, focused=focus_first)
+        spaces = " " * indent
+        child = " " * (indent + 2)
+        lines = [
+            f"{spaces}- split_direction: {split_direction}",
+            f"{child}panes:",
+        ]
+        for index, spec in enumerate(commands):
+            lines.extend(self.leaf_lines(spec, indent=indent + 4, focused=focus_first and index == 0))
         return lines
 
     def pane_lines(

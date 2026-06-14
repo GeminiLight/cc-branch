@@ -11,6 +11,11 @@ type LayoutOwner = {
   layout?: string | null;
 };
 
+type GridSize = {
+  columns?: number | null;
+  rows?: number | null;
+};
+
 export function normalizeWorkspaceLayout(slot: LayoutOwner, paneLength: number): WorkspaceLayout {
   const layout = slot.layout;
   if (
@@ -27,7 +32,7 @@ export function normalizeWorkspaceLayout(slot: LayoutOwner, paneLength: number):
   return "grid";
 }
 
-export function workspacePaneGridStyle(slot: LayoutOwner, paneLength: number): CSSProperties {
+export function workspacePaneGridStyle(slot: LayoutOwner, paneLength: number, gridSize?: GridSize): CSSProperties {
   const count = Math.max(paneLength, 1);
   const layout = normalizeWorkspaceLayout(slot, count);
   if (count === 1) return { gridTemplateColumns: "minmax(0, 1fr)" };
@@ -47,8 +52,12 @@ export function workspacePaneGridStyle(slot: LayoutOwner, paneLength: number): C
     };
   }
   if (layout === "grid") {
-    const columns = count <= 4 ? 2 : 3;
-    return { gridTemplateColumns: `repeat(${columns}, minmax(112px, 1fr))` };
+    const columns = Math.max(1, Math.min(6, Math.round(Number(gridSize?.columns) || (count <= 4 ? 2 : 3))));
+    const rows = Math.max(1, Math.min(6, Math.round(Number(gridSize?.rows) || Math.ceil(count / columns))));
+    return {
+      gridTemplateColumns: `repeat(${columns}, minmax(112px, 1fr))`,
+      gridTemplateRows: `repeat(${rows}, minmax(64px, 1fr))`,
+    };
   }
   return { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` };
 }
